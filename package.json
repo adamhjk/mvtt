@@ -1,0 +1,30 @@
+{
+  "name": "mvtt",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:server": "pnpm --filter @vtt/server dev",
+    "dev:client": "pnpm --filter @vtt/client dev",
+    "dev": "pnpm -r --parallel --filter @vtt/server --filter @vtt/client dev",
+    "test": "vitest run && pnpm --filter @vtt/server smoke",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "smoke": "pnpm --filter @vtt/server smoke",
+    "typecheck": "pnpm -r typecheck",
+    "reset": "rm -rf data && echo 'cleared local data — next start will prompt to create the Game Master'"
+  },
+  "devDependencies": {
+    "solid-js": "^1.9.0",
+    "typescript": "^5.6.3",
+    "vite-plugin-solid": "^2.10.2",
+    "vitest": "^4.1.5"
+  },
+  "packageManager": "pnpm@10.33.2",
+  "volta": {
+    "node": "24.15.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

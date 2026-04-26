@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# vite
+.vite/
+.cache/
+
+# vitest
+coverage/
+
+# env
+.env
+.env.*
+!.env.example
+
+# local data (auth db, world snapshots)
+data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+auth.secret
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# editors / OS
+.DS_Store
+.idea/
+*.swp

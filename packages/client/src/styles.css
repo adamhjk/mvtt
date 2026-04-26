@@ -1,0 +1,11 @@
+@import "tailwindcss";
+@import "@vtt/tokens/tokens.css";
+
+@source "../../**/src/**/*.{ts,tsx,html}";
+
+body {
+  margin: 0;
+  background: var(--color-surface);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+}

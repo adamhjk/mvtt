@@ -1,0 +1,200 @@
+import { describe, it, expect, beforeEach } from "vitest";
+import {
+  CommandPipeline,
+  EventBus,
+  Registry,
+  World,
+  definePlugin,
+} from "@vtt/substrate";
+import type { AuthSession } from "@vtt/auth";
+import { EntityVisibility } from "@vtt/permissions/shared";
+import {
+  Formula,
+  RequestRoll,
+  RolledBy,
+  RollResolved,
+  RollResult,
+} from "./shared/index.js";
+import { RollRecordingSystem } from "./server/systems.js";
+
+const serverPlugin = definePlugin({
+  name: "@vtt/resolution",
+  version: "0.3.0",
+  traits: [Formula, RollResult, RolledBy, EntityVisibility],
+  events: [RollResolved],
+  commands: [RequestRoll],
+  systems: [RollRecordingSystem],
+});
+
+const SESSION: AuthSession = {
+  userId: "user-1",
+  email: "hero@test.dev",
+  name: "Hero",
+  role: "gm",
+};
+
+function setup() {
+  const registry = new Registry();
+  registry.load(serverPlugin);
+  const world = new World();
+  const bus = new EventBus();
+  const pipeline = new CommandPipeline(registry, world, bus);
+  return { registry, world, bus, pipeline };
+}
+
+function dispatch(
+  pipeline: CommandPipeline,
+  id: string,
+  cmd: ReturnType<typeof RequestRoll>,
+  session: unknown = SESSION,
+) {
+  return pipeline.dispatch({
+    id,
+    issuedBy: "tester",
+    issuedAt: Date.now(),
+    cmd,
+    session,
+  });
+}
+
+describe("@vtt/resolution", () => {
+  let pipeline: CommandPipeline;
+  let world: World;
+  let bus: EventBus;
+
+  beforeEach(() => {
+    ({ pipeline, world, bus } = setup());
+  });
+
+  it("uses plugin-namespaced ubiquitous-language names", () => {
+    expect(RequestRoll.name).toBe("@vtt/resolution/RequestRoll");
+    expect(RollResolved.name).toBe("@vtt/resolution/RollResolved");
+    expect(Formula.name).toBe("@vtt/resolution/Formula");
+    expect(RollResult.name).toBe("@vtt/resolution/RollResult");
+    expect(RolledBy.name).toBe("@vtt/resolution/RolledBy");
+  });
+
+  it("rejects an unauthenticated dispatch", async () => {
+    const res = await pipeline.dispatch({
+      id: "r1",
+      issuedBy: "tester",
+      issuedAt: Date.now(),
+      cmd: RequestRoll({ notation: "1d20", visibility: "public" }),
+      // session intentionally omitted
+    });
+    expect(res.result.ok).toBe(false);
+    if (!res.result.ok) expect(res.result.reason).toMatch(/not authenticated/);
+    expect(world.query([Formula])).toHaveLength(0);
+  });
+
+  it("rejects malformed dice notation in validate", async () => {
+    const res = await dispatch(
+      pipeline,
+      "r1",
+      RequestRoll({ notation: "not-a-roll", visibility: "public" }),
+    );
+    expect(res.result.ok).toBe(false);
+    if (!res.result.ok) expect(res.result.reason).toMatch(/invalid notation/);
+    expect(world.query([Formula])).toHaveLength(0);
+  });
+
+  it("RequestRoll → RollResolved → spawned entity carrying Formula + RollResult + RolledBy + EntityVisibility", async () => {
+    const seen: string[] = [];
+    bus.onAny((e) => seen.push(e.type));
+
+    const res = await dispatch(
+      pipeline,
+      "r1",
+      RequestRoll({ notation: "1d20", visibility: "public" }),
+    );
+
+    expect(res.result.ok).toBe(true);
+    expect(seen).toEqual([RollResolved.name]);
+    const rows = world.query([Formula, RollResult, RolledBy, EntityVisibility]);
+    expect(rows).toHaveLength(1);
+    const v = rows[0]!.values as {
+      Formula: { notation: string };
+      RollResult: { total: number; output: string };
+      RolledBy: { userId: string; displayName: string };
+      EntityVisibility: { visibility: { kind: string } };
+    };
+    expect(v.Formula.notation).toBe("1d20");
+    expect(v.RollResult.total).toBeGreaterThanOrEqual(1);
+    expect(v.RollResult.total).toBeLessThanOrEqual(20);
+    expect(v.RollResult.output).toContain("1d20");
+    expect(v.EntityVisibility.visibility.kind).toBe("everyone");
+    expect(v.RolledBy.userId).toBe(SESSION.userId);
+    expect(v.RolledBy.displayName).toBe(SESSION.name);
+  });
+
+  it("gm-only roll attaches role-restricted EntityVisibility", async () => {
+    await dispatch(
+      pipeline,
+      "r1",
+      RequestRoll({ notation: "1d20", visibility: "gm-only" }),
+    );
+    const row = world.query([EntityVisibility])[0]!;
+    expect(row.values.EntityVisibility).toEqual({
+      visibility: { kind: "role", role: "gm" },
+    });
+  });
+
+  it("private roll restricts EntityVisibility to the rolling user", async () => {
+    await dispatch(
+      pipeline,
+      "r1",
+      RequestRoll({ notation: "1d20", visibility: "private" }),
+    );
+    const row = world.query([EntityVisibility])[0]!;
+    expect(row.values.EntityVisibility).toEqual({
+      visibility: { kind: "users", userIds: [SESSION.userId] },
+    });
+  });
+
+  it("respects modifiers in the notation", async () => {
+    await dispatch(
+      pipeline,
+      "r1",
+      RequestRoll({ notation: "1d1+5", visibility: "public" }),
+    );
+    const row = world.query([RollResult])[0]!;
+    expect((row.values.RollResult as { total: number }).total).toBe(6);
+  });
+
+  it("each roll spawns a distinct entity", async () => {
+    for (let i = 0; i < 4; i++) {
+      await dispatch(
+        pipeline,
+        `r-${i}`,
+        RequestRoll({ notation: "1d6", visibility: "public" }),
+      );
+    }
+    const rows = world.query([Formula, RollResult]);
+    expect(rows).toHaveLength(4);
+    expect(new Set(rows.map((r) => r.id)).size).toBe(4);
+  });
+
+  it("RollResolved event payload carries the full server-authoritative result", async () => {
+    let captured: {
+      total: number;
+      output: string;
+      notation: string;
+      rolledByUserId: string;
+      rolledByName: string;
+    } | null = null;
+    bus.on(RollResolved.name, (e) => {
+      captured = e.payload as typeof captured;
+    });
+    await dispatch(
+      pipeline,
+      "r1",
+      RequestRoll({ notation: "1d1", visibility: "public" }),
+    );
+    expect(captured).toBeTruthy();
+    expect(captured!.total).toBe(1);
+    expect(captured!.notation).toBe("1d1");
+    expect(captured!.output).toContain("1d1");
+    expect(captured!.rolledByUserId).toBe(SESSION.userId);
+    expect(captured!.rolledByName).toBe(SESSION.name);
+  });
+});

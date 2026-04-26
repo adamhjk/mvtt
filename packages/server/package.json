@@ -1,0 +1,33 @@
+{
+  "name": "@vtt/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "DEV_PROXY_URL=http://localhost:5173 node --import tsx src/main.ts --watch",
+    "start": "node --import tsx src/main.ts",
+    "smoke": "node --import tsx src/smoke.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@vtt/auth": "workspace:*",
+    "@vtt/comms": "workspace:*",
+    "@vtt/identity": "workspace:*",
+    "@vtt/permissions": "workspace:*",
+    "@vtt/persistence-sqlite": "workspace:*",
+    "@vtt/ping": "workspace:*",
+    "@vtt/resolution": "workspace:*",
+    "@vtt/shell-default": "workspace:*",
+    "@vtt/substrate": "workspace:*",
+    "better-auth": "^1.3.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2"
+  },
+  "volta": {
+    "node": "22.22.2"
+  }
+}

@@ -1,0 +1,86 @@
+export {
+  z,
+  EntityId,
+  CommandId,
+  ClientId,
+  WorldId,
+  DEFAULT_WORLD_ID,
+  QualifiedNameSchema,
+  isQualifiedName,
+  qualifiedName,
+  traitName,
+  eventName,
+  commandName,
+  surfaceName,
+  slotName,
+  pluginName,
+  isPluginName,
+} from "./schema.js";
+export type {
+  QualifiedName,
+  TraitName,
+  EventName,
+  CommandName,
+  SurfaceName,
+  SlotName,
+  PluginName,
+} from "./schema.js";
+export { ok, fail } from "./result.js";
+export type { Result, Ok, Fail } from "./result.js";
+export {
+  defineTrait,
+  defineEvent,
+  defineCommand,
+  defineSystem,
+  defineSurface,
+  defineSlot,
+  defineView,
+  definePlugin,
+  serverOnly,
+  clientOnly,
+} from "./define.js";
+export {
+  RootSurface,
+  ConnectionOpened,
+  ConnectionClosed,
+  substrateCorePlugin,
+} from "./core-plugin.js";
+export type {
+  TraitDef,
+  TraitMeta,
+  EventDef,
+  EventMeta,
+  EventInstance,
+  CommandDef,
+  CommandMeta,
+  CommandInstance,
+  CommandContext,
+  SystemDef,
+  AnySystemDef,
+  SystemContext,
+  SurfaceDef,
+  SurfaceMeta,
+  SurfaceKind,
+  SlotDef,
+  SlotMeta,
+  ViewDef,
+  AnyViewDef,
+  PluginDef,
+  EntityVisibilityResolver,
+} from "./define.js";
+export { World } from "./world.js";
+export type { WorldState } from "./world.js";
+export { EventBus } from "./event-bus.js";
+export { Registry } from "./registry.js";
+export { CommandPipeline } from "./command-pipeline.js";
+export type { CommandEnvelope, DispatchResult } from "./command-pipeline.js";
+export { runSystemsToFixpoint } from "./systems-runner.js";
+export { WireMsg } from "./protocol.js";
+export { toPersistedEvent } from "./persistence.js";
+export type {
+  PersistenceAdapter,
+  PersistedEvent,
+  PersistedSnapshot,
+} from "./persistence.js";
+export { matches, withVisibility } from "./visibility.js";
+export type { Visibility, Recipient } from "./visibility.js";
