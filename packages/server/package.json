@@ -6,13 +6,17 @@
   "scripts": {
     "dev": "DEV_PROXY_URL=http://localhost:5173 node --import tsx src/main.ts --watch",
     "start": "node --import tsx src/main.ts",
-    "smoke": "node --import tsx src/smoke.ts && node --import tsx src/scene-smoke.ts",
+    "smoke": "node --import tsx src/smoke.ts && node --import tsx src/scene-smoke.ts && node --import tsx src/characters-smoke.ts && node --import tsx src/books-smoke.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@vtt/auth": "workspace:*",
+    "@vtt/books": "workspace:*",
+    "@vtt/characters": "workspace:*",
     "@vtt/comms": "workspace:*",
+    "@vtt/dice-tray": "workspace:*",
     "@vtt/identity": "workspace:*",
+    "@vtt/pdf-book": "workspace:*",
     "@vtt/permissions": "workspace:*",
     "@vtt/persistence-sqlite": "workspace:*",
     "@vtt/ping": "workspace:*",

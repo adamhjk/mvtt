@@ -7,6 +7,10 @@ import { permissions } from "@vtt/permissions";
 import { comms } from "@vtt/comms";
 import { resolution } from "@vtt/resolution";
 import { scene } from "@vtt/scene";
+import { books } from "@vtt/books";
+import { pdfBook } from "@vtt/pdf-book";
+import { characters } from "@vtt/characters";
+import { diceTray } from "@vtt/dice-tray";
 import { App } from "./App";
 import { AuthGate } from "./AuthGate";
 import { authClient } from "./auth-client";
@@ -41,7 +45,7 @@ function Root() {
 function Authenticated() {
   // Only spin up the WebSocket once we know we have a session — the substrate
   // rejects the upgrade otherwise and we'd loop on reconnects.
-  const client = startClient({ url: wsURL, plugins: [shellWorkbench, identity, permissions, comms, resolution, scene] });
+  const client = startClient({ url: wsURL, plugins: [shellWorkbench, identity, permissions, comms, resolution, scene, books, pdfBook, characters, diceTray] });
   return (
     <ClientProvider value={client}>
       <App />

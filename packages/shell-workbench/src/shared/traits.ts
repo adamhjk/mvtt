@@ -60,6 +60,23 @@ const TreeSchema: z.ZodType<WorkspaceTreeShape> = z.lazy(() =>
 export type WorkspaceTree = WorkspaceTreeShape;
 
 /**
+ * Per-drawer open-state. Drawers are global overlays attached to a
+ * workbench edge (bottom/right/left/top); their *definitions* live in
+ * the `WorkbenchDrawersSlot` (see slots.ts), and which drawers are open
+ * — plus their per-user resized size — lives here.
+ *
+ * `openedAt` lets a drawer's render-time decide whether to ignore stale
+ * persisted state (e.g. a roll-tray that auto-closes after 4s should
+ * close itself on remount if `Date.now() - openedAt` already exceeds
+ * the dwell window).
+ */
+const DrawerStateSchema = z.object({
+  openedAt: z.number(),
+  size: z.number().int().min(40).max(4096).optional(),
+});
+export type WorkbenchDrawerState = z.infer<typeof DrawerStateSchema>;
+
+/**
  * Per-(world, user) workspace state. Lives on a WorkspaceOwner sentinel
  * entity that the workbench plugin spawns once per (worldId, userId) and
  * scopes via EntityVisibility{actors:[userId]} so only the owning user's
@@ -71,6 +88,11 @@ export type WorkspaceTree = WorkspaceTreeShape;
  *
  * `zenPaneId`, when set, is the id of the pane currently maximised — every
  * other pane is hidden until the user toggles back.
+ *
+ * `openDrawers` keys drawer ids (the `QualifiedName` registered in the
+ * drawer slot, e.g. `"@vtt/dice-tray/tray"`) to their open-state. A
+ * missing key means the drawer is closed. Defaults to `{}` so existing
+ * persisted states without the field round-trip cleanly.
  */
 export const WorkspaceState = defineTrait({
   name: "@vtt/shell-workbench/WorkspaceState",
@@ -82,6 +104,7 @@ export const WorkspaceState = defineTrait({
     zenPaneId: z.string().min(1).nullable(),
     lastInteractedAt: z.number(),
     schemaVersion: z.literal(1),
+    openDrawers: z.record(z.string(), DrawerStateSchema).default({}),
   }),
 });
 

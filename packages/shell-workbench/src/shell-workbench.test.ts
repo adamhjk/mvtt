@@ -24,16 +24,20 @@ import {
   WorkspaceStateChanged,
 } from "./shared/events.js";
 import {
+  CloseDrawer,
   CloseTab,
   FocusPane,
   FocusTab,
   MoveTab,
+  OpenDrawer,
   OpenPage,
   OpenPageAsSplit,
   OpenPageInNewTab,
+  ResizeDrawer,
   RetargetTab,
   SetSplitProportions,
   SetTabUiState,
+  ToggleDrawer,
   ToggleZen,
   allCommands,
 } from "./shared/commands.js";
@@ -820,5 +824,114 @@ describe("WorkspaceStateChanged broadcast scope", () => {
     expect(seen).toHaveLength(1);
     expect(seen[0]!.visibility?.kind).toBe("users");
     expect(seen[0]!.visibility?.userIds).toEqual([PLAYER.userId]);
+  });
+});
+
+describe("drawers", () => {
+  const DRAWER_A = "@vtt/test/drawer-a";
+  const DRAWER_B = "@vtt/test/drawer-b";
+
+  it("default workspace state has empty openDrawers", async () => {
+    const { registry, world } = setup();
+    const ownerId = bootstrap(registry, world);
+    const state = getState(world, ownerId);
+    expect(state.openDrawers).toEqual({});
+  });
+
+  it("OpenDrawer adds the id with an openedAt timestamp", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    const before = Date.now();
+    const res = await dispatch(pipeline, OpenDrawer({ id: DRAWER_A }));
+    expect(res.result.ok).toBe(true);
+    const state = getState(world, ownerId);
+    expect(state.openDrawers[DRAWER_A]).toBeDefined();
+    expect(state.openDrawers[DRAWER_A]!.openedAt).toBeGreaterThanOrEqual(before);
+  });
+
+  it("OpenDrawer is idempotent — re-opening bumps openedAt and preserves persisted size", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_A }));
+    await dispatch(pipeline, ResizeDrawer({ id: DRAWER_A, size: 320 }));
+    const beforeRe = getState(world, ownerId).openDrawers[DRAWER_A]!;
+    // Wait a tick so openedAt can move forward
+    await new Promise((r) => setTimeout(r, 2));
+    const res = await dispatch(pipeline, OpenDrawer({ id: DRAWER_A }));
+    expect(res.result.ok).toBe(true);
+    const after = getState(world, ownerId).openDrawers[DRAWER_A]!;
+    expect(after.openedAt).toBeGreaterThanOrEqual(beforeRe.openedAt);
+    expect(after.size).toBe(320);
+  });
+
+  it("CloseDrawer removes the entry", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_A }));
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]).toBeDefined();
+    const res = await dispatch(pipeline, CloseDrawer({ id: DRAWER_A }));
+    expect(res.result.ok).toBe(true);
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]).toBeUndefined();
+  });
+
+  it("CloseDrawer is a soft no-op when the drawer wasn't open", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    const res = await dispatch(pipeline, CloseDrawer({ id: DRAWER_A }));
+    expect(res.result.ok).toBe(true);
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]).toBeUndefined();
+  });
+
+  it("ToggleDrawer flips open<->closed", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    await dispatch(pipeline, ToggleDrawer({ id: DRAWER_A }));
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]).toBeDefined();
+    await dispatch(pipeline, ToggleDrawer({ id: DRAWER_A }));
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]).toBeUndefined();
+  });
+
+  it("ResizeDrawer persists size and survives re-open after close", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_A }));
+    await dispatch(pipeline, ResizeDrawer({ id: DRAWER_A, size: 480 }));
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]!.size).toBe(480);
+    // Close, then re-open: the size persists for the open entry.
+    await dispatch(pipeline, CloseDrawer({ id: DRAWER_A }));
+    // After close the entry is gone — size doesn't survive a full close.
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]).toBeUndefined();
+    await dispatch(pipeline, ResizeDrawer({ id: DRAWER_A, size: 600 }));
+    // Resizing a closed drawer records the size for the next open.
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]!.size).toBe(600);
+  });
+
+  it("multiple drawers coexist independently", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_A }));
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_B }));
+    expect(Object.keys(getState(world, ownerId).openDrawers).sort()).toEqual(
+      [DRAWER_A, DRAWER_B].sort(),
+    );
+    await dispatch(pipeline, CloseDrawer({ id: DRAWER_A }));
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]).toBeUndefined();
+    expect(getState(world, ownerId).openDrawers[DRAWER_B]).toBeDefined();
+  });
+
+  it("rejects schema violations: missing id", () => {
+    expect(() =>
+      OpenDrawer({} as unknown as { id: string }),
+    ).toThrow();
+  });
+
+  it("rejects malformed drawer id (not plugin-namespaced)", () => {
+    expect(() => OpenDrawer({ id: "naked-id" as never })).toThrow();
+  });
+
+  it("rejects ResizeDrawer with size below the schema minimum", () => {
+    expect(() =>
+      ResizeDrawer({ id: DRAWER_A as never, size: 0 }),
+    ).toThrow();
   });
 });

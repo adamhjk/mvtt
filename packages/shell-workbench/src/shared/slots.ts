@@ -2,6 +2,7 @@ import {
   defineSlot,
   type CommandInstance,
   type EntityId,
+  type EventName,
   type QualifiedName,
   QualifiedNameSchema,
   type TraitMeta,
@@ -166,4 +167,105 @@ export const ChatRailWidgetsSlot = defineSlot({
   schema: ChatRailWidgetSchema,
   description:
     "Small widgets that stack above the chat composer in the right rail.",
+});
+
+/**
+ * Edges a drawer can slide from. The workbench reserves one drawer per
+ * edge in v1; if multiple plugins ever fight for the same edge later,
+ * the resolution is to escalate to a tabbed-dock pattern (mirrors
+ * `SceneOverlayTabsSlot`) — but for now, fill conflicts just sort by
+ * priority and the highest wins.
+ */
+export type DrawerEdge = "bottom" | "right" | "left" | "top";
+
+/**
+ * Per-render arguments handed to a drawer's `render`. `close` dispatches
+ * `CloseDrawer({ id })` for this drawer; the drawer's own UI typically
+ * binds it to a close button or an outside-click. `size` is the
+ * current drawer size in pixels (from `WorkspaceState.openDrawers[id].size`,
+ * falling back to `defaultSize`) so the rendered content can lay itself
+ * out responsively.
+ */
+export interface WorkbenchDrawerRenderArgs {
+  readonly close: () => void;
+  readonly size: number;
+}
+
+/**
+ * One drawer registration. Plugins fill `WorkbenchDrawersSlot` to add a
+ * global slide-out panel attached to a workbench edge. Drawers are not
+ * tabs — they're transient overlays attached to events ("a roll
+ * happened", "music started", "GM notes toggled"), not documents you
+ * navigate to. Open/close state lives in `WorkspaceState.openDrawers`
+ * and replicates to the user's other devices.
+ *
+ * Permissive-on-functions, like other plugin-fill slot types: Zod can't
+ * structurally validate a render function; the type below is the
+ * load-bearing constraint at fill sites.
+ */
+export type WorkbenchDrawer = {
+  /**
+   * Plugin-namespaced id, e.g. `@vtt/dice-tray/tray`. Used as the key
+   * in `openDrawers` and as the launcher button's stable target.
+   */
+  id: QualifiedName;
+  label: string;
+  icon?: string;
+  edge: DrawerEdge;
+  /**
+   * Initial size in pixels (height for top/bottom, width for
+   * left/right) when the drawer first opens. Users can resize past
+   * this; the resized value persists per-user via `ResizeDrawer`.
+   * Falls back to a sensible default per-edge if omitted.
+   */
+  defaultSize?: number;
+  /**
+   * If set, the workbench subscribes to this event on the bus and
+   * dispatches `OpenDrawer({ id })` on each occurrence. Declarative —
+   * keeps the "react to bus event → open drawer" wiring out of every
+   * drawer plugin. Drawers can still call `OpenDrawer` imperatively.
+   */
+  autoOpenOn?: EventName;
+  /**
+   * If set, the workbench schedules a `CloseDrawer({ id })` dispatch
+   * `autoCloseAfterMs` milliseconds after the drawer opens. Bumped on
+   * every subsequent `OpenDrawer` for the same id (so a fresh roll
+   * resets the dwell timer). Drawers that need to manage closure
+   * themselves (with custom dwell logic) should leave this unset and
+   * dispatch `CloseDrawer` from their own render.
+   */
+  autoCloseAfterMs?: number;
+  /**
+   * Higher priority sorts the launcher button to the left within the
+   * launcher cluster. When two fills register for the same `id`,
+   * priority breaks the tie. Defaults to 0.
+   */
+  priority?: number;
+  render: (args: WorkbenchDrawerRenderArgs) => unknown;
+};
+
+const DrawerEdgeSchema = z.union([
+  z.literal("bottom"),
+  z.literal("right"),
+  z.literal("left"),
+  z.literal("top"),
+]);
+
+const WorkbenchDrawerSchema = z.object({
+  id: QualifiedNameSchema,
+  label: z.string().min(1),
+  icon: z.string().optional(),
+  edge: DrawerEdgeSchema,
+  defaultSize: z.number().int().positive().optional(),
+  autoOpenOn: QualifiedNameSchema.optional(),
+  autoCloseAfterMs: z.number().int().positive().optional(),
+  priority: z.number().optional(),
+  render: z.any(),
+});
+
+export const WorkbenchDrawersSlot = defineSlot({
+  name: "@vtt/shell-workbench/drawers",
+  schema: WorkbenchDrawerSchema,
+  description:
+    "Slide-out drawers anchored to a workbench edge. Unlike Pages, drawers are transient overlays driven by events, not documents you navigate to.",
 });

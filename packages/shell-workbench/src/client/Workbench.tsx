@@ -12,6 +12,7 @@ import { useWorkspace } from "./use-workspace.js";
 import { useWorkbenchKeybindings } from "./keybindings.js";
 import { WorkbenchHeaderSurface, PaletteSurface } from "../shared/surfaces.js";
 import { useMe } from "./use-me.js";
+import { WorkbenchDrawers, DrawerLaunchers } from "./Drawers.js";
 
 /**
  * The whole workbench. Mounted into RootSurface at higher priority than
@@ -47,7 +48,7 @@ export const WorkbenchView = defineView({
 
     return (
       <div
-        class="grid h-screen min-h-0 grid-rows-[auto_1fr] bg-surface-sunken text-fg"
+        class="relative grid h-screen min-h-0 grid-rows-[auto_1fr] bg-surface-sunken text-fg"
         // Suppress password-manager autofill across the whole workbench.
         data-1p-ignore="true"
         data-lpignore="true"
@@ -69,6 +70,8 @@ export const WorkbenchView = defineView({
           </div>
 
           <div class="flex flex-1 items-center justify-end gap-3">
+            {/* Plugin-contributed drawers (dice tray, GM notes, etc.). */}
+            <DrawerLaunchers />
             {/* Plugin-contributed header items (presence chips, GM tools, etc.) */}
             <Surface name={WorkbenchHeaderSurface.name} />
             <button
@@ -122,6 +125,11 @@ export const WorkbenchView = defineView({
           </main>
           <ChatRail />
         </div>
+
+        {/* ── drawers ────────────────────────────────────────────── */}
+        {/* Edge-anchored slide-outs filled by the WorkbenchDrawersSlot.
+            Float over the body — the panes don't reflow when one opens. */}
+        <WorkbenchDrawers />
 
         {/* ── palette ────────────────────────────────────────────── */}
         <Palette open={paletteOpen()} onClose={() => setPaletteOpen(false)} />

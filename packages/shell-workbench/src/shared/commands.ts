@@ -653,6 +653,134 @@ export const SetSplitProportions = defineCommand({
   },
 });
 
+/**
+ * Open a drawer by id. Idempotent: opening an already-open drawer just
+ * bumps `openedAt` (so the autoCloseAfterMs timer the workbench owns
+ * resets). The drawer's actual definition lives in the
+ * `WorkbenchDrawersSlot` — this command only writes the open-state
+ * record onto WorkspaceState.
+ */
+export const OpenDrawer = defineCommand({
+  name: "@vtt/shell-workbench/OpenDrawer",
+  schema: z.object({
+    id: QualifiedNameSchema,
+  }),
+  validate: (ctx) => {
+    const r = withOwner(ctx);
+    return r.ok ? ok() : fail(r.reason);
+  },
+  apply: (ctx) => {
+    const r = withOwner(ctx);
+    if (!r.ok) throw new Error("validate failed");
+    const owned = r.owned;
+    const next = clone(owned.state);
+    const existing = next.openDrawers[ctx.cmd.id];
+    next.openDrawers = {
+      ...next.openDrawers,
+      [ctx.cmd.id]: {
+        openedAt: Date.now(),
+        // Preserve a previously-resized size when re-opening; otherwise
+        // omit so the renderer falls back to the drawer's defaultSize.
+        ...(existing?.size !== undefined ? { size: existing.size } : {}),
+      },
+    };
+    return emit(owned, bumpInteracted(next));
+  },
+});
+
+/**
+ * Close a drawer by id. No-op if it wasn't open.
+ */
+export const CloseDrawer = defineCommand({
+  name: "@vtt/shell-workbench/CloseDrawer",
+  schema: z.object({
+    id: QualifiedNameSchema,
+  }),
+  validate: (ctx) => {
+    const r = withOwner(ctx);
+    return r.ok ? ok() : fail(r.reason);
+  },
+  apply: (ctx) => {
+    const r = withOwner(ctx);
+    if (!r.ok) throw new Error("validate failed");
+    const owned = r.owned;
+    if (!owned.state.openDrawers[ctx.cmd.id]) {
+      // Nothing to change. Still emit a state-changed event so the
+      // dispatcher's optimistic UI converges with everyone else's;
+      // alternatively we could no-op, but the round-trip is cheap.
+      return emit(owned, bumpInteracted(clone(owned.state)));
+    }
+    const next = clone(owned.state);
+    const { [ctx.cmd.id]: _gone, ...rest } = next.openDrawers;
+    next.openDrawers = rest;
+    return emit(owned, bumpInteracted(next));
+  },
+});
+
+/**
+ * Toggle: closes if open, opens if closed. Convenience for launcher
+ * buttons that should dispatch one command regardless of current state.
+ */
+export const ToggleDrawer = defineCommand({
+  name: "@vtt/shell-workbench/ToggleDrawer",
+  schema: z.object({
+    id: QualifiedNameSchema,
+  }),
+  validate: (ctx) => {
+    const r = withOwner(ctx);
+    return r.ok ? ok() : fail(r.reason);
+  },
+  apply: (ctx) => {
+    const r = withOwner(ctx);
+    if (!r.ok) throw new Error("validate failed");
+    const owned = r.owned;
+    const next = clone(owned.state);
+    if (next.openDrawers[ctx.cmd.id]) {
+      const { [ctx.cmd.id]: _gone, ...rest } = next.openDrawers;
+      next.openDrawers = rest;
+    } else {
+      next.openDrawers = {
+        ...next.openDrawers,
+        [ctx.cmd.id]: { openedAt: Date.now() },
+      };
+    }
+    return emit(owned, bumpInteracted(next));
+  },
+});
+
+/**
+ * Persist a user-resized drawer size. Only meaningful when the drawer
+ * is currently open; the apply still records it (so the next open uses
+ * the persisted value), and the validate doesn't reject closed drawers
+ * — the user might be configuring a default before opening.
+ */
+export const ResizeDrawer = defineCommand({
+  name: "@vtt/shell-workbench/ResizeDrawer",
+  schema: z.object({
+    id: QualifiedNameSchema,
+    size: z.number().int().min(40).max(4096),
+  }),
+  validate: (ctx) => {
+    const r = withOwner(ctx);
+    return r.ok ? ok() : fail(r.reason);
+  },
+  apply: (ctx) => {
+    const r = withOwner(ctx);
+    if (!r.ok) throw new Error("validate failed");
+    const owned = r.owned;
+    const next = clone(owned.state);
+    const existing = next.openDrawers[ctx.cmd.id];
+    next.openDrawers = {
+      ...next.openDrawers,
+      [ctx.cmd.id]: {
+        openedAt: existing?.openedAt ?? Date.now(),
+        size: ctx.cmd.size,
+      },
+    };
+    return emit(owned, bumpInteracted(next));
+  },
+});
+
 export const allCommands = [
   OpenPage,
   OpenPageInNewTab,
@@ -665,4 +793,8 @@ export const allCommands = [
   SetTabUiState,
   MoveTab,
   SetSplitProportions,
+  OpenDrawer,
+  CloseDrawer,
+  ToggleDrawer,
+  ResizeDrawer,
 ] as const;

@@ -279,7 +279,7 @@ function BackgroundImageField(props: {
             </Show>
           </div>
           <p class="text-[0.7rem] text-fg-subtle">
-            PNG, JPG, GIF, WebP, AVIF, or SVG. Max 25 MB. Width/Height
+            PNG, JPG, GIF, WebP, AVIF, or SVG. Max 250 MB. Width/Height
             auto-fit to the image's natural size on upload — adjust them
             below if you want a different playable extent. Transparent
             regions show the background color underneath.

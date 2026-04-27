@@ -197,4 +197,72 @@ describe("@vtt/resolution", () => {
     expect(captured!.rolledByUserId).toBe(SESSION.userId);
     expect(captured!.rolledByName).toBe(SESSION.name);
   });
+
+  it("RollResolved.dice carries one entry per individual die for animation", async () => {
+    let captured: {
+      dice: { sides: number | "F"; value: number }[];
+      total: number;
+    } | null = null;
+    bus.on(RollResolved.name, (e) => {
+      captured = e.payload as typeof captured;
+    });
+    await dispatch(
+      pipeline,
+      "r-dice",
+      RequestRoll({ notation: "3d6+2d20", visibility: "public" }),
+    );
+    expect(captured).toBeTruthy();
+    expect(captured!.dice).toHaveLength(5);
+    const d6s = captured!.dice.filter((d) => d.sides === 6);
+    const d20s = captured!.dice.filter((d) => d.sides === 20);
+    expect(d6s).toHaveLength(3);
+    expect(d20s).toHaveLength(2);
+    for (const d of d6s) {
+      expect(d.value).toBeGreaterThanOrEqual(1);
+      expect(d.value).toBeLessThanOrEqual(6);
+    }
+    for (const d of d20s) {
+      expect(d.value).toBeGreaterThanOrEqual(1);
+      expect(d.value).toBeLessThanOrEqual(20);
+    }
+    // The sum of die values plus the +2 modifier should equal total.
+    const sum = captured!.dice.reduce((acc, d) => acc + d.value, 0);
+    // The notation has no constant — total is just the dice sum.
+    expect(sum).toBe(captured!.total);
+  });
+
+  it("RollResolved.dice supports Fudge dice (sides: 'F')", async () => {
+    let captured: { dice: { sides: number | "F"; value: number }[] } | null =
+      null;
+    bus.on(RollResolved.name, (e) => {
+      captured = e.payload as typeof captured;
+    });
+    await dispatch(
+      pipeline,
+      "r-fudge",
+      RequestRoll({ notation: "4dF", visibility: "public" }),
+    );
+    expect(captured).toBeTruthy();
+    expect(captured!.dice).toHaveLength(4);
+    for (const d of captured!.dice) {
+      expect(d.sides).toBe("F");
+      expect([-1, 0, 1]).toContain(d.value);
+    }
+  });
+
+  it("RollResolved.dice is empty for a notation with no dice", async () => {
+    let captured: { dice: { sides: number | "F"; value: number }[] } | null =
+      null;
+    bus.on(RollResolved.name, (e) => {
+      captured = e.payload as typeof captured;
+    });
+    // A bare modifier — degenerate but accepted by the parser.
+    await dispatch(
+      pipeline,
+      "r-bare",
+      RequestRoll({ notation: "5", visibility: "public" }),
+    );
+    expect(captured).toBeTruthy();
+    expect(captured!.dice).toEqual([]);
+  });
 });

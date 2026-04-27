@@ -16,6 +16,7 @@ import {
   PagesSlot,
   PaletteCommandsSlot,
   ChatRailWidgetsSlot,
+  WorkbenchDrawersSlot,
 } from "./shared/slots.js";
 import { allCommands } from "./shared/commands.js";
 import {
@@ -42,7 +43,7 @@ export const shellWorkbench = definePlugin({
     WorkbenchChatRailSurface,
     PaletteSurface,
   ],
-  slots: [PagesSlot, PaletteCommandsSlot, ChatRailWidgetsSlot],
+  slots: [PagesSlot, PaletteCommandsSlot, ChatRailWidgetsSlot, WorkbenchDrawersSlot],
   views: [WorkbenchView],
 });
 

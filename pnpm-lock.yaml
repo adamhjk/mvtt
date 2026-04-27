@@ -43,17 +43,79 @@ importers:
         specifier: ^1.9.0
         version: 1.9.12
 
+  packages/books:
+    dependencies:
+      '@vtt/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@vtt/identity':
+        specifier: workspace:*
+        version: link:../identity
+      '@vtt/permissions':
+        specifier: workspace:*
+        version: link:../permissions
+      '@vtt/shell-workbench':
+        specifier: workspace:*
+        version: link:../shell-workbench
+      '@vtt/substrate':
+        specifier: workspace:*
+        version: link:../substrate
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      solid-js:
+        specifier: ^1.9.0
+        version: 1.9.12
+
+  packages/characters:
+    dependencies:
+      '@vtt/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@vtt/identity':
+        specifier: workspace:*
+        version: link:../identity
+      '@vtt/permissions':
+        specifier: workspace:*
+        version: link:../permissions
+      '@vtt/shell-workbench':
+        specifier: workspace:*
+        version: link:../shell-workbench
+      '@vtt/substrate':
+        specifier: workspace:*
+        version: link:../substrate
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      solid-js:
+        specifier: ^1.9.0
+        version: 1.9.12
+
   packages/client:
     dependencies:
       '@vtt/auth':
         specifier: workspace:*
         version: link:../auth
+      '@vtt/books':
+        specifier: workspace:*
+        version: link:../books
+      '@vtt/characters':
+        specifier: workspace:*
+        version: link:../characters
       '@vtt/comms':
         specifier: workspace:*
         version: link:../comms
+      '@vtt/dice-tray':
+        specifier: workspace:*
+        version: link:../dice-tray
       '@vtt/identity':
         specifier: workspace:*
         version: link:../identity
+      '@vtt/pdf-book':
+        specifier: workspace:*
+        version: link:../pdf-book
       '@vtt/permissions':
         specifier: workspace:*
         version: link:../permissions
@@ -75,6 +137,9 @@ importers:
       better-auth:
         specifier: ^1.3.0
         version: 1.6.9(better-sqlite3@12.9.0)(solid-js@1.9.12)(vitest@4.1.5(@types/node@25.6.0)(vite@8.0.10(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)))
+      pdfjs-dist:
+        specifier: ^5.4.149
+        version: 5.7.284
       solid-js:
         specifier: ^1.9.0
         version: 1.9.12
@@ -120,6 +185,34 @@ importers:
         specifier: ^1.9.0
         version: 1.9.12
 
+  packages/dice-tray:
+    dependencies:
+      '@babylonjs/core':
+        specifier: ^7.0.0
+        version: 7.54.3
+      '@vtt/identity':
+        specifier: workspace:*
+        version: link:../identity
+      '@vtt/resolution':
+        specifier: workspace:*
+        version: link:../plugin-resolution
+      '@vtt/shell-workbench':
+        specifier: workspace:*
+        version: link:../shell-workbench
+      '@vtt/substrate':
+        specifier: workspace:*
+        version: link:../substrate
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      solid-js:
+        specifier: ^1.9.0
+        version: 1.9.12
+
   packages/identity:
     dependencies:
       '@vtt/auth':
@@ -132,6 +225,37 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
     devDependencies:
+      solid-js:
+        specifier: ^1.9.0
+        version: 1.9.12
+
+  packages/pdf-book:
+    dependencies:
+      '@vtt/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@vtt/books':
+        specifier: workspace:*
+        version: link:../books
+      '@vtt/identity':
+        specifier: workspace:*
+        version: link:../identity
+      '@vtt/permissions':
+        specifier: workspace:*
+        version: link:../permissions
+      '@vtt/substrate':
+        specifier: workspace:*
+        version: link:../substrate
+      pdfjs-dist:
+        specifier: ^5.4.149
+        version: 5.7.284
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
       solid-js:
         specifier: ^1.9.0
         version: 1.9.12
@@ -247,12 +371,24 @@ importers:
       '@vtt/auth':
         specifier: workspace:*
         version: link:../auth
+      '@vtt/books':
+        specifier: workspace:*
+        version: link:../books
+      '@vtt/characters':
+        specifier: workspace:*
+        version: link:../characters
       '@vtt/comms':
         specifier: workspace:*
         version: link:../comms
+      '@vtt/dice-tray':
+        specifier: workspace:*
+        version: link:../dice-tray
       '@vtt/identity':
         specifier: workspace:*
         version: link:../identity
+      '@vtt/pdf-book':
+        specifier: workspace:*
+        version: link:../pdf-book
       '@vtt/permissions':
         specifier: workspace:*
         version: link:../permissions
@@ -442,6 +578,9 @@ packages:
   '@babel/types@7.29.0':
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
+
+  '@babylonjs/core@7.54.3':
+    resolution: {integrity: sha512-P5ncXVd8GEUJLhwloP9V0oVwQYIrvZztguVeLlvd5Rx+9aQnenKjpV8auJ6SRsUlAmNZU4pFTKzwF6o2EUfhAw==}
 
   '@better-auth/core@1.6.9':
     resolution: {integrity: sha512-ADFk5pwmLybmc+LvYvXJ6M1x2oY/EyYLkwLuH0x28FUq12DfjL0wnE7g+WRDf3yozDO+qIxTpFGXDGwLKbfz0w==}
@@ -706,6 +845,81 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@napi-rs/canvas-android-arm64@0.1.100':
+    resolution: {integrity: sha512-hjhCKhntPv9+t4ckHymdx0phYNcVW+GKQR6Lzw2zE+pOVjOplSmtx9nNNknTjbEDLcuLZqA1y8ufKg1XfgftzQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [android]
+
+  '@napi-rs/canvas-darwin-arm64@0.1.100':
+    resolution: {integrity: sha512-2PcswRaC7Ly645DGt88///zuFDhJxJYdKAs1uU3mfk1atYkXufgcgLfBpk6Tm12nCQBaNt1wpybuPZ4qOhTo8A==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@napi-rs/canvas-darwin-x64@0.1.100':
+    resolution: {integrity: sha512-ePNZtj7pNIva/siZMg+HmbeozkIjqUIYdoymH8HaA3qK7LfzFN4WMBM8G6HQ9ZC+H3+Dnn5pqtiXpgLykaPOhw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@napi-rs/canvas-linux-arm-gnueabihf@0.1.100':
+    resolution: {integrity: sha512-d5cDB48oWFGU8/XPhUOFAlySgb/VAu7D+s8fi55K1Pcfg8aPplHWqMgibhVLU8ky7Pyg/fuiVLz4Nf3JrSTuUA==}
+    engines: {node: '>= 10'}
+    cpu: [arm]
+    os: [linux]
+
+  '@napi-rs/canvas-linux-arm64-gnu@0.1.100':
+    resolution: {integrity: sha512-rDxgxRu69RvDlX/bh9o22DxLsGr8EqsNgotL9+RwQE1S0b0cqeatqsw6aW45mukm0B42DIAaAacKaYQ8cqS1nw==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@napi-rs/canvas-linux-arm64-musl@0.1.100':
+    resolution: {integrity: sha512-K3mDW66N+xT2/V439u1alFANiBUjdEx2gLiNYnCmUsva5jZMxWTjafBYwTzYK+EMFMHrUoabuU+T1BIP5CgbYQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@napi-rs/canvas-linux-riscv64-gnu@0.1.100':
+    resolution: {integrity: sha512-mooqUBTIsccZpnoQC4NgrC1v6C1vof39etLNMnBwCY+p0gajWJvAHLGQ6g/gGyS5YrpDW+GefSN4+Cvcr08UWw==}
+    engines: {node: '>= 10'}
+    cpu: [riscv64]
+    os: [linux]
+    libc: [glibc]
+
+  '@napi-rs/canvas-linux-x64-gnu@0.1.100':
+    resolution: {integrity: sha512-1eCvkDCazm7FFhsT7DfGOdSaHgZVK3bt/dSBl5EWHOWmnz+I7j8tPseJqqD81NF+MH21jKUK4wQSDjN0mdhnTg==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@napi-rs/canvas-linux-x64-musl@0.1.100':
+    resolution: {integrity: sha512-20arT6lnI19S68qNlii73TSEDbECNgzMz2EpldC1V3mZFuRkeujXkcebRk0LRJe9SEUAooYiLokfMViY8IX7yA==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@napi-rs/canvas-win32-arm64-msvc@0.1.100':
+    resolution: {integrity: sha512-DZFFT1wIAg37LJw37yhMRFfjATd3vTQzjZ1Yki8u2vhO6Hi5VE6BVaGQ1aaDu7xb4iMErz+9EOwjpS7xcxFeBw==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@napi-rs/canvas-win32-x64-msvc@0.1.100':
+    resolution: {integrity: sha512-MyT1j3mHC2+Lu4pBi9mKyMJhtP6U7k7EldY7sj/uS5gJA65gTXt8MefJQXLJo5d/vZbuWmfxzkEUNc/urV3pHA==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
+
+  '@napi-rs/canvas@0.1.100':
+    resolution: {integrity: sha512-xglYA6q3XO5P3BNJYxVZ1IV7DLVjp1Py6nwag88YntrS+3vKHyYcMqXVS4ZztJmwz2uGvz1FWhI/4LgbR5uQDA==}
+    engines: {node: '>= 10'}
 
   '@napi-rs/wasm-runtime@1.1.4':
     resolution: {integrity: sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow==}
@@ -1431,6 +1645,10 @@ packages:
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
 
+  pdfjs-dist@5.7.284:
+    resolution: {integrity: sha512-h4EdYQczmGhbOlqc3PPZwxevn7ApdWPbovAuWXOB/DjIyigSnwfy2oze7c6mRcSr9XgLp3eN3EeL4DyySTPMFw==}
+    engines: {node: '>=22.13.0 || >=24'}
+
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
 
@@ -1849,6 +2067,8 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
+  '@babylonjs/core@7.54.3': {}
+
   '@better-auth/core@1.6.9(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.3.6))(jose@6.2.2)(kysely@0.28.16)(nanostores@1.3.0)':
     dependencies:
       '@better-auth/utils': 0.4.0
@@ -2017,6 +2237,54 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@napi-rs/canvas-android-arm64@0.1.100':
+    optional: true
+
+  '@napi-rs/canvas-darwin-arm64@0.1.100':
+    optional: true
+
+  '@napi-rs/canvas-darwin-x64@0.1.100':
+    optional: true
+
+  '@napi-rs/canvas-linux-arm-gnueabihf@0.1.100':
+    optional: true
+
+  '@napi-rs/canvas-linux-arm64-gnu@0.1.100':
+    optional: true
+
+  '@napi-rs/canvas-linux-arm64-musl@0.1.100':
+    optional: true
+
+  '@napi-rs/canvas-linux-riscv64-gnu@0.1.100':
+    optional: true
+
+  '@napi-rs/canvas-linux-x64-gnu@0.1.100':
+    optional: true
+
+  '@napi-rs/canvas-linux-x64-musl@0.1.100':
+    optional: true
+
+  '@napi-rs/canvas-win32-arm64-msvc@0.1.100':
+    optional: true
+
+  '@napi-rs/canvas-win32-x64-msvc@0.1.100':
+    optional: true
+
+  '@napi-rs/canvas@0.1.100':
+    optionalDependencies:
+      '@napi-rs/canvas-android-arm64': 0.1.100
+      '@napi-rs/canvas-darwin-arm64': 0.1.100
+      '@napi-rs/canvas-darwin-x64': 0.1.100
+      '@napi-rs/canvas-linux-arm-gnueabihf': 0.1.100
+      '@napi-rs/canvas-linux-arm64-gnu': 0.1.100
+      '@napi-rs/canvas-linux-arm64-musl': 0.1.100
+      '@napi-rs/canvas-linux-riscv64-gnu': 0.1.100
+      '@napi-rs/canvas-linux-x64-gnu': 0.1.100
+      '@napi-rs/canvas-linux-x64-musl': 0.1.100
+      '@napi-rs/canvas-win32-arm64-msvc': 0.1.100
+      '@napi-rs/canvas-win32-x64-msvc': 0.1.100
+    optional: true
 
   '@napi-rs/wasm-runtime@1.1.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
     dependencies:
@@ -2586,6 +2854,10 @@ snapshots:
       entities: 6.0.1
 
   pathe@2.0.3: {}
+
+  pdfjs-dist@5.7.284:
+    optionalDependencies:
+      '@napi-rs/canvas': 0.1.100
 
   picocolors@1.1.1: {}
 

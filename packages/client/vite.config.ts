@@ -30,6 +30,23 @@ export default defineConfig({
         target: `http://localhost:${SERVER_PORT}`,
         changeOrigin: true,
       },
+      // pdfjs-dist support files (CMaps, standard fonts, WASM, ICC).
+      // Mounted by the server via @vtt/pdf-book/server's
+      // pdfBookAssetRoots(); proxied here so the same URLs resolve in
+      // dev mode at 5173.
+      "/pdfjs": {
+        target: `http://localhost:${SERVER_PORT}`,
+        changeOrigin: true,
+      },
+      // dice-box mesh + texture assets vendored under @vtt/dice-tray
+      // and mounted by the server via diceTrayAssetRoots(). Without
+      // this proxy entry Vite's SPA fallback returns index.html for
+      // /dice-tray-assets/default.json and Babylon's loader fails
+      // with "importMesh has failed JSON parse".
+      "/dice-tray-assets": {
+        target: `http://localhost:${SERVER_PORT}`,
+        changeOrigin: true,
+      },
     },
   },
 });

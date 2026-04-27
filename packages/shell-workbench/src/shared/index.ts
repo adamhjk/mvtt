@@ -4,6 +4,7 @@ export {
   type WorkspaceTab,
   type WorkspacePane,
   type WorkspaceTree,
+  type WorkbenchDrawerState,
 } from "./traits.js";
 export {
   WorkspaceStateChanged,
@@ -18,6 +19,7 @@ export {
   PagesSlot,
   PaletteCommandsSlot,
   ChatRailWidgetsSlot,
+  WorkbenchDrawersSlot,
   type PageProvider,
   type PageProviderContext,
   type PageEntity,
@@ -25,6 +27,9 @@ export {
   type PaletteCommand,
   type PaletteCommandContext,
   type ChatRailWidget,
+  type WorkbenchDrawer,
+  type WorkbenchDrawerRenderArgs,
+  type DrawerEdge,
 } from "./slots.js";
 export {
   OpenPage,
@@ -38,6 +43,10 @@ export {
   SetTabUiState,
   MoveTab,
   SetSplitProportions,
+  OpenDrawer,
+  CloseDrawer,
+  ToggleDrawer,
+  ResizeDrawer,
   allCommands,
 } from "./commands.js";
 export { definePageProvider } from "./define-page-provider.js";

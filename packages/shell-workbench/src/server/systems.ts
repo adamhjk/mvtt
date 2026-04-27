@@ -52,6 +52,7 @@ function defaultWorkspaceState() {
     zenPaneId: null,
     lastInteractedAt: Date.now(),
     schemaVersion: 1 as const,
+    openDrawers: {},
   };
 }
 
