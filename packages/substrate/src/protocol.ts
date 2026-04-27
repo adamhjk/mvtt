@@ -33,6 +33,22 @@ export const SyncedMsg = z.object({
   atSeq: z.number().int().nonnegative(),
 });
 
+/**
+ * Presence — high-frequency, ephemeral, never-persisted side channel.
+ * Cursor positions, drag ghosts, "X is typing", any signal where freshness
+ * matters and durability doesn't. Carries a `channel` discriminator so
+ * multiple plugins can multiplex without collision; the server fans each
+ * payload out to all OTHER clients (the originator already has the value
+ * locally). Subject to the same visibility filter as durable events.
+ */
+export const PresenceMsg = z.object({
+  kind: z.literal("presence"),
+  channel: QualifiedNameSchema,
+  payload: z.unknown(),
+  /** Optional userIds for whisper-style presence. Defaults to everyone. */
+  to: z.array(z.string()).optional(),
+});
+
 export const CommandMsg = z.object({
   kind: z.literal("command"),
   id: z.string(),
@@ -41,6 +57,8 @@ export const CommandMsg = z.object({
     type: QualifiedNameSchema,
     payload: z.unknown(),
   }),
+  /** Optional CAS payload — see CommandEnvelope.causalState. */
+  causalState: z.unknown().optional(),
 });
 
 export const EventMsg = z.object({
@@ -59,5 +77,5 @@ export const AckMsg = z.object({
   reason: z.string().optional(),
 });
 
-export const WireMsg = z.union([HelloMsg, SnapshotMsg, SyncedMsg, CommandMsg, EventMsg, AckMsg]);
+export const WireMsg = z.union([HelloMsg, SnapshotMsg, SyncedMsg, CommandMsg, EventMsg, AckMsg, PresenceMsg]);
 export type WireMsg = z.infer<typeof WireMsg>;

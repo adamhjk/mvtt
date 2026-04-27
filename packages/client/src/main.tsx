@@ -1,12 +1,12 @@
 import { render } from "solid-js/web";
 import { createSignal, Show, onMount } from "solid-js";
 import { startClient, ClientProvider } from "@vtt/substrate/client";
-import { shellDefault } from "@vtt/shell-default";
+import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { comms } from "@vtt/comms";
-import { ping } from "@vtt/ping";
 import { resolution } from "@vtt/resolution";
+import { scene } from "@vtt/scene";
 import { App } from "./App";
 import { AuthGate } from "./AuthGate";
 import { authClient } from "./auth-client";
@@ -41,7 +41,7 @@ function Root() {
 function Authenticated() {
   // Only spin up the WebSocket once we know we have a session — the substrate
   // rejects the upgrade otherwise and we'd loop on reconnects.
-  const client = startClient({ url: wsURL, plugins: [shellDefault, identity, permissions, comms, ping, resolution] });
+  const client = startClient({ url: wsURL, plugins: [shellWorkbench, identity, permissions, comms, resolution, scene] });
   return (
     <ClientProvider value={client}>
       <App />

@@ -7,12 +7,12 @@ import {
   PlayerDespawnSystem,
   PlayerLeftMirrorSystem,
 } from "./server/systems.js";
-import { PlayerListView } from "./client/index.js";
+import { PlayerListView, UserMenuView } from "./client/index.js";
 
 export const identity = definePlugin({
   name: "@vtt/identity",
   version: "0.1.0",
-  dependsOn: ["@vtt/substrate@^0", "@vtt/auth@^0", "@vtt/shell-default@^0"],
+  dependsOn: ["@vtt/substrate@^0", "@vtt/auth@^0"],
   traits: [Identity, Name, Online],
   events: [PlayerJoined, PlayerLeft],
   systems: [
@@ -21,7 +21,7 @@ export const identity = definePlugin({
     PlayerDespawnSystem,
     PlayerLeftMirrorSystem,
   ],
-  views: [PlayerListView],
+  views: [PlayerListView, UserMenuView],
 });
 
 export default identity;

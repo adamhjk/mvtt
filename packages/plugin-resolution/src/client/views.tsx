@@ -1,6 +1,6 @@
 import { defineView, clientOnly } from "@vtt/substrate";
 import { Surface, useClient, useQuery, useTrait } from "@vtt/substrate/client";
-import { MainSurface, SidebarSurface } from "@vtt/shell-default/shared";
+import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
 import { Identity, Online } from "@vtt/identity/shared";
 import { createMemo, createSignal, Show } from "solid-js";
 import { RequestRoll } from "../shared/commands.js";
@@ -11,8 +11,9 @@ const QUICK_ROLLS = ["1d20", "1d20+5", "2d6+3", "4d6kh3", "1d100"];
 
 export const RollerView = defineView({
   name: "Roller",
-  surface: MainSurface,
-  priority: 10,
+  surface: WorkbenchChatRailSurface,
+  // Sit just below the player list and above the chat stream / composer.
+  priority: 80,
   render: clientOnly(() => {
     const client = useClient();
     const [notation, setNotation] = createSignal("1d20");
@@ -116,16 +117,26 @@ export const RollerView = defineView({
   }),
 });
 
+/**
+ * The roll log. Mounts the per-entity RollEntrySurface so each roll
+ * entity (spawned by RollRecordingSystem) renders as a card. Sits in
+ * the chat rail between the roller (above) and the chat stream (below).
+ *
+ * Bounded height + scroll: rolls accumulate freely but don't push the
+ * chat stream off-screen. `shrink-0` keeps the tray from collapsing
+ * when the rail is short; `max-h-64` caps the visible history (older
+ * rolls scroll in place).
+ */
 export const RollTrayView = defineView({
   name: "RollTray",
-  surface: SidebarSurface,
-  priority: 0,
+  surface: WorkbenchChatRailSurface,
+  priority: 70,
   render: clientOnly(() => (
-    <div class="flex flex-col gap-2">
-      <h2 class="text-sm font-semibold uppercase tracking-wider text-fg-muted">
+    <div class="flex shrink-0 flex-col gap-2">
+      <h2 class="font-display text-[0.65rem] uppercase tracking-[0.16em] text-fg-muted">
         rolls
       </h2>
-      <div class="flex flex-col gap-2">
+      <div class="flex max-h-64 flex-col gap-2 overflow-y-auto pr-1">
         <Surface name={RollEntrySurface.name} />
       </div>
     </div>

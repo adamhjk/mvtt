@@ -19,6 +19,15 @@ export interface CommandEnvelope {
    * own context (e.g. `@vtt/auth`'s `requireSession(ctx.session)`).
    */
   readonly session?: unknown;
+  /**
+   * Optional opaque "what the client believed" payload — the design's CAS
+   * slot. The substrate threads it into `CommandContext.causalState` for
+   * the command's `validate` to compare against current World state.
+   * Plugin-defined shape; common pattern is `{ entityId, seenAt: number }`
+   * for "reject if the entity has changed since I saw it." v0 doesn't
+   * implement optimistic prediction or rollback; this is just the seam.
+   */
+  readonly causalState?: unknown;
 }
 
 export interface DispatchResult {
@@ -127,6 +136,7 @@ export class CommandPipeline {
       world: this.world,
       actor: env.issuedBy,
       session: env.session,
+      causalState: env.causalState,
     };
 
     const validation = def.validate(ctx);

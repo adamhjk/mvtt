@@ -6,7 +6,7 @@ import {
   useTrait,
   type QueryRow,
 } from "@vtt/substrate/client";
-import { MainSurface } from "@vtt/shell-default/shared";
+import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import { createMemo, createSignal, Show } from "solid-js";
 import { ChatMessage } from "../shared/traits.js";
@@ -26,7 +26,7 @@ import {
  */
 export const ChatComposerView = defineView({
   name: "ChatComposer",
-  surface: MainSurface,
+  surface: WorkbenchChatRailSurface,
   priority: 1,
   render: clientOnly(() => {
     const client = useClient();
@@ -137,12 +137,20 @@ export const ChatComposerView = defineView({
  * out one row per message entity that the substrate's snapshot filter
  * has actually delivered to this client.
  */
+/**
+ * The chat message stream — fills the middle of the workbench chat rail.
+ * Priority 50 sits below PlayerListView (100) and above ChatComposerView
+ * (1), so the stack reads players → stream → composer top-to-bottom.
+ *
+ * `flex-1 min-h-0 overflow-y-auto` lets it absorb the rail's remaining
+ * height while keeping the player list and composer their natural sizes.
+ */
 export const ChatStreamView = defineView({
   name: "ChatStream",
-  surface: MainSurface,
-  priority: 2,
+  surface: WorkbenchChatRailSurface,
+  priority: 50,
   render: clientOnly(() => (
-    <div class="flex flex-col gap-2">
+    <div class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
       <Surface name={ChatStreamSurface.name} />
     </div>
   )),

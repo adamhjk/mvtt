@@ -104,6 +104,12 @@ export interface CommandContext<T> {
    * with their own typed accessor; auth-agnostic plugins ignore it.
    */
   readonly session?: unknown;
+  /**
+   * Optional CAS payload the client supplied with this command — "here's
+   * what I believed when I issued this." Plugins compare it against
+   * current world state in `validate` and reject stale commands.
+   */
+  readonly causalState?: unknown;
 }
 
 export interface CommandMeta<S extends z.ZodTypeAny = z.ZodTypeAny> {

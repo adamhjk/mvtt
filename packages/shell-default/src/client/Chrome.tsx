@@ -1,6 +1,5 @@
 import { defineView, clientOnly, RootSurface } from "@vtt/substrate";
-import { Surface, useClient } from "@vtt/substrate/client";
-import { createSignal, onMount, Show } from "solid-js";
+import { Surface } from "@vtt/substrate/client";
 import {
   HeaderSurface,
   MainSurface,
@@ -13,13 +12,6 @@ export const ChromeView = defineView({
   surface: RootSurface,
   priority: 0,
   render: clientOnly(() => {
-    const client = useClient();
-    const [clientId, setClientId] = createSignal<string | null>(null);
-
-    onMount(() => {
-      client.onConnect(() => setClientId(client.clientId()));
-    });
-
     return (
       <div
         class="grid min-h-screen grid-rows-[auto_1fr_auto] grid-cols-[1fr_18rem] gap-px bg-border-muted"
@@ -30,19 +22,11 @@ export const ChromeView = defineView({
         data-lpignore="true"
         data-bwignore="true"
         data-form-type="other"
-      ><header class="col-span-2 flex items-center justify-between bg-surface-elevated px-6 py-3">
+      >
+        <header class="col-span-2 flex items-center justify-between bg-surface-elevated px-6 py-3">
           <div class="flex items-baseline gap-3">
             <h1 class="text-lg font-semibold tracking-tight text-fg">mvtt</h1>
             <span class="text-xs text-fg-muted">scaffold</span>
-          </div>
-          <div class="text-xs text-fg-muted">
-            <Show when={clientId()} fallback={<>connecting…</>}>
-              {(id) => (
-                <>
-                  connected as <code class="font-mono text-accent">{id()}</code>
-                </>
-              )}
-            </Show>
           </div>
           <Surface name={HeaderSurface.name} />
         </header>

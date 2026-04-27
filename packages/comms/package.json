@@ -16,7 +16,7 @@
     "@vtt/auth": "workspace:*",
     "@vtt/identity": "workspace:*",
     "@vtt/permissions": "workspace:*",
-    "@vtt/shell-default": "workspace:*",
+    "@vtt/shell-workbench": "workspace:*",
     "@vtt/substrate": "workspace:*",
     "zod": "^4.3.6"
   },

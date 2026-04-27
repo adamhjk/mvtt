@@ -2,25 +2,25 @@ import { defineSystem, ConnectionOpened, ConnectionClosed } from "@vtt/substrate
 import { parseAuthSession } from "@vtt/auth";
 import { Identity, Name, Online } from "../shared/traits.js";
 import { PlayerJoined, PlayerLeft } from "../shared/events.js";
-import { findPlayerByUserId } from "../shared/helpers.js";
 
 /**
- * Server-side: a WS connection has been authenticated. We narrow the opaque
- * session payload, spawn a Player entity carrying just identity (Identity +
- * Name + Online), and emit PlayerJoined for everyone — including the
- * connecting client itself, which uses it to mirror the entity into its
- * local World. Only the server runs this system in practice (the
- * ConnectionOpened event is `broadcast: false` because it carries session
- * details).
+ * Server-side: a WS connection has been authenticated. Spawn one
+ * Connection entity per socket — a user with multiple browser windows
+ * gets one entity per window, all carrying the same `userId`/`role`/`name`
+ * with distinct `clientId`s. The player list view groups by `userId` for
+ * display; per-tab state (focused scene, current selection, drag ghosts)
+ * has a natural home on this entity later.
  *
- * This entity intentionally does *not* model a character, persona, or
- * actor-in-the-fiction — those are concerns for plugins yet to land. The
- * Player is purely "this user is here right now."
+ * Stale entities from refreshes are bounded by the substrate's WS
+ * heartbeat (ping every 15s, terminate on missing pong within 30s) — see
+ * `substrate/src/server.ts`. Without that backstop the spawn-per-socket
+ * model would leak entities until TCP keepalive eventually dropped the
+ * dead socket.
  */
 export const PlayerSpawningSystem = defineSystem({
   name: "PlayerSpawning",
   on: ConnectionOpened,
-  reads: [Identity],
+  reads: [],
   writes: [Identity, Name, Online],
   run: ({ event, world }) => {
     const session = parseAuthSession(event.session);
@@ -44,20 +44,25 @@ export const PlayerSpawningSystem = defineSystem({
 });
 
 /**
- * Universal mirror: runs on every side that receives PlayerJoined. The
- * server already spawned the entity in PlayerSpawningSystem (above), so on
- * the server this is an idempotent no-op. On every other client it's the
- * actual spawn — they never saw ConnectionOpened. Idempotency is keyed on
- * `userId` (the stable cross-session identifier) rather than `playerId`
- * (which is only stable per-World, hence per-client).
+ * Universal mirror: runs on every side that receives PlayerJoined.
+ * Idempotency is keyed on `clientId` (the per-socket id), not `userId`
+ * — multiple connections per user is the whole point. The server's own
+ * dispatch arrives here too: the just-spawned entity already has a
+ * matching `Online.clientId`, so the find-by-clientId hits and we no-op.
+ * Other clients see no match, so they spawn a mirror entity.
  */
 export const PlayerMirrorSystem = defineSystem({
   name: "PlayerMirror",
   on: PlayerJoined,
-  reads: [Identity],
+  reads: [Online],
   writes: [Identity, Name, Online],
   run: ({ event, world }) => {
-    if (findPlayerByUserId(world, event.userId) !== null) return [];
+    const exists = world
+      .query([Online])
+      .some(
+        (r) => (r.values.Online as { clientId: string }).clientId === event.clientId,
+      );
+    if (exists) return [];
     world.spawn([
       Identity({ userId: event.userId, role: event.role }),
       Name({ value: event.name }),
@@ -68,8 +73,10 @@ export const PlayerMirrorSystem = defineSystem({
 });
 
 /**
- * Server-side: WS closed. Find the matching Player by clientId, despawn it,
- * and emit PlayerLeft so every other client can mirror the disconnect.
+ * Server-side: WS closed. Find the Connection entity for this socket by
+ * `clientId` and despawn it. Other connections for the same user (if
+ * any) remain — only when the last one detaches does the user fall out
+ * of the player list.
  */
 export const PlayerDespawnSystem = defineSystem({
   name: "PlayerDespawn",
@@ -94,19 +101,22 @@ export const PlayerDespawnSystem = defineSystem({
 });
 
 /**
- * Universal mirror: runs everywhere on PlayerLeft. Server has already
- * despawned (idempotent — find-by-userId returns null). Every other client
- * uses this to remove the disconnected player from its local World.
+ * Universal mirror: runs everywhere on PlayerLeft. Match by `clientId`
+ * (unique per socket) rather than `userId` — multi-tab users can have
+ * several entities with the same `userId`, and we only want to despawn
+ * the one whose socket actually disconnected.
  */
 export const PlayerLeftMirrorSystem = defineSystem({
   name: "PlayerLeftMirror",
   on: PlayerLeft,
-  reads: [Identity],
+  reads: [Online],
   writes: [],
   run: ({ event, world }) => {
-    const playerId = findPlayerByUserId(world, event.userId);
-    if (playerId === null) return [];
-    world.despawn(playerId);
+    const match = world
+      .query([Online])
+      .find((r) => (r.values.Online as { clientId: string }).clientId === event.clientId);
+    if (!match) return [];
+    world.despawn(match.id);
     return [];
   },
 });

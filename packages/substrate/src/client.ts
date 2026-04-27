@@ -3,7 +3,7 @@ import { Registry } from "./registry.js";
 import { World } from "./world.js";
 import { EventBus } from "./event-bus.js";
 import { WireMsg } from "./protocol.js";
-import type { EventName } from "./schema.js";
+import type { EventName, QualifiedName } from "./schema.js";
 import { substrateCorePlugin } from "./core-plugin.js";
 import { runSystemsToFixpoint } from "./systems-runner.js";
 import { createContext, createSignal, useContext } from "solid-js";
@@ -13,17 +13,33 @@ export interface ClientOptions {
   plugins: ReadonlyArray<PluginDef>;
 }
 
+/**
+ * High-frequency, non-event-sourced side channel — drag ghosts, cursors,
+ * "X is typing", anything where freshness matters and durability doesn't.
+ * The substrate fans `publish`ed payloads out to all OTHER clients (the
+ * originator already knows the value locally); `subscribe` runs the
+ * provided callback for incoming payloads on the named channel.
+ */
+export interface PresenceApi {
+  publish(channel: string, payload: unknown, opts?: { to?: string[] }): void;
+  subscribe<T = unknown>(
+    channel: string,
+    fn: (payload: T) => void,
+  ): () => void;
+}
+
 export interface ClientHandle {
   readonly registry: Registry;
   readonly world: World;
   readonly bus: EventBus;
+  readonly presence: PresenceApi;
   readonly clientId: () => string | null;
   readonly connected: () => boolean;
   /** Highest event seq this client has applied (snapshot.atSeq or event.seq). */
   readonly lastAppliedSeq: () => number;
   /** True once the server has sent `synced` — initial catchup is complete. */
   readonly synced: () => boolean;
-  dispatch(cmd: CommandInstance): string;
+  dispatch(cmd: CommandInstance, opts?: { causalState?: unknown }): string;
   onConnect(fn: () => void): () => void;
   /** Fires once when the client transitions from catchup to live mode. */
   onSynced(fn: () => void): () => void;
@@ -113,18 +129,53 @@ export function startClient(opts: ClientOptions): ClientHandle {
       case "ack":
         // nothing to do for the demo
         break;
+      case "presence": {
+        const subs = presenceSubs.get(msg.data.channel as QualifiedName);
+        if (subs) for (const fn of subs) fn(msg.data.payload);
+        break;
+      }
     }
   });
+
+  // Presence: per-channel listeners, not buffered. Late-joining a channel
+  // means you start hearing from "now"; the design is for ephemeral state
+  // (cursor positions, drag ghosts) where stale snapshots aren't useful.
+  const presenceSubs = new Map<QualifiedName, Set<(payload: unknown) => void>>();
+  const presence: PresenceApi = {
+    publish(channel, payload, pubOpts) {
+      sock.send(
+        JSON.stringify({
+          kind: "presence",
+          channel,
+          payload,
+          to: pubOpts?.to,
+        }),
+      );
+    },
+    subscribe(channel, fn) {
+      const key = channel as QualifiedName;
+      let set = presenceSubs.get(key);
+      if (!set) {
+        set = new Set();
+        presenceSubs.set(key, set);
+      }
+      set.add(fn as (p: unknown) => void);
+      return () => {
+        set!.delete(fn as (p: unknown) => void);
+      };
+    },
+  };
 
   return {
     registry,
     world,
     bus,
+    presence,
     clientId,
     connected,
     lastAppliedSeq,
     synced,
-    dispatch(cmd) {
+    dispatch(cmd, dispatchOpts) {
       const id = newCmdId();
       sock.send(
         JSON.stringify({
@@ -132,6 +183,7 @@ export function startClient(opts: ClientOptions): ClientHandle {
           id,
           issuedAt: Date.now(),
           cmd,
+          causalState: dispatchOpts?.causalState,
         }),
       );
       return id;

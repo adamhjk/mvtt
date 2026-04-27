@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "DEV_PROXY_URL=http://localhost:5173 node --import tsx src/main.ts --watch",
     "start": "node --import tsx src/main.ts",
-    "smoke": "node --import tsx src/smoke.ts",
+    "smoke": "node --import tsx src/smoke.ts && node --import tsx src/scene-smoke.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
@@ -17,7 +17,9 @@
     "@vtt/persistence-sqlite": "workspace:*",
     "@vtt/ping": "workspace:*",
     "@vtt/resolution": "workspace:*",
+    "@vtt/scene": "workspace:*",
     "@vtt/shell-default": "workspace:*",
+    "@vtt/shell-workbench": "workspace:*",
     "@vtt/substrate": "workspace:*",
     "better-auth": "^1.3.0",
     "ws": "^8.18.0"

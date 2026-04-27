@@ -116,6 +116,13 @@ export interface ServerOptions {
    * Format: `http://host:port` (no trailing slash). Leave unset in prod.
    */
   devProxy?: string;
+  /**
+   * Static-mounted directories, keyed by URL prefix (e.g. `"/icons/"` →
+   * `"/abs/path/to/icons"`). Resolved before `devProxy` and `clientRoot`
+   * so plugin/server-shipped assets aren't shadowed by Vite or the
+   * built bundle. Each prefix MUST start and end with `/`.
+   */
+  assetRoots?: Readonly<Record<string, string>>;
 }
 
 const MIME: Record<string, string> = {
@@ -128,6 +135,9 @@ const MIME: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
   ".woff2": "font/woff2",
   ".ico": "image/x-icon",
 };
@@ -207,7 +217,9 @@ async function serveStatic(
   root: string,
   req: IncomingMessage,
   res: ServerResponse,
+  opts: { spaFallback?: boolean } = {},
 ): Promise<void> {
+  const spaFallback = opts.spaFallback ?? true;
   const urlPath = decodeURIComponent((req.url ?? "/").split("?")[0]!);
   const wantedRel = urlPath === "/" ? "index.html" : urlPath.replace(/^\/+/, "");
   const absolute = resolve(join(root, normalize(wantedRel)));
@@ -217,14 +229,25 @@ async function serveStatic(
     res.end("forbidden");
     return;
   }
+  const fallbackOr404 = async () => {
+    if (spaFallback) {
+      try {
+        const fallback = await readFile(join(safeRoot, "index.html"));
+        res.statusCode = 200;
+        res.setHeader("content-type", MIME[".html"]!);
+        res.end(fallback);
+        return;
+      } catch {
+        // fall through
+      }
+    }
+    res.statusCode = 404;
+    res.end("not found");
+  };
   try {
     const s = await stat(absolute);
     if (!s.isFile()) {
-      // SPA fallback: serve index.html for unknown paths so client routing works.
-      const fallback = await readFile(join(safeRoot, "index.html"));
-      res.statusCode = 200;
-      res.setHeader("content-type", MIME[".html"]!);
-      res.end(fallback);
+      await fallbackOr404();
       return;
     }
     const body = await readFile(absolute);
@@ -233,15 +256,7 @@ async function serveStatic(
     res.setHeader("content-length", String(body.byteLength));
     res.end(body);
   } catch {
-    try {
-      const fallback = await readFile(join(safeRoot, "index.html"));
-      res.statusCode = 200;
-      res.setHeader("content-type", MIME[".html"]!);
-      res.end(fallback);
-    } catch {
-      res.statusCode = 404;
-      res.end("not found");
-    }
+    await fallbackOr404();
   }
 }
 
@@ -324,12 +339,32 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
   };
 
   const devProxyUrl = opts.devProxy ? new URL(opts.devProxy) : null;
+  // Pre-resolve asset roots so the per-request hot path is just a prefix
+  // match. Sorted by descending prefix length so a more-specific mount
+  // wins over a parent (e.g. `/icons/foo/` before `/icons/`).
+  const assetRoots = Object.entries(opts.assetRoots ?? {})
+    .map(([prefix, root]) => ({ prefix, root: resolve(root) }))
+    .sort((a, b) => b.prefix.length - a.prefix.length);
 
   const httpServer = createServer(async (req, res) => {
     try {
       if (opts.httpHandler) {
         const handled = await opts.httpHandler(req, res);
         if (handled) return;
+      }
+      // assetRoots take priority over devProxy/clientRoot so server-shipped
+      // assets (icons, etc.) aren't shadowed.
+      const url = (req.url ?? "/").split("?")[0]!;
+      for (const { prefix, root } of assetRoots) {
+        if (!url.startsWith(prefix)) continue;
+        const rel = url.slice(prefix.length);
+        await serveStatic(
+          root,
+          { ...req, url: "/" + rel } as IncomingMessage,
+          res,
+          { spaFallback: false },
+        );
+        return;
       }
       // Dev mode: stream non-API HTTP through Vite so source changes (and
       // HMR's injected client script) reach the browser without a rebuild.
@@ -358,8 +393,43 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
     clientId: string;
     session: unknown;
     recipient: Recipient | null;
+    /**
+     * Heartbeat liveness flag. Flipped to `false` when we send a ping;
+     * the socket's `pong` handler flips it back to `true`. If the next
+     * heartbeat tick still finds it `false`, the socket missed a full
+     * ping cycle and gets terminated.
+     */
+    isAlive: boolean;
   };
   const conns = new Set<Conn>();
+
+  // WS heartbeat: ping every 15s, terminate if a pong didn't arrive in
+  // the prior interval. Detection bound is one full cycle (~30s), which
+  // is fast enough to keep the player list honest after a browser crash
+  // or a silently-dropped connection without false-positives on brief
+  // network jitter. Browsers send a clean close frame on tab close /
+  // refresh in the normal case — this is the backstop for the abnormal
+  // ones (OOM kill, laptop snap, NAT drop).
+  const HEARTBEAT_INTERVAL_MS = 15_000;
+  const heartbeat = setInterval(() => {
+    for (const conn of conns) {
+      if (!conn.isAlive) {
+        // Missed a ping cycle. `terminate` skips the close handshake;
+        // the 'close' event still fires, which runs the despawn system.
+        conn.sock.terminate();
+        continue;
+      }
+      conn.isAlive = false;
+      try {
+        conn.sock.ping();
+      } catch {
+        // ping() can throw on a half-closed socket; let the next tick
+        // pick it up via the isAlive check.
+      }
+    }
+  }, HEARTBEAT_INTERVAL_MS);
+  // Don't keep the Node process alive just for the heartbeat.
+  if (typeof heartbeat.unref === "function") heartbeat.unref();
 
   httpServer.on("upgrade", async (req: IncomingMessage, socket: Socket, head: Buffer) => {
     // When a dev proxy is configured, the substrate accepts WS at exactly
@@ -422,8 +492,11 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
   wss.on("connection", (sock: WebSocket, _req: IncomingMessage, session: unknown) => {
     const clientId = `client-${nextClient++}`;
     const recipient = opts.extractRecipient ? opts.extractRecipient(session) : null;
-    const conn: Conn = { sock, clientId, session, recipient };
+    const conn: Conn = { sock, clientId, session, recipient, isAlive: true };
     conns.add(conn);
+    sock.on("pong", () => {
+      conn.isAlive = true;
+    });
 
     sock.send(
       JSON.stringify({
@@ -470,24 +543,45 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
       }
       const msg = WireMsg.safeParse(parsed);
       if (!msg.success) return;
-      if (msg.data.kind !== "command") return;
 
-      const env: CommandEnvelope = {
-        id: msg.data.id,
-        issuedBy: clientId,
-        issuedAt: msg.data.issuedAt,
-        cmd: { type: msg.data.cmd.type as CommandName, payload: msg.data.cmd.payload },
-        session: conn.session,
-      };
-      const result = await pipeline.dispatch(env);
-      sock.send(
-        JSON.stringify({
-          kind: "ack",
-          commandId: env.id,
-          ok: result.result.ok,
-          reason: result.result.ok ? undefined : result.result.reason,
-        }),
-      );
+      if (msg.data.kind === "command") {
+        const env: CommandEnvelope = {
+          id: msg.data.id,
+          issuedBy: clientId,
+          issuedAt: msg.data.issuedAt,
+          cmd: { type: msg.data.cmd.type as CommandName, payload: msg.data.cmd.payload },
+          session: conn.session,
+          causalState: msg.data.causalState,
+        };
+        const result = await pipeline.dispatch(env);
+        sock.send(
+          JSON.stringify({
+            kind: "ack",
+            commandId: env.id,
+            ok: result.result.ok,
+            reason: result.result.ok ? undefined : result.result.reason,
+          }),
+        );
+        return;
+      }
+
+      if (msg.data.kind === "presence") {
+        // Fan presence out to every OTHER connection — the originator
+        // already has the value locally. Whisper-style scoping applies if
+        // `to` is set; otherwise visibility-style "everyone" semantics.
+        const allowList = msg.data.to;
+        const out = JSON.stringify(msg.data);
+        for (const peer of conns) {
+          if (peer === conn) continue;
+          if (peer.sock.readyState !== peer.sock.OPEN) continue;
+          if (allowList) {
+            const recipientId = peer.recipient?.userId;
+            if (!recipientId || !allowList.includes(recipientId)) continue;
+          }
+          peer.sock.send(out);
+        }
+        return;
+      }
     });
 
     sock.on("close", () => {
@@ -519,6 +613,7 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
           } catch {
             // best-effort
           }
+          clearInterval(heartbeat);
           for (const conn of conns) conn.sock.close();
           await new Promise<void>((r) => wss.close(() => httpServer.close(() => r())));
           if (opts.persistence?.close) await opts.persistence.close();

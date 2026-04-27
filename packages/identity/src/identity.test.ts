@@ -85,7 +85,7 @@ describe("@vtt/identity", () => {
     expect((row.values.Online as { clientId: string }).clientId).toBe("client-1");
   });
 
-  it("PlayerJoined mirror is idempotent — server doesn't double-spawn", () => {
+  it("PlayerJoined mirror is idempotent on clientId — server's own dispatch doesn't double-spawn", () => {
     fire(registry, world, bus, ConnectionOpened({ clientId: "c1", session: SESSION }));
     expect(world.query([Identity])).toHaveLength(1);
     // Replay the same PlayerJoined event (as a remote client would receive it).
@@ -102,6 +102,73 @@ describe("@vtt/identity", () => {
       }),
     );
     expect(world.query([Identity])).toHaveLength(1);
+  });
+
+  it("multi-tab: two ConnectionOpened for the same user spawn two entities, one per clientId", () => {
+    fire(registry, world, bus, ConnectionOpened({ clientId: "c1", session: SESSION }));
+    fire(registry, world, bus, ConnectionOpened({ clientId: "c2", session: SESSION }));
+    const rows = world.query([Identity, Online]);
+    expect(rows).toHaveLength(2);
+    const clientIds = rows
+      .map((r) => (r.values.Online as { clientId: string }).clientId)
+      .sort();
+    expect(clientIds).toEqual(["c1", "c2"]);
+    // Both entities carry the same userId — display layer dedupes for the
+    // player list; useMe() picks the one matching this tab's clientId.
+    const userIds = new Set(rows.map((r) => (r.values.Identity as { userId: string }).userId));
+    expect([...userIds]).toEqual([SESSION.userId]);
+  });
+
+  it("multi-tab: closing one connection despawns only that entity, the other tab stays online", () => {
+    fire(registry, world, bus, ConnectionOpened({ clientId: "c1", session: SESSION }));
+    fire(registry, world, bus, ConnectionOpened({ clientId: "c2", session: SESSION }));
+    fire(registry, world, bus, ConnectionClosed({ clientId: "c1" }));
+    const rows = world.query([Online]);
+    expect(rows).toHaveLength(1);
+    expect((rows[0]!.values.Online as { clientId: string }).clientId).toBe("c2");
+  });
+
+  it("PlayerLeft mirror despawns the entity matching the closed clientId, not by userId", () => {
+    // Build a world with two same-user mirrors at different clientIds
+    // (representing two tabs of the same user, viewed from a third client).
+    fire(
+      registry,
+      world,
+      bus,
+      PlayerJoined({
+        playerId: "e1" as any,
+        userId: SESSION.userId,
+        name: SESSION.name,
+        role: SESSION.role,
+        clientId: "c1",
+      }),
+    );
+    fire(
+      registry,
+      world,
+      bus,
+      PlayerJoined({
+        playerId: "e2" as any,
+        userId: SESSION.userId,
+        name: SESSION.name,
+        role: SESSION.role,
+        clientId: "c2",
+      }),
+    );
+    expect(world.query([Online])).toHaveLength(2);
+    fire(
+      registry,
+      world,
+      bus,
+      PlayerLeft({
+        playerId: "e1" as any,
+        userId: SESSION.userId,
+        clientId: "c1",
+      }),
+    );
+    const rows = world.query([Online]);
+    expect(rows).toHaveLength(1);
+    expect((rows[0]!.values.Online as { clientId: string }).clientId).toBe("c2");
   });
 
   it("PlayerJoined alone (no preceding ConnectionOpened) spawns the Player — client mirror path", () => {

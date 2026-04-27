@@ -18,7 +18,7 @@ export const comms = definePlugin({
     "@vtt/substrate@^0",
     "@vtt/identity@^0",
     "@vtt/permissions@^0",
-    "@vtt/shell-default@^0",
+    "@vtt/shell-workbench@^0",
   ],
   traits: [ChatMessage],
   events: [MessageSent],

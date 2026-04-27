@@ -18,6 +18,18 @@ export default defineConfig({
         target: `http://localhost:${SERVER_PORT}`,
         changeOrigin: true,
       },
+      "/icons": {
+        target: `http://localhost:${SERVER_PORT}`,
+        changeOrigin: true,
+      },
+      // Plugin-owned uploaded assets (e.g. scene background images
+      // written via /api/plugin-data/...). The substrate mounts these
+      // at /plugin-data/ on its own port; the dev proxy makes the same
+      // path resolvable when the client is loaded via Vite at 5173.
+      "/plugin-data": {
+        target: `http://localhost:${SERVER_PORT}`,
+        changeOrigin: true,
+      },
     },
   },
 });

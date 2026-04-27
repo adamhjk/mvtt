@@ -12,6 +12,16 @@
  * setting [data-theme="light"] or [data-theme="dark"] on <html> forces a side.
  */
 
+/*
+ * The chrome leans on a typographic identity (kind labels, palette title,
+ * mono codeblocks). The actual font files are loaded from the host HTML
+ * — see packages/client/index.html — so any consumer of this token sheet
+ * pairs it with the same `<link rel="stylesheet">` block (or substitutes
+ * their own faces) without having to fight CSS @import ordering rules.
+ * Fallback chains in `--font-display` / `--font-mono` keep things sane
+ * if the load fails.
+ */
+
 @theme {
   --color-surface: light-dark(#ffffff, #0e1116);
   --color-surface-elevated: light-dark(#f6f8fa, #161b22);
@@ -31,24 +41,56 @@
   --color-danger: light-dark(#cf222e, #f85149);
   --color-warning: light-dark(#9a6700, #d29922);
 
+  /*
+   * Workbench-specific — used by @vtt/shell-workbench but exposed here so
+   * a theme override can retune the chrome alongside the base palette.
+   */
+  --color-pane-edge: light-dark(#1f883d, #2ea043);
+  --color-pane-edge-idle: light-dark(#d0d7de, #30363d);
+  --color-pane-bg-active: light-dark(#fbfbfc, #11161d);
+  --color-scrim: light-dark(rgba(15, 18, 24, 0.32), rgba(0, 0, 0, 0.72));
+  --color-tab-active-bg: light-dark(#ffffff, #0b0f14);
+
   --radius-card: 0.5rem;
   --radius-control: 0.375rem;
+  /* Inside the workbench, panes meet flush — no rounded corners for tabs/panes. */
+  --radius-pane: 0;
 
   --spacing-page: 2rem;
   --spacing-stack: 0.75rem;
+  /* Chrome dimensions */
+  --workbench-tab-strip: 2.25rem;
+  --workbench-rail: 22rem;
+  --workbench-divider: 1px;
 
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 :root {
   color-scheme: light dark;
+  /*
+   * Filter applied to white-on-transparent SVG icons (e.g. the token
+   * picker thumbnails). Default targets light mode — icons render black
+   * on light surfaces. Dark mode and explicit data-theme overrides
+   * disable the filter so icons stay white on dark surfaces.
+   */
+  --icon-filter: invert(1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --icon-filter: none;
+  }
 }
 
 [data-theme="light"] {
   color-scheme: light;
+  --icon-filter: invert(1);
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
+  --icon-filter: none;
 }

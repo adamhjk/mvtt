@@ -1,1 +1,1 @@
-export { PlayerListView } from "./views";
+export { PlayerListView, UserMenuView } from "./views";
