@@ -13,209 +13,34 @@ import {
   type WorkbenchDrawer,
   type DrawerEdge,
 } from "../shared/slots.js";
-import { OpenDrawer, CloseDrawer, ToggleDrawer } from "../shared/commands.js";
+import { OpenDrawer, CloseDrawer } from "../shared/commands.js";
 import { useWorkspace } from "./use-workspace.js";
 
 const DEFAULT_SIZE_FOR_EDGE: Record<DrawerEdge, number> = {
-  bottom: 280,
+  bottom: 320,
   top: 240,
   right: 360,
   left: 300,
 };
 
 /**
- * Per-edge container layout. Edge drawers float over the body — they
- * don't reflow the panes underneath. The `transform` on the wrapper
- * provides the slide animation; the inner panel paints once the wrapper
- * is in its open position.
- */
-function edgeContainerClass(edge: DrawerEdge): string {
-  const base =
-    "pointer-events-none absolute z-30 transition-transform duration-300 ease-out";
-  switch (edge) {
-    case "bottom":
-      return `${base} bottom-0 left-0 right-0`;
-    case "top":
-      return `${base} top-0 left-0 right-0`;
-    case "right":
-      return `${base} right-0 top-0 bottom-0`;
-    case "left":
-      return `${base} left-0 top-0 bottom-0`;
-  }
-}
-
-/**
- * Translation that hides a drawer offscreen along its edge axis. When a
- * drawer is open we set transform to none; when closed/closing we set
- * it to this value and the CSS transition animates the slide.
- */
-function hiddenTransform(edge: DrawerEdge): string {
-  switch (edge) {
-    case "bottom":
-      return "translate-y-full";
-    case "top":
-      return "-translate-y-full";
-    case "right":
-      return "translate-x-full";
-    case "left":
-      return "-translate-x-full";
-  }
-}
-
-/**
- * Renders all registered drawers as edge-anchored overlays. Drawers
- * are absolute-positioned siblings inside the workbench container —
- * the parent must be `position: relative` for them to anchor correctly.
+ * Top-level orchestrator for plugin-supplied drawers. Wires:
  *
- * Lifecycle responsibilities:
- *  - Subscribe to `autoOpenOn` events on the bus and dispatch OpenDrawer.
- *  - When a drawer opens, schedule a CloseDrawer timer based on
- *    `autoCloseAfterMs` if set; reset the timer on every re-open.
- *  - Always render the drawer's `<DrawerPanel>` so the slide-out
- *    transition has something to animate against. The wrapper's
- *    transform decides whether it's visible.
+ *  - Auto-open subscription: each drawer with an `autoOpenOn` event
+ *    name gets an OpenDrawer({keepOpen:false}) dispatched on each
+ *    bus emit.
+ *  - Auto-close timer: only fires when `keepOpen` is false. Drawers
+ *    the user opened by clicking the tab stay sticky until closed.
+ *  - Per-edge layout regions (currently bottom only).
+ *
+ * Drawer bodies are mounted once at workbench startup and stay
+ * mounted; closed drawers are hidden via `display: none` so any
+ * effects/subscriptions inside the body keep running. (The dice
+ * tray relies on this to catch `RollResolved` even when the panel
+ * is collapsed.)
  */
 export function WorkbenchDrawers(): JSX.Element {
   const client = useClient();
-  const ws = useWorkspace();
-
-  const drawers = createMemo<WorkbenchDrawer[]>(() => {
-    const fills = client.registry.fillsForSlot(
-      WorkbenchDrawersSlot,
-    ) as WorkbenchDrawer[];
-    // De-duplicate by id, keeping the highest-priority fill.
-    const byId = new Map<string, WorkbenchDrawer>();
-    for (const d of fills) {
-      const cur = byId.get(d.id);
-      if (!cur || (d.priority ?? 0) > (cur.priority ?? 0)) {
-        byId.set(d.id, d);
-      }
-    }
-    return Array.from(byId.values());
-  });
-
-  // Wire auto-open: a single createEffect per drawer subscribes to its
-  // declared event and dispatches OpenDrawer. Cleanup unsubscribes when
-  // the drawer set changes (plugin loaded/unloaded) or on unmount.
-  createEffect(() => {
-    const ds = drawers();
-    const cleanups: Array<() => void> = [];
-    for (const d of ds) {
-      if (!d.autoOpenOn) continue;
-      const off = client.bus.on(d.autoOpenOn as EventName, () => {
-        client.dispatch(OpenDrawer({ id: d.id }) as CommandInstance);
-      });
-      cleanups.push(off);
-    }
-    onCleanup(() => {
-      for (const off of cleanups) off();
-    });
-  });
-
-  return (
-    <For each={drawers()}>
-      {(d) => (
-        <DrawerSlot
-          drawer={d}
-          openedAt={() => ws.state()?.openDrawers[d.id]?.openedAt ?? null}
-          size={() =>
-            ws.state()?.openDrawers[d.id]?.size ??
-            d.defaultSize ??
-            DEFAULT_SIZE_FOR_EDGE[d.edge]
-          }
-        />
-      )}
-    </For>
-  );
-}
-
-/**
- * One drawer slot — owns the auto-close timer and the slide animation.
- * Splits drawer-by-drawer so each one's timer/effect lifecycle is
- * isolated; bumping `openedAt` resets just this one's timer.
- */
-function DrawerSlot(props: {
-  drawer: WorkbenchDrawer;
-  openedAt: () => number | null;
-  size: () => number;
-}): JSX.Element {
-  const client = useClient();
-  const open = () => props.openedAt() !== null;
-
-  const close = () => {
-    client.dispatch(
-      CloseDrawer({ id: props.drawer.id }) as CommandInstance,
-    );
-  };
-
-  // Auto-close timer: re-runs whenever openedAt changes (open or
-  // re-open). Cancels the previous timer first so a re-open resets the
-  // dwell window — matches the "pile-up resets the close timer" spec.
-  createEffect(() => {
-    const at = props.openedAt();
-    const ms = props.drawer.autoCloseAfterMs;
-    if (at === null || !ms) return;
-    const elapsed = Date.now() - at;
-    const remaining = Math.max(0, ms - elapsed);
-    const timer = window.setTimeout(close, remaining);
-    onCleanup(() => window.clearTimeout(timer));
-  });
-
-  const sizeStyle = createMemo(() => {
-    const px = `${props.size()}px`;
-    switch (props.drawer.edge) {
-      case "bottom":
-      case "top":
-        return { height: px };
-      case "right":
-      case "left":
-        return { width: px };
-    }
-  });
-
-  // Mount the drawer body exactly once at component setup so it
-  // can subscribe to bus events from app-load time AND so that
-  // reactive prop changes (size, openedAt, etc.) don't cause
-  // re-render → remount. Calling `props.drawer.render(...)` inline
-  // inside the JSX put it in a tracked scope; every
-  // WorkspaceStateChanged event re-evaluated that expression and
-  // unmounted/remounted the body, which for the dice tray meant
-  // tearing down + rebuilding the entire Babylon engine on every
-  // roll (visible as a flicker; materials never finished shader
-  // compilation before the next remount). Computing the body once
-  // here outside the JSX keeps it stable for the life of the
-  // workbench mount — which is exactly what bus subscribers want.
-  const body = props.drawer.render({
-    close,
-    // Initial size only. Drawer bodies that need to react to size
-    // changes use ResizeObserver on their own canvas/container —
-    // the same pattern other resizable plugin views use, and it
-    // sidesteps the remount footgun above.
-    size: props.size(),
-  }) as JSX.Element;
-  return (
-    <div
-      class={`${edgeContainerClass(props.drawer.edge)} ${
-        open() ? "" : hiddenTransform(props.drawer.edge)
-      }`}
-      style={sizeStyle()}
-      aria-hidden={!open()}
-    >
-      <div class="pointer-events-auto h-full w-full overflow-hidden border border-border-muted bg-surface-elevated shadow-xl">
-        {body}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Header launcher cluster — one button per registered drawer. Click
- * toggles the drawer; the button is highlighted when its drawer is
- * currently open. Sorted by priority (desc) then label.
- */
-export function DrawerLaunchers(): JSX.Element {
-  const client = useClient();
-  const ws = useWorkspace();
 
   const drawers = createMemo<WorkbenchDrawer[]>(() => {
     const fills = client.registry.fillsForSlot(
@@ -236,38 +61,194 @@ export function DrawerLaunchers(): JSX.Element {
     });
   });
 
+  const bottomDrawers = createMemo(() =>
+    drawers().filter((d) => d.edge === "bottom"),
+  );
+
+  // Auto-open subscriptions: dispatch OpenDrawer({keepOpen:false}) on
+  // the configured event for any drawer that has autoOpenOn set. The
+  // server-side OpenDrawer.apply preserves a sticky `keepOpen: true`
+  // if the user has it on, so this never downgrades user intent.
+  createEffect(() => {
+    const ds = drawers();
+    const cleanups: Array<() => void> = [];
+    for (const d of ds) {
+      if (!d.autoOpenOn) continue;
+      const off = client.bus.on(d.autoOpenOn as EventName, () => {
+        client.dispatch(
+          OpenDrawer({ id: d.id, keepOpen: false }) as CommandInstance,
+        );
+      });
+      cleanups.push(off);
+    }
+    onCleanup(() => {
+      for (const off of cleanups) off();
+    });
+  });
+
   return (
-    <Show when={drawers().length > 0}>
-      <div class="flex items-center gap-1">
-        <For each={drawers()}>
-          {(d) => {
-            const isOpen = () => Boolean(ws.state()?.openDrawers[d.id]);
+    <Show when={bottomDrawers().length > 0}>
+      <BottomDrawerRegion drawers={bottomDrawers()} />
+    </Show>
+  );
+}
+
+/**
+ * Bottom-edge drawer region — modelled on `@vtt/scene/SceneDock`:
+ *
+ *   ┌─ ▼ │ DICE TRAY · NOTES ──────────────────────────────────┐
+ *   │   panel content (collapsible, height transitions)         │
+ *   └───────────────────────────────────────────────────────────┘
+ *
+ * The tab strip is always visible (when any bottom drawer is
+ * registered). Active drawer's tab gets an accent underline + full
+ * text colour; inactive tabs are muted. The chevron on the left
+ * collapses/expands the currently-active drawer.
+ *
+ * Only one drawer per edge can be open at a time — clicking an
+ * inactive tab closes whatever's open and opens the clicked one,
+ * matching the scene dock's "switch tab, don't stack" behaviour.
+ */
+function BottomDrawerRegion(props: {
+  drawers: WorkbenchDrawer[];
+}): JSX.Element {
+  const client = useClient();
+  const ws = useWorkspace();
+
+  // Per-drawer body, rendered once and reused. Closed drawers are
+  // hidden via `display: none` (the body's effects keep running
+  // — that's how the dice tray's bus subscription survives across
+  // close/reopen cycles).
+  const bodies = props.drawers.map((d) => {
+    const close = () =>
+      client.dispatch(CloseDrawer({ id: d.id }) as CommandInstance);
+    const initialSize = d.defaultSize ?? DEFAULT_SIZE_FOR_EDGE[d.edge];
+    const body = d.render({ close, size: initialSize }) as JSX.Element;
+    return { drawer: d, body };
+  });
+
+  // Auto-close lifecycle: per drawer, watch openedAt + keepOpen.
+  // Schedule a CloseDrawer dispatch only when keepOpen is false —
+  // sticky drawers (user clicked the tab, or toggled the keep-open
+  // checkbox) skip the timer entirely.
+  for (const d of props.drawers) {
+    if (!d.autoCloseAfterMs) continue;
+    createEffect(() => {
+      const state = ws.state()?.openDrawers[d.id];
+      if (!state) return;
+      if (state.keepOpen) return;
+      const elapsed = Date.now() - state.openedAt;
+      const remaining = Math.max(0, d.autoCloseAfterMs! - elapsed);
+      const timer = window.setTimeout(() => {
+        client.dispatch(CloseDrawer({ id: d.id }) as CommandInstance);
+      }, remaining);
+      onCleanup(() => window.clearTimeout(timer));
+    });
+  }
+
+  /** The currently-active drawer — the one with content showing. */
+  const activeDrawer = createMemo<WorkbenchDrawer | null>(() => {
+    const opened = ws.state()?.openDrawers ?? {};
+    for (const d of props.drawers) {
+      if (opened[d.id]) return d;
+    }
+    return null;
+  });
+
+  /** Pixel height of the open content panel. */
+  const panelHeight = createMemo(() => {
+    const d = activeDrawer();
+    if (!d) return 0;
+    const state = ws.state()?.openDrawers[d.id];
+    return state?.size ?? d.defaultSize ?? DEFAULT_SIZE_FOR_EDGE[d.edge];
+  });
+
+  /**
+   * Click a tab. The tab is a pure "make this drawer sticky-open"
+   * trigger — it always dispatches `OpenDrawer({keepOpen: true})`,
+   * even if the drawer was already open via auto-open. That way a
+   * user who watches dice land and then clicks the tab actually
+   * upgrades the drawer to sticky and stops the auto-close timer.
+   * Closing is the drawer body's job (its own 'x' button).
+   *
+   * Only one drawer per edge can be open at a time, so we close any
+   * other open drawer first.
+   */
+  const onTabClick = (drawer: WorkbenchDrawer) => {
+    const opened = ws.state()?.openDrawers ?? {};
+    for (const other of props.drawers) {
+      if (other.id !== drawer.id && opened[other.id]) {
+        client.dispatch(
+          CloseDrawer({ id: other.id }) as CommandInstance,
+        );
+      }
+    }
+    client.dispatch(
+      OpenDrawer({ id: drawer.id, keepOpen: true }) as CommandInstance,
+    );
+  };
+
+  return (
+    <aside class="flex shrink-0 flex-col border-t border-border bg-surface-elevated">
+      {/* Collapsible content panel — height transitions between 0
+          and the open drawer's pixel size. Each drawer's body lives
+          inside a wrapper that's display:block when active and
+          display:none otherwise. */}
+      <div
+        class="overflow-hidden bg-surface transition-[height] duration-300 ease-out"
+        style={{ height: `${panelHeight()}px` }}
+      >
+        <For each={bodies}>
+          {(b) => {
+            const visible = createMemo(
+              () => activeDrawer()?.id === b.drawer.id,
+            );
             return (
-              <button
-                type="button"
-                onClick={() =>
-                  client.dispatch(
-                    ToggleDrawer({ id: d.id }) as CommandInstance,
-                  )
-                }
-                class={
-                  "inline-flex items-center gap-1.5 rounded-(--radius-control) border px-2.5 py-1.5 text-xs transition " +
-                  (isOpen()
-                    ? "border-accent bg-accent/10 text-fg"
-                    : "border-border bg-surface-elevated text-fg-muted hover:border-accent hover:text-fg")
-                }
-                title={`Toggle ${d.label}`}
-                aria-pressed={isOpen()}
+              <div
+                class="h-full w-full"
+                style={{ display: visible() ? "block" : "none" }}
               >
-                <Show when={d.icon}>
-                  <span aria-hidden>{d.icon}</span>
-                </Show>
-                <span class="hidden md:inline">{d.label}</span>
-              </button>
+                {b.body}
+              </div>
             );
           }}
         </For>
       </div>
-    </Show>
+
+      {/* Tab strip — persistent footer styled to match the scene's
+          bottom dock. Each tab opens its drawer (closing is the
+          drawer body's responsibility, via its own 'x'). */}
+      <header class="flex h-9 shrink-0 items-stretch gap-px border-t border-border-muted px-1">
+        <For each={props.drawers}>
+          {(d) => {
+            const isActive = createMemo(() => activeDrawer()?.id === d.id);
+            return (
+              <button
+                type="button"
+                onClick={() => onTabClick(d)}
+                class="group relative inline-flex items-center gap-1.5 px-3 font-display text-[0.7rem] uppercase tracking-[0.14em] transition"
+                classList={{
+                  "text-fg": isActive(),
+                  "text-fg-subtle hover:text-fg": !isActive(),
+                }}
+                aria-pressed={isActive()}
+              >
+                <Show when={d.icon}>
+                  <span aria-hidden class="text-[0.85rem]">{d.icon}</span>
+                </Show>
+                <span>{d.label}</span>
+                <Show when={isActive()}>
+                  <span
+                    aria-hidden
+                    class="pointer-events-none absolute inset-x-2 -bottom-px h-[2px]"
+                    style={{ "background-color": "var(--color-pane-edge)" }}
+                  />
+                </Show>
+              </button>
+            );
+          }}
+        </For>
+      </header>
+    </aside>
   );
 }

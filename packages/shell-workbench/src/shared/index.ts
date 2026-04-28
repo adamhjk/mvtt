@@ -46,6 +46,7 @@ export {
   OpenDrawer,
   CloseDrawer,
   ToggleDrawer,
+  SetDrawerKeepOpen,
   ResizeDrawer,
   allCommands,
 } from "./commands.js";

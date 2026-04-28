@@ -36,14 +36,22 @@ import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { MultiMaterial } from "@babylonjs/core/Materials/multiMaterial.js";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture.js";
+import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin.js";
+import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate.js";
+import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
+import HavokPhysics from "@babylonjs/havok";
 // Side-effect imports: register InstancedMesh support, the box
 // builder for the tray floor, and the StandardMaterial pipeline.
 import "@babylonjs/core/Meshes/instancedMesh.js";
 import "@babylonjs/core/Meshes/Builders/boxBuilder.js";
 import "@babylonjs/core/Materials/standardMaterial.js";
+import "@babylonjs/core/Physics/v2/physicsEngineComponent.js";
 
 const VIEW_HALF_HEIGHT = 4;
-const TRAY_WALL_HEIGHT = 0.4;
+/** Thickness of the invisible physics floor. Big enough that a
+ *  die in free fall (~22 × dt ≈ 0.36 per frame) can't tunnel
+ *  through in a single physics step. */
+const TRAY_FLOOR_THICKNESS = 0.4;
 const SPAWN_HEIGHT = 4;
 const TUMBLE_SECONDS = 1.2;
 const FACE_TEX_SIZE = 256;
@@ -69,6 +77,10 @@ export type DieKind = 4 | 6 | 8 | 10 | 12 | 20 | 100 | "F" | "10u";
 interface ActiveDie {
   mesh: Mesh;
   spawnedAt: number;
+  /** Per-die physics aggregate. Disposed when the die fades out
+   *  or is cleared from the tray. Set to null after we disable
+   *  physics for the snap-to-target slerp. */
+  agg: PhysicsAggregate | null;
 }
 
 export interface TrayHandle {
@@ -76,6 +88,14 @@ export interface TrayHandle {
     kind: DieKind;
     value: number;
     tintColor: Color3;
+    /**
+     * Which side of the tray the die is thrown FROM. -1 = left
+     * (negative X), +1 = right (positive X). Drawer picks one
+     * value per roll batch and passes it to every die in that
+     * batch so they all look like they came from the same hand.
+     * Omitted = random per spawn.
+     */
+    throwSide?: -1 | 1;
   }): Promise<void>;
   clear(): void;
   dispose(): void;
@@ -90,9 +110,6 @@ export function tintForUser(userId: string): Color3 {
   return Color3.FromHSV(h % 360, 0.55, 0.78);
 }
 
-function easeOutQuad(t: number): number {
-  return 1 - (1 - t) * (1 - t);
-}
 
 // ─── Geometry builders ──────────────────────────────────────────────
 //
@@ -489,6 +506,10 @@ interface BuiltMesh {
    *  mesh build time. For d4 these are overridden after build to
    *  be *vertex*-up rotations instead. */
   faceRotations: Quaternion[];
+  /** Per-face outward normal in mesh-local space, used at snap
+   *  time to compute the *minimum* correction that puts the right
+   *  face up while preserving whatever yaw physics settled at. */
+  faceLocalNormals: Vector3[];
   /** Numeric die-value of face[i], parallel to `labels`. Used to
    *  look up the right face rotation for a rolled value. NaN for
    *  faces whose label isn't a parseable number (Fudge blanks). */
@@ -525,6 +546,7 @@ function buildDieMesh(scene: Scene, name: string, faces: FaceSpec[]): BuiltMesh 
   const indices: number[] = [];
   const subMeshRanges: { indexStart: number; indexCount: number; vertStart: number; vertCount: number }[] = [];
   const faceRotations: Quaternion[] = [];
+  const faceLocalNormals: Vector3[] = [];
 
   for (const face of faces) {
     const verts = face.vertices;
@@ -616,8 +638,11 @@ function buildDieMesh(scene: Scene, name: string, faces: FaceSpec[]): BuiltMesh 
       vertStart,
       vertCount: verts.length,
     });
-    // Rotation that lands this face on top of the die.
+    // Rotation that lands this face on top of the die, plus the
+    // raw mesh-local normal so the snap can compute a minimum
+    // correction (preserving the settled yaw) at runtime.
     faceRotations.push(rotationFromTo(normal, new Vector3(0, 1, 0)));
+    faceLocalNormals.push(normal.clone());
   }
 
   const mesh = new Mesh(name, scene);
@@ -650,6 +675,7 @@ function buildDieMesh(scene: Scene, name: string, faces: FaceSpec[]): BuiltMesh 
     mesh,
     labels: faces.map((f) => f.label),
     faceRotations,
+    faceLocalNormals,
     faceValues,
     faceCornerValues: faces.map((f) => f.cornerValues),
   };
@@ -664,6 +690,97 @@ function buildDieMesh(scene: Scene, name: string, faces: FaceSpec[]): BuiltMesh 
  *
  *  Per-(kind, tint) caching upstream keeps us from re-creating
  *  these for every die of the same colour. */
+/** Procedural wood-grain texture for the tray walls. Vertical
+ *  brown streaks plus a few darker bands and knots — enough
+ *  variation that the walls read as "wood" from a top-down view
+ *  without committing to a specific species. */
+function createWoodTexture(scene: Scene): DynamicTexture {
+  const SIZE = 256;
+  const tex = new DynamicTexture("tray-wood", SIZE, scene, false);
+  const ctx = tex.getContext() as unknown as CanvasRenderingContext2D;
+
+  // Base wood tone: warm mid-brown.
+  ctx.fillStyle = "#5a3a22";
+  ctx.fillRect(0, 0, SIZE, SIZE);
+
+  // Vertical grain bands. Quasi-deterministic via a small sine
+  // mix so the grain is coherent rather than pure noise.
+  for (let x = 0; x < SIZE; x++) {
+    const v =
+      Math.sin(x * 0.04) * 0.4 +
+      Math.sin(x * 0.13) * 0.25 +
+      (Math.random() - 0.5) * 0.35;
+    const tint = Math.round(v * 22);
+    const r = Math.max(40, Math.min(150, 90 + tint));
+    const g = Math.max(25, Math.min(110, 58 + tint));
+    const b = Math.max(15, Math.min(80, 34 + tint));
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    ctx.fillRect(x, 0, 1, SIZE);
+  }
+
+  // Dark grain streaks.
+  for (let i = 0; i < 14; i++) {
+    const x = Math.random() * SIZE;
+    const w = 1 + Math.random() * 3;
+    ctx.fillStyle = `rgba(40, 22, 12, ${0.25 + Math.random() * 0.2})`;
+    ctx.fillRect(x, 0, w, SIZE);
+  }
+
+  // A couple of knots (oval darker spots).
+  for (let i = 0; i < 3; i++) {
+    const cx = Math.random() * SIZE;
+    const cy = Math.random() * SIZE;
+    const rx = 6 + Math.random() * 10;
+    const ry = 3 + Math.random() * 5;
+    ctx.fillStyle = "rgba(30, 18, 8, 0.5)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  tex.update();
+  return tex;
+}
+
+/** Procedural velvet texture for the tray floor. Deep wine base
+ *  with fine ImageData noise so it reads as fabric-fuzz when
+ *  viewed from the orthographic camera, plus a subtle darkening
+ *  vignette toward the centre that hints at depth. */
+function createVelvetTexture(scene: Scene): DynamicTexture {
+  const SIZE = 256;
+  const tex = new DynamicTexture("tray-velvet", SIZE, scene, false);
+  const ctx = tex.getContext() as unknown as CanvasRenderingContext2D;
+
+  // Dark forest green — classic dice-tray velvet that lets every
+  // tint of die pop without clashing.
+  ctx.fillStyle = "#143a1f";
+  ctx.fillRect(0, 0, SIZE, SIZE);
+
+  // Per-pixel noise for the fabric grain. Weighted so the green
+  // channel carries most of the variance — keeps the noise looking
+  // like felt pile rather than chromatic speckle.
+  const img = ctx.getImageData(0, 0, SIZE, SIZE);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (Math.random() - 0.5) * 22;
+    img.data[i] = Math.max(0, Math.min(255, img.data[i]! + n * 0.5));
+    img.data[i + 1] = Math.max(0, Math.min(255, img.data[i + 1]! + n));
+    img.data[i + 2] = Math.max(0, Math.min(255, img.data[i + 2]! + n * 0.55));
+  }
+  ctx.putImageData(img, 0, 0);
+
+  // Soft radial vignette darker toward the centre — sells the
+  // "well of velvet" look. Gradient from transparent at edges to
+  // a slightly darker tint at the middle.
+  const grad = ctx.createRadialGradient(SIZE / 2, SIZE / 2, SIZE * 0.1, SIZE / 2, SIZE / 2, SIZE * 0.7);
+  grad.addColorStop(0, "rgba(0, 0, 0, 0.18)");
+  grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, SIZE, SIZE);
+
+  tex.update();
+  return tex;
+}
+
 function shouldUnderline(label: string): boolean {
   // Numerals that read ambiguously when rotated 180° (6/9 and the
   // two-digit numbers containing them or that flip to other valid
@@ -811,6 +928,12 @@ interface KindMeshBundle {
    *  these are vertex-up rotations (4 of them, one per vertex);
    *  for other kinds, face-up rotations parallel to `labels`. */
   faceRotations: Quaternion[];
+  /** Mesh-local "up direction" of the i'th rotation slot — the
+   *  outward face normal for face-dice, the vertex direction
+   *  (normalised position) for d4. Used by the snap to compute
+   *  the *minimum* rotation that puts that direction at world +Y
+   *  while preserving whatever yaw physics settled at. */
+  faceLocalNormals: Vector3[];
   /** Numeric value at each rotation slot. For d4 = vertex values
    *  1..4 (parallel to `faceRotations`). For others = face values
    *  parallel to `labels`. The value→slot lookup at spawn time
@@ -862,32 +985,166 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
   fill.intensity = 0.4;
 
   const floorMat = new StandardMaterial("floor-mat", scene);
-  floorMat.diffuseColor = new Color3(0.16, 0.15, 0.19);
-  floorMat.specularColor = new Color3(0.05, 0.05, 0.05);
+  floorMat.diffuseTexture = createVelvetTexture(scene);
+  floorMat.diffuseColor = new Color3(1, 1, 1);
+  floorMat.specularColor = new Color3(0.05, 0.05, 0.05); // velvet barely shines
+  floorMat.specularPower = 8;
   const wallMat = new StandardMaterial("wall-mat", scene);
-  wallMat.diffuseColor = new Color3(0.22, 0.21, 0.26);
-  wallMat.specularColor = new Color3(0.1, 0.1, 0.1);
+  wallMat.diffuseTexture = createWoodTexture(scene);
+  wallMat.diffuseColor = new Color3(1, 1, 1);
+  wallMat.specularColor = new Color3(0.18, 0.15, 0.10); // wood gloss
+  wallMat.specularPower = 24;
 
+  // The tray now separates *visual* meshes (flat: a wood frame +
+  // velvet patch, both at floor height — looks like a 2D rim from
+  // the orthographic top-down view) from *physics* meshes (an
+  // invisible thick floor + invisible tall walls that contain
+  // dice without contributing to the visible chrome).
   let floor: Mesh | null = null;
+  let floorAgg: PhysicsAggregate | null = null;
   let walls: Mesh[] = [];
+  let wallAggs: PhysicsAggregate[] = [];
+  let frameMesh: Mesh | null = null;
+  let velvetMesh: Mesh | null = null;
   let halfWidth = VIEW_HALF_HEIGHT;
   const halfDepth = VIEW_HALF_HEIGHT;
+  /** Visual rim width — how thick the wood frame appears from
+   *  above. Visible only; physics walls land just inside this. */
+  const FRAME_WIDTH = 0.35;
+  /** Physics wall thickness. Beefed up significantly (3× the
+   *  visual frame width) so even fast handfuls can't tunnel
+   *  through between physics frames. */
+  const PHYS_WALL_THICKNESS = 1.0;
+  /** Physics wall height. Tall enough that no toss can clear it.
+   *  Walls extend from below the floor up well past spawn height. */
+  const PHYS_WALL_HEIGHT = 6.0;
+
+  // Havok physics — initialised lazily so createTray can stay
+  // synchronous. Spawn awaits this before adding the die's
+  // dynamic body. The plugin pulls in a WASM file (~700 KB) over
+  // HTTP, so the first roll has a small one-time delay.
+  let physicsReady = false;
+  const physicsInit = (async () => {
+    const havok = await HavokPhysics();
+    const plugin = new HavokPlugin(true, havok);
+    scene.enablePhysics(new Vector3(0, -22, 0), plugin);
+    // Gravity is exaggerated (~2.2× earth) so dice settle quickly
+    // without looking sluggish at the small world scale we use.
+    physicsReady = true;
+    rebuildTrayPhysics();
+  })().catch((err) => {
+    // eslint-disable-next-line no-console
+    console.error("[dice-tray] physics init failed", err);
+  });
+
+  function disposeTrayPhysics(): void {
+    floorAgg?.dispose();
+    floorAgg = null;
+    for (const a of wallAggs) a.dispose();
+    wallAggs = [];
+  }
+
+  function rebuildTrayPhysics(): void {
+    if (!physicsReady) return;
+    disposeTrayPhysics();
+    if (floor) {
+      floorAgg = new PhysicsAggregate(
+        floor,
+        PhysicsShapeType.BOX,
+        // Floor grip is the main settling brake, so it stays
+        // moderately high. Per-die friction is kept low elsewhere
+        // (so dice slide *off each other* and don't stack), and
+        // the floor-vs-die contact ends up using a combined value
+        // that's slipperier than the floor alone — that's the
+        // sweet spot: dice slide off each other but the floor
+        // catches them within a tile or two.
+        { mass: 0, friction: 8.0, restitution: 0.32 },
+        scene,
+      );
+    }
+    for (const w of walls) {
+      wallAggs.push(
+        new PhysicsAggregate(
+          w,
+          PhysicsShapeType.BOX,
+          // Walls bouncier than the floor so a thrown die that
+          // hits the far wall snaps back across the tray with
+          // some authority, instead of just sticking to the
+          // contact point.
+          { mass: 0, friction: 0.4, restitution: 0.55 },
+          scene,
+        ),
+      );
+    }
+  }
 
   const buildTray = (): void => {
+    disposeTrayPhysics();
     floor?.dispose();
+    frameMesh?.dispose();
+    velvetMesh?.dispose();
+    frameMesh = null;
+    velvetMesh = null;
     for (const w of walls) w.dispose();
     walls = [];
-    const width = halfWidth * 2;
-    const depth = halfDepth * 2;
-    floor = MeshBuilder.CreateBox(
-      "tray-floor",
-      { width, depth, height: 0.05 },
+
+    const fullW = halfWidth * 2;
+    const fullD = halfDepth * 2;
+    const innerHalfW = halfWidth - FRAME_WIDTH;
+    const innerHalfD = halfDepth - FRAME_WIDTH;
+
+    // ── Visual layer (no physics) ──────────────────────────────
+    // Wood frame: a thin slab at floor level filling the whole
+    // ortho frame. The velvet patch sits ON TOP of it at a tiny
+    // Y offset, leaving the frame visible only as a rim around
+    // the velvet — the "2D frame from above" look.
+    frameMesh = MeshBuilder.CreateBox(
+      "tray-frame",
+      { width: fullW, depth: fullD, height: 0.04 },
       scene,
     );
-    floor.position.y = -0.025;
-    floor.material = floorMat;
-    const wallThickness = 0.1;
-    const buildWall = (
+    frameMesh.position.y = -0.02;
+    frameMesh.material = wallMat;
+    frameMesh.isPickable = false;
+
+    velvetMesh = MeshBuilder.CreateBox(
+      "tray-velvet",
+      {
+        width: innerHalfW * 2,
+        depth: innerHalfD * 2,
+        height: 0.04,
+      },
+      scene,
+    );
+    // Tiny lift to avoid z-fighting with the frame underneath.
+    velvetMesh.position.y = 0.001;
+    velvetMesh.material = floorMat;
+    velvetMesh.isPickable = false;
+
+    // ── Physics layer (invisible) ──────────────────────────────
+    // A thick floor that catches dice over the *entire* visible
+    // area (slightly larger, even — extra margin so any die that
+    // somehow escapes the wall ring still has ground under it
+    // rather than falling into the void). Y-position puts its
+    // top exactly where the velvet sits.
+    floor = MeshBuilder.CreateBox(
+      "tray-physics-floor",
+      {
+        width: fullW + PHYS_WALL_THICKNESS * 2,
+        depth: fullD + PHYS_WALL_THICKNESS * 2,
+        height: TRAY_FLOOR_THICKNESS,
+      },
+      scene,
+    );
+    floor.position.y = -TRAY_FLOOR_THICKNESS / 2;
+    floor.isVisible = false;
+    floor.isPickable = false;
+
+    // Invisible thick walls just inside the visual rim. They
+    // extend from below the floor up to PHYS_WALL_HEIGHT, with
+    // PHYS_WALL_THICKNESS on the inward axis — together that's a
+    // sealed box that fast handfuls of dice cannot tunnel through.
+    const buildPhysWall = (
       n: string,
       w: number,
       d: number,
@@ -896,19 +1153,50 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
     ): Mesh => {
       const wall = MeshBuilder.CreateBox(
         n,
-        { width: w, depth: d, height: TRAY_WALL_HEIGHT },
+        { width: w, depth: d, height: PHYS_WALL_HEIGHT },
         scene,
       );
-      wall.position.set(x, TRAY_WALL_HEIGHT / 2, z);
-      wall.material = wallMat;
+      wall.position.set(x, PHYS_WALL_HEIGHT / 2 - 0.5, z);
+      wall.isVisible = false;
+      wall.isPickable = false;
       return wall;
     };
     walls = [
-      buildWall("wall-n", width, wallThickness, 0, -halfDepth),
-      buildWall("wall-s", width, wallThickness, 0, halfDepth),
-      buildWall("wall-w", wallThickness, depth, -halfWidth, 0),
-      buildWall("wall-e", wallThickness, depth, halfWidth, 0),
+      // West / east walls run the full depth INCLUDING the
+      // corners (they extend past the inner area into the
+      // wall-thickness margin). Combined with N/S walls of
+      // matching outer extent, the corners are sealed by
+      // overlap.
+      buildPhysWall(
+        "phys-w",
+        PHYS_WALL_THICKNESS,
+        fullD + PHYS_WALL_THICKNESS * 2,
+        -innerHalfW - PHYS_WALL_THICKNESS / 2,
+        0,
+      ),
+      buildPhysWall(
+        "phys-e",
+        PHYS_WALL_THICKNESS,
+        fullD + PHYS_WALL_THICKNESS * 2,
+        innerHalfW + PHYS_WALL_THICKNESS / 2,
+        0,
+      ),
+      buildPhysWall(
+        "phys-n",
+        fullW + PHYS_WALL_THICKNESS * 2,
+        PHYS_WALL_THICKNESS,
+        0,
+        -innerHalfD - PHYS_WALL_THICKNESS / 2,
+      ),
+      buildPhysWall(
+        "phys-s",
+        fullW + PHYS_WALL_THICKNESS * 2,
+        PHYS_WALL_THICKNESS,
+        0,
+        innerHalfD + PHYS_WALL_THICKNESS / 2,
+      ),
     ];
+    rebuildTrayPhysics();
   };
 
   const refit = (): void => {
@@ -949,12 +1237,15 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
     // already carry three corner numerals so any of the three
     // visible faces shows the value at its apex corner.
     let faceRotations = built.faceRotations;
+    let faceLocalNormals = built.faceLocalNormals;
     let faceValues = built.faceValues;
     if (kind === 4) {
       const { positions, values } = getD4VertexData();
-      faceRotations = positions.map((p) =>
-        rotationFromTo(p.clone().normalize(), new Vector3(0, 1, 0)),
+      const normals = positions.map((p) => p.clone().normalize());
+      faceRotations = normals.map((n) =>
+        rotationFromTo(n, new Vector3(0, 1, 0)),
       );
+      faceLocalNormals = normals;
       faceValues = values;
     }
 
@@ -963,6 +1254,7 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
       labels: built.labels,
       faceCornerValues: built.faceCornerValues,
       faceRotations,
+      faceLocalNormals,
       faceValues,
     };
     kindMeshCache.set(kind, bundle);
@@ -1016,13 +1308,6 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
   const active: ActiveDie[] = [];
   const SOFT_CAP = 30;
 
-  function pickLandingSpot(): Vector3 {
-    const margin = 0.7;
-    const x = (Math.random() * 2 - 1) * (halfWidth - margin);
-    const z = (Math.random() * 2 - 1) * (halfDepth - margin);
-    return new Vector3(x, DIE_SIZE / 2, z);
-  }
-
   function randomStartQuat(): Quaternion {
     return Quaternion.RotationYawPitchRoll(
       Math.random() * Math.PI * 2,
@@ -1031,40 +1316,28 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
     );
   }
 
-  /** Pick the face-up rotation for the face whose value matches
-   *  `targetValue`, composed with a random rotation around world-Y
-   *  so the die's yaw on landing varies. Falls back to a random
-   *  face if the target value isn't on this die kind (e.g. an
-   *  exotic d-value the parser produced).
-   *
-   *  The world-Y yaw is composed AFTER the face rotation, which
-   *  keeps the chosen face on top while spinning the die around
-   *  its vertical axis. */
-  function pickFaceUpRotForValue(
-    bundle: KindMeshBundle,
-    targetValue: number,
-  ): Quaternion {
-    let faceIdx = bundle.faceValues.indexOf(targetValue);
-    if (faceIdx < 0) {
-      faceIdx = Math.floor(Math.random() * bundle.faceRotations.length);
-    }
-    // eslint-disable-next-line no-console
-    console.log(
-      `[dice-tray] target value=${targetValue} → faceIdx=${faceIdx} label="${bundle.labels[faceIdx]}"`,
-    );
-    const faceRot = bundle.faceRotations[faceIdx]!;
-    const yaw = Quaternion.RotationAxis(
-      new Vector3(0, 1, 0),
-      Math.random() * Math.PI * 2,
-    );
-    return yaw.multiply(faceRot);
-  }
+  /**
+   * Settle thresholds: a body is "settled" once both linear and
+   * angular velocity magnitudes stay below these for
+   * SETTLE_FRAME_COUNT consecutive frames. Tuned empirically — too
+   * loose and snap fires while the die is still tumbling, too
+   * tight and the snap waits forever for a barely-moving die.
+   */
+  const SETTLE_LINEAR_VEL = 0.15;
+  const SETTLE_ANGULAR_VEL = 0.4;
+  const SETTLE_FRAME_COUNT = 8;
+  /** Hard cap on physics time — even if a die never quite stops
+   *  (numerical drift, collision with a fresh roll), we stop
+   *  watching after this so spawn() resolves. */
+  const SETTLE_TIMEOUT_MS = 3500;
 
   async function spawn(args: {
     kind: DieKind;
     value: number;
     tintColor: Color3;
+    throwSide?: -1 | 1;
   }): Promise<void> {
+    await physicsInit;
     const meshBundle = getKindMesh(args.kind);
     const tintBundle = getKindTintMaterial(args.kind, args.tintColor);
 
@@ -1077,50 +1350,154 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
     // the same colour — no per-die material allocation needed.
     mesh.material = tintBundle.multi;
 
-    const landing = pickLandingSpot();
+    // Throw the die from one side of the tray as if released
+    // from a hand. The drawer picks a side per roll batch so
+    // every die in a `4d6` looks like it came out of the same
+    // hand; absent that hint, randomise.
+    //
+    // Spread the spawn position generously across Z and slightly
+    // across X / Y so a handful of dice don't all aim at the same
+    // patch of tray — that's what causes stacking. Each die in a
+    // batch starts a different distance from the throwing-side
+    // wall, at a slightly different release height, and across
+    // most of the tray's depth.
+    const sideX: -1 | 1 = args.throwSide ?? (Math.random() < 0.5 ? -1 : 1);
+    // Spawn inside the visible velvet area, away from the rim
+    // (subtract FRAME_WIDTH plus clearance so the die's hull
+    // doesn't intersect the invisible physics wall on frame
+    // zero). Z-spread fills most of the inner depth.
+    const innerHalfWidth = halfWidth - FRAME_WIDTH;
+    const innerHalfDepth = halfDepth - FRAME_WIDTH;
     const spawnPos = new Vector3(
-      landing.x + (Math.random() - 0.5) * 1.2,
-      SPAWN_HEIGHT,
-      landing.z + (Math.random() - 0.5) * 1.2,
+      sideX * (innerHalfWidth - 0.5 - Math.random() * 0.7),
+      SPAWN_HEIGHT * 0.6 + Math.random() * 0.7,
+      (Math.random() * 2 - 1) * Math.max(0.5, innerHalfDepth - 0.6),
     );
     mesh.position.copyFrom(spawnPos);
-    const startRot = randomStartQuat();
-    const endRot = pickFaceUpRotForValue(meshBundle, args.value);
-    mesh.rotationQuaternion = startRot.clone();
+    mesh.rotationQuaternion = randomStartQuat();
 
+    // Resolve the target face/vertex's mesh-local normal. Each
+    // physics frame we'll apply a tiny corrective torque that
+    // nudges this normal toward world +Y — a "weighted die"
+    // bias. The torque is small enough that the tumble looks
+    // unguided early on (when angular velocity is high), but it
+    // accumulates as the die slows so by settle time the right
+    // face is up. No snap at the end; physics genuinely
+    // produces the result.
+    let targetSlot = meshBundle.faceValues.indexOf(args.value);
+    if (targetSlot < 0) targetSlot = 0;
+    const targetLocalNormal = meshBundle.faceLocalNormals[targetSlot]!;
+
+    // Convex hull collider — the polyhedron geometries are convex
+    // by construction so the hull is exact. CONVEX_HULL is the
+    // right shape for dynamic Havok bodies; MESH (trimesh) only
+    // supports static bodies.
+    const agg = new PhysicsAggregate(
+      mesh,
+      PhysicsShapeType.CONVEX_HULL,
+      {
+        mass: 0.18,
+        // Low friction so when one die comes to rest on top of
+        // another, contact forces + gravity slide it off; high
+        // friction would let dice stack indefinitely.
+        friction: 0.2,
+        restitution: 0.32,
+      },
+      scene,
+    );
+
+    // Strong sideways throw — die crosses the tray, bounces off
+    // the far wall, tumbles, settles. The X component is the
+    // largest (mostly-horizontal toss); per-die variance in
+    // throw speed and Z velocity is wide so a handful of dice
+    // diverge in mid-air rather than tracing parallel paths
+    // and stacking on top of each other when they land.
+    const throwSpeed = 9 + Math.random() * 7;
+    agg.body.setLinearVelocity(
+      new Vector3(
+        -sideX * throwSpeed,
+        -1.0 - Math.random() * 2.0,
+        (Math.random() - 0.5) * 5.0,
+      ),
+    );
+    agg.body.setAngularVelocity(
+      new Vector3(
+        (Math.random() - 0.5) * 42,
+        (Math.random() - 0.5) * 42,
+        (Math.random() - 0.5) * 42,
+      ),
+    );
+
+    const die: ActiveDie = { mesh, spawnedAt: Date.now(), agg };
+    active.push(die);
+
+    while (active.length > SOFT_CAP) {
+      const oldest = active.shift();
+      if (!oldest) break;
+      fadeAndDispose(oldest);
+    }
+
+    // Watch the body until it settles (low velocity for several
+    // frames running, or a hard timeout). Each frame, also apply
+    // a gentle "homing" angular impulse toward face-up: cross of
+    // the target face's current world-space normal with +Y is the
+    // axis that, applied as torque, would rotate the die toward
+    // face-up. Magnitude is tiny so the early tumble looks
+    // natural — early frames have high angular velocity that
+    // dominates, the bias only really takes over as energy
+    // bleeds off. By settle time the die has been gently herded
+    // onto the right face.
+    const BIAS = 0.1;
+    const worldNormal = Vector3.Zero();
+    const upAxis = new Vector3(0, 1, 0);
     const startTime = performance.now();
-    const durationMs = TUMBLE_SECONDS * 1000;
-    const completion = new Promise<void>((resolve) => {
+    await new Promise<void>((resolve) => {
+      let calmFrames = 0;
       const observer = scene.onBeforeRenderObservable.add(() => {
+        if (!die.agg || mesh.isDisposed()) {
+          scene.onBeforeRenderObservable.remove(observer);
+          resolve();
+          return;
+        }
+        // Compute corrective torque axis in world space.
+        targetLocalNormal.rotateByQuaternionToRef(
+          mesh.rotationQuaternion!,
+          worldNormal,
+        );
+        const corr = Vector3.Cross(worldNormal, upAxis);
+        // Magnitude of `corr` = sin(angle off from +Y), so the
+        // bias self-tapers as the die approaches face-up.
+        die.agg.body.applyAngularImpulse(corr.scale(BIAS));
+
+        const lin = die.agg.body.getLinearVelocity().lengthSquared();
+        const ang = die.agg.body.getAngularVelocity().lengthSquared();
+        const linOk = lin < SETTLE_LINEAR_VEL * SETTLE_LINEAR_VEL;
+        const angOk = ang < SETTLE_ANGULAR_VEL * SETTLE_ANGULAR_VEL;
+        if (linOk && angOk) {
+          calmFrames++;
+        } else {
+          calmFrames = 0;
+        }
         const elapsed = performance.now() - startTime;
-        const tRaw = Math.min(1, elapsed / durationMs);
-        const t = easeOutQuad(tRaw);
-        mesh.position.x = spawnPos.x + (landing.x - spawnPos.x) * t;
-        mesh.position.y = spawnPos.y + (landing.y - spawnPos.y) * t;
-        mesh.position.z = spawnPos.z + (landing.z - spawnPos.z) * t;
-        Quaternion.SlerpToRef(startRot, endRot, t, mesh.rotationQuaternion!);
-        if (tRaw >= 1) {
+        if (calmFrames >= SETTLE_FRAME_COUNT || elapsed > SETTLE_TIMEOUT_MS) {
           scene.onBeforeRenderObservable.remove(observer);
           resolve();
         }
       });
     });
-
-    active.push({ mesh, spawnedAt: Date.now() });
-
-    while (active.length > SOFT_CAP) {
-      const oldest = active.shift();
-      if (!oldest) break;
-      fadeAndDispose(oldest.mesh);
-    }
-
-    await completion;
   }
 
-  function fadeAndDispose(mesh: Mesh): void {
+  function fadeAndDispose(die: ActiveDie): void {
+    die.agg?.dispose();
+    die.agg = null;
+    const mesh = die.mesh;
     const startTime = performance.now();
     const durationMs = 500;
     const observer = scene.onBeforeRenderObservable.add(() => {
+      if (mesh.isDisposed()) {
+        scene.onBeforeRenderObservable.remove(observer);
+        return;
+      }
       const t = Math.min(1, (performance.now() - startTime) / durationMs);
       mesh.visibility = 1 - t;
       if (t >= 1) {
@@ -1133,12 +1510,15 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
   function clear(): void {
     while (active.length > 0) {
       const a = active.pop()!;
+      a.agg?.dispose();
+      a.agg = null;
       a.mesh.dispose();
     }
   }
 
   function dispose(): void {
     clear();
+    disposeTrayPhysics();
     engine.stopRenderLoop();
     scene.dispose();
     engine.dispose();

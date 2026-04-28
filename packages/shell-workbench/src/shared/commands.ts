@@ -664,6 +664,14 @@ export const OpenDrawer = defineCommand({
   name: "@vtt/shell-workbench/OpenDrawer",
   schema: z.object({
     id: QualifiedNameSchema,
+    /**
+     * Whether the drawer should stay open until the user explicitly
+     * closes it. `true` is dispatched when the user clicks the tab —
+     * the drawer is sticky and the auto-close timer is skipped. `false`
+     * is dispatched on auto-opens (from `autoOpenOn` events), letting
+     * the auto-close timer run. Defaults to `false`.
+     */
+    keepOpen: z.boolean().default(false),
   }),
   validate: (ctx) => {
     const r = withOwner(ctx);
@@ -675,10 +683,15 @@ export const OpenDrawer = defineCommand({
     const owned = r.owned;
     const next = clone(owned.state);
     const existing = next.openDrawers[ctx.cmd.id];
+    // Don't downgrade an already-sticky drawer when an `auto` re-open
+    // arrives — user intent (keep-open) wins over the system. A fresh
+    // `keepOpen: true` always upgrades.
+    const nextKeepOpen = ctx.cmd.keepOpen || existing?.keepOpen === true;
     next.openDrawers = {
       ...next.openDrawers,
       [ctx.cmd.id]: {
         openedAt: Date.now(),
+        keepOpen: nextKeepOpen,
         // Preserve a previously-resized size when re-opening; otherwise
         // omit so the renderer falls back to the drawer's defaultSize.
         ...(existing?.size !== undefined ? { size: existing.size } : {}),
@@ -739,11 +752,50 @@ export const ToggleDrawer = defineCommand({
       const { [ctx.cmd.id]: _gone, ...rest } = next.openDrawers;
       next.openDrawers = rest;
     } else {
+      // Toggle-to-open is always a *user* action, so keepOpen = true:
+      // the drawer stays open until the user closes it again, no
+      // auto-close timer.
       next.openDrawers = {
         ...next.openDrawers,
-        [ctx.cmd.id]: { openedAt: Date.now() },
+        [ctx.cmd.id]: { openedAt: Date.now(), keepOpen: true },
       };
     }
+    return emit(owned, bumpInteracted(next));
+  },
+});
+
+/**
+ * Set the `keepOpen` preference for an open drawer. Surfaced as a
+ * checkbox in the drawer header — flipping it on cancels the
+ * auto-close timer; flipping it off lets the timer run if the
+ * drawer was opened via an `autoOpenOn` event. No-op if the drawer
+ * isn't currently open.
+ */
+export const SetDrawerKeepOpen = defineCommand({
+  name: "@vtt/shell-workbench/SetDrawerKeepOpen",
+  schema: z.object({
+    id: QualifiedNameSchema,
+    keepOpen: z.boolean(),
+  }),
+  validate: (ctx) => {
+    const r = withOwner(ctx);
+    return r.ok ? ok() : fail(r.reason);
+  },
+  apply: (ctx) => {
+    const r = withOwner(ctx);
+    if (!r.ok) throw new Error("validate failed");
+    const owned = r.owned;
+    const next = clone(owned.state);
+    const existing = next.openDrawers[ctx.cmd.id];
+    if (!existing) {
+      // Drawer isn't open — emit a state-changed event so the
+      // optimistic UI converges, but no real change to make.
+      return emit(owned, bumpInteracted(next));
+    }
+    next.openDrawers = {
+      ...next.openDrawers,
+      [ctx.cmd.id]: { ...existing, keepOpen: ctx.cmd.keepOpen },
+    };
     return emit(owned, bumpInteracted(next));
   },
 });
@@ -774,6 +826,7 @@ export const ResizeDrawer = defineCommand({
       ...next.openDrawers,
       [ctx.cmd.id]: {
         openedAt: existing?.openedAt ?? Date.now(),
+        keepOpen: existing?.keepOpen ?? false,
         size: ctx.cmd.size,
       },
     };
@@ -796,5 +849,6 @@ export const allCommands = [
   OpenDrawer,
   CloseDrawer,
   ToggleDrawer,
+  SetDrawerKeepOpen,
   ResizeDrawer,
 ] as const;

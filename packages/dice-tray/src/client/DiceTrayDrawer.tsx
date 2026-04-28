@@ -1,11 +1,17 @@
-import { qualifiedName, type EventInstance } from "@vtt/substrate";
+import {
+  qualifiedName,
+  type CommandInstance,
+  type EventInstance,
+} from "@vtt/substrate";
 import { useClient } from "@vtt/substrate/client";
 import {
+  SetDrawerKeepOpen,
   type WorkbenchDrawer,
   type WorkbenchDrawerRenderArgs,
 } from "@vtt/shell-workbench/shared";
+import { useWorkspace } from "@vtt/shell-workbench/client";
 import { RollResolved, type DieOutcome } from "@vtt/resolution/shared";
-import { onCleanup, onMount, type JSX } from "solid-js";
+import { createMemo, onCleanup, onMount, type JSX } from "solid-js";
 import { createTray, tintForUser, type DieKind, type TrayHandle } from "./scene.js";
 
 export const DICE_TRAY_DRAWER_ID = qualifiedName("@vtt/dice-tray/tray");
@@ -21,11 +27,15 @@ export const DICE_TRAY_DRAWER_ID = qualifiedName("@vtt/dice-tray/tray");
  * hook) because it needs the *event payload* to drive Babylon
  * spawns; the workbench's auto-open hook only carries "an event
  * fired."
+ *
+ * Icon is a monochrome Unicode glyph (DIE FACE-3) to match the
+ * black-and-white style of other workbench glyphs (config "⚙",
+ * tokens "▣"); colour emoji like 🎲 stand out distractingly.
  */
 export const DiceTrayDrawer: WorkbenchDrawer = {
   id: DICE_TRAY_DRAWER_ID,
   label: "Dice tray",
-  icon: "🎲",
+  icon: "⚂",
   edge: "bottom",
   // Generous height so the top-down tray view actually breathes on
   // open. Users can still resize via ResizeDrawer if they want it
@@ -84,34 +94,97 @@ function spawnsForOutcome(die: DieOutcome): SpawnRequest[] {
   return [{ kind, value: die.value }];
 }
 
+interface PendingRoll {
+  dice: DieOutcome[];
+  rolledByUserId: string;
+}
+
 function DiceTrayBody(props: { close: () => void }): JSX.Element {
   const client = useClient();
+  const ws = useWorkspace();
   let canvasEl: HTMLCanvasElement | undefined;
   let tray: TrayHandle | null = null;
   let unsubscribe: (() => void) | null = null;
   let resizeObs: ResizeObserver | null = null;
+  let stabilityTimer: number | undefined;
+
+  // Queue of RollResolved payloads received before the canvas is
+  // stable. The drawer body is mounted as soon as the workbench
+  // boots (display: none while closed), so RollResolved events fire
+  // here before the tray has its real on-screen size — spawning
+  // into a degenerate-aspect canvas places dice far outside the
+  // visible camera frustum. Hold them until ResizeObserver reports
+  // the canvas has been at the same size for a beat, then drain.
+  const pendingRolls: PendingRoll[] = [];
+  let canvasReady = false;
+
+  // Keep-open lives in WorkspaceState; the header checkbox dispatches
+  // SetDrawerKeepOpen rather than mutating local state.
+  const drawerState = createMemo(
+    () => ws.state()?.openDrawers[DICE_TRAY_DRAWER_ID],
+  );
+  const keepOpen = createMemo(() => drawerState()?.keepOpen ?? false);
+
+  function processRoll(payload: PendingRoll): void {
+    if (!tray) return;
+    if (payload.dice.length === 0) return;
+    // Each new roll wipes the previous one's dice — the tray shows
+    // just the most recent outcome. Pile-up of dice *within* a
+    // single roll (e.g. 4d6 → 4 dice on screen simultaneously) is
+    // preserved by spawning each die in the same batch without
+    // clearing between them.
+    tray.clear();
+    const tint = tintForUser(payload.rolledByUserId);
+    // Pick a "throwing hand" side once per roll batch so every die
+    // in this throw enters from the same side of the tray, like
+    // they all came out of the same hand. Random per-roll for
+    // variety across rolls.
+    const throwSide: -1 | 1 = Math.random() < 0.5 ? -1 : 1;
+    // Flatten each rolled die into its spawn request(s); a single
+    // d100 outcome expands into a tens + units pair.
+    const requests: SpawnRequest[] = [];
+    for (const die of payload.dice) {
+      for (const r of spawnsForOutcome(die)) requests.push(r);
+    }
+    // Tight stagger so a handful of dice releases almost
+    // simultaneously — like a fist opening — rather than as a
+    // stream of dice. Combined with the wide spawn-position spread
+    // inside the tray, this keeps dice from landing on top of each
+    // other at the same patch of floor.
+    for (let i = 0; i < requests.length; i++) {
+      const r = requests[i]!;
+      const delay = i * 25;
+      setTimeout(() => {
+        tray?.spawn({
+          kind: r.kind,
+          value: r.value,
+          tintColor: tint,
+          throwSide,
+        });
+      }, delay);
+    }
+  }
+
+  function drainPending(): void {
+    if (!canvasReady || !tray) return;
+    if (pendingRolls.length === 0) return;
+    // If multiple rolls queued up while the canvas was stabilising,
+    // play just the most recent — the tray only ever displays the
+    // latest outcome anyway, and replaying older ones in sequence
+    // would be a confusing flash.
+    const latest = pendingRolls[pendingRolls.length - 1]!;
+    pendingRolls.length = 0;
+    processRoll(latest);
+  }
 
   onMount(() => {
     if (!canvasEl) return;
-    tray = createTray(canvasEl);
 
-    // Two-step resize: createTray's internal `engine.resize()` reads
-    // the canvas's CSS box at construction, but the drawer's
-    // slide-in transform is still animating, so the parent's layout
-    // hasn't fully stabilised. requestAnimationFrame waits for the
-    // browser to commit the next frame, by which point the canvas
-    // has its true post-open size — refit the camera/tray then.
-    requestAnimationFrame(() => tray?.resize());
-
-    // Track size changes (drawer-resize, window resize) so the canvas
-    // re-fits its viewport.
-    resizeObs = new ResizeObserver(() => tray?.resize());
-    resizeObs.observe(canvasEl);
-
-    // Subscribe to RollResolved on the bus and spawn each die in the
-    // event's payload onto the tray. Stagger spawns slightly so big
-    // batches (e.g. `12d6`) read as a poured handful rather than a
-    // single chord of geometry appearing at once.
+    // Subscribe FIRST. The dice tray's body mounts as soon as the
+    // workbench boots, but the canvas may be hidden (display: none)
+    // and ResizeObserver hasn't fired yet. Events that arrive
+    // before the canvas is stable get queued and replayed once the
+    // tray is ready.
     unsubscribe = client.bus.on(
       RollResolved.name,
       (e: EventInstance<unknown>) => {
@@ -121,40 +194,75 @@ function DiceTrayBody(props: { close: () => void }): JSX.Element {
         };
         const dice = payload.dice ?? [];
         if (dice.length === 0) return;
-        // Each new roll wipes the previous one's dice — the tray
-        // shows just the most recent outcome. Pile-up of dice
-        // *within* a single roll (e.g. 4d6 → 4 dice on screen
-        // simultaneously) is preserved by spawning each die in the
-        // same batch without clearing between them.
-        tray?.clear();
-        const tint = tintForUser(payload.rolledByUserId ?? "anonymous");
-        // Flatten each rolled die into its spawn request(s); a
-        // single d100 outcome expands into a tens + units pair.
-        const requests: SpawnRequest[] = [];
-        for (const die of dice) {
-          for (const r of spawnsForOutcome(die)) requests.push(r);
-        }
-        for (let i = 0; i < requests.length; i++) {
-          const r = requests[i]!;
-          const delay = i * 70;
-          setTimeout(() => {
-            tray?.spawn({
-              kind: r.kind,
-              value: r.value,
-              tintColor: tint,
-            });
-          }, delay);
+        const roll: PendingRoll = {
+          dice,
+          rolledByUserId: payload.rolledByUserId ?? "anonymous",
+        };
+        if (canvasReady && tray) {
+          processRoll(roll);
+        } else {
+          pendingRolls.push(roll);
         }
       },
     );
+
+    // Wait for the canvas to reach a non-degenerate size and stay
+    // there for a beat (debounced ResizeObserver). Only then
+    // initialise the tray and process any queued rolls.
+    //
+    // The drawer's open/close transition is 300ms; a 120ms quiet
+    // window is comfortably longer than the longest single
+    // ResizeObserver gap during the animation, but short enough
+    // that the user perceives no extra delay between roll command
+    // and dice landing.
+    const STABILITY_QUIET_MS = 120;
+    const onResize = (): void => {
+      if (stabilityTimer !== undefined) {
+        window.clearTimeout(stabilityTimer);
+      }
+      stabilityTimer = window.setTimeout(() => {
+        stabilityTimer = undefined;
+        if (!canvasEl) return;
+        const w = canvasEl.clientWidth;
+        const h = canvasEl.clientHeight;
+        if (w <= 0 || h <= 0) {
+          canvasReady = false;
+          return;
+        }
+        if (!tray) {
+          tray = createTray(canvasEl);
+        } else {
+          tray.resize();
+        }
+        canvasReady = true;
+        drainPending();
+      }, STABILITY_QUIET_MS);
+    };
+
+    resizeObs = new ResizeObserver(onResize);
+    resizeObs.observe(canvasEl);
+    // Kick off in case the canvas is already at its final size when
+    // we mount (e.g. drawer was open at app boot).
+    onResize();
   });
 
   onCleanup(() => {
     unsubscribe?.();
+    if (stabilityTimer !== undefined) window.clearTimeout(stabilityTimer);
     resizeObs?.disconnect();
     tray?.dispose();
     tray = null;
   });
+
+  const onToggleKeepOpen = (e: Event) => {
+    const checked = (e.currentTarget as HTMLInputElement).checked;
+    client.dispatch(
+      SetDrawerKeepOpen({
+        id: DICE_TRAY_DRAWER_ID,
+        keepOpen: checked,
+      }) as CommandInstance,
+    );
+  };
 
   return (
     <div class="relative flex h-full w-full flex-col">
@@ -162,17 +270,28 @@ function DiceTrayBody(props: { close: () => void }): JSX.Element {
         <h2 class="font-display text-[0.62rem] uppercase tracking-[0.2em] text-fg-subtle">
           Dice tray
         </h2>
-        <button
-          type="button"
-          onClick={() => {
-            tray?.clear();
-            props.close();
-          }}
-          class="rounded-(--radius-control) border border-border bg-surface-elevated px-2 py-1 text-[0.65rem] text-fg-muted hover:border-accent hover:text-fg transition"
-          title="Clear and close"
-        >
-          ✕
-        </button>
+        <div class="flex items-center gap-3">
+          <label class="inline-flex cursor-pointer select-none items-center gap-1.5 text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle hover:text-fg transition">
+            <input
+              type="checkbox"
+              class="h-3 w-3 cursor-pointer accent-(--color-pane-edge)"
+              checked={keepOpen()}
+              onChange={onToggleKeepOpen}
+            />
+            <span>keep open</span>
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              tray?.clear();
+              props.close();
+            }}
+            class="rounded-(--radius-control) border border-border bg-surface-elevated px-2 py-1 text-[0.65rem] text-fg-muted hover:border-accent hover:text-fg transition"
+            title="Clear and close"
+          >
+            ✕
+          </button>
+        </div>
       </header>
       <div class="relative min-h-0 flex-1">
         <canvas

@@ -35,6 +35,7 @@ import {
   OpenPageInNewTab,
   ResizeDrawer,
   RetargetTab,
+  SetDrawerKeepOpen,
   SetSplitProportions,
   SetTabUiState,
   ToggleDrawer,
@@ -933,5 +934,81 @@ describe("drawers", () => {
     expect(() =>
       ResizeDrawer({ id: DRAWER_A as never, size: 0 }),
     ).toThrow();
+  });
+
+  it("OpenDrawer defaults to keepOpen=false (auto-close eligible)", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_A }));
+    const state = getState(world, ownerId);
+    expect(state.openDrawers[DRAWER_A]!.keepOpen).toBe(false);
+  });
+
+  it("OpenDrawer({keepOpen:true}) records the sticky preference", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_A, keepOpen: true }));
+    const state = getState(world, ownerId);
+    expect(state.openDrawers[DRAWER_A]!.keepOpen).toBe(true);
+  });
+
+  it("OpenDrawer never downgrades a sticky drawer on auto re-open", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_A, keepOpen: true }));
+    // Auto re-open (keepOpen omitted/false) must not flip the
+    // existing sticky preference back off.
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_A, keepOpen: false }));
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]!.keepOpen).toBe(true);
+  });
+
+  it("OpenDrawer upgrades a non-sticky open to sticky when keepOpen:true", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_A, keepOpen: false }));
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]!.keepOpen).toBe(false);
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_A, keepOpen: true }));
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]!.keepOpen).toBe(true);
+  });
+
+  it("ToggleDrawer toggle-to-open sets keepOpen=true (user action)", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    await dispatch(pipeline, ToggleDrawer({ id: DRAWER_A }));
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]!.keepOpen).toBe(true);
+  });
+
+  it("SetDrawerKeepOpen flips the preference without changing open state", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_A, keepOpen: false }));
+    const before = getState(world, ownerId).openDrawers[DRAWER_A]!;
+    await dispatch(
+      pipeline,
+      SetDrawerKeepOpen({ id: DRAWER_A, keepOpen: true }),
+    );
+    const after = getState(world, ownerId).openDrawers[DRAWER_A]!;
+    expect(after.keepOpen).toBe(true);
+    // openedAt isn't touched — only the preference flips.
+    expect(after.openedAt).toBe(before.openedAt);
+  });
+
+  it("SetDrawerKeepOpen on a closed drawer is a no-op (no entry created)", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    await dispatch(
+      pipeline,
+      SetDrawerKeepOpen({ id: DRAWER_A, keepOpen: true }),
+    );
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]).toBeUndefined();
+  });
+
+  it("CloseDrawer clears keepOpen (next auto-open is auto-close-eligible)", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_A, keepOpen: true }));
+    await dispatch(pipeline, CloseDrawer({ id: DRAWER_A }));
+    await dispatch(pipeline, OpenDrawer({ id: DRAWER_A }));
+    expect(getState(world, ownerId).openDrawers[DRAWER_A]!.keepOpen).toBe(false);
   });
 });

@@ -69,10 +69,20 @@ export type WorkspaceTree = WorkspaceTreeShape;
  * persisted state (e.g. a roll-tray that auto-closes after 4s should
  * close itself on remount if `Date.now() - openedAt` already exceeds
  * the dwell window).
+ *
+ * `keepOpen` is the user-facing "stay open" preference, surfaced as a
+ * checkbox in the drawer header. When true, the auto-close timer is
+ * skipped — the drawer stays put until the user explicitly closes it.
+ * Clicking the drawer's tab to open dispatches `OpenDrawer` with
+ * `keepOpen: true`; an auto-open from an event opens with
+ * `keepOpen: false`. The user can toggle the field directly via
+ * `SetDrawerKeepOpen`. Defaults to false so existing persisted state
+ * round-trips cleanly into auto-close-eligible.
  */
 const DrawerStateSchema = z.object({
   openedAt: z.number(),
   size: z.number().int().min(40).max(4096).optional(),
+  keepOpen: z.boolean().default(false),
 });
 export type WorkbenchDrawerState = z.infer<typeof DrawerStateSchema>;
 

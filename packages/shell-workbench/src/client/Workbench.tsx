@@ -12,14 +12,14 @@ import { useWorkspace } from "./use-workspace.js";
 import { useWorkbenchKeybindings } from "./keybindings.js";
 import { WorkbenchHeaderSurface, PaletteSurface } from "../shared/surfaces.js";
 import { useMe } from "./use-me.js";
-import { WorkbenchDrawers, DrawerLaunchers } from "./Drawers.js";
+import { WorkbenchDrawers } from "./Drawers.js";
 
 /**
  * The whole workbench. Mounted into RootSurface at higher priority than
  * any default-shell ChromeView so the substrate's `single` surface
  * picker selects this when both shells are loaded.
  *
- * Layout:
+ * Layout (3-row grid):
  *   ┌─ header ────────────────────────────────────────────────────┐
  *   │ logo · plugin-supplied header chips · palette trigger       │
  *   ├─────────────────────────────────────────┬───────────────────┤
@@ -27,7 +27,9 @@ import { WorkbenchDrawers, DrawerLaunchers } from "./Drawers.js";
  *   │  - one or more panes                    │  - rail widgets   │
  *   │  - each pane is a tab strip + page      │  - chat composer  │
  *   │                                         │  - chat stream    │
- *   └─────────────────────────────────────────┴───────────────────┘
+ *   ├─────────────────────────────────────────┴───────────────────┤
+ *   │ bottom-edge drawer region (collapsible content + tab strip)  │
+ *   └──────────────────────────────────────────────────────────────┘
  *  + ⌘K palette overlay
  */
 export const WorkbenchView = defineView({
@@ -48,7 +50,7 @@ export const WorkbenchView = defineView({
 
     return (
       <div
-        class="relative grid h-screen min-h-0 grid-rows-[auto_1fr] bg-surface-sunken text-fg"
+        class="relative grid h-screen min-h-0 grid-rows-[auto_1fr_auto] overflow-hidden bg-surface-sunken text-fg"
         // Suppress password-manager autofill across the whole workbench.
         data-1p-ignore="true"
         data-lpignore="true"
@@ -70,8 +72,6 @@ export const WorkbenchView = defineView({
           </div>
 
           <div class="flex flex-1 items-center justify-end gap-3">
-            {/* Plugin-contributed drawers (dice tray, GM notes, etc.). */}
-            <DrawerLaunchers />
             {/* Plugin-contributed header items (presence chips, GM tools, etc.) */}
             <Surface name={WorkbenchHeaderSurface.name} />
             <button
@@ -127,8 +127,11 @@ export const WorkbenchView = defineView({
         </div>
 
         {/* ── drawers ────────────────────────────────────────────── */}
-        {/* Edge-anchored slide-outs filled by the WorkbenchDrawersSlot.
-            Float over the body — the panes don't reflow when one opens. */}
+        {/* Bottom-edge drawer region: persistent tab strip + a
+            collapsible content panel above it. Sits in the workbench
+            grid as a 3rd auto-sized row, so opening/closing pushes the
+            body up/down rather than overlaying it. Renders nothing if
+            no drawers are registered. */}
         <WorkbenchDrawers />
 
         {/* ── palette ────────────────────────────────────────────── */}

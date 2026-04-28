@@ -585,11 +585,15 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         });
       });
 
-      // Re-fit if the host resizes (window resize, panel reflow). Pixi
-      // updates app.screen automatically via resizeTo, but we still
-      // need to re-center. Skip if the user has already interacted
-      // (panning/zooming) to avoid clobbering their viewport.
+      // Re-fit if the host resizes (window resize, panel reflow such
+      // as a workbench drawer opening). Pixi's `resizeTo` plugin only
+      // listens for the window `resize` event, so a container reflow
+      // (e.g. dice-tray drawer expanding) doesn't update app.screen on
+      // its own — without `app.resize()` here the canvas DOM element
+      // shrinks via CSS while the WebGL framebuffer stays its old size,
+      // and the rendered image gets stretched/squashed.
       const ro = new ResizeObserver(() => {
+        app.resize();
         if (!fitted) return;
         fitToViewport();
       });
