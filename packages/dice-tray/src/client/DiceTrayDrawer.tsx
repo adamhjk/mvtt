@@ -42,23 +42,46 @@ export const DiceTrayDrawer: WorkbenchDrawer = {
   },
 };
 
+interface SpawnRequest {
+  kind: DieKind;
+  value: number;
+}
+
 /**
- * Translate a `DieOutcome.sides` value to the tray's `DieKind`.
+ * Translate a single `DieOutcome` into the spawn request(s) it
+ * needs. Most kinds map 1:1; d100 expands into two dice — the
+ * tens d10 (kind `100`, faces 00/10/.../90) and the units d10
+ * (kind `"10u"`, faces 0..9). For value V (1..100):
+ *   tens = (V === 100 ? 0 : Math.floor(V / 10) * 10)
+ *   units = V % 10
+ * which gives "00" + "0" = 100 by tabletop convention.
+ *
  * Numeric sides we recognise (4, 6, 8, 10, 12, 20, 100) map directly;
  * Fudge → "F"; anything else (an exotic die from the parser, e.g.
  * `d7` or `d30`) falls back to a d20 silhouette so the tumble still
- * runs — the printed label is what reads, the geometry is just dressing.
+ * runs — the printed label is what reads, the geometry is just
+ * dressing.
  */
-function kindForSides(sides: number | "F"): DieKind {
-  if (sides === "F") return "F";
-  if (sides === 4) return 4;
-  if (sides === 6) return 6;
-  if (sides === 8) return 8;
-  if (sides === 10) return 10;
-  if (sides === 12) return 12;
-  if (sides === 20) return 20;
-  if (sides === 100) return 100;
-  return 20;
+function spawnsForOutcome(die: DieOutcome): SpawnRequest[] {
+  if (die.sides === 100) {
+    const v = die.value;
+    const tensValue = v === 100 ? 0 : Math.floor(v / 10) * 10;
+    const unitsValue = v % 10;
+    return [
+      { kind: 100, value: tensValue },
+      { kind: "10u", value: unitsValue },
+    ];
+  }
+  let kind: DieKind;
+  if (die.sides === "F") kind = "F";
+  else if (die.sides === 4) kind = 4;
+  else if (die.sides === 6) kind = 6;
+  else if (die.sides === 8) kind = 8;
+  else if (die.sides === 10) kind = 10;
+  else if (die.sides === 12) kind = 12;
+  else if (die.sides === 20) kind = 20;
+  else kind = 20;
+  return [{ kind, value: die.value }];
 }
 
 function DiceTrayBody(props: { close: () => void }): JSX.Element {
@@ -105,13 +128,19 @@ function DiceTrayBody(props: { close: () => void }): JSX.Element {
         // same batch without clearing between them.
         tray?.clear();
         const tint = tintForUser(payload.rolledByUserId ?? "anonymous");
-        for (let i = 0; i < dice.length; i++) {
-          const die = dice[i]!;
+        // Flatten each rolled die into its spawn request(s); a
+        // single d100 outcome expands into a tens + units pair.
+        const requests: SpawnRequest[] = [];
+        for (const die of dice) {
+          for (const r of spawnsForOutcome(die)) requests.push(r);
+        }
+        for (let i = 0; i < requests.length; i++) {
+          const r = requests[i]!;
           const delay = i * 70;
           setTimeout(() => {
             tray?.spawn({
-              kind: kindForSides(die.sides),
-              value: die.value,
+              kind: r.kind,
+              value: r.value,
               tintColor: tint,
             });
           }, delay);

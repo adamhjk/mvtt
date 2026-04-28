@@ -54,7 +54,17 @@ const FACE_TEX_SIZE = 256;
  *  cramped on the tray. */
 const DIE_SIZE = 1.4;
 
-export type DieKind = 4 | 6 | 8 | 10 | 12 | 20 | 100 | "F";
+/**
+ * Kinds of die we know how to render.
+ *
+ * `100` is the *tens* d10 (faces "10", "20", … "90", "00") rolled
+ * alongside `"10u"`, the *units* d10 (faces "0".."9"), to form a
+ * full d100 result. Standalone `1d10` rolls use `10` (faces 1-10),
+ * matching the common tabletop convention. The drawer expands a
+ * sides-100 RollResolved die into one spawn each of `100` and
+ * `"10u"`.
+ */
+export type DieKind = 4 | 6 | 8 | 10 | 12 | 20 | 100 | "F" | "10u";
 
 interface ActiveDie {
   mesh: Mesh;
@@ -98,29 +108,72 @@ function easeOutQuad(t: number): number {
 
 interface FaceSpec {
   vertices: Vector3[];
+  /** Single label painted at the face's centroid. Used by every die
+   *  kind except d4 — d4 uses `cornerValues` instead. */
   label: string;
+  /** d4 only: the value to paint at each of this face's 3 vertex
+   *  corners, in the same order as `vertices`. Tetrahedral dice
+   *  show three numerals per face (one at each tip), and the
+   *  rolled value corresponds to the *vertex* that lands at the
+   *  apex — so each face displays the apex's value at its top
+   *  corner and its other two vertices' values at the lower
+   *  corners. When this is set, `buildDieMesh` switches to the
+   *  3-corner UV layout and `buildFaceTexture` paints three
+   *  numerals instead of one. */
+  cornerValues?: number[];
 }
 
-/** Tetrahedron, 4 triangular faces. Edge length picked so the
- *  inscribed sphere has radius ~DIE_SIZE/2. */
-function buildD4Faces(): FaceSpec[] {
-  // Regular tetrahedron with vertices on a sphere of radius DIE_SIZE/2.
-  const r = DIE_SIZE / 2;
-  // The 4 vertices of a regular tetrahedron inscribed in a cube
-  // of side 2/√3 — easy to lift positions from the cube's
-  // alternating corners.
+/**
+ * Tetrahedron vertex data. The scale factor is √3 so the d4's
+ * bounding cube has the same side as a d6 — both dice fit in the
+ * same DIE_SIZE box, which makes them feel proportional on the
+ * tray. (A d4 sized to its inscribed sphere alone would be tiny
+ * next to a d6 because a regular tetrahedron's inscribed sphere
+ * radius is only 1/3 its circumscribed sphere radius.)
+ *
+ * Vertex `i` is assigned die-value `i + 1`. Each face spans 3 of
+ * the 4 vertices; the missing vertex is the one OPPOSITE the face
+ * (the value that lands at the apex when that face is on the
+ * bottom).
+ */
+const D4_SCALE = Math.sqrt(3);
+function getD4VertexData(): { positions: Vector3[]; values: number[] } {
+  const r = (DIE_SIZE / 2) * D4_SCALE;
   const k = r / Math.sqrt(3);
-  const v: Vector3[] = [
+  const positions = [
     new Vector3(+k, +k, +k),
     new Vector3(-k, -k, +k),
     new Vector3(-k, +k, -k),
     new Vector3(+k, -k, -k),
   ];
+  const values = [1, 2, 3, 4];
+  return { positions, values };
+}
+
+/** Tetrahedron, 4 triangular faces. Each face lists its 3 vertex
+ *  indices in CCW-from-outside order; `cornerValues` carries those
+ *  vertices' die-values so the texture-painter knows which numeral
+ *  goes at each corner. Vertex order within `vertices` is also the
+ *  order used by the corner-UV layout in `buildDieMesh`:
+ *    vertices[0] → top of texture (apex when face is upright)
+ *    vertices[1] → bottom-left
+ *    vertices[2] → bottom-right
+ */
+function buildD4Faces(): FaceSpec[] {
+  const { positions: v, values } = getD4VertexData();
+  const face = (a: number, b: number, c: number): FaceSpec => ({
+    vertices: [v[a]!, v[b]!, v[c]!],
+    cornerValues: [values[a]!, values[b]!, values[c]!],
+    // `label` is unused for d4 (cornerValues drive painting); set
+    // to a placeholder so structural code can still parseInt it
+    // without throwing.
+    label: "0",
+  });
   return [
-    { vertices: [v[0]!, v[1]!, v[2]!], label: "1" },
-    { vertices: [v[0]!, v[3]!, v[1]!], label: "2" },
-    { vertices: [v[0]!, v[2]!, v[3]!], label: "3" },
-    { vertices: [v[1]!, v[3]!, v[2]!], label: "4" },
+    face(0, 1, 2),
+    face(0, 3, 1),
+    face(0, 2, 3),
+    face(1, 3, 2),
   ];
 }
 
@@ -186,34 +239,43 @@ function buildD6Faces(): FaceSpec[] {
   ];
 }
 
-/** Octahedron, 8 triangular faces — two pyramids back-to-back. */
+/** Octahedron, 8 triangular faces — two pyramids back-to-back.
+ *  Scaled to match d6's bounding sphere (same √3 factor as d4) so
+ *  the d8 doesn't appear smaller than the cube on the tray.
+ *  Each face's vertices are listed CCW from outside so
+ *  Cross(e1, e2) gives the outward normal — required for correct
+ *  Lambertian lighting (the +Y, +X, +Z apex of the octahedron's
+ *  upper-front-right face has outward normal (+, +, +)). */
+const D8_SCALE = Math.sqrt(3);
 function buildD8Faces(): FaceSpec[] {
-  const r = DIE_SIZE / 2;
+  const r = (DIE_SIZE / 2) * D8_SCALE;
   const top = new Vector3(0, +r, 0);
   const bot = new Vector3(0, -r, 0);
-  // 4 vertices on the equator (XZ plane) at the cardinal directions.
   const px = new Vector3(+r, 0, 0);
   const nx = new Vector3(-r, 0, 0);
   const pz = new Vector3(0, 0, +r);
   const nz = new Vector3(0, 0, -r);
   return [
-    { label: "1", vertices: [top, px, pz] },
-    { label: "2", vertices: [top, pz, nx] },
-    { label: "3", vertices: [top, nx, nz] },
-    { label: "4", vertices: [top, nz, px] },
-    { label: "5", vertices: [bot, pz, px] },
-    { label: "6", vertices: [bot, nx, pz] },
-    { label: "7", vertices: [bot, nz, nx] },
-    { label: "8", vertices: [bot, px, nz] },
+    { label: "1", vertices: [top, pz, px] },
+    { label: "2", vertices: [top, nx, pz] },
+    { label: "3", vertices: [top, nz, nx] },
+    { label: "4", vertices: [top, px, nz] },
+    { label: "5", vertices: [bot, px, pz] },
+    { label: "6", vertices: [bot, pz, nx] },
+    { label: "7", vertices: [bot, nx, nz] },
+    { label: "8", vertices: [bot, nz, px] },
   ];
 }
 
 /** Pentagonal bipyramid — 10 triangular faces. Stand-in for a
  *  proper pentagonal trapezohedron d10; visually distinct enough
  *  from a d20 that it reads as "different die," and trivially
- *  buildable from a pentagon + two apexes. */
+ *  buildable from a pentagon + two apexes. Scaled by √3 so the
+ *  bounding sphere matches d6's, putting the d10 at the same
+ *  visual size as the cube on the tray. */
+const D10_SCALE = Math.sqrt(3);
 function buildD10Faces(): FaceSpec[] {
-  const r = DIE_SIZE / 2;
+  const r = (DIE_SIZE / 2) * D10_SCALE;
   const top = new Vector3(0, +r, 0);
   const bot = new Vector3(0, -r, 0);
   // 5 equator vertices on a regular pentagon in the XZ plane.
@@ -273,25 +335,34 @@ function buildD12Faces(): FaceSpec[] {
     new Vector3(-phi, +inv, 0),
     new Vector3(-phi, -inv, 0),
   ];
-  // Scale to target size (the vertices above sit on a sphere of
-  // radius √3; scale so that the bounding cube edge = DIE_SIZE).
-  const norm = DIE_SIZE / 2 / Math.sqrt(3);
+  // Scale to target size: the vertices above sit on a sphere of
+  // radius √3, and we want the final bounding sphere to match d6's
+  // (DIE_SIZE × √3 / 2) so the d12 looks the same size as the cube.
+  // That means each scaled vertex should have magnitude (√3/2) ×
+  // DIE_SIZE, i.e. each axis-1 vertex needs scale (DIE_SIZE/2).
+  const D12_SCALE = Math.sqrt(3);
+  const norm = ((DIE_SIZE / 2) * D12_SCALE) / Math.sqrt(3);
   for (const v of all) v.scaleInPlace(norm);
   // 12 faces, each a pentagon, by vertex indices into `all`.
-  // Authoritative order (Wikipedia): each row CCW from outside.
+  // Each row is CCW from outside so Cross(e1, e2) gives the
+  // outward normal — without this, faces light up only from the
+  // inside and render black to the camera (same gotcha that hit
+  // the d8 octahedron). The lists below are the reverse of the
+  // common Wikipedia ordering, which assumes the opposite winding
+  // convention.
   const faceIndices: number[][] = [
-    [0, 12, 13, 4, 8],
-    [0, 8, 9, 1, 16],
-    [0, 16, 17, 2, 12],
-    [12, 2, 10, 6, 13],
-    [13, 6, 19, 18, 4],
-    [4, 18, 5, 9, 8],
-    [9, 5, 15, 14, 1],
-    [1, 14, 3, 17, 16],
-    [17, 3, 11, 10, 2],
-    [10, 11, 7, 19, 6],
-    [19, 7, 15, 5, 18],
-    [11, 3, 14, 15, 7],
+    [8, 4, 13, 12, 0],
+    [16, 1, 9, 8, 0],
+    [12, 2, 17, 16, 0],
+    [13, 6, 10, 2, 12],
+    [4, 18, 19, 6, 13],
+    [8, 9, 5, 18, 4],
+    [1, 14, 15, 5, 9],
+    [16, 17, 3, 14, 1],
+    [2, 10, 11, 3, 17],
+    [6, 19, 7, 11, 10],
+    [18, 5, 15, 7, 19],
+    [7, 15, 14, 3, 11],
   ];
   return faceIndices.map((indices, i) => ({
     label: String(i + 1),
@@ -317,8 +388,12 @@ function buildD20Faces(): FaceSpec[] {
     new Vector3(-phi, 0, +1),
     new Vector3(-phi, 0, -1),
   ];
+  // Scale so the d20's bounding sphere matches d6's (= DIE_SIZE ×
+  // √3/2), keeping every die kind at the same visual size on the
+  // tray. The base vertices sit on a sphere of radius √(1+φ²).
+  const D20_SCALE = Math.sqrt(3);
   const radius = Math.sqrt(1 + phi * phi);
-  const norm = DIE_SIZE / 2 / radius;
+  const norm = ((DIE_SIZE / 2) * D20_SCALE) / radius;
   for (const p of v) p.scaleInPlace(norm);
   // 20 faces by vertex indices, each CCW from outside.
   const faceIndices: number[][] = [
@@ -358,12 +433,20 @@ function buildFacesForKind(kind: DieKind): FaceSpec[] {
     return faces.map((f, i) => ({ ...f, label: labels[i]! }));
   }
   if (kind === 100) {
-    // d100 uses the same geometry as d10; the label just shows the
-    // tens digit. The caller spawns d100 separately from d10 if
-    // they want both.
+    // Tens d10 — labels "10", "20", ... "90", "00". Reuses d10's
+    // pentagonal-bipyramid geometry.
     return buildD10Faces().map((f, i) => ({
       ...f,
       label: i === 9 ? "00" : String((i + 1) * 10).padStart(2, "0"),
+    }));
+  }
+  if (kind === "10u") {
+    // Units d10 — labels "0".."9". Same geometry as d10/d100,
+    // distinct face labels so faceValues parses to 0..9 (rather
+    // than 1..10 or the tens-multiples).
+    return buildD10Faces().map((f, i) => ({
+      ...f,
+      label: String(i),
     }));
   }
   switch (kind) {
@@ -403,12 +486,17 @@ interface BuiltMesh {
   labels: string[];
   /** Rotation that aligns face[i]'s outward normal with +Y, so the
    *  die settles with face[i] on top. Computed once per kind at
-   *  mesh build time. */
+   *  mesh build time. For d4 these are overridden after build to
+   *  be *vertex*-up rotations instead. */
   faceRotations: Quaternion[];
   /** Numeric die-value of face[i], parallel to `labels`. Used to
    *  look up the right face rotation for a rolled value. NaN for
    *  faces whose label isn't a parseable number (Fudge blanks). */
   faceValues: number[];
+  /** d4 only: per-face corner-value triplets (parallel to `labels`)
+   *  passed through to texture building so each face paints its
+   *  three vertex-corner numerals. */
+  faceCornerValues: (number[] | undefined)[];
 }
 
 /** Quaternion rotating unit vector `from` to align with unit
@@ -448,48 +536,63 @@ function buildDieMesh(scene: Scene, name: string, faces: FaceSpec[]): BuiltMesh 
     const e1 = v1.subtract(v0);
     const e2 = v2.subtract(v0);
     const normal = Vector3.Cross(e1, e2).normalize();
-    // Centroid of face (average of vertices).
-    let cx = 0, cy = 0, cz = 0;
-    for (const v of verts) {
-      cx += v.x;
-      cy += v.y;
-      cz += v.z;
-    }
-    cx /= verts.length;
-    cy /= verts.length;
-    cz /= verts.length;
-    const centroid = new Vector3(cx, cy, cz);
 
-    // Build a 2D basis on the face plane to project vertices into UV space.
-    // `right` is an arbitrary vector perpendicular to the normal;
-    // pick one based on which axis is least aligned with `normal`.
-    const refUp =
-      Math.abs(normal.y) < 0.9
-        ? new Vector3(0, 1, 0)
-        : new Vector3(1, 0, 0);
-    const right = Vector3.Cross(refUp, normal).normalize();
-    const up = Vector3.Cross(normal, right).normalize();
+    let faceUVs: { u: number; v: number }[];
+    if (face.cornerValues) {
+      // d4-style: each of the 3 vertices maps to a fixed corner of
+      // the texture (apex top, then bottom-left and bottom-right
+      // CCW). Skips the centroid-projection math entirely — the
+      // corners are baked into the texture at known UV positions
+      // by `buildFaceTexture`.
+      faceUVs = [
+        { u: 0.5, v: 0.95 },
+        { u: 0.067, v: 0.07 },
+        { u: 0.933, v: 0.07 },
+      ];
+    } else {
+      // Centroid of face (average of vertices).
+      let cx = 0, cy = 0, cz = 0;
+      for (const v of verts) {
+        cx += v.x;
+        cy += v.y;
+        cz += v.z;
+      }
+      cx /= verts.length;
+      cy /= verts.length;
+      cz /= verts.length;
+      const centroid = new Vector3(cx, cy, cz);
 
-    // Project each vertex into 2D, find max distance from centroid
-    // so we can normalize face into [0,1]×[0,1].
-    const local2D: { u: number; v: number }[] = verts.map((vx) => {
-      const d = vx.subtract(centroid);
-      return {
-        u: Vector3.Dot(d, right),
-        v: Vector3.Dot(d, up),
-      };
-    });
-    let maxAbs = 0;
-    for (const p of local2D) {
-      maxAbs = Math.max(maxAbs, Math.abs(p.u), Math.abs(p.v));
+      // Build a 2D basis on the face plane to project vertices into UV space.
+      // `up` order is `Cross(right, normal)` (not `Cross(normal,
+      // right)`) so the texture's V axis points in the direction
+      // that, after the face is rotated to land on top of the die,
+      // ends up aligned with the camera's screen-up.
+      const refUp =
+        Math.abs(normal.y) < 0.9
+          ? new Vector3(0, 1, 0)
+          : new Vector3(1, 0, 0);
+      const right = Vector3.Cross(refUp, normal).normalize();
+      const up = Vector3.Cross(right, normal).normalize();
+
+      const local2D: { u: number; v: number }[] = verts.map((vx) => {
+        const d = vx.subtract(centroid);
+        return {
+          u: Vector3.Dot(d, right),
+          v: Vector3.Dot(d, up),
+        };
+      });
+      let maxAbs = 0;
+      for (const p of local2D) {
+        maxAbs = Math.max(maxAbs, Math.abs(p.u), Math.abs(p.v));
+      }
+      // Pad slightly so the face's outline doesn't bleed off the
+      // texture edge — leave a 5% margin on each side.
+      const scale = 0.5 / (maxAbs * 1.1);
+      faceUVs = local2D.map(({ u, v }) => ({
+        u: 0.5 + u * scale,
+        v: 0.5 + v * scale,
+      }));
     }
-    // Pad slightly so the face's outline doesn't bleed off the
-    // texture edge — leave a 5% margin on each side.
-    const scale = 0.5 / (maxAbs * 1.1);
-    const faceUVs = local2D.map(({ u, v }) => ({
-      u: 0.5 + u * scale,
-      v: 0.5 + v * scale,
-    }));
 
     // Append vertices for this face. Each face gets its own copies
     // (no sharing across faces) so per-face UVs can differ at a
@@ -548,6 +651,7 @@ function buildDieMesh(scene: Scene, name: string, faces: FaceSpec[]): BuiltMesh 
     labels: faces.map((f) => f.label),
     faceRotations,
     faceValues,
+    faceCornerValues: faces.map((f) => f.cornerValues),
   };
 }
 
@@ -560,38 +664,11 @@ function buildDieMesh(scene: Scene, name: string, faces: FaceSpec[]): BuiltMesh 
  *
  *  Per-(kind, tint) caching upstream keeps us from re-creating
  *  these for every die of the same colour. */
-function buildFaceTexture(
-  scene: Scene,
-  label: string,
-  tint: Color3,
-): DynamicTexture {
-  const tex = new DynamicTexture(
-    `face-${label}-${tint.toHexString()}`,
-    FACE_TEX_SIZE,
-    scene,
-    true,
-  );
-  // Babylon's ICanvasRenderingContext is a stripped subset of the
-  // browser's CanvasRenderingContext2D — cast through `unknown` to
-  // get the full DOM API (text*, font properties).
-  const ctx = tex.getContext() as unknown as CanvasRenderingContext2D;
-
-  const r = Math.round(tint.r * 255);
-  const g = Math.round(tint.g * 255);
-  const b = Math.round(tint.b * 255);
-  ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-  ctx.fillRect(0, 0, FACE_TEX_SIZE, FACE_TEX_SIZE);
-
-  // White numeral, perfectly centered.
-  ctx.fillStyle = "#ffffff";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  const fontSize = label.length > 1 ? 130 : 170;
-  ctx.font = `bold ${fontSize}px sans-serif`;
-  ctx.fillText(label, FACE_TEX_SIZE / 2, FACE_TEX_SIZE / 2 + fontSize * 0.04);
-
-  // Underline numerals that read ambiguously when rotated.
-  if (
+function shouldUnderline(label: string): boolean {
+  // Numerals that read ambiguously when rotated 180° (6/9 and the
+  // two-digit numbers containing them or that flip to other valid
+  // values).
+  return (
     label === "6" ||
     label === "9" ||
     label === "11" ||
@@ -608,15 +685,115 @@ function buildFaceTexture(
     label === "96" ||
     label === "98" ||
     label === "99"
-  ) {
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = "#ffffff";
-    const underlineY = FACE_TEX_SIZE / 2 + fontSize * 0.5;
-    const halfW = label.length > 1 ? 50 : 30;
-    ctx.beginPath();
-    ctx.moveTo(FACE_TEX_SIZE / 2 - halfW, underlineY);
-    ctx.lineTo(FACE_TEX_SIZE / 2 + halfW, underlineY);
-    ctx.stroke();
+  );
+}
+
+function buildFaceTexture(
+  scene: Scene,
+  label: string,
+  tint: Color3,
+  cornerValues?: number[],
+  centeredFontSize?: number,
+): DynamicTexture {
+  const tex = new DynamicTexture(
+    cornerValues
+      ? `face-corners-${cornerValues.join("_")}-${tint.toHexString()}`
+      : `face-${label}-${tint.toHexString()}`,
+    FACE_TEX_SIZE,
+    scene,
+    true,
+  );
+  // Babylon's ICanvasRenderingContext is a stripped subset of the
+  // browser's CanvasRenderingContext2D — cast through `unknown` to
+  // get the full DOM API (text*, font properties).
+  const ctx = tex.getContext() as unknown as CanvasRenderingContext2D;
+
+  const r = Math.round(tint.r * 255);
+  const g = Math.round(tint.g * 255);
+  const b = Math.round(tint.b * 255);
+  ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+  ctx.fillRect(0, 0, FACE_TEX_SIZE, FACE_TEX_SIZE);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  if (cornerValues && cornerValues.length === 3) {
+    // d4: paint a numeral at each of the three vertex corners.
+    // Each numeral is rotated so its "top" points toward its
+    // vertex (away from the face centroid). That way, whichever
+    // vertex lands at the apex of the standing die, the value at
+    // that vertex's corner on every visible face reads upright.
+    //
+    // Apex (vertex 0) sits at the top of the canvas → no rotation.
+    // Bottom-left (vertex 1) → +120° (CW in canvas).
+    // Bottom-right (vertex 2) → −120° (CCW in canvas).
+    //
+    // Positions are pulled in from the texture corners enough that
+    // each numeral sits comfortably inside the triangle's tip
+    // without clipping past the triangle's edge, while still
+    // reading as a *corner* numeral rather than something near the
+    // centre.
+    const fontSize = 64;
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    const drawCorner = (
+      canvasX: number,
+      canvasY: number,
+      value: number,
+      rotateDeg: number,
+    ) => {
+      const text = String(value);
+      ctx.save();
+      ctx.translate(canvasX, canvasY);
+      ctx.rotate((rotateDeg * Math.PI) / 180);
+      ctx.fillText(text, 0, fontSize * 0.04);
+      if (shouldUnderline(text)) {
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#ffffff";
+        const halfW = 16;
+        ctx.beginPath();
+        ctx.moveTo(-halfW, fontSize * 0.5);
+        ctx.lineTo(halfW, fontSize * 0.5);
+        ctx.stroke();
+      }
+      ctx.restore();
+    };
+    // Each numeral's "top" should point toward its own vertex
+    // (away from the face centroid) so that, when that vertex
+    // lands at the apex of the standing die, the numeral reads
+    // upright on screen.
+    //   - Apex (vertex 0) sits at canvas-up of centroid → 0°.
+    //   - Vertex 1 sits to the canvas-down-left of centroid →
+    //     numeral rotates 120° CCW (negative ctx angle).
+    //   - Vertex 2 sits to the canvas-down-right of centroid →
+    //     numeral rotates 120° CW (positive ctx angle).
+    drawCorner(FACE_TEX_SIZE * 0.5, FACE_TEX_SIZE * 0.27, cornerValues[0]!, 0);
+    drawCorner(FACE_TEX_SIZE * 0.32, FACE_TEX_SIZE * 0.71, cornerValues[1]!, -120);
+    drawCorner(FACE_TEX_SIZE * 0.68, FACE_TEX_SIZE * 0.71, cornerValues[2]!, 120);
+  } else {
+    // Single centred numeral (every kind except d4). The default
+    // size assumes a square face (d6 / Fudge); triangular faces
+    // (d8 / d10 / d20 / d100) and pentagonal faces (d12) have a
+    // smaller inscribed circle, so the caller passes a smaller
+    // `centeredFontSize` for those.
+    const baseSize = centeredFontSize ?? 170;
+    const fontSize = label.length > 1 ? Math.round(baseSize * 0.76) : baseSize;
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.fillText(
+      label,
+      FACE_TEX_SIZE / 2,
+      FACE_TEX_SIZE / 2 + fontSize * 0.04,
+    );
+    if (shouldUnderline(label)) {
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = "#ffffff";
+      const underlineY = FACE_TEX_SIZE / 2 + fontSize * 0.5;
+      const halfW = label.length > 1 ? 50 : 30;
+      ctx.beginPath();
+      ctx.moveTo(FACE_TEX_SIZE / 2 - halfW, underlineY);
+      ctx.lineTo(FACE_TEX_SIZE / 2 + halfW, underlineY);
+      ctx.stroke();
+    }
   }
 
   tex.update();
@@ -628,10 +805,16 @@ interface KindMeshBundle {
   master: Mesh;
   /** Labels in face-index order — used to build textures. */
   labels: string[];
-  /** Rotation that lands face[i] on top, indexed by face. */
+  /** Per-face corner-value triplets (d4 only); undefined elsewhere. */
+  faceCornerValues: (number[] | undefined)[];
+  /** Rotation that lands the i'th rotation slot on top. For d4
+   *  these are vertex-up rotations (4 of them, one per vertex);
+   *  for other kinds, face-up rotations parallel to `labels`. */
   faceRotations: Quaternion[];
-  /** Numeric value of each face, indexed by face — used to map a
-   *  rolled value to the right face rotation. */
+  /** Numeric value at each rotation slot. For d4 = vertex values
+   *  1..4 (parallel to `faceRotations`). For others = face values
+   *  parallel to `labels`. The value→slot lookup at spawn time
+   *  uses this. */
   faceValues: number[];
 }
 
@@ -757,14 +940,45 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
     const built = buildDieMesh(scene, `master-${String(kind)}`, faces);
     built.mesh.setEnabled(false); // master is invisible; we clone for spawns
     built.mesh.isPickable = false;
+
+    // d4 special case: the rolled value lives at a *vertex* (apex
+    // when the die comes to rest), not on a face. Override the
+    // face-up rotations the build computed with vertex-up rotations
+    // — one per vertex, mapping value V to the rotation that
+    // points the V-valued vertex straight up. The face textures
+    // already carry three corner numerals so any of the three
+    // visible faces shows the value at its apex corner.
+    let faceRotations = built.faceRotations;
+    let faceValues = built.faceValues;
+    if (kind === 4) {
+      const { positions, values } = getD4VertexData();
+      faceRotations = positions.map((p) =>
+        rotationFromTo(p.clone().normalize(), new Vector3(0, 1, 0)),
+      );
+      faceValues = values;
+    }
+
     const bundle: KindMeshBundle = {
       master: built.mesh,
       labels: built.labels,
-      faceRotations: built.faceRotations,
-      faceValues: built.faceValues,
+      faceCornerValues: built.faceCornerValues,
+      faceRotations,
+      faceValues,
     };
     kindMeshCache.set(kind, bundle);
     return bundle;
+  }
+
+  /** Per-kind centred-numeral font size. Square faces (d6, Fudge)
+   *  comfortably fit a big glyph; triangular faces (d8, d10, d20,
+   *  d100) only have ~half the inscribed-circle radius, so a 170px
+   *  glyph overflows the triangle's edges. d12's pentagons sit
+   *  between. d4 is unaffected — it uses the corner-numeral path. */
+  function centeredFontSizeForKind(kind: DieKind): number {
+    if (kind === 6 || kind === "F") return 170;
+    if (kind === 12) return 140;
+    // Triangular-face dice: d8, d10, d20, d100.
+    return 110;
   }
 
   function getKindTintMaterial(kind: DieKind, tint: Color3): KindTintBundle {
@@ -772,14 +986,22 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
     const cached = kindTintCache.get(key);
     if (cached) return cached;
     const meshBundle = getKindMesh(kind);
+    const fontSize = centeredFontSizeForKind(kind);
     const multi = new MultiMaterial(`multi-${key}`, scene);
     multi.subMaterials = meshBundle.labels.map((label, i) => {
       const m = new StandardMaterial(`mat-${key}-${i}-${label}`, scene);
-      // The texture has the tint baked into the bg + a white
-      // numeral, so we hand it to the diffuse channel and leave
-      // diffuseColor pure white. No emissive, no multiplications
-      // that could blow out the body to white.
-      m.diffuseTexture = buildFaceTexture(scene, label, tint);
+      // d4 faces use cornerValues to paint three numerals; every
+      // other kind uses the single-label centred path. The texture
+      // has the tint baked into the bg + white numerals, so we
+      // hand it to diffuseTexture with diffuseColor = white. No
+      // emissive, no multiplications that could blow out the body.
+      m.diffuseTexture = buildFaceTexture(
+        scene,
+        label,
+        tint,
+        meshBundle.faceCornerValues[i],
+        fontSize,
+      );
       m.diffuseColor = new Color3(1, 1, 1);
       m.specularColor = new Color3(0.35, 0.35, 0.35);
       m.specularPower = 48;
@@ -826,6 +1048,10 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
     if (faceIdx < 0) {
       faceIdx = Math.floor(Math.random() * bundle.faceRotations.length);
     }
+    // eslint-disable-next-line no-console
+    console.log(
+      `[dice-tray] target value=${targetValue} → faceIdx=${faceIdx} label="${bundle.labels[faceIdx]}"`,
+    );
     const faceRot = bundle.faceRotations[faceIdx]!;
     const yaw = Quaternion.RotationAxis(
       new Vector3(0, 1, 0),
