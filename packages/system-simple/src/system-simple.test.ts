@@ -6,10 +6,16 @@ describe("@vtt/system-simple", () => {
     expect(systemSimple.gameSystem).toBe(true);
   });
 
-  it("depends on dice-tray and characters", () => {
+  it("declares the baseline shared mechanics as dependencies", () => {
     const names = systemSimple.dependsOn.map((d) => d.split("@", 2).join("@"));
     expect(names).toEqual(
-      expect.arrayContaining(["@vtt/dice-tray", "@vtt/characters"]),
+      expect.arrayContaining([
+        "@vtt/dice-tray",
+        "@vtt/characters",
+        "@vtt/scene",
+        "@vtt/books",
+        "@vtt/pdf-book",
+      ]),
     );
   });
 

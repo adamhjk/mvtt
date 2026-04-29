@@ -14,7 +14,7 @@ import { pipeline } from "node:stream/promises";
 import { randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { startServer, WorldsService } from "@vtt/substrate/server";
-import { listGameSystems, type WorldId } from "@vtt/substrate";
+import { listGameSystems, resolveActivePlugins, type WorldId } from "@vtt/substrate";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
@@ -249,7 +249,26 @@ async function handleListWorlds(
     return true;
   }
   const worlds = await worldsRepo.worldsForUser(session.userId);
+  // Include the resolved session in the response so the client doesn't
+  // need a separate /api/auth/get-session round-trip during the post-
+  // login WorldGate boot — cutting that fetch removes a real race
+  // where better-auth's client returned a cached null right after a
+  // successful sign-in, leaving WorldGate stuck on its loading state.
+  //
+  // The `plugins` array is the resolved active plugin set for the
+  // world (infrastructure ∪ chosenGameSystem ∪ deps). The client uses
+  // it to filter its own plugin imports before constructing
+  // startClient — without this, the workbench chrome shows page
+  // providers / palette commands / etc. for plugins the world's
+  // server-side Registry doesn't have, and dispatching against them
+  // produces "unknown command" nacks.
   sendJson(res, 200, {
+    me: {
+      userId: session.userId,
+      email: session.email,
+      name: session.name,
+      role: session.role,
+    },
     worlds: worlds.map((w) => ({
       id: w.id,
       name: w.name,
@@ -257,9 +276,30 @@ async function handleListWorlds(
       ownerUserId: w.ownerUserId,
       createdAt: w.createdAt,
       isOwner: w.ownerUserId === session.userId,
+      plugins: resolveActivePluginsForWorld(w.gameSystemPlugin),
     })),
   });
   return true;
+}
+
+/**
+ * Resolve a world's active plugin name list (best-effort) for shipping
+ * to the client. Returns an empty list if the game system can't be
+ * resolved against the current binary — the client falls back to
+ * loading nothing extra in that case, which is safer than loading
+ * stale/wrong UI.
+ */
+function resolveActivePluginsForWorld(gameSystemPlugin: string): string[] {
+  try {
+    const resolved = resolveActivePlugins({
+      infrastructure: infrastructurePlugins,
+      optional: optionalPlugins,
+      gameSystemPlugin,
+    });
+    return resolved.plugins.map((p) => p.name);
+  } catch {
+    return [];
+  }
 }
 
 async function handleCreateWorld(

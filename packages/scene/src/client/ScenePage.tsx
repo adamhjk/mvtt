@@ -262,6 +262,7 @@ function CreateSceneForm(props: { tabId: string }): JSX.Element {
   const client = useClient();
   const [name, setName] = createSignal("");
   const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
   let inputEl: HTMLInputElement | undefined;
 
   onMount(() => {
@@ -272,6 +273,7 @@ function CreateSceneForm(props: { tabId: string }): JSX.Element {
     e.preventDefault();
     if (busy()) return;
     const trimmed = name().trim() || "untitled scene";
+    setError(null);
     setBusy(true);
 
     const beforeIds = new Set(
@@ -296,7 +298,7 @@ function CreateSceneForm(props: { tabId: string }): JSX.Element {
       setBusy(false);
     });
 
-    client.dispatch(
+    const handle = client.dispatch(
       CreateScene({
         name: trimmed,
         gridSize: 70,
@@ -305,6 +307,16 @@ function CreateSceneForm(props: { tabId: string }): JSX.Element {
         backgroundColor: "#1a1a1a",
       }) as CommandInstance,
     );
+    // The bus subscription only fires on the success path. If the
+    // server nacks (validation, unknown command, disconnect)
+    // SceneCreated never arrives — clear busy and surface the reason.
+    void handle.ack.then((ack) => {
+      if (!ack.ok) {
+        off();
+        setBusy(false);
+        setError(ack.reason ?? "create failed");
+      }
+    });
   };
 
   return (
@@ -344,6 +356,11 @@ function CreateSceneForm(props: { tabId: string }): JSX.Element {
       >
         {busy() ? "Creating…" : "Create scene"}
       </button>
+      <Show when={error()}>
+        <p class="rounded-(--radius-control) border border-danger/40 bg-danger/10 px-2 py-1 text-xs text-danger">
+          {error()}
+        </p>
+      </Show>
     </form>
   );
 }

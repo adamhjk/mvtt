@@ -6,7 +6,6 @@ import {
   Switch,
   type JSX,
 } from "solid-js";
-import { authClient } from "./auth-client";
 
 interface WorldSummary {
   id: string;
@@ -15,6 +14,14 @@ interface WorldSummary {
   ownerUserId: string;
   createdAt: number;
   isOwner: boolean;
+  /**
+   * Resolved active plugin name list for this world, computed
+   * server-side as `infrastructure ∪ chosenGameSystem ∪ deps`. The
+   * client filters its own plugin imports against this before mounting
+   * the substrate client, so the workbench chrome only renders fills
+   * from plugins the world's server-side Registry actually has.
+   */
+  plugins: string[];
 }
 
 interface GameSystemSummary {
@@ -27,13 +34,24 @@ interface SessionInfo {
   isGlobalGm: boolean;
 }
 
+interface WorldsResponse {
+  me: { userId: string; email: string; name: string; role: "gm" | "player" };
+  worlds: WorldSummary[];
+}
+
 const lastWorldKey = (userId: string) => `mvtt:lastWorldId:${userId}`;
 
-async function fetchWorlds(): Promise<WorldSummary[]> {
+async function fetchWorldsAndMe(): Promise<WorldsResponse> {
+  // The post-login boot used to call this endpoint AND
+  // authClient.getSession() in parallel; the auth-client call
+  // intermittently returned a cached null right after a successful
+  // sign-in, leaving the gate stuck on its loading state until the
+  // user refreshed. Reading `me` straight off `/api/worlds` (which
+  // is gated on the same session better-auth would check) makes
+  // session resolution one request, one source of truth.
   const res = await fetch("/api/worlds", { credentials: "same-origin" });
   if (!res.ok) throw new Error(`/api/worlds → ${res.status}`);
-  const body = (await res.json()) as { worlds: WorldSummary[] };
-  return body.worlds;
+  return (await res.json()) as WorldsResponse;
 }
 
 async function fetchGameSystems(): Promise<GameSystemSummary[]> {
@@ -41,17 +59,6 @@ async function fetchGameSystems(): Promise<GameSystemSummary[]> {
   if (!res.ok) throw new Error(`/api/game-systems → ${res.status}`);
   const body = (await res.json()) as { gameSystems: GameSystemSummary[] };
   return body.gameSystems;
-}
-
-async function fetchSession(): Promise<SessionInfo | null> {
-  const res = await authClient.getSession();
-  const session = res.data?.session;
-  const user = res.data?.user as { id?: string; role?: string } | undefined;
-  if (!session || !user?.id) return null;
-  return {
-    userId: user.id,
-    isGlobalGm: user.role === "gm",
-  };
 }
 
 /**
@@ -77,18 +84,27 @@ export function WorldGate(props: {
     worlds: WorldSummary[];
   }) => JSX.Element;
 }): JSX.Element {
-  const [data] = createResource(async () => {
-    const [worlds, systems, session] = await Promise.all([
-      fetchWorlds(),
+  const [data, { refetch }] = createResource(async () => {
+    const [worldsRes, systems] = await Promise.all([
+      fetchWorldsAndMe(),
       fetchGameSystems(),
-      fetchSession(),
     ]);
-    return { worlds, systems, session };
+    const session: SessionInfo = {
+      userId: worldsRes.me.userId,
+      isGlobalGm: worldsRes.me.role === "gm",
+    };
+    return { worlds: worldsRes.worlds, systems, session };
   });
 
   const decision = () => {
+    if (data.error) {
+      // Most commonly a 401 — the session was lost between AuthGate
+      // flipping and the worlds fetch firing. Bounce back to the
+      // auth gate; AuthGate's onMount probe will resolve from there.
+      return { kind: "error" as const, error: data.error as Error };
+    }
     const d = data();
-    if (!d || !d.session) return { kind: "loading" as const };
+    if (!d) return { kind: "loading" as const };
     const session = d.session;
     const url = new URL(window.location.href);
     const requested = url.searchParams.get("worldId");
@@ -129,6 +145,37 @@ export function WorldGate(props: {
         <div class="grid min-h-screen place-items-center text-fg-muted text-sm">
           loading worlds…
         </div>
+      </Match>
+      <Match when={decision().kind === "error"}>
+        {(() => {
+          const d = decision() as Extract<ReturnType<typeof decision>, { kind: "error" }>;
+          return (
+            <div class="grid min-h-screen place-items-center bg-surface px-4">
+              <div class="w-full max-w-md rounded-(--radius-card) border border-border bg-surface-elevated p-6 text-center shadow-sm">
+                <h1 class="text-base font-semibold tracking-tight text-fg">
+                  Couldn't load your worlds
+                </h1>
+                <p class="mt-2 text-xs text-fg-muted">{d.error.message}</p>
+                <div class="mt-4 flex justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => refetch()}
+                    class="rounded-(--radius-control) bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:bg-accent-hover transition"
+                  >
+                    Try again
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    class="rounded-(--radius-control) border border-border px-3 py-1.5 text-xs text-fg-muted hover:bg-surface transition"
+                  >
+                    Reload
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </Match>
       <Match when={decision().kind === "empty"}>
         {(() => {

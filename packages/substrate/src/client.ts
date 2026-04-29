@@ -28,6 +28,25 @@ export interface PresenceApi {
   ): () => void;
 }
 
+/**
+ * Resolution of a dispatched command: ok/reason as the server reported
+ * it on the wire. Resolves once the server's `ack` for this command id
+ * arrives. Never rejects — a connection drop after dispatch resolves
+ * with `ok: false, reason: "disconnected"` so callers can clear UI
+ * busy-state instead of hanging.
+ */
+export interface DispatchAck {
+  readonly ok: boolean;
+  readonly reason?: string;
+}
+
+export interface DispatchHandle {
+  /** The wire-level command id; useful for correlating with logs. */
+  readonly id: string;
+  /** Resolves when the server acks this command. */
+  readonly ack: Promise<DispatchAck>;
+}
+
 export interface ClientHandle {
   readonly registry: Registry;
   readonly world: World;
@@ -41,7 +60,7 @@ export interface ClientHandle {
   readonly lastAppliedSeq: () => number;
   /** True once the server has sent `synced` — initial catchup is complete. */
   readonly synced: () => boolean;
-  dispatch(cmd: CommandInstance, opts?: { causalState?: unknown }): string;
+  dispatch(cmd: CommandInstance, opts?: { causalState?: unknown }): DispatchHandle;
   onConnect(fn: () => void): () => void;
   /** Fires once when the client transitions from catchup to live mode. */
   onSynced(fn: () => void): () => void;
@@ -73,6 +92,12 @@ export function startClient(opts: ClientOptions): ClientHandle {
   const [synced, setSynced] = createSignal(false);
   const connectListeners = new Set<() => void>();
   const syncedListeners = new Set<() => void>();
+  // commandId -> deferred ack. Set on dispatch, drained on the matching
+  // `ack` wire frame (or on disconnect, see the close handler below).
+  const pendingAcks = new Map<
+    string,
+    { resolve: (ack: DispatchAck) => void }
+  >();
   const sock = new WebSocket(opts.url);
 
   sock.addEventListener("open", () => {
@@ -81,6 +106,14 @@ export function startClient(opts: ClientOptions): ClientHandle {
 
   sock.addEventListener("close", () => {
     setConnected(false);
+    // Drain pending acks so callers awaiting them don't hang forever.
+    // Disconnect mid-dispatch is indistinguishable from a server-side
+    // failure from the caller's perspective; surface it as not-ok with a
+    // reason so UI busy-states can clear.
+    for (const pending of pendingAcks.values()) {
+      pending.resolve({ ok: false, reason: "disconnected" });
+    }
+    pendingAcks.clear();
   });
 
   sock.addEventListener("message", (e) => {
@@ -130,9 +163,17 @@ export function startClient(opts: ClientOptions): ClientHandle {
         }
         break;
       }
-      case "ack":
-        // nothing to do for the demo
+      case "ack": {
+        const pending = pendingAcks.get(msg.data.commandId);
+        if (pending) {
+          pendingAcks.delete(msg.data.commandId);
+          pending.resolve({
+            ok: msg.data.ok,
+            reason: msg.data.reason,
+          });
+        }
         break;
+      }
       case "presence": {
         const subs = presenceSubs.get(msg.data.channel as QualifiedName);
         if (subs) for (const fn of subs) fn(msg.data.payload);
@@ -182,6 +223,11 @@ export function startClient(opts: ClientOptions): ClientHandle {
     synced,
     dispatch(cmd, dispatchOpts) {
       const id = newCmdId();
+      let resolve!: (ack: DispatchAck) => void;
+      const ack = new Promise<DispatchAck>((r) => {
+        resolve = r;
+      });
+      pendingAcks.set(id, { resolve });
       sock.send(
         JSON.stringify({
           kind: "command",
@@ -191,7 +237,7 @@ export function startClient(opts: ClientOptions): ClientHandle {
           causalState: dispatchOpts?.causalState,
         }),
       );
-      return id;
+      return { id, ack };
     },
     onConnect(fn) {
       connectListeners.add(fn);
@@ -220,3 +266,4 @@ export function useClient(): ClientHandle {
 
 export { Surface, useTrait, useQuery } from "./reactivity.jsx";
 export type { QueryRow } from "./reactivity.jsx";
+export type { PluginDef } from "./define.js";

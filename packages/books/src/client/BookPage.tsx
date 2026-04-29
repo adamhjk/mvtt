@@ -245,6 +245,7 @@ function CreateBookForm(props: { tabId: string }): JSX.Element {
   const client = useClient();
   const [name, setName] = createSignal("");
   const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
   let inputEl: HTMLInputElement | undefined;
 
   onMount(() => {
@@ -255,6 +256,7 @@ function CreateBookForm(props: { tabId: string }): JSX.Element {
     e.preventDefault();
     if (busy()) return;
     const trimmed = name().trim() || "untitled book";
+    setError(null);
     setBusy(true);
 
     const beforeIds = new Set(
@@ -279,11 +281,22 @@ function CreateBookForm(props: { tabId: string }): JSX.Element {
       setBusy(false);
     });
 
-    client.dispatch(
+    const handle = client.dispatch(
       CreateBook({
         name: trimmed,
       }) as CommandInstance,
     );
+    // The bus subscription only fires on the success path. If the
+    // server nacks the command (validation, unknown command,
+    // disconnect) BookCreated never arrives — clear busy and surface
+    // the reason so the form doesn't hang at "Creating…" forever.
+    void handle.ack.then((ack) => {
+      if (!ack.ok) {
+        off();
+        setBusy(false);
+        setError(ack.reason ?? "create failed");
+      }
+    });
   };
 
   return (
@@ -323,6 +336,11 @@ function CreateBookForm(props: { tabId: string }): JSX.Element {
       >
         {busy() ? "Creating…" : "Create book"}
       </button>
+      <Show when={error()}>
+        <p class="rounded-(--radius-control) border border-danger/40 bg-danger/10 px-2 py-1 text-xs text-danger">
+          {error()}
+        </p>
+      </Show>
     </form>
   );
 }
