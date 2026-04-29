@@ -5,9 +5,11 @@ import {
   Registry,
   World,
   definePlugin,
+  type EntityId,
 } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
-import { EntityVisibility } from "@vtt/permissions/shared";
+import { EntityVisibility, OwnedBy } from "@vtt/permissions/shared";
+import { Character } from "@vtt/characters/shared";
 import {
   Formula,
   RequestRoll,
@@ -15,12 +17,16 @@ import {
   RollResolved,
   RollResult,
 } from "./shared/index.js";
+import {
+  RollChatHandler,
+  RollChatHandlerLong,
+} from "./shared/chat-handler.js";
 import { RollRecordingSystem } from "./server/systems.js";
 
 const serverPlugin = definePlugin({
   name: "@vtt/resolution",
   version: "0.3.0",
-  traits: [Formula, RollResult, RolledBy, EntityVisibility],
+  traits: [Formula, RollResult, RolledBy, EntityVisibility, Character, OwnedBy],
   events: [RollResolved],
   commands: [RequestRoll],
   systems: [RollRecordingSystem],
@@ -250,6 +256,84 @@ describe("@vtt/resolution", () => {
     }
   });
 
+  describe("speakingAsCharacterId", () => {
+    function spawnCharacter(
+      world: World,
+      args: { name: string; ownerUserId: string; playerUserId?: string },
+    ): EntityId {
+      return world.spawn([
+        Character({ name: args.name, playerUserId: args.playerUserId }),
+        OwnedBy({ userId: args.ownerUserId }),
+      ]);
+    }
+
+    it("uses the character's name as RolledBy.displayName when speaking as it", async () => {
+      const charId = spawnCharacter(world, {
+        name: "Tarn",
+        ownerUserId: SESSION.userId,
+        playerUserId: SESSION.userId,
+      });
+      const res = await dispatch(
+        pipeline,
+        "r-as",
+        RequestRoll({
+          notation: "1d20",
+          visibility: "public",
+          speakingAsCharacterId: charId,
+        }),
+      );
+      expect(res.result.ok).toBe(true);
+      const row = world.query([RolledBy]).at(-1)!;
+      const v = row.values.RolledBy as {
+        userId: string;
+        displayName: string;
+        speakingAsCharacterId?: string;
+      };
+      expect(v.userId).toBe(SESSION.userId);
+      expect(v.displayName).toBe("Tarn");
+      expect(v.speakingAsCharacterId).toBe(charId);
+    });
+
+    it("rejects roll-as on a character assigned to another player", async () => {
+      const charId = spawnCharacter(world, {
+        name: "Foe",
+        ownerUserId: "u2",
+        playerUserId: "u2",
+      });
+      const player: AuthSession = {
+        userId: "player-x",
+        email: "p@x.dev",
+        name: "PX",
+        role: "player",
+      };
+      const res = await dispatch(
+        pipeline,
+        "r-spoof",
+        RequestRoll({
+          notation: "1d6",
+          visibility: "public",
+          speakingAsCharacterId: charId,
+        }),
+        player,
+      );
+      expect(res.result.ok).toBe(false);
+      expect(world.query([RolledBy])).toHaveLength(0);
+    });
+
+    it("rejects roll-as on a non-existent entity", async () => {
+      const res = await dispatch(
+        pipeline,
+        "r-ghost",
+        RequestRoll({
+          notation: "1d6",
+          visibility: "public",
+          speakingAsCharacterId: "ghost" as EntityId,
+        }),
+      );
+      expect(res.result.ok).toBe(false);
+    });
+  });
+
   it("RollResolved.dice is empty for a notation with no dice", async () => {
     let captured: { dice: { sides: number | "F"; value: number }[] } | null =
       null;
@@ -264,5 +348,63 @@ describe("@vtt/resolution", () => {
     );
     expect(captured).toBeTruthy();
     expect(captured!.dice).toEqual([]);
+  });
+
+  describe("slash-command handlers", () => {
+    const baseCtx = {
+      myUserId: SESSION.userId,
+      myRole: SESSION.role,
+      onlineByName: new Map<string, string>(),
+      speakingAsCharacterId: null,
+      gmOnly: false,
+    };
+
+    it("/r is registered with the right prefix and describe text", () => {
+      expect(RollChatHandler.prefix).toBe("/r ");
+      expect(RollChatHandler.describe).toMatch(/\/r/);
+    });
+
+    it("/roll is registered with the right prefix and describe text", () => {
+      expect(RollChatHandlerLong.prefix).toBe("/roll ");
+      expect(RollChatHandlerLong.describe).toMatch(/\/roll/);
+    });
+
+    it("/r 1d20 produces a RequestRoll with the right notation", () => {
+      const cmd = RollChatHandler.handle("/r 1d20", baseCtx);
+      expect(cmd?.type).toBe(RequestRoll.name);
+      expect((cmd?.payload as { notation: string }).notation).toBe("1d20");
+    });
+
+    it("/roll 1d20 produces a RequestRoll with the right notation", () => {
+      const cmd = RollChatHandlerLong.handle("/roll 1d20", baseCtx);
+      expect(cmd?.type).toBe(RequestRoll.name);
+      expect((cmd?.payload as { notation: string }).notation).toBe("1d20");
+    });
+
+    it("forwards gmOnly from the chat composer to RequestRoll.visibility", () => {
+      const cmd = RollChatHandler.handle("/r 1d20", {
+        ...baseCtx,
+        gmOnly: true,
+      });
+      expect((cmd?.payload as { visibility: string }).visibility).toBe(
+        "gm-only",
+      );
+    });
+
+    it("forwards speakingAsCharacterId when set", () => {
+      const cmd = RollChatHandlerLong.handle("/roll 1d6", {
+        ...baseCtx,
+        speakingAsCharacterId: "char-1",
+      });
+      expect(
+        (cmd?.payload as { speakingAsCharacterId?: string })
+          .speakingAsCharacterId,
+      ).toBe("char-1");
+    });
+
+    it("returns null on an empty notation", () => {
+      expect(RollChatHandler.handle("/r ", baseCtx)).toBeNull();
+      expect(RollChatHandlerLong.handle("/roll ", baseCtx)).toBeNull();
+    });
   });
 });

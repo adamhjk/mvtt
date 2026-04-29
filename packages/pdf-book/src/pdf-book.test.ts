@@ -86,9 +86,10 @@ async function makeBook(
 describe("@vtt/pdf-book", () => {
   let pipeline: CommandPipeline;
   let world: World;
+  let registry: Registry;
 
   beforeEach(() => {
-    ({ pipeline, world } = setup());
+    ({ pipeline, world, registry } = setup());
   });
 
   it("uses plugin-namespaced ubiquitous-language names", () => {
@@ -216,6 +217,7 @@ describe("@vtt/pdf-book", () => {
           url: "/plugin-data/default/@vtt/pdf-book/books/ghost/document.pdf",
         } as never,
         world,
+        registry,
       });
       expect(events).toEqual([]);
     });

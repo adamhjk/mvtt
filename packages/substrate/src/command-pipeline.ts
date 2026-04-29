@@ -2,7 +2,7 @@ import type { CommandInstance, EventInstance } from "./define.js";
 import type { Registry } from "./registry.js";
 import type { World } from "./world.js";
 import type { EventBus } from "./event-bus.js";
-import type { ClientId } from "./schema.js";
+import type { ClientId, EntityId, TraitName } from "./schema.js";
 import type { PersistenceAdapter } from "./persistence.js";
 import { toPersistedEvent } from "./persistence.js";
 import { fail, ok, type Result } from "./result.js";
@@ -134,6 +134,7 @@ export class CommandPipeline {
     const ctx = {
       cmd: env.cmd.payload,
       world: this.world,
+      registry: this.registry,
       actor: env.issuedBy,
       session: env.session,
       causalState: env.causalState,
@@ -142,8 +143,27 @@ export class CommandPipeline {
     const validation = def.validate(ctx);
     if (!validation.ok) return { result: validation, events: [], seq: -1 };
 
-    const initial = def.apply(ctx);
-    const all = runSystemsToFixpoint(this.registry, this.world, initial);
+    // Track every (entity, trait) write across apply + the system fixpoint
+    // so derivations can react to writes from the command's apply (spawn,
+    // direct world.set) as well as writes from reactive systems. The runner
+    // consumes from this map between fixpoint passes.
+    const dirty = new Map<EntityId, Set<TraitName>>();
+    const unsub = this.world.subscribe((id, trait) => {
+      let s = dirty.get(id);
+      if (!s) {
+        s = new Set();
+        dirty.set(id, s);
+      }
+      s.add(trait);
+    });
+
+    let all: EventInstance[];
+    try {
+      const initial = def.apply(ctx);
+      all = runSystemsToFixpoint(this.registry, this.world, initial, dirty);
+    } finally {
+      unsub();
+    }
 
     // Assign seqs first so we can persist them as one atomic batch.
     const startSeq = this.nextSeq;

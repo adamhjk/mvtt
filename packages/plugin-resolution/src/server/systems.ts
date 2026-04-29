@@ -1,5 +1,6 @@
 import { defineSystem, type Visibility } from "@vtt/substrate";
 import { EntityVisibility, actors, everyone, gmOnly } from "@vtt/permissions/shared";
+import { Character } from "@vtt/characters/shared";
 import { Formula, RollResult, RolledBy } from "../shared/traits.js";
 import { RollResolved } from "../shared/events.js";
 
@@ -31,9 +32,19 @@ function entityVisibilityFor(
 export const RollRecordingSystem = defineSystem({
   name: "RollRecording",
   on: RollResolved,
-  reads: [],
+  reads: [Character],
   writes: [Formula, RollResult, RolledBy, EntityVisibility],
   run: ({ event, world }) => {
+    let displayName = event.rolledByName;
+    if (
+      event.speakingAsCharacterId &&
+      world.has(event.speakingAsCharacterId)
+    ) {
+      const got = world.get(event.speakingAsCharacterId, [Character]) as
+        | { Character: { name: string } }
+        | undefined;
+      if (got) displayName = got.Character.name;
+    }
     world.spawn([
       Formula({ notation: event.notation, reason: event.reason }),
       RollResult({
@@ -43,7 +54,8 @@ export const RollRecordingSystem = defineSystem({
       }),
       RolledBy({
         userId: event.rolledByUserId,
-        displayName: event.rolledByName,
+        displayName,
+        speakingAsCharacterId: event.speakingAsCharacterId,
       }),
       EntityVisibility({
         visibility: entityVisibilityFor(event.visibility, event.rolledByUserId),

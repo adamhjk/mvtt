@@ -5,9 +5,11 @@ import {
   Registry,
   World,
   definePlugin,
+  type EntityId,
 } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
-import { EntityVisibility } from "@vtt/permissions/shared";
+import { EntityVisibility, OwnedBy } from "@vtt/permissions/shared";
+import { Character } from "@vtt/characters/shared";
 import {
   ChatMessage,
   MessageSent,
@@ -18,7 +20,7 @@ import { MessageRecordingSystem } from "./server/systems.js";
 const serverPlugin = definePlugin({
   name: "@vtt/comms",
   version: "0.1.0",
-  traits: [ChatMessage, EntityVisibility],
+  traits: [ChatMessage, EntityVisibility, Character, OwnedBy],
   events: [MessageSent],
   commands: [SendMessage],
   systems: [MessageRecordingSystem],
@@ -145,5 +147,171 @@ describe("@vtt/comms", () => {
 
   it("rejects empty messages at the schema layer", () => {
     expect(() => SendMessage({ body: "" })).toThrow();
+  });
+
+  describe("gm-only visibility", () => {
+    const PLAYER: AuthSession = {
+      userId: "player-1",
+      email: "p@test.dev",
+      name: "Player",
+      role: "player",
+    };
+
+    it("a GM may send a gm-only message; entity gets role-based visibility", async () => {
+      const res = await dispatch(
+        pipeline,
+        "m1",
+        SendMessage({ body: "secret", visibility: "gm-only" }),
+      );
+      expect(res.result.ok).toBe(true);
+      const row = world.query([ChatMessage, EntityVisibility])[0]!;
+      const v = row.values as {
+        ChatMessage: { visibility?: string };
+        EntityVisibility: { visibility: { kind: string; role?: string } };
+      };
+      expect(v.ChatMessage.visibility).toBe("gm-only");
+      expect(v.EntityVisibility.visibility).toEqual({
+        kind: "role",
+        role: "gm",
+      });
+    });
+
+    it("rejects gm-only from a non-GM player", async () => {
+      const res = await dispatch(
+        pipeline,
+        "m1",
+        SendMessage({ body: "boo", visibility: "gm-only" }),
+        PLAYER,
+      );
+      expect(res.result.ok).toBe(false);
+      expect(world.query([ChatMessage])).toHaveLength(0);
+    });
+
+    it("default visibility is 'public' (everyone)", async () => {
+      await dispatch(pipeline, "m1", SendMessage({ body: "hi" }));
+      const row = world.query([ChatMessage, EntityVisibility])[0]!;
+      const v = row.values as {
+        ChatMessage: { visibility?: string };
+        EntityVisibility: { visibility: { kind: string } };
+      };
+      expect(v.ChatMessage.visibility).toBe("public");
+      expect(v.EntityVisibility.visibility.kind).toBe("everyone");
+    });
+
+    it("whisper wins over gm-only — entity restricted to listed users", async () => {
+      await dispatch(
+        pipeline,
+        "m1",
+        SendMessage({
+          body: "psst",
+          whisperTo: ["user-2"],
+          visibility: "gm-only",
+        }),
+      );
+      const row = world.query([ChatMessage, EntityVisibility])[0]!;
+      const v = row.values.EntityVisibility as {
+        visibility: { kind: string; userIds?: string[] };
+      };
+      expect(v.visibility.kind).toBe("users");
+      expect(v.visibility.userIds).toEqual(
+        expect.arrayContaining([SESSION.userId, "user-2"]),
+      );
+    });
+  });
+
+  describe("speakingAsCharacterId", () => {
+    function spawnCharacter(
+      world: World,
+      args: { name: string; ownerUserId: string; playerUserId?: string },
+    ): EntityId {
+      return world.spawn([
+        Character({ name: args.name, playerUserId: args.playerUserId }),
+        OwnedBy({ userId: args.ownerUserId }),
+      ]);
+    }
+
+    it("uses the character's name as authorName when speaking as an assigned character", async () => {
+      const charId = spawnCharacter(world, {
+        name: "Tarn",
+        ownerUserId: SESSION.userId,
+        playerUserId: SESSION.userId,
+      });
+      const res = await dispatch(
+        pipeline,
+        "m1",
+        SendMessage({ body: "for honour", speakingAsCharacterId: charId }),
+      );
+      expect(res.result.ok).toBe(true);
+      const row = world.query([ChatMessage]).at(-1)!;
+      const v = row.values.ChatMessage as {
+        authorName: string;
+        authorUserId: string;
+        speakingAsCharacterId?: string;
+      };
+      expect(v.authorName).toBe("Tarn");
+      expect(v.authorUserId).toBe(SESSION.userId);
+      expect(v.speakingAsCharacterId).toBe(charId);
+    });
+
+    it("rejects speak-as when the character is assigned to another player", async () => {
+      const charId = spawnCharacter(world, {
+        name: "Other's PC",
+        ownerUserId: "user-2",
+        playerUserId: "user-2",
+      });
+      const player: AuthSession = {
+        userId: "player-1",
+        email: "p@test.dev",
+        name: "Player",
+        role: "player",
+      };
+      const res = await dispatch(
+        pipeline,
+        "m1",
+        SendMessage({ body: "spoof", speakingAsCharacterId: charId }),
+        player,
+      );
+      expect(res.result.ok).toBe(false);
+      expect(world.query([ChatMessage])).toHaveLength(0);
+    });
+
+    it("GM may speak as any character even without an assignment", async () => {
+      const charId = spawnCharacter(world, {
+        name: "NPC",
+        ownerUserId: "someone-else",
+      });
+      const res = await dispatch(
+        pipeline,
+        "m1",
+        SendMessage({ body: "boo", speakingAsCharacterId: charId }),
+      );
+      expect(res.result.ok).toBe(true);
+      const row = world.query([ChatMessage]).at(-1)!;
+      const v = row.values.ChatMessage as { authorName: string };
+      expect(v.authorName).toBe("NPC");
+    });
+
+    it("rejects speak-as on a non-existent entity", async () => {
+      const res = await dispatch(
+        pipeline,
+        "m1",
+        SendMessage({
+          body: "ghost",
+          speakingAsCharacterId: "ghost" as EntityId,
+        }),
+      );
+      expect(res.result.ok).toBe(false);
+      expect(world.query([ChatMessage])).toHaveLength(0);
+    });
+
+    it("rejects speak-as on an entity that lacks the Character trait", async () => {
+      const stranger = world.spawn([OwnedBy({ userId: SESSION.userId })]);
+      const res = await dispatch(
+        pipeline,
+        "m1",
+        SendMessage({ body: "huh", speakingAsCharacterId: stranger }),
+      );
+      expect(res.result.ok).toBe(false);
+    });
   });
 });

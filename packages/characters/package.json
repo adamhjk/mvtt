@@ -7,7 +7,8 @@
     ".": "./src/manifest.ts",
     "./shared": "./src/shared/index.ts",
     "./client": "./src/client/index.ts",
-    "./server": "./src/server/index.ts"
+    "./server": "./src/server/index.ts",
+    "./testing": "./src/testing.tsx"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"

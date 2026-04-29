@@ -1,5 +1,11 @@
 import { defineSystem, type Visibility } from "@vtt/substrate";
-import { EntityVisibility, actors, everyone } from "@vtt/permissions/shared";
+import {
+  EntityVisibility,
+  actors,
+  everyone,
+  gmOnly,
+} from "@vtt/permissions/shared";
+import { Character } from "@vtt/characters/shared";
 import { ChatMessage } from "../shared/traits.js";
 import { MessageSent } from "../shared/events.js";
 
@@ -10,24 +16,45 @@ import { MessageSent } from "../shared/events.js";
  * ChatMessage trait + an EntityVisibility trait that mirrors the event's
  * visibility so the per-recipient snapshot filter keeps the message out
  * of late-joiner snapshots when it's a whisper.
+ *
+ * When the message was sent with `speakingAsCharacterId`, the system
+ * resolves the current Character name and overrides `authorName` with
+ * it — so the trait stored on every replica says "Tarn" rather than
+ * the raw account display name. Falling back to the event's authorName
+ * keeps the message readable if the character has been despawned by
+ * the time a late-joiner replays the snapshot.
  */
 export const MessageRecordingSystem = defineSystem({
   name: "MessageRecording",
   on: MessageSent,
-  reads: [],
+  reads: [Character],
   writes: [ChatMessage, EntityVisibility],
   run: ({ event, world }) => {
+    // Whisper visibility wins over `gm-only` (whispers are strictly
+    // narrower); that mirrors the rule SendMessage.apply applies to the
+    // event-level visibility.
     const visibility: Visibility =
       event.whisperTo && event.whisperTo.length > 0
         ? actors(event.whisperTo)
-        : everyone();
+        : event.visibility === "gm-only"
+          ? gmOnly()
+          : everyone();
+    let authorName = event.authorName;
+    if (event.speakingAsCharacterId && world.has(event.speakingAsCharacterId)) {
+      const got = world.get(event.speakingAsCharacterId, [Character]) as
+        | { Character: { name: string } }
+        | undefined;
+      if (got) authorName = got.Character.name;
+    }
     world.spawn([
       ChatMessage({
         authorUserId: event.authorUserId,
-        authorName: event.authorName,
+        authorName,
         body: event.body,
         sentAt: event.sentAt,
         whisperTo: event.whisperTo,
+        speakingAsCharacterId: event.speakingAsCharacterId,
+        visibility: event.visibility,
       }),
       EntityVisibility({ visibility }),
     ]);

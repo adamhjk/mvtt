@@ -88,9 +88,10 @@ describe("@vtt/books", () => {
   let pipeline: CommandPipeline;
   let world: World;
   let bus: EventBus;
+  let registry: Registry;
 
   beforeEach(() => {
-    ({ pipeline, world, bus } = setup());
+    ({ pipeline, world, bus, registry } = setup());
   });
 
   it("uses plugin-namespaced ubiquitous-language names", () => {
@@ -237,6 +238,7 @@ describe("@vtt/books", () => {
       const events = BookRemovalSystem.run({
         event: { bookId: "ghost" as EntityId } as never,
         world,
+        registry,
       });
       expect(events).toEqual([]);
     });
@@ -251,6 +253,7 @@ describe("@vtt/books", () => {
       const events = BookUpdateSystem.run({
         event: { bookId: "ghost" as EntityId, name: "x" } as never,
         world,
+        registry,
       });
       expect(events).toEqual([]);
     });

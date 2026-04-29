@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server.ts",
-    "./client": "./src/client.ts"
+    "./client": "./src/client.ts",
+    "./client-testing": "./src/client-testing.tsx"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
@@ -15,10 +16,14 @@
     "zod": "^4.3.6"
   },
   "peerDependencies": {
+    "@solidjs/testing-library": "^0.8.0",
     "solid-js": "^1.9.0",
     "ws": "^8.18.0"
   },
   "peerDependenciesMeta": {
+    "@solidjs/testing-library": {
+      "optional": true
+    },
     "solid-js": {
       "optional": true
     },
@@ -27,6 +32,7 @@
     }
   },
   "devDependencies": {
+    "@solidjs/testing-library": "^0.8.10",
     "@types/ws": "^8.5.13",
     "solid-js": "^1.9.0",
     "ws": "^8.18.0"

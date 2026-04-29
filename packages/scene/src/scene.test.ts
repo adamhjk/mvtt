@@ -163,9 +163,10 @@ describe("@vtt/scene", () => {
   let pipeline: CommandPipeline;
   let world: World;
   let bus: EventBus;
+  let registry: Registry;
 
   beforeEach(() => {
-    ({ pipeline, world, bus } = setup());
+    ({ pipeline, world, bus, registry } = setup());
   });
 
   it("uses plugin-namespaced ubiquitous-language names", () => {
@@ -596,6 +597,7 @@ describe("@vtt/scene", () => {
       const events = TokenRemovalSystem.run({
         event: { tokenId: "ghost" as EntityId } as never,
         world,
+        registry,
       });
       expect(events).toEqual([]);
     });
@@ -610,6 +612,7 @@ describe("@vtt/scene", () => {
       const events = SceneUpdateSystem.run({
         event: { sceneId: "ghost" as EntityId, name: "x" } as never,
         world,
+        registry,
       });
       expect(events).toEqual([]);
     });

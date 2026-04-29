@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@vtt/auth": "workspace:*",
+    "@vtt/characters": "workspace:*",
     "@vtt/identity": "workspace:*",
     "@vtt/permissions": "workspace:*",
     "@vtt/shell-workbench": "workspace:*",

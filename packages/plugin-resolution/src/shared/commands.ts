@@ -1,7 +1,15 @@
-import { defineCommand, fail, ok, withVisibility, z } from "@vtt/substrate";
+import {
+  defineCommand,
+  EntityId,
+  fail,
+  ok,
+  withVisibility,
+  z,
+} from "@vtt/substrate";
 import { DiceRoll } from "@dice-roller/rpg-dice-roller";
 import { requireSession } from "@vtt/identity/shared";
 import { actors, everyone, gmOnly } from "@vtt/permissions/shared";
+import { Character } from "@vtt/characters/shared";
 import { RollResolved, type DieOutcome } from "./events.js";
 
 /**
@@ -102,23 +110,53 @@ function extractDieOutcomes(
 export const RequestRoll = defineCommand({
   name: "@vtt/resolution/RequestRoll",
   schema: z.object({
-    notation: z.string().min(1).max(120),
-    reason: z.string().max(80).optional(),
+    notation: z.string().min(1),
+    reason: z.string().optional(),
     visibility: z.enum(["public", "gm-only", "private"]).default("public"),
+    /**
+     * Optional Character entity to attribute this roll to. Validated
+     * the same way SendMessage validates its `speakingAsCharacterId`:
+     * the entity must carry the `Character` trait and either be played
+     * by the sender or the sender must be a GM. The recording system
+     * resolves the character's current name into the spawned RolledBy
+     * trait so the roll card reads "Tarn rolled" rather than "Adam rolled."
+     */
+    speakingAsCharacterId: EntityId.optional(),
   }),
-  validate: ({ cmd, session }) => {
-    if (!requireSession({ session })) return fail("not authenticated");
+  validate: (ctx) => {
+    const auth = requireSession(ctx);
+    if (!auth) return fail("not authenticated");
     try {
       // Construct without rolling-side-effects: this throws on syntax errors,
       // which is the only thing we can validate before performing the roll.
       // eslint-disable-next-line no-new
-      new DiceRoll(cmd.notation);
-      return ok();
+      new DiceRoll(ctx.cmd.notation);
     } catch (e) {
       return fail(
-        `invalid notation ${JSON.stringify(cmd.notation)}: ${(e as Error).message}`,
+        `invalid notation ${JSON.stringify(ctx.cmd.notation)}: ${(e as Error).message}`,
       );
     }
+    const speakerId = ctx.cmd.speakingAsCharacterId;
+    if (speakerId !== undefined) {
+      if (!ctx.world.has(speakerId)) {
+        return fail(`character ${speakerId} does not exist`);
+      }
+      const got = ctx.world.get(speakerId, [Character]) as
+        | { Character: { name: string; playerUserId?: string } }
+        | undefined;
+      if (!got) {
+        return fail(`entity ${speakerId} is not a character`);
+      }
+      if (
+        auth.role !== "gm" &&
+        got.Character.playerUserId !== auth.userId
+      ) {
+        return fail(
+          `character ${speakerId} is not assigned to you — cannot roll as it`,
+        );
+      }
+    }
+    return ok();
   },
   apply: ({ cmd, session }) => {
     // apply may have non-deterministic side effects (rolling dice) but must
@@ -159,6 +197,7 @@ export const RequestRoll = defineCommand({
           rolledByUserId: auth.userId,
           rolledByName: auth.name,
           dice,
+          speakingAsCharacterId: cmd.speakingAsCharacterId,
         }),
         visibility,
       ),

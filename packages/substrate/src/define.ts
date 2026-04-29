@@ -100,6 +100,14 @@ export interface CommandContext<T> {
   readonly world: World;
   readonly actor: ClientId;
   /**
+   * Registry the command was dispatched against. Most commands ignore
+   * this and reach for traits/events imported at module top — but
+   * generic commands like `SetField` need it to look up a runtime
+   * trait by name (so any plugin's traits become editable through one
+   * universal command).
+   */
+  readonly registry: import("./registry.js").Registry;
+  /**
    * Opaque session attached at WS upgrade. Auth-aware plugins narrow this
    * with their own typed accessor; auth-agnostic plugins ignore it.
    */
@@ -130,6 +138,13 @@ export type CommandDef<S extends z.ZodTypeAny = z.ZodTypeAny> = CommandMeta<S> &
 export interface SystemContext<E> {
   readonly event: E;
   readonly world: World;
+  /**
+   * Same purpose as `CommandContext.registry` — generic systems (e.g.,
+   * the SetField receiver, a debug trait inspector) need to resolve a
+   * runtime trait by name. Most systems ignore it and use module-imported
+   * trait metas directly.
+   */
+  readonly registry: import("./registry.js").Registry;
 }
 
 export interface SystemDef<S extends z.ZodTypeAny = z.ZodTypeAny> {
@@ -150,7 +165,11 @@ export interface SystemDef<S extends z.ZodTypeAny = z.ZodTypeAny> {
  */
 export type AnySystemDef = Omit<SystemDef, "on" | "run"> & {
   readonly on: EventMeta;
-  readonly run: (ctx: { event: any; world: World }) => EventInstance[];
+  readonly run: (ctx: {
+    event: any;
+    world: World;
+    registry: import("./registry.js").Registry;
+  }) => EventInstance[];
 };
 
 /**
@@ -240,6 +259,8 @@ export interface PluginDef {
   readonly events: ReadonlyArray<EventMeta>;
   readonly commands: ReadonlyArray<CommandMeta>;
   readonly systems: ReadonlyArray<AnySystemDef>;
+  readonly derivations: ReadonlyArray<import("./derivation.js").AnyDerivationDef>;
+  readonly rollables: ReadonlyArray<import("./rollable.js").AnyRollableDef>;
   readonly surfaces: ReadonlyArray<SurfaceMeta>;
   readonly slots: ReadonlyArray<SlotMeta>;
   readonly views: ReadonlyArray<AnyViewDef>;
@@ -415,6 +436,8 @@ export function definePlugin(def: {
   events?: ReadonlyArray<EventMeta>;
   commands?: ReadonlyArray<CommandMeta>;
   systems?: ReadonlyArray<AnySystemDef>;
+  derivations?: ReadonlyArray<import("./derivation.js").AnyDerivationDef>;
+  rollables?: ReadonlyArray<import("./rollable.js").AnyRollableDef>;
   surfaces?: ReadonlyArray<SurfaceMeta>;
   slots?: ReadonlyArray<SlotMeta>;
   views?: ReadonlyArray<AnyViewDef>;
@@ -431,6 +454,8 @@ export function definePlugin(def: {
     events: def.events ?? [],
     commands: def.commands ?? [],
     systems: def.systems ?? [],
+    derivations: def.derivations ?? [],
+    rollables: def.rollables ?? [],
     surfaces: def.surfaces ?? [],
     slots: def.slots ?? [],
     views: def.views ?? [],

@@ -47,14 +47,14 @@ packages/<plugin>/src/
 - **Solid + Vite** for the client (HMR via Vite's `/ws` proxy in dev)
 - **Zod** for every trait/event/command schema and the wire boundary
 - **ws** for WebSockets; substrate also vends the built client over plain HTTP
-- **vitest** for unit tests, plus a `tsx` smoke harness for the wire protocol
+- **vitest** for everything testable: pure unit tests (node env), wire-protocol smokes (node env, real ws client + server), and component tests (jsdom env, `@solidjs/testing-library`). One `pnpm test` runs all three.
 
 ## Dev workflow
 
 ```sh
 pnpm install
 pnpm dev                  # server :3001 + Vite :5173 (HMR), proxied /ws
-pnpm test                 # unit suite + wire smoke
+pnpm test                 # vitest: unit + wire smokes + jsdom component tests
 pnpm -r typecheck
 ```
 
@@ -98,29 +98,70 @@ When a plugin adds a form inside the chrome:
 
 ## Testing — required, not optional
 
-mvtt depends on tests being ubiquitous. Both layers are mandatory; one without the other is rejected.
+mvtt depends on tests being ubiquitous. Three layers; all are mandatory for any plugin that ships the corresponding surface.
 
 ### Unit tests (every package, every plugin)
 
 - Every command must have given/when/then tests (see `ecs/SKILL.md` and `plugin-ping/src/ping.test.ts`): given a world state, dispatch a command, assert the resulting events and state.
 - Every system must have tests covering at minimum: the happy path, every branch in `run`, and the no-op case (unrelated event types).
 - Every trait/event/command schema must have tests for both accepted and rejected inputs at the schema layer.
-- Tests live next to source as `*.test.ts` and run under vitest.
+- Tests live next to source as `*.test.ts` and run under vitest's **node** project (no DOM).
 - Use real types and real schemas. No `any` casts to dodge type errors. No mocks for substrate primitives — the substrate is small enough to use real instances.
 
-### Integration tests (every plugin that crosses a boundary)
+### Wire smoke tests (every plugin that exposes commands)
 
-- Every plugin that exposes commands must have at least one integration test that exercises the **wire protocol** end-to-end: real `startServer`, real WebSocket client, real command envelope, real event broadcast. The pattern is `packages/server/src/smoke.ts` — copy it.
-- Every plugin that ships views must have at least one integration test that mounts the view in jsdom (or equivalent) and asserts both the rendered output and that user actions dispatch the right command. Snapshot tests do not count.
-- Cross-plugin coordination (Plugin A subscribes to Plugin B's events, fills Plugin B's slot, etc.) must have an integration test that loads both plugins and asserts the contract holds.
+- Every plugin that crosses the WS boundary needs at least one `*.smoke.test.ts` file in `packages/server/src/` that spins up `startServer` + a real WebSocket client and round-trips one or more commands end-to-end. Existing exemplars: `ping.smoke.test.ts`, `scene.smoke.test.ts`, `characters.smoke.test.ts`, `books.smoke.test.ts`, `multi-world.smoke.test.ts`.
+- Smokes are *transport tests*, not behavior tests: they catch wire-format regressions, broadcast/visibility bugs, ack/seq drift, snapshot/tail replay. Don't grow them per-feature; add one only when the wire surface itself changes.
+- The `*.smoke.test.ts` naming puts them in the same vitest pass as everything else (parallel, same `pnpm test` invocation).
+
+### Visual / component tests (every plugin that ships views) — jsdom integration tests
+
+**Required for any plugin under `packages/<name>/src/client/` that contains a `.tsx`.** Tests live next to source as `*.test.tsx` and run under vitest's **jsdom** project. Three rules:
+
+1. **Mount via the canonical harness.** Use `buildTestClient` from `@vtt/substrate/client-testing` (or `buildCharacterHarness` from `@vtt/characters/testing` for character-bound views). Both expose a fake `ClientHandle` whose `dispatch` pipes through a real `CommandPipeline` against a real `World` — so trait subscriptions see the after-effects of dispatched commands and "edit value → sibling re-renders" loops are testable end-to-end.
+
+2. **Cover the primary user actions.** At minimum: each interactive control gets a test that asserts both the rendered output and the dispatched command (type + payload). Owner / GM gating where the view applies it. Snapshot tests do not count.
+
+3. **For canvas-heavy views** (PixiJS scenes, Babylon 3D trays, PDF.js viewers), test the *descriptor* and *plumbing* in jsdom — id, label, edge, autoOpen wiring, slot fills — and verify the actual rendering manually in the browser. jsdom doesn't provide a working WebGL/Canvas context. Existing exemplar: `packages/dice-tray/src/DiceTrayDrawer.test.tsx`.
+
+Cross-plugin coordination (Plugin A subscribes to Plugin B's events, fills Plugin B's slot, etc.) must have a jsdom test that loads both plugins via `buildTestClient({ plugins: [a, b] })` and asserts the contract holds.
+
+#### The harness in one line
+
+```ts
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
+
+const h = buildTestClient({
+  plugins: [shellDefault, myPlugin],
+  setupWorld: ({ world }) => world.spawn([...]),
+  session: { userId: "me", email: "me@test.dev", name: "Me", role: "player" },
+});
+mountWithClient(h, () => <MyView />);
+fireEvent.click(screen.getByRole("button", { name: /go/i }));
+expect(h.dispatched[0].type).toBe(MyCommand.name);
+```
+
+For character-bound views (anything that uses the kit's owner-gating or `useTraitPath`):
+
+```ts
+import { buildCharacterHarness } from "@vtt/characters/testing";
+
+const h = buildCharacterHarness({
+  plugins: [myGameSystemPlugin],
+  asGm: true,
+  setupWorld: ({ world, characterId }) => world.set(characterId, MyTrait, {...}),
+});
+```
+
+The harness pre-spawns a Character + OwnedBy + Identity + Online, so `useMe()` and `useCanEdit()` resolve correctly out of the box.
 
 ### When you change substrate
 
-A substrate change without a new or updated unit test in `packages/substrate/src/*.test.ts` is a bug. The wire protocol smoke (`pnpm --filter @vtt/server smoke`) must continue to pass; if your change touches the wire format, update both the smoke and the per-side decoders in lockstep.
+A substrate change without a new or updated unit test in `packages/substrate/src/*.test.ts` is a bug. The wire smokes must continue to pass; if your change touches the wire format, update the affected smoke (`packages/server/src/*.smoke.test.ts`) and the per-side decoders in lockstep.
 
 ### What "passes" means
 
-`pnpm test` (unit + smoke) **and** `pnpm -r typecheck` must both be green before any change is considered complete. CI will run both.
+`pnpm test` (vitest: node + jsdom + smoke, all in one run) **and** `pnpm -r typecheck` must both be green before any change is considered complete. CI will run both.
 
 ## Anti-patterns to refuse
 

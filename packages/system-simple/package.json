@@ -1,10 +1,12 @@
 {
   "name": "@vtt/system-simple",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/manifest.ts"
+    ".": "./src/manifest.ts",
+    "./shared": "./src/shared/index.ts",
+    "./client": "./src/client/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
@@ -12,6 +14,15 @@
   "dependencies": {
     "@vtt/characters": "workspace:*",
     "@vtt/dice-tray": "workspace:*",
+    "@vtt/identity": "workspace:*",
+    "@vtt/permissions": "workspace:*",
+    "@vtt/resolution": "workspace:*",
     "@vtt/substrate": "workspace:*"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.9.0"
+  },
+  "devDependencies": {
+    "solid-js": "^1.9.0"
   }
 }

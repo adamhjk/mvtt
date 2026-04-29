@@ -1,7 +1,8 @@
-import { createSignal, onCleanup, type Accessor, For } from "solid-js";
+import { createMemo, createSignal, onCleanup, type Accessor, For } from "solid-js";
 import type { AnyViewDef, TraitMeta } from "./define.js";
 import type { EntityId, SurfaceName, TraitName } from "./schema.js";
 import { useClient } from "./client.js";
+import { readTraitWithDefault } from "./derivation.js";
 
 type TraitValue<T extends TraitMeta> = T extends TraitMeta<infer S>
   ? import("zod").z.infer<S>
@@ -36,6 +37,59 @@ export function useTrait<T extends TraitMeta>(
   });
   onCleanup(off);
   return value;
+}
+
+/**
+ * Returns a Solid accessor that tracks a deep path inside a trait —
+ * the read half of "edit any field, read any field." Re-computes
+ * whenever the trait is replaced (trait writes are atomic, so any
+ * path inside the trait re-derives from the new value).
+ *
+ * If the trait isn't attached but its Zod schema declares a default,
+ * the default is read through and the path resolved against it. If
+ * neither the trait nor a default is available, the accessor returns
+ * undefined; kit components render `—` in that state.
+ *
+ * Path = same shape as `setAtPath` from `@vtt/characters`:
+ *   ["scores", "str"]    object property
+ *   [0, "name"]          array index + property
+ *   []                   the trait value itself
+ *
+ * Path is read once per call — pass a stable value or wrap the call
+ * in `createMemo` if the path itself is reactive.
+ */
+export function useTraitPath<T extends TraitMeta>(
+  entityId: EntityId,
+  trait: T,
+  path: ReadonlyArray<string | number>,
+): Accessor<unknown> {
+  const trait$ = useTrait(entityId, trait);
+  const client = useClient();
+  return createMemo(() => {
+    const v = trait$();
+    if (v !== undefined) return readPath(v, path);
+    // Fall through to readTraitWithDefault for the absent case so a
+    // freshly-spawned character with a defaulted trait still surfaces
+    // the default value to the UI.
+    const fallback = readTraitWithDefault(client.world, entityId, trait);
+    if (fallback === undefined) return undefined;
+    return readPath(fallback, path);
+  });
+}
+
+function readPath(root: unknown, path: ReadonlyArray<string | number>): unknown {
+  let cur: unknown = root;
+  for (const seg of path) {
+    if (cur === null || cur === undefined) return undefined;
+    if (typeof seg === "number") {
+      if (!Array.isArray(cur)) return undefined;
+      cur = cur[seg];
+    } else {
+      if (typeof cur !== "object" || Array.isArray(cur)) return undefined;
+      cur = (cur as Record<string, unknown>)[seg];
+    }
+  }
+  return cur;
 }
 
 export interface QueryRow {

@@ -1,23 +1,49 @@
-import { ChatInputHandlerSlot, type ChatInputHandler } from "@vtt/comms/shared";
+import {
+  ChatInputHandlerSlot,
+  type ChatInputContext,
+  type ChatInputHandler,
+} from "@vtt/comms/shared";
 import { RequestRoll } from "./commands.js";
 
 /**
- * Slash-command handler for `/r <notation> [reason]`. Lets users dispatch
- * a roll directly from the chat composer without leaving the input.
- * Filed under the comms plugin's `chat-input-handlers` slot — the chat
- * composer walks the slot's fills, finds this entry by its `/r ` prefix,
- * and dispatches RequestRoll instead of SendMessage when it matches.
+ * Build a roll slash-handler with the given prefix. Lets us register
+ * both `/r ` (short form) and `/roll ` (long form) as separate handlers
+ * with identical behaviour, so users who keep typing the long form get
+ * the same result as the short form. Both forward `speakingAsCharacterId`
+ * and `gmOnly` from the composer so a slash-driven roll runs through
+ * the same attribution + visibility path as a typed message.
+ *
+ * Composer dispatch matches on prefix in priority order; the two forms
+ * sit at the same priority since they're mutually exclusive (a user
+ * types one or the other).
  */
-export const RollChatHandler = {
-  prefix: "/r ",
-  describe: "/r <notation> — roll dice (e.g. /r 1d20+5)",
-  priority: 50,
-  handle: (input: string) => {
-    const rest = input.slice(3).trim();
-    if (rest.length === 0) return null;
-    return RequestRoll({ notation: rest, visibility: "public" });
-  },
-} satisfies ChatInputHandler;
+function rollHandler(prefix: string, describe: string): ChatInputHandler {
+  return {
+    prefix,
+    describe,
+    priority: 50,
+    handle: (input: string, ctx: ChatInputContext) => {
+      const rest = input.slice(prefix.length).trim();
+      if (rest.length === 0) return null;
+      return RequestRoll({
+        notation: rest,
+        visibility: ctx.gmOnly ? "gm-only" : "public",
+        ...(ctx.speakingAsCharacterId
+          ? { speakingAsCharacterId: ctx.speakingAsCharacterId }
+          : {}),
+      });
+    },
+  };
+}
+
+export const RollChatHandler = rollHandler(
+  "/r ",
+  "/r <notation> — roll dice (e.g. /r 1d20+5)",
+);
+export const RollChatHandlerLong = rollHandler(
+  "/roll ",
+  "/roll <notation> — alias for /r (e.g. /roll 1d20+5)",
+);
 
 /**
  * `fills` shape for the resolution plugin's manifest. Keyed by the slot's
@@ -25,5 +51,5 @@ export const RollChatHandler = {
  * declared by comms.
  */
 export const RollChatFills = {
-  [ChatInputHandlerSlot.name]: [RollChatHandler],
+  [ChatInputHandlerSlot.name]: [RollChatHandler, RollChatHandlerLong],
 };

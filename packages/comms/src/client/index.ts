@@ -1,1 +1,1 @@
-export { ChatComposerView, ChatStreamView, ChatMessageView } from "./views";
+export { ChatComposerView, ChatStreamView } from "./views";

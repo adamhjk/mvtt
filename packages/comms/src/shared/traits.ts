@@ -1,4 +1,4 @@
-import { defineTrait, z } from "@vtt/substrate";
+import { defineTrait, EntityId, z } from "@vtt/substrate";
 
 /**
  * One persisted chat message. Text-only at the protocol level — embedded
@@ -24,5 +24,20 @@ export const ChatMessage = defineTrait({
      * actual filtering is done by the substrate via EntityVisibility.
      */
     whisperTo: z.array(z.string()).optional(),
+    /**
+     * Optional Character entity the sender was speaking as when this
+     * message was recorded. Renderers can use it to show e.g. a small
+     * "as Tarn (player: Hero)" suffix; the message's `authorName` is
+     * already the resolved character name so plain renderers don't
+     * need to do anything.
+     */
+    speakingAsCharacterId: EntityId.optional(),
+    /**
+     * Audience this message was published to. `gm-only` lets the
+     * timeline visually badge GM-restricted messages; the underlying
+     * EntityVisibility on the same entity is what actually keeps the
+     * message out of non-GM snapshots.
+     */
+    visibility: z.enum(["public", "gm-only"]).default("public"),
   }),
 });

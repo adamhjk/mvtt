@@ -9,6 +9,10 @@ import type {
   SurfaceMeta,
   TraitMeta,
 } from "./define.js";
+import type { AnyDerivationDef } from "./derivation.js";
+import { topoSortDerivations } from "./derivation.js";
+import type { AnyRollableDef } from "./rollable.js";
+import { validateRollables } from "./rollable.js";
 import type {
   CommandName,
   EventName,
@@ -39,6 +43,19 @@ export class Registry {
    */
   readonly fills = new Map<SlotName, unknown[]>();
   readonly systems: AnySystemDef[] = [];
+  /**
+   * Derivations registered by plugins. Mutated by `load`; topologically
+   * sorted (and cycle-checked) by `validate`. The runtime walks this list
+   * in the sorted order so each derivation runs after every derivation it
+   * depends on.
+   */
+  derivations: AnyDerivationDef[] = [];
+  /**
+   * Rollables registered by plugins, indexed by name. Rollables are
+   * looked up by name from kit components, chat handlers, automations,
+   * and AI tools — fast hash lookup beats list scan.
+   */
+  readonly rollables = new Map<string, AnyRollableDef>();
   readonly views: AnyViewDef[] = [];
   readonly plugins: PluginDef[] = [];
   /**
@@ -57,6 +74,8 @@ export class Registry {
     for (const e of plugin.events) this.events.set(e.name, e);
     for (const c of plugin.commands) this.commands.set(c.name, c);
     for (const s of plugin.systems) this.systems.push(s);
+    for (const d of plugin.derivations) this.derivations.push(d);
+    for (const r of plugin.rollables) this.rollables.set(r.name, r);
     for (const surface of plugin.surfaces) this.surfaces.set(surface.name, surface);
     for (const slot of plugin.slots) this.slots.set(slot.name, slot);
     for (const v of plugin.views) this.views.push(v);
@@ -128,6 +147,25 @@ export class Registry {
     this.pendingFills = [];
     if (errors.length > 0) {
       throw new Error(`registry validation failed:\n  - ${errors.join("\n  - ")}`);
+    }
+
+    // Derivations are sorted last because both checks ("input trait must
+    // exist somewhere" and "no cycle in producer graph") depend on the
+    // full trait registry being populated first. Any failure here is a
+    // boot-time error, not a runtime surprise.
+    if (this.derivations.length > 0) {
+      const declaredTraits = new Set(this.traits.keys());
+      this.derivations = topoSortDerivations(this.derivations, declaredTraits);
+    }
+
+    if (this.rollables.size > 0) {
+      const declaredTraits = new Set<string>(this.traits.keys());
+      const declaredCommands = new Set<string>(this.commands.keys());
+      validateRollables(
+        Array.from(this.rollables.values()),
+        declaredTraits,
+        declaredCommands,
+      );
     }
   }
 

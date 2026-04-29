@@ -1,4 +1,4 @@
-import { defineEvent, z } from "@vtt/substrate";
+import { defineEvent, EntityId, z } from "@vtt/substrate";
 
 /**
  * Per-die outcome inside a `RollResolved` event. `sides` is the die's
@@ -43,5 +43,11 @@ export const RollResolved = defineEvent({
      * `4` — degenerate but accepted by the parser).
      */
     dice: z.array(DieOutcomeSchema).default([]),
+    /**
+     * Optional Character entity the roller was speaking as. Resolved
+     * to the character's current name by RollRecordingSystem when the
+     * RolledBy trait is written.
+     */
+    speakingAsCharacterId: EntityId.optional(),
   }),
 });

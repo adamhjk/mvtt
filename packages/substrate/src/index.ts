@@ -40,6 +40,30 @@ export {
   clientOnly,
 } from "./define.js";
 export {
+  defineDerivation,
+  readTraitWithDefault,
+  readTraitDirect,
+  topoSortDerivations,
+  runDerivationPass,
+  deepEqual,
+} from "./derivation.js";
+export type {
+  DerivationDef,
+  AnyDerivationDef,
+  DerivationContext,
+} from "./derivation.js";
+export {
+  defineRollable,
+  invokeRollable,
+  previewRollable,
+  validateRollables,
+} from "./rollable.js";
+export type {
+  RollableDef,
+  AnyRollableDef,
+  RollableContext,
+} from "./rollable.js";
+export {
   RootSurface,
   ConnectionOpened,
   ConnectionClosed,

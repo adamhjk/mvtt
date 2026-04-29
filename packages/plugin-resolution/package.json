@@ -15,6 +15,7 @@
   "dependencies": {
     "@dice-roller/rpg-dice-roller": "^5.5.0",
     "@vtt/auth": "workspace:*",
+    "@vtt/characters": "workspace:*",
     "@vtt/comms": "workspace:*",
     "@vtt/identity": "workspace:*",
     "@vtt/permissions": "workspace:*",
