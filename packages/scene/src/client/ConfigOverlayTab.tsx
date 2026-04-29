@@ -137,8 +137,9 @@ function ConfigTabBody(props: { sceneId: string }): JSX.Element {
           <Section label="Background image">
             <BackgroundImageField
               sceneId={props.sceneId}
+              worldId={client.worldId() ?? ""}
               value={s().backgroundImage}
-              disabled={!isGm()}
+              disabled={!isGm() || !client.worldId()}
               onUpload={(backgroundImage, dims) =>
                 update({
                   backgroundImage,
@@ -161,8 +162,8 @@ function ConfigTabBody(props: { sceneId: string }): JSX.Element {
 /**
  * Upload + preview + clear for the scene's background image. The
  * upload POSTs the raw file body to
- * `/api/plugin-data/@vtt/scene/scenes/<sceneId>/background.<ext>`,
- * scoped to this scene's plugin-data prefix. On success the response
+ * `/api/plugin-data/<worldId>/@vtt/scene/scenes/<sceneId>/background.<ext>`,
+ * scoped to this scene's plugin-data prefix within this world. On success the response
  * carries the public URL (with a cache-bust suffix); we dispatch
  * UpdateScene with that URL so every client picks up the change.
  *
@@ -172,6 +173,7 @@ function ConfigTabBody(props: { sceneId: string }): JSX.Element {
  */
 function BackgroundImageField(props: {
   sceneId: string;
+  worldId: string;
   value: string | null;
   disabled: boolean;
   /**
@@ -196,7 +198,9 @@ function BackgroundImageField(props: {
       extensionFromName(file.name) ??
       extensionFromMime(file.type) ??
       ".bin";
-    const url = `/api/plugin-data/@vtt/scene/scenes/${encodeURIComponent(
+    const url = `/api/plugin-data/${encodeURIComponent(
+      props.worldId,
+    )}/@vtt/scene/scenes/${encodeURIComponent(
       props.sceneId,
     )}/background${ext}`;
     setBusy(true);

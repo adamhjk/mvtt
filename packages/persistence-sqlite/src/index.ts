@@ -185,6 +185,14 @@ export class SqlitePersistence implements PersistenceAdapter {
       );
   }
 
+  async hardDeleteWorld(worldId: WorldId): Promise<void> {
+    const tx = this.db.transaction((id: WorldId) => {
+      this.db.prepare(`DELETE FROM world_event WHERE worldId = ?`).run(id);
+      this.db.prepare(`DELETE FROM world_snapshot WHERE worldId = ?`).run(id);
+    });
+    tx(worldId);
+  }
+
   async pruneSnapshots(worldId: WorldId, keepMostRecent: number): Promise<void> {
     const keep = Math.max(1, keepMostRecent);
     this.db
@@ -205,3 +213,5 @@ export class SqlitePersistence implements PersistenceAdapter {
     if (this.ownsConnection) this.db.close();
   }
 }
+
+export { SqliteWorldsRepository } from "./worlds.js";

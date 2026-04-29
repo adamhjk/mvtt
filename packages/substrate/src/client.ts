@@ -34,6 +34,8 @@ export interface ClientHandle {
   readonly bus: EventBus;
   readonly presence: PresenceApi;
   readonly clientId: () => string | null;
+  /** The worldId this client is connected to, as advertised by the server's hello. Null until connected. */
+  readonly worldId: () => string | null;
   readonly connected: () => boolean;
   /** Highest event seq this client has applied (snapshot.atSeq or event.seq). */
   readonly lastAppliedSeq: () => number;
@@ -65,6 +67,7 @@ export function startClient(opts: ClientOptions): ClientHandle {
   // on them re-render correctly when they change. The rule for client
   // state that views observe: signal, not closure.
   const [clientId, setClientId] = createSignal<string | null>(null);
+  const [worldId, setWorldId] = createSignal<string | null>(null);
   const [connected, setConnected] = createSignal(false);
   const [lastAppliedSeq, setLastAppliedSeq] = createSignal(0);
   const [synced, setSynced] = createSignal(false);
@@ -92,6 +95,7 @@ export function startClient(opts: ClientOptions): ClientHandle {
     switch (msg.data.kind) {
       case "hello":
         setClientId(msg.data.clientId);
+        setWorldId(msg.data.worldId);
         for (const fn of connectListeners) fn();
         break;
       case "snapshot":
@@ -172,6 +176,7 @@ export function startClient(opts: ClientOptions): ClientHandle {
     bus,
     presence,
     clientId,
+    worldId,
     connected,
     lastAppliedSeq,
     synced,

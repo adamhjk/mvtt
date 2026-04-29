@@ -9,18 +9,10 @@ import type { Socket } from "node:net";
 import { stat, readFile } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import type { PluginDef, EventInstance } from "./define.js";
-import { Registry } from "./registry.js";
-import { World } from "./world.js";
-import { EventBus } from "./event-bus.js";
-import { CommandPipeline, type CommandEnvelope } from "./command-pipeline.js";
+import type { Registry } from "./registry.js";
 import { WireMsg } from "./protocol.js";
+import { type CommandName, type WorldId } from "./schema.js";
 import {
-  type CommandName,
-  type WorldId,
-  DEFAULT_WORLD_ID,
-} from "./schema.js";
-import {
-  substrateCorePlugin,
   ConnectionOpened,
   ConnectionClosed,
 } from "./core-plugin.js";
@@ -28,14 +20,19 @@ import { runSystemsToFixpoint } from "./systems-runner.js";
 import type { PersistenceAdapter } from "./persistence.js";
 import { matches as matchesVisibility, type Recipient } from "./visibility.js";
 import type { WorldState } from "./world.js";
+import type { CommandEnvelope } from "./command-pipeline.js";
+import { WorldsRegistry, type WorldRuntime } from "./worlds-registry.js";
+import { WorldsService } from "./worlds-service.js";
+import type { WorldsRepository } from "./worlds-repository.js";
+
+export { WorldsService } from "./worlds-service.js";
+export type { WorldsServiceOptions } from "./worlds-service.js";
 
 /**
  * Filter a serialised WorldState down to entities visible to a specific
  * recipient. Entities without a registered visibility resolver claim are
- * treated as public. The substrate uses this on every catchup snapshot
- * so a player connecting after a GM-only roll doesn't see the Roll
- * entity in their snapshot — the live broadcast filter alone isn't
- * enough to prevent that leak.
+ * treated as public. Identical to the v1 single-world variant; the only
+ * change is that the registry argument is now per-world.
  */
 function dumpForRecipient(
   state: WorldState,
@@ -55,12 +52,17 @@ function dumpForRecipient(
 export type HttpHandler = (req: IncomingMessage, res: ServerResponse) => Promise<boolean> | boolean;
 
 /**
- * Validate an inbound WebSocket upgrade. Return a session object to accept
- * (the substrate threads it through to command contexts as `actor.session`),
- * or null to reject the upgrade with 401. The substrate is auth-agnostic;
- * the server entry decides the rules.
+ * Validate an inbound WebSocket upgrade. The substrate has already
+ * parsed the worldId out of the query string and confirmed the world
+ * exists; the callback decides whether this user (a) has a valid
+ * session and (b) is allowed to connect to this world. Return the
+ * opaque session object to accept (it is threaded through to commands
+ * as `actor.session`), or null to reject the upgrade with 401/403.
  */
-export type AuthenticateUpgrade = (req: IncomingMessage) => Promise<unknown | null> | unknown | null;
+export type AuthenticateUpgrade = (
+  req: IncomingMessage,
+  worldId: WorldId,
+) => Promise<unknown | null> | unknown | null;
 
 /**
  * Pull the substrate's `Recipient` shape out of an opaque session for the
@@ -72,56 +74,58 @@ export type ExtractRecipient = (session: unknown) => Recipient | null;
 
 export interface ServerOptions {
   port: number;
-  plugins: ReadonlyArray<PluginDef>;
+  /**
+   * Plugins loaded into every world's Registry regardless of game
+   * system: substrate-core (auto-loaded), auth, identity, permissions,
+   * comms, shell-workbench, etc. The deployment owner decides what
+   * counts as infrastructure — the substrate doesn't hardcode a list.
+   */
+  infrastructure: ReadonlyArray<PluginDef>;
+  /**
+   * The universe of optional plugins. Each world's Registry is filtered
+   * to its chosen game system + that system's transitive `dependsOn`,
+   * drawn from this set. Includes both shared-mechanics plugins
+   * (`@vtt/dice-tray`, `@vtt/characters`, ...) and game-system plugins
+   * marked `gameSystem: true` (`@vtt/system-simple`, ...).
+   */
+  optional: ReadonlyArray<PluginDef>;
+  /**
+   * Worlds aggregate storage — list of worlds, owners, memberships.
+   * The server constructs a WorldsService over this and uses it to
+   * gate WS upgrades by membership.
+   */
+  worldsRepo: WorldsRepository;
   /** Directory of built client assets to serve at /. Skipped if absent. */
   clientRoot?: string;
   /** Application HTTP handler — gets first crack at every request. Return true if handled. */
   httpHandler?: HttpHandler;
-  /** WS upgrade gate. If absent, all upgrades are accepted with no session. */
+  /**
+   * WS upgrade gate. The substrate has already validated the worldId
+   * (exists, not archived). The callback decides session + access. If
+   * absent, all upgrades are accepted with no session (insecure — only
+   * suitable for tests and local dev without auth).
+   */
   authenticateUpgrade?: AuthenticateUpgrade;
   /**
-   * Pull a `{userId, role}` Recipient out of the opaque session. Used by
-   * the per-recipient visibility filter on the broadcast path. If absent,
-   * every connection is treated as anonymous and any non-public event is
-   * dropped for safety.
+   * Pull a `{userId, role}` Recipient out of the opaque session. Used
+   * by the per-recipient visibility filter on the broadcast path.
    */
   extractRecipient?: ExtractRecipient;
   /**
-   * Optional persistence adapter. When provided, the server cold-boots by
-   * loading the latest snapshot, replaying events past it, and only then
-   * accepting connections. Subsequent durable events are written before
-   * broadcast so a crash mid-dispatch is recoverable.
+   * Optional persistence adapter. When provided, every world's runtime
+   * cold-boots by loading its latest snapshot, replaying its events,
+   * and only then accepting connections.
    */
   persistence?: PersistenceAdapter;
   /**
-   * Which world this server hosts. v1 servers host exactly one. The schema
-   * has worldId as a primary-key column from day one so multi-world hosting
-   * is a wiring change, not a migration. Defaults to "default".
-   */
-  worldId?: WorldId;
-  /**
-   * Take a snapshot every N committed events. Defaults to 200. Set to a
-   * very large number to effectively disable periodic snapshots.
+   * Take a snapshot every N committed events per world. Defaults to 200.
    */
   snapshotEveryEvents?: number;
-  /**
-   * Keep this many most-recent snapshots; older ones are pruned. Defaults to 3.
-   */
+  /** Keep this many most-recent snapshots per world. Defaults to 3. */
   snapshotsToKeep?: number;
-  /**
-   * Dev-only: forward non-API HTTP requests and non-`/ws` WebSocket
-   * upgrades to a Vite dev server (or any HTTP+WS upstream). When set,
-   * `clientRoot` is ignored — fresh source from Vite (with HMR) reaches
-   * the browser even if the user is loading the substrate's port directly.
-   * Format: `http://host:port` (no trailing slash). Leave unset in prod.
-   */
+  /** Dev: forward non-`/ws` traffic to a Vite upstream for HMR. */
   devProxy?: string;
-  /**
-   * Static-mounted directories, keyed by URL prefix (e.g. `"/icons/"` →
-   * `"/abs/path/to/icons"`). Resolved before `devProxy` and `clientRoot`
-   * so plugin/server-shipped assets aren't shadowed by Vite or the
-   * built bundle. Each prefix MUST start and end with `/`.
-   */
+  /** Static-mounted directories, keyed by URL prefix. */
   assetRoots?: Readonly<Record<string, string>>;
 }
 
@@ -142,11 +146,6 @@ const MIME: Record<string, string> = {
   ".ico": "image/x-icon",
 };
 
-/**
- * Forward a plain HTTP request to a dev upstream (Vite). Streams the body
- * both ways. Used in dev so the substrate's port (3001) serves Vite's
- * compiled output with HMR rather than a stale built bundle.
- */
 function proxyHttp(
   upstream: URL,
   req: IncomingMessage,
@@ -176,11 +175,6 @@ function proxyHttp(
   req.pipe(upReq);
 }
 
-/**
- * Forward a WebSocket upgrade to a dev upstream. Lets Vite's HMR socket
- * (which is on a path other than `/ws`) reach the browser through the
- * substrate's port without the substrate needing to understand HMR.
- */
 function proxyUpgrade(
   upstream: URL,
   req: IncomingMessage,
@@ -261,87 +255,96 @@ async function serveStatic(
 }
 
 export interface ServerHandle {
-  readonly registry: Registry;
-  readonly world: World;
-  readonly bus: EventBus;
-  readonly pipeline: CommandPipeline;
+  readonly worldsService: WorldsService;
+  readonly worldsRegistry: WorldsRegistry;
   readonly port: number;
-  readonly worldId: WorldId;
-  /** Force a snapshot to disk now. Resolves once the snapshot has been written. */
-  takeSnapshot(): Promise<void>;
+  /** Force a snapshot to disk for every loaded runtime. */
+  takeSnapshots(): Promise<void>;
   close(): Promise<void>;
 }
 
 let nextClient = 1;
 
+interface Conn {
+  sock: WebSocket;
+  clientId: string;
+  worldId: WorldId;
+  session: unknown;
+  recipient: Recipient | null;
+  /** Heartbeat liveness flag, see HEARTBEAT_INTERVAL_MS comment. */
+  isAlive: boolean;
+}
+
+/**
+ * Parse the worldId off an upgrade request. The wire shape is
+ * `/ws?worldId=<id>` (query string). Path-only `/ws` is rejected with
+ * 400 — there is no implicit default world in multi-world mode.
+ *
+ * Returns null if the URL is malformed or the worldId is missing.
+ */
+function parseWorldIdFromUpgrade(req: IncomingMessage): WorldId | null {
+  // Build a URL from the relative path; the host doesn't matter, we
+  // only want the searchParams.
+  let url: URL;
+  try {
+    url = new URL(req.url ?? "/", "http://_");
+  } catch {
+    return null;
+  }
+  const id = url.searchParams.get("worldId");
+  if (!id) return null;
+  return id as WorldId;
+}
+
 export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
-  const worldId: WorldId = opts.worldId ?? DEFAULT_WORLD_ID;
   const snapshotEvery = opts.snapshotEveryEvents ?? 200;
   const snapshotsToKeep = opts.snapshotsToKeep ?? 3;
 
-  const registry = new Registry();
-  registry.load(substrateCorePlugin);
-  for (const p of opts.plugins) registry.load(p);
-  registry.validate();
+  // Boot order: persistence migrate → worlds-repo migrate → service
+  // and registry constructed → HTTP/WS server. WorldRuntimes are lazy
+  // and instantiate on the first connection per world.
+  if (opts.persistence) await opts.persistence.migrate();
+  await opts.worldsRepo.migrate();
 
-  const world = new World(worldId);
-  const bus = new EventBus();
-  const pipeline = new CommandPipeline(registry, world, bus, {
-    persistence: opts.persistence,
+  const persistence = opts.persistence ?? memoryPersistenceFallback();
+  const worldsService = new WorldsService({
+    worldsRepo: opts.worldsRepo,
+    persistence,
   });
 
-  // Cold-boot replay. Load latest snapshot, restore the World, and replay
-  // any events past it through systems so the in-memory World matches the
-  // last persisted seq. WS doesn't open until this is done.
-  if (opts.persistence) {
-    await opts.persistence.migrate();
-    const snapshot = await opts.persistence.loadLatestSnapshot(worldId);
-    if (snapshot) world.restore(snapshot.state);
-    const sinceSeq = snapshot?.atSeq ?? 0;
-    const tail = await opts.persistence.readEventsSince(worldId, sinceSeq);
-    if (tail.length > 0) {
-      const events: EventInstance[] = tail.map((e) => ({
-        type: e.type as EventInstance["type"],
-        payload: e.payload,
-      }));
-      // Replay through systems but DON'T re-persist or re-broadcast — the
-      // events are already in the log and there's no one connected yet.
-      runSystemsToFixpoint(registry, world, events);
-    }
-    const highest = await opts.persistence.highestSeq(worldId);
-    pipeline.setNextSeq(highest + 1);
-  }
+  const conns = new Set<Conn>();
 
-  // Persisted snapshots strip transient traits — session state (Online,
-  // Identity, Name) shouldn't carry forward across restarts. Live catchup
-  // snapshots sent to clients still include them so the new client has the
-  // current presence picture.
-  const isDurableTrait = (traitName: import("./schema.js").TraitName): boolean => {
-    const def = registry.traits.get(traitName);
-    return def ? !def.transient : true;
-  };
-
-  let eventsSinceSnapshot = 0;
-  const takeSnapshot = async (): Promise<void> => {
-    if (!opts.persistence) return;
-    const atSeq = pipeline.currentSeq;
-    if (atSeq === 0) return;
-    await opts.persistence.writeSnapshot({
-      worldId,
-      atSeq,
-      state: world.dump(isDurableTrait),
-      takenAt: Date.now(),
+  // Per-runtime broadcast handler. Registered once per runtime when it
+  // is first acquired; iterates the global conns set filtered to this
+  // runtime's worldId. Runs the visibility filter per recipient and
+  // drives snapshot cadence via runtime.observeBroadcast.
+  const wireRuntimeBroadcasts = (runtime: WorldRuntime): void => {
+    runtime.bus.onAny((event: EventInstance) => {
+      const def = runtime.registry.events.get(event.type);
+      if (def && !def.broadcast) return;
+      const seq = runtime.pipeline.seqFor(event) ?? -1;
+      const msg = JSON.stringify({ kind: "event", seq, event });
+      for (const conn of conns) {
+        if (conn.worldId !== runtime.worldId) continue;
+        if (conn.sock.readyState !== conn.sock.OPEN) continue;
+        if (!matchesVisibility(event.visibility, conn.recipient)) continue;
+        conn.sock.send(msg);
+      }
+      runtime.observeBroadcast(event);
     });
-    if (opts.persistence.pruneSnapshots) {
-      await opts.persistence.pruneSnapshots(worldId, snapshotsToKeep);
-    }
-    eventsSinceSnapshot = 0;
   };
+
+  const worldsRegistry = new WorldsRegistry({
+    worldsRepo: opts.worldsRepo,
+    persistence: opts.persistence,
+    infrastructure: opts.infrastructure,
+    optional: opts.optional,
+    snapshotEvery,
+    snapshotsToKeep,
+    onRuntimeCreated: wireRuntimeBroadcasts,
+  });
 
   const devProxyUrl = opts.devProxy ? new URL(opts.devProxy) : null;
-  // Pre-resolve asset roots so the per-request hot path is just a prefix
-  // match. Sorted by descending prefix length so a more-specific mount
-  // wins over a parent (e.g. `/icons/foo/` before `/icons/`).
   const assetRoots = Object.entries(opts.assetRoots ?? {})
     .map(([prefix, root]) => ({ prefix, root: resolve(root) }))
     .sort((a, b) => b.prefix.length - a.prefix.length);
@@ -352,8 +355,6 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
         const handled = await opts.httpHandler(req, res);
         if (handled) return;
       }
-      // assetRoots take priority over devProxy/clientRoot so server-shipped
-      // assets (icons, etc.) aren't shadowed.
       const url = (req.url ?? "/").split("?")[0]!;
       for (const { prefix, root } of assetRoots) {
         if (!url.startsWith(prefix)) continue;
@@ -366,8 +367,6 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
         );
         return;
       }
-      // Dev mode: stream non-API HTTP through Vite so source changes (and
-      // HMR's injected client script) reach the browser without a rebuild.
       if (devProxyUrl) {
         proxyHttp(devProxyUrl, req, res);
         return;
@@ -388,34 +387,13 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
   });
 
   const wss = new WebSocketServer({ noServer: true });
-  type Conn = {
-    sock: WebSocket;
-    clientId: string;
-    session: unknown;
-    recipient: Recipient | null;
-    /**
-     * Heartbeat liveness flag. Flipped to `false` when we send a ping;
-     * the socket's `pong` handler flips it back to `true`. If the next
-     * heartbeat tick still finds it `false`, the socket missed a full
-     * ping cycle and gets terminated.
-     */
-    isAlive: boolean;
-  };
-  const conns = new Set<Conn>();
 
-  // WS heartbeat: ping every 15s, terminate if a pong didn't arrive in
-  // the prior interval. Detection bound is one full cycle (~30s), which
-  // is fast enough to keep the player list honest after a browser crash
-  // or a silently-dropped connection without false-positives on brief
-  // network jitter. Browsers send a clean close frame on tab close /
-  // refresh in the normal case — this is the backstop for the abnormal
-  // ones (OOM kill, laptop snap, NAT drop).
+  // Heartbeat is global across all worlds — one timer pings every conn
+  // regardless of which runtime it's attached to. See HEARTBEAT_INTERVAL_MS.
   const HEARTBEAT_INTERVAL_MS = 15_000;
   const heartbeat = setInterval(() => {
     for (const conn of conns) {
       if (!conn.isAlive) {
-        // Missed a ping cycle. `terminate` skips the close handshake;
-        // the 'close' event still fires, which runs the despawn system.
         conn.sock.terminate();
         continue;
       }
@@ -423,19 +401,14 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
       try {
         conn.sock.ping();
       } catch {
-        // ping() can throw on a half-closed socket; let the next tick
-        // pick it up via the isAlive check.
+        // ping() may throw on a half-closed socket; next tick catches it.
       }
     }
   }, HEARTBEAT_INTERVAL_MS);
-  // Don't keep the Node process alive just for the heartbeat.
   if (typeof heartbeat.unref === "function") heartbeat.unref();
 
   httpServer.on("upgrade", async (req: IncomingMessage, socket: Socket, head: Buffer) => {
-    // When a dev proxy is configured, the substrate accepts WS at exactly
-    // `/ws` and forwards anything else (e.g. Vite's HMR socket) upstream.
-    // Without a dev proxy, all upgrades go to the substrate WS — preserves
-    // the historical "WS works at any path" behaviour for tests and tools.
+    // Dev-proxy: forward non-`/ws` upgrades upstream (Vite HMR socket).
     if (devProxyUrl) {
       const path = (req.url ?? "/").split("?")[0]!;
       if (path !== "/ws") {
@@ -444,10 +417,27 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
       }
     }
 
+    const worldId = parseWorldIdFromUpgrade(req);
+    if (!worldId) {
+      socket.write("HTTP/1.1 400 Bad Request\r\n\r\nmissing worldId");
+      socket.destroy();
+      return;
+    }
+
+    // Validate the world exists and is bootable. We don't pre-acquire
+    // here — auth happens first; a missing/archived world is a 404 even
+    // for a logged-in user.
+    const record = await worldsService.get(worldId);
+    if (!record || record.archivedAt !== null) {
+      socket.write("HTTP/1.1 404 Not Found\r\n\r\nunknown world");
+      socket.destroy();
+      return;
+    }
+
     let session: unknown = null;
     if (opts.authenticateUpgrade) {
       try {
-        session = await opts.authenticateUpgrade(req);
+        session = await opts.authenticateUpgrade(req, worldId);
       } catch {
         session = null;
       }
@@ -457,159 +447,163 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
         return;
       }
     }
+
     wss.handleUpgrade(req, socket, head, (sock) => {
-      wss.emit("connection", sock, req, session);
+      wss.emit("connection", sock, req, { session, worldId });
     });
   });
 
-  bus.onAny((event: EventInstance) => {
-    const def = registry.events.get(event.type);
-    if (def && !def.broadcast) return;
-    const seq = pipeline.seqFor(event) ?? -1;
-    const msg = JSON.stringify({ kind: "event", seq, event });
-    for (const conn of conns) {
-      if (conn.sock.readyState !== conn.sock.OPEN) continue;
-      // Per-recipient visibility: events without `visibility` are public
-      // (the common case); restricted events check against the recipient
-      // shape extracted from the session at connect time.
-      if (!matchesVisibility(event.visibility, conn.recipient)) continue;
-      conn.sock.send(msg);
-    }
-
-    // Snapshot cadence: only count durable events (the ones the pipeline
-    // assigned a real seq to). Take the snapshot off the hot path.
-    if (def && !def.transient && opts.persistence) {
-      eventsSinceSnapshot++;
-      if (eventsSinceSnapshot >= snapshotEvery) {
-        // Fire and forget; failures are logged but don't crash dispatch.
-        void takeSnapshot().catch((err) => {
-          console.error("[mvtt] snapshot write failed:", (err as Error).message);
-        });
-      }
-    }
-  });
-
-  wss.on("connection", (sock: WebSocket, _req: IncomingMessage, session: unknown) => {
-    const clientId = `client-${nextClient++}`;
-    const recipient = opts.extractRecipient ? opts.extractRecipient(session) : null;
-    const conn: Conn = { sock, clientId, session, recipient, isAlive: true };
-    conns.add(conn);
-    sock.on("pong", () => {
-      conn.isAlive = true;
-    });
-
-    sock.send(
-      JSON.stringify({
-        kind: "hello",
-        clientId,
-        worldId,
-        plugins: registry.plugins.map((p) => ({ name: p.name, version: p.version })),
-      }),
-    );
-
-    // Catchup: deliver the current World state to this client as a synthetic
-    // snapshot, then mark them as synced. After this they receive every
-    // subsequent event live via bus.onAny. The dump is filtered per
-    // recipient — entities whose visibility excludes this connection are
-    // omitted, matching the live broadcast filter so the snapshot can't
-    // leak GM-only state to a freshly-connecting player.
-    sock.send(
-      JSON.stringify({
-        kind: "snapshot",
-        worldId,
-        atSeq: pipeline.currentSeq,
-        state: dumpForRecipient(world.dump(), registry, recipient),
-      }),
-    );
-    sock.send(
-      JSON.stringify({
-        kind: "synced",
-        atSeq: pipeline.currentSeq,
-      }),
-    );
-
-    // Lifecycle event — identity plugin spawns Player, broadcasts.
-    const opened = runSystemsToFixpoint(registry, world, [
-      ConnectionOpened({ clientId, session }),
-    ]);
-    for (const ev of opened) bus.emit(ev);
-
-    sock.on("message", async (raw) => {
-      let parsed: unknown;
+  wss.on(
+    "connection",
+    async (
+      sock: WebSocket,
+      _req: IncomingMessage,
+      ctx: { session: unknown; worldId: WorldId },
+    ) => {
+      let runtime: WorldRuntime;
       try {
-        parsed = JSON.parse(raw.toString());
-      } catch {
-        return;
-      }
-      const msg = WireMsg.safeParse(parsed);
-      if (!msg.success) return;
-
-      if (msg.data.kind === "command") {
-        const env: CommandEnvelope = {
-          id: msg.data.id,
-          issuedBy: clientId,
-          issuedAt: msg.data.issuedAt,
-          cmd: { type: msg.data.cmd.type as CommandName, payload: msg.data.cmd.payload },
-          session: conn.session,
-          causalState: msg.data.causalState,
-        };
-        const result = await pipeline.dispatch(env);
+        runtime = await worldsRegistry.acquire(ctx.worldId);
+      } catch (err) {
+        // Race: world archived/deleted between upgrade auth and acquire.
         sock.send(
-          JSON.stringify({
-            kind: "ack",
-            commandId: env.id,
-            ok: result.result.ok,
-            reason: result.result.ok ? undefined : result.result.reason,
-          }),
+          JSON.stringify({ kind: "error", reason: (err as Error).message }),
         );
+        sock.close();
         return;
       }
 
-      if (msg.data.kind === "presence") {
-        // Fan presence out to every OTHER connection — the originator
-        // already has the value locally. Whisper-style scoping applies if
-        // `to` is set; otherwise visibility-style "everyone" semantics.
-        const allowList = msg.data.to;
-        const out = JSON.stringify(msg.data);
-        for (const peer of conns) {
-          if (peer === conn) continue;
-          if (peer.sock.readyState !== peer.sock.OPEN) continue;
-          if (allowList) {
-            const recipientId = peer.recipient?.userId;
-            if (!recipientId || !allowList.includes(recipientId)) continue;
-          }
-          peer.sock.send(out);
-        }
-        return;
-      }
-    });
+      const clientId = `client-${nextClient++}`;
+      const recipient = opts.extractRecipient
+        ? opts.extractRecipient(ctx.session)
+        : null;
+      const conn: Conn = {
+        sock,
+        clientId,
+        worldId: ctx.worldId,
+        session: ctx.session,
+        recipient,
+        isAlive: true,
+      };
+      conns.add(conn);
+      sock.on("pong", () => {
+        conn.isAlive = true;
+      });
 
-    sock.on("close", () => {
-      conns.delete(conn);
-      const closed = runSystemsToFixpoint(registry, world, [
-        ConnectionClosed({ clientId }),
+      sock.send(
+        JSON.stringify({
+          kind: "hello",
+          clientId,
+          worldId: ctx.worldId,
+          plugins: runtime.registry.plugins.map((p) => ({
+            name: p.name,
+            version: p.version,
+          })),
+        }),
+      );
+
+      sock.send(
+        JSON.stringify({
+          kind: "snapshot",
+          worldId: ctx.worldId,
+          atSeq: runtime.pipeline.currentSeq,
+          state: dumpForRecipient(
+            runtime.world.dump(),
+            runtime.registry,
+            recipient,
+          ),
+        }),
+      );
+      sock.send(
+        JSON.stringify({
+          kind: "synced",
+          atSeq: runtime.pipeline.currentSeq,
+        }),
+      );
+
+      // Lifecycle event scoped to this runtime.
+      const opened = runSystemsToFixpoint(runtime.registry, runtime.world, [
+        ConnectionOpened({ clientId, session: ctx.session }),
       ]);
-      for (const ev of closed) bus.emit(ev);
-    });
-  });
+      for (const ev of opened) runtime.bus.emit(ev);
+
+      sock.on("message", async (raw) => {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(raw.toString());
+        } catch {
+          return;
+        }
+        const msg = WireMsg.safeParse(parsed);
+        if (!msg.success) return;
+
+        if (msg.data.kind === "command") {
+          const env: CommandEnvelope = {
+            id: msg.data.id,
+            issuedBy: clientId,
+            issuedAt: msg.data.issuedAt,
+            cmd: {
+              type: msg.data.cmd.type as CommandName,
+              payload: msg.data.cmd.payload,
+            },
+            session: conn.session,
+            causalState: msg.data.causalState,
+          };
+          const result = await runtime.pipeline.dispatch(env);
+          sock.send(
+            JSON.stringify({
+              kind: "ack",
+              commandId: env.id,
+              ok: result.result.ok,
+              reason: result.result.ok ? undefined : result.result.reason,
+            }),
+          );
+          return;
+        }
+
+        if (msg.data.kind === "presence") {
+          // Per-world presence: scoped to the originator's runtime.
+          const allowList = msg.data.to;
+          const out = JSON.stringify(msg.data);
+          for (const peer of conns) {
+            if (peer === conn) continue;
+            if (peer.worldId !== conn.worldId) continue;
+            if (peer.sock.readyState !== peer.sock.OPEN) continue;
+            if (allowList) {
+              const recipientId = peer.recipient?.userId;
+              if (!recipientId || !allowList.includes(recipientId)) continue;
+            }
+            peer.sock.send(out);
+          }
+          return;
+        }
+      });
+
+      sock.on("close", () => {
+        conns.delete(conn);
+        const closed = runSystemsToFixpoint(runtime.registry, runtime.world, [
+          ConnectionClosed({ clientId }),
+        ]);
+        for (const ev of closed) runtime.bus.emit(ev);
+      });
+    },
+  );
 
   return new Promise<ServerHandle>((resolveHandle) => {
     httpServer.listen(opts.port, () => {
       const addr = httpServer.address();
       const port = typeof addr === "object" && addr ? addr.port : opts.port;
       resolveHandle({
-        registry,
-        world,
-        bus,
-        pipeline,
+        worldsService,
+        worldsRegistry,
         port,
-        worldId,
-        takeSnapshot,
+        takeSnapshots: async () => {
+          await Promise.allSettled(
+            worldsRegistry.all().map((rt) => rt.takeSnapshot()),
+          );
+        },
         close: async () => {
-          // Take a final snapshot so a graceful shutdown leaves replay-cost
-          // bounded for the next boot.
           try {
-            await takeSnapshot();
+            await worldsRegistry.closeAll();
           } catch {
             // best-effort
           }
@@ -621,4 +615,22 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
       });
     });
   });
+}
+
+/**
+ * Stand-in PersistenceAdapter for callers that omit `opts.persistence`
+ * — keeps WorldsService.hardDelete from blowing up. Doesn't preserve
+ * any state (event log, snapshots all empty); that's the caller's
+ * choice when they declined to pass a real adapter.
+ */
+function memoryPersistenceFallback(): PersistenceAdapter {
+  return {
+    migrate: async () => {},
+    appendEvents: async () => {},
+    readEventsSince: async () => [],
+    highestSeq: async () => 0,
+    loadLatestSnapshot: async () => null,
+    writeSnapshot: async () => {},
+    hardDeleteWorld: async () => {},
+  };
 }

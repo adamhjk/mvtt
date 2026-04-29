@@ -5,7 +5,7 @@ mrpg-vtt is an open-source modern virtual tabletop. The substrate is intentional
 ## Read these first
 
 - **`design/basics.md`** — the architectural manifesto. Read in full before writing code outside an existing plugin. Covers the substrate, the plugin model, client/server trust boundary, presence channel, persistence, and the standard core layout.
-- **`design/scaffold-mapping.md`** — how each piece of the current scaffold corresponds to a DDD building block, plus the list of deliberate gaps (PersistenceAdapter, Slots, CAS, visibility filtering, per-side bundling).
+- **`design/scaffold-mapping.md`** — how each piece of the current scaffold corresponds to a DDD building block, plus the list of deliberate gaps (per-side bundling, sentinel-entity sugar, plugin dep resolution, etc.). Also covers the multi-world layer (WorldsRegistry/Service/Repository) and how the `Worlds` aggregate composes with the `World` aggregate.
 - **`.claude/skills/ecs/SKILL.md`** — patterns for traits, events, commands, systems, views, sentinel entities, factories, and plugin manifests. Apply when working **inside a plugin** that contributes to the live game World.
 - **`.claude/skills/ddd/SKILL.md`** — Domain Driven Design building blocks. Apply for everything **outside the live World**: substrate plumbing, persistence, content catalogs, user accounts, orchestration.
 
@@ -15,10 +15,14 @@ The two skills compose: ECS structures the contents of the World aggregate; DDD 
 
 ```
 packages/
-  substrate/         # tiny core: World, EventBus, CommandPipeline, definers, ws server/client, wire protocol
+  substrate/         # tiny core: World, EventBus, CommandPipeline, definers, ws server/client, wire protocol,
+                     # plus the multi-world layer: WorldsRepository, WorldsService, WorldsRegistry, WorldRuntime,
+                     # resolveActivePlugins (game-system + deps + infra), InMemoryWorldsRepository for tests.
   plugin-ping/       # minimal demo plugin (Ping command → Pong event)
-  server/            # Node entry: boots substrate, loads plugins, opens http+ws on :3001
-  client/            # Vite + Solid; mounts views by surface
+  system-simple/     # first game-system plugin (gameSystem: true, deps: dice-tray + characters)
+  server/            # Node entry: boots substrate, loads plugins, HTTP API for /api/worlds + memberships,
+                     # opens http+ws on :3001 (WS routed by ?worldId=)
+  client/            # Vite + Solid; AuthGate → WorldGate → mounts views by surface; world picker in header
 design/
   basics.md
   scaffold-mapping.md

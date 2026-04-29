@@ -88,6 +88,13 @@ export interface PersistenceAdapter {
   pruneSnapshots?(worldId: WorldId, keepMostRecent: number): Promise<void>;
 
   /**
+   * Drop every event row + snapshot row for `worldId`. Called by
+   * `WorldsService.hardDelete` when the GM permanently destroys a world
+   * (along with the worlds-index row and the per-world plugin-data dir).
+   */
+  hardDeleteWorld(worldId: WorldId): Promise<void>;
+
+  /**
    * Run any schema migrations / table creation. Idempotent. Called once
    * during server startup before any other adapter method.
    */

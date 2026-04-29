@@ -20,8 +20,12 @@ import { PdfDocumentSet } from "./events.js";
  * endpoint stamps them on so the browser re-fetches after a
  * replacement.
  */
-function isPdfUrlForBook(url: string, bookId: string): boolean {
-  const expectedPrefix = `/plugin-data/@vtt/pdf-book/books/${bookId}/`;
+function isPdfUrlForBook(
+  url: string,
+  worldId: string,
+  bookId: string,
+): boolean {
+  const expectedPrefix = `/plugin-data/${worldId}/@vtt/pdf-book/books/${bookId}/`;
   if (!url.startsWith(expectedPrefix)) return false;
   if (url.includes("..")) return false;
   return true;
@@ -49,9 +53,9 @@ export const SetPdfDocument = defineCommand({
     if (!got) {
       return fail(`entity ${ctx.cmd.bookId} is not a Book`);
     }
-    if (!isPdfUrlForBook(ctx.cmd.url, ctx.cmd.bookId)) {
+    if (!isPdfUrlForBook(ctx.cmd.url, ctx.world.worldId, ctx.cmd.bookId)) {
       return fail(
-        `url must start with /plugin-data/@vtt/pdf-book/books/${ctx.cmd.bookId}/`,
+        `url must start with /plugin-data/${ctx.world.worldId}/@vtt/pdf-book/books/${ctx.cmd.bookId}/`,
       );
     }
     return ok();

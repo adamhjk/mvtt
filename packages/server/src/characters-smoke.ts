@@ -1,5 +1,6 @@
 import WebSocket from "ws";
 import { startServer } from "@vtt/substrate/server";
+import { definePlugin, InMemoryWorldsRepository } from "@vtt/substrate";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
@@ -23,9 +24,27 @@ const PLAYER: AuthSession = {
   role: "player",
 };
 
+const charactersTestSystem = definePlugin({
+  name: "@vtt/characters-test-system",
+  version: "0",
+  dependsOn: ["@vtt/characters@^0"],
+  gameSystem: true,
+});
+
+const worldsRepo = new InMemoryWorldsRepository();
+await worldsRepo.migrate();
+const world = await worldsRepo.insert({
+  id: "characters-smoke",
+  name: "Characters smoke",
+  gameSystemPlugin: charactersTestSystem.name,
+  ownerUserId: PLAYER.userId,
+});
+
 const handle = await startServer({
   port: 0,
-  plugins: [shellWorkbench, identity, permissions, characters],
+  infrastructure: [shellWorkbench, identity, permissions],
+  optional: [characters, charactersTestSystem],
+  worldsRepo,
   authenticateUpgrade: async () => PLAYER,
   extractRecipient: (s) => {
     const sess = s as AuthSession | null;
@@ -33,7 +52,7 @@ const handle = await startServer({
   },
 });
 
-const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws`);
+const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws?worldId=${world.id}`);
 
 interface EventMsg {
   kind: "event";
@@ -80,10 +99,10 @@ send({
 
 await new Promise((r) => setTimeout(r, 80));
 
-const after = handle.world.query([Character]);
+const after = handle.worldsRegistry.get(world.id)!.world.query([Character]);
 assert(after.length === 1, "expected one Character entity after CreateCharacter");
 const characterId = after[0]!.id;
-const initial = handle.world.get(characterId, [Character, OwnedBy]) as {
+const initial = handle.worldsRegistry.get(world.id)!.world.get(characterId, [Character, OwnedBy]) as {
   Character: { name: string };
   OwnedBy: { userId: string };
 };
@@ -103,7 +122,7 @@ send({
 
 await new Promise((r) => setTimeout(r, 80));
 
-const renamed = handle.world.get(characterId, [Character]) as {
+const renamed = handle.worldsRegistry.get(world.id)!.world.get(characterId, [Character]) as {
   Character: { name: string };
 };
 assert(renamed.Character.name === "Tarn the Bolder", "expected rename to land on the trait");
@@ -121,7 +140,7 @@ send({
 
 await new Promise((r) => setTimeout(r, 80));
 
-assert(!handle.world.has(characterId), "expected character to be despawned after RemoveCharacter");
+assert(!handle.worldsRegistry.get(world.id)!.world.has(characterId), "expected character to be despawned after RemoveCharacter");
 
 const eventTypes = messages
   .filter((m): m is EventMsg => m.kind === "event")

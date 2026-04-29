@@ -100,7 +100,7 @@ describe("@vtt/pdf-book", () => {
   describe("SetPdfDocument", () => {
     it("GM sets a PDF; recording system attaches PdfDocument trait to the Book entity", async () => {
       const bookId = await makeBook(pipeline, world);
-      const url = `/plugin-data/@vtt/pdf-book/books/${bookId}/document.pdf?v=12345`;
+      const url = `/plugin-data/default/@vtt/pdf-book/books/${bookId}/document.pdf?v=12345`;
       const res = await dispatch(
         pipeline,
         SetPdfDocument({ bookId, url }),
@@ -117,8 +117,8 @@ describe("@vtt/pdf-book", () => {
 
     it("replacing an existing PDF overwrites the URL", async () => {
       const bookId = await makeBook(pipeline, world);
-      const u1 = `/plugin-data/@vtt/pdf-book/books/${bookId}/document.pdf?v=1`;
-      const u2 = `/plugin-data/@vtt/pdf-book/books/${bookId}/document.pdf?v=2`;
+      const u1 = `/plugin-data/default/@vtt/pdf-book/books/${bookId}/document.pdf?v=1`;
+      const u2 = `/plugin-data/default/@vtt/pdf-book/books/${bookId}/document.pdf?v=2`;
       await dispatch(pipeline, SetPdfDocument({ bookId, url: u1 }), GM);
       await dispatch(pipeline, SetPdfDocument({ bookId, url: u2 }), GM);
       const got = world.get(bookId, [PdfDocument]) as {
@@ -133,7 +133,7 @@ describe("@vtt/pdf-book", () => {
         pipeline,
         SetPdfDocument({
           bookId,
-          url: `/plugin-data/@vtt/pdf-book/books/${bookId}/document.pdf`,
+          url: `/plugin-data/default/@vtt/pdf-book/books/${bookId}/document.pdf`,
         }),
         PLAYER,
       );
@@ -145,7 +145,7 @@ describe("@vtt/pdf-book", () => {
         pipeline,
         SetPdfDocument({
           bookId: "ghost-book" as EntityId,
-          url: "/plugin-data/@vtt/pdf-book/books/ghost-book/document.pdf",
+          url: "/plugin-data/default/@vtt/pdf-book/books/ghost-book/document.pdf",
         }),
         GM,
       );
@@ -158,7 +158,7 @@ describe("@vtt/pdf-book", () => {
         pipeline,
         SetPdfDocument({
           bookId,
-          url: "/plugin-data/@vtt/pdf-book/books/some-other-book/document.pdf",
+          url: "/plugin-data/default/@vtt/pdf-book/books/some-other-book/document.pdf",
         }),
         GM,
       );
@@ -184,7 +184,7 @@ describe("@vtt/pdf-book", () => {
         pipeline,
         SetPdfDocument({
           bookId,
-          url: `/plugin-data/@vtt/pdf-book/books/${bookId}/../../../etc/passwd.pdf`,
+          url: `/plugin-data/default/@vtt/pdf-book/books/${bookId}/../../../etc/passwd.pdf`,
         }),
         GM,
       );
@@ -213,7 +213,7 @@ describe("@vtt/pdf-book", () => {
       const events = PdfDocumentSetSystem.run({
         event: {
           bookId: "ghost" as EntityId,
-          url: "/plugin-data/@vtt/pdf-book/books/ghost/document.pdf",
+          url: "/plugin-data/default/@vtt/pdf-book/books/ghost/document.pdf",
         } as never,
         world,
       });

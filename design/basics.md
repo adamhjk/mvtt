@@ -15,7 +15,8 @@ Existing virtual tabletops are difficult to develop, test, and extend. New rule 
 5. **Solid for reactive UI.** Fine-grained signals map directly onto trait mutations with no reconciliation tax. Views are Solid components bound to surfaces and trait queries.
 6. **Schema-first.** Every trait, event, command, and plugin manifest is a Zod schema. Validation, types, AI legibility, and runtime introspection all derive from one source.
 7. **Domain-driven design throughout.** Plugins are bounded contexts. The live game World is one DDD aggregate root; ECS is the internal pattern for that aggregate's contents. Everything outside the World — substrate plumbing, persistence, content catalogs, user accounts, orchestration — uses classic DDD building blocks. See the `ddd` and `ecs` skills.
-8. **Persistence in SQLite + JSON.** Each world pins to one server process (see non-goals), so we don't need a distributed datastore — SQLite with JSON columns gives us the document-shaped storage MongoDB would, plus zero-ops, atomic transactions over multiple tables, and a single-file backup/import/export story. Trait records and event payloads live in JSON columns; `worldId`/`seq` are indexed scalar columns. (Earlier design notes said MongoDB; we revised to SQLite once it was clear we don't need cross-region distribution.)
+8. **Persistence in SQLite + JSON.** A deployment is one process hosting many worlds (see "Worlds and tenancy" below); we don't need a distributed datastore — SQLite with JSON columns gives us document-shaped storage, zero ops, atomic cross-table transactions, and a single-file backup/import/export story. Trait records and event payloads live in JSON columns; `worldId`/`seq` are indexed scalar columns. (Earlier design notes said MongoDB; we revised to SQLite once it was clear we don't need cross-region distribution.)
+9. **Multi-tenant from day one.** Users are global accounts; permissions are per-world. The substrate hosts many `World` runtimes in one process, each isolated (its own filtered Registry, its own EventBus, its own pipeline). Connections name their target world at upgrade time. See "Worlds and tenancy" below.
 
 ## Architectural framework: DDD + ECS
 
@@ -23,13 +24,13 @@ mvtt uses two complementary patterns. **Classic DDD** structures the substrate, 
 
 | DDD building block | mvtt expression |
 |---|---|
-| **Aggregate Root** | The `World` — owns all entities, traits, the event log, and the consistency of the entire game session |
-| **Aggregate (logical, within the World)** | Sentinel entity + its traits + the systems and validators that maintain its invariants (e.g. `Encounter`, `PendingAttack`, in-flight `Spell`, `Roll`) |
+| **Aggregate Root** | Two roots, at different levels. **`World`** — owns the entities, traits, and event log of one live game session (ECS internally). **`Worlds`** (the substrate-level aggregate) — owns the *set* of worlds the deployment hosts, plus per-world membership rows. The two are orthogonal: `Worlds` decides which `World`s exist and who can connect to each; `World` runs one game's mechanics. |
+| **Aggregate (logical, within a World)** | Sentinel entity + its traits + the systems and validators that maintain its invariants (e.g. `Encounter`, `PendingAttack`, in-flight `Spell`, `Roll`) |
 | **Entity (within an aggregate)** | An ECS entity (bare ID with composed traits) |
 | **Value Object** | Trait instance, Event payload, Command payload, schema-defined immutable shapes; cross-plugin types like `DiceFormula`, `Coordinates`, `Money` |
 | **Domain Service** | A System — pure function over event + world snapshot |
 | **Application Service** | A Command's `validate` + `apply` (one transactional mutation on the World); for non-World workflows like campaign import, classic async-iterable application services per the `ddd` skill |
-| **Repository** | The `PersistenceAdapter` for the World aggregate; classic repositories for content catalogs, asset metadata, user accounts, plugin registry |
+| **Repository** | The `PersistenceAdapter` for the World aggregate's event log + snapshots; the `WorldsRepository` for the `Worlds` aggregate (worlds index + memberships); better-auth's adapter for global user accounts |
 | **Domain Event** | An Event in the event-sourced spine |
 | **Factory** | Pattern helpers like `defineDamageSpell` produce template Value Objects |
 | **Bounded Context** | A plugin |
@@ -65,26 +66,33 @@ The substrate is intentionally tiny. It knows about plumbing, not domain.
 │  SUBSTRATE                                                      │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   World           — entities, trait stores, query engine,       │
-│                     reactive signal source                      │
+│   WorldsRegistry  — one process, many WorldRuntimes; lazy       │
+│                     instantiation per worldId on first connect  │
+│   WorldsService   — orchestrates the Worlds aggregate (DDD):    │
+│                     create / archive / hardDelete / membership  │
+│   WorldsRepository — list of worlds + memberships (per process) │
 │                                                                 │
-│   TraitRegistry   — register a trait def (Zod schema)           │
-│   EventRegistry   — register an event def (Zod schema)          │
-│   CommandRegistry — register a command def + validate/apply     │
-│   SystemRegistry  — register a system (event subscription)      │
-│   ViewRegistry    — register a Solid view by surface+query      │
-│   SurfaceRegistry — declare an extension point                  │
-│   SlotRegistry    — declare a named slot another plugin can fill│
+│   WorldRuntime    — one live World, isolated:                   │
+│     • World           entities, trait stores, query engine,     │
+│                       reactive signal source                    │
+│     • Registry        filtered to the world's game system +     │
+│                       transitive deps + always-on infra plugins │
+│     • EventBus        typed pub/sub, scoped to this runtime     │
+│     • CommandPipeline dedup, CAS, validate, apply, broadcast    │
+│     • Snapshot cadence per-world; cold-boot replay per-world    │
 │                                                                 │
-│   EventBus        — typed pub/sub                               │
-│   CommandPipeline — dedup, CAS, validate, apply, broadcast      │
-│   PluginLoader    — read manifests, resolve deps, register      │
+│   Definers          defineTrait/Event/Command/System/View/      │
+│                     Surface/Slot/Plugin (universal; shared).    │
+│   resolveActivePlugins — game-system + deps → per-world set.    │
 │                                                                 │
-│   NetworkTransport — websocket adapter, server + client         │
-│   ReactivityBridge — trait mutations → Solid signals            │
-│   PresenceChannel  — ephemeral side channel (non-sourced)       │
+│   NetworkTransport  http.Server + WebSocketServer; WS upgrade   │
+│                     parses ?worldId=, validates membership,     │
+│                     attaches conn to the right runtime          │
+│   ReactivityBridge  trait mutations → Solid signals             │
+│   PresenceChannel   ephemeral side channel (non-sourced),       │
+│                     scoped per-world                            │
 │                                                                 │
-│   PersistenceAdapter — snapshot + event log (MongoDB)           │
+│   PersistenceAdapter — snapshot + event log, keyed by worldId   │
 │                                                                 │
 │   Schema (Zod re-export)                                        │
 │                                                                 │
@@ -326,6 +334,8 @@ Between standard core and game systems sits a **shared-mechanics tier** of plugi
 
 A game system (`@vtt/dnd5e`) depends on the shared-mechanics plugins it wants and ignores the rest. A wargame plugin would skip both `@vtt/d20-initiative` and `@vtt/rpg-inventory` and ship its own simultaneous-turn mechanism.
 
+Game-system plugins declare themselves with `gameSystem: true` in `definePlugin`. That flag is what makes the plugin selectable in the world-creation UI; the substrate uses it to compute the per-world active plugin set (game system + transitive `dependsOn` + always-on infrastructure). The first such plugin in tree is **`@vtt/system-simple`** — a marker plugin whose only job is to depend on `@vtt/dice-tray` and `@vtt/characters`, providing a minimal "any RPG" baseline you can use to spin up a world end-to-end. Real game systems land alongside it; the substrate doesn't privilege any of them.
+
 ## Client/server relationship
 
 ### Authority model
@@ -415,6 +425,101 @@ Because the canonical state is an event log, reconnection is mechanical:
 - Server replays events from log; client catches up.
 
 Late joiners get a snapshot + tail of events. Spectators are read-only late joiners. Server crash recovery is "snapshot periodically, replay events since snapshot." All of these reduce to one mechanism.
+
+## Worlds and tenancy
+
+A deployment is **one process hosting many independent worlds**. Each world is a separate live game session — its own ECS aggregate, its own event log, its own connected players, its own chosen rule system. Players in different worlds can be online simultaneously without crosstalk.
+
+### The two-aggregate split
+
+There are two DDD aggregates at play, at different levels:
+
+- **`World`** — one live game session. ECS internally (entities, traits, events, commands, systems). Every game-mechanics concern lives here.
+- **`Worlds`** — substrate-level aggregate over the *set* of worlds the deployment hosts. Persists as two SQLite tables: `world` (id, name, gameSystemPlugin, ownerUserId, createdAt, archivedAt) and `world_membership` (worldId, userId, role). Owns the questions "which worlds exist?" and "who can connect to which?"
+
+The split is the cleanest way to keep the in-world rules-engine code uncontaminated by tenancy concerns. A plugin's command never asks "does this world exist" or "is this user allowed in this world" — by the time the command reaches the pipeline, the substrate has already validated both at WS upgrade.
+
+### Roles, memberships, and the "global GM"
+
+- **User accounts are global.** One sign-in, one `userId`. Lives in the better-auth `user` table.
+- **The first signup becomes the global GM.** Subsequent signups are players. The `role` column on the `user` row is `gm` or `player` — a *capability* flag (only the GM may create worlds), not a per-world role.
+- **Permissions are per-world.** Membership rows `(worldId, userId, role)` grant a global user access to a specific world. The owner of a world is implicitly its GM and does not need a membership row.
+- **Per-world session.** When a WS connection opens, the substrate looks up the user's membership for the target worldId and synthesizes a per-world session: `{ userId, email, name, role: <per-world role> }`. Plugin code reads `session.role` and gets per-world semantics — no plugin needs to know about the global capability flag.
+
+The flow:
+
+```
+  signup        →  global GM (first) or player (rest)        better-auth.user.role
+  create world  →  GM-only HTTP gate                          worlds.insert
+  invite player →  membership row (worldId, userId, role)     world_membership.insert
+  connect to W  →  membership lookup → per-world session      ws upgrade
+```
+
+### Game systems and per-world plugin sets
+
+Every world picks a **game-system plugin** at creation. The choice is immutable for the world's lifetime: events authored under one rule system don't replay under another, so changing systems mid-life would corrupt history.
+
+A plugin opts into the game-system role with `gameSystem: true`:
+
+```ts
+export const systemSimple = definePlugin({
+  name: "@vtt/system-simple",
+  version: "0.1.0",
+  dependsOn: ["@vtt/substrate@^0", "@vtt/characters@^0", "@vtt/dice-tray@^0"],
+  gameSystem: true,
+})
+```
+
+The substrate splits the universe of compiled-in plugins two ways:
+
+- **Infrastructure plugins** (`@vtt/identity`, `@vtt/permissions`, `@vtt/comms`, `@vtt/shell-workbench`, etc.) — always loaded into every world's Registry.
+- **Optional plugins** — a pool that includes shared mechanics (`@vtt/dice-tray`, `@vtt/characters`, `@vtt/scene`, …) and game systems (`@vtt/system-simple`, eventually `@vtt/dnd5e`, `@vtt/blades`, …). For each world, the substrate selects the chosen game-system plugin plus its transitive `dependsOn` (`resolveActivePlugins`).
+
+Result: a world running `@vtt/system-simple` loads dice-tray + characters; a hypothetical wargame running `@vtt/zone-of-control` would load whatever ITS deps are and skip the rest. Each `WorldRuntime` gets its own filtered Registry; module-level state in plugin code is per-runtime by virtue of fresh registry construction.
+
+### One process, many runtimes
+
+`WorldsRegistry` lazy-instantiates a `WorldRuntime` the first time a connection asks for `worldId`:
+
+```
+  WS upgrade  ?worldId=alpha          conn → runtime(alpha)
+  WS upgrade  ?worldId=beta           conn → runtime(beta)
+  WS upgrade  ?worldId=alpha (other)  conn → runtime(alpha)  [reused]
+```
+
+Each runtime owns:
+- its own filtered `Registry` (loaded plugins for *that world's* game system)
+- its own `World` (entity/trait state)
+- its own `EventBus` (broadcast scope)
+- its own `CommandPipeline` (its own seq counter)
+- its own snapshot cadence (every N durable events for *that* world)
+
+Cross-world isolation is verified by the substrate's `multi-world-smoke` integration test: two clients connect to two worlds, each dispatches a command, and the assertion is that neither world ever sees the other's events.
+
+The cost of this model is that every plugin has to be bound-by-`worldId` at runtime — broadcasts, plugin-data uploads, command dispatch, presence channels. The substrate enforces this by construction (each runtime owns its own broadcast set; plugin-data URLs include the worldId; presence is per-runtime).
+
+### Switching worlds
+
+A user with access to multiple worlds switches between them via the workbench-header world picker (a dropdown showing every world they own or have been invited to). Switching is implemented as a **full reconnect**: the page reloads with a new `?worldId=`, the WS reconnects to the new runtime, the snapshot/catchup fires fresh. This is deliberately the same code path as initial connect — there is no mid-session teardown of the substrate's client, no special "swap World" message. Reconnecting to a different runtime is a 1× operation; mid-session swapping would be a permanent maintenance tax for marginal UX gain.
+
+### Lifecycle: create, archive, delete
+
+- **Create.** GM POSTs to `/api/worlds` with `{ name, gameSystem }`. Returns the new world record; GM is implicitly its owner.
+- **Archive.** Soft-delete. The world stays in the table with `archivedAt` set; it disappears from the picker; new connections to it are rejected. Reversible via `unarchive`.
+- **Hard delete.** `DELETE /api/worlds/:id?confirm=true`. Drops the world row, every membership row, every persisted event, every snapshot, and the entire `data/plugin-data/<worldId>/` directory. The `?confirm=true` is a guard against accidents.
+- **Memberships.** GM-of-world adds members by email (`POST /api/worlds/:id/memberships`); removes via DELETE. Future versions will accept link-based invites; v1 requires the user to already have an account.
+
+### Plugin-data is per-world
+
+Uploaded assets (scene backgrounds, PDF books, future tokens, etc.) live under `data/plugin-data/<worldId>/<plugin>/...`. The upload URL `/api/plugin-data/<worldId>/<plugin>/<rest>` is GM-of-world-gated. The static mount stays at `/plugin-data/` so client URLs are stable across worlds. Hard-deleting a world wipes its directory.
+
+Plugin client code that constructs an upload URL pulls the worldId from the substrate client (`useClient().worldId()`); validators in plugin shared-code check `ctx.world.worldId` against the URL prefix.
+
+### Non-goals (this section)
+
+- **Cross-world chat / DMs.** Comms is strictly per-world. A global lobby would be a separate plugin, not a comms change.
+- **Coadminning.** v1 has one global GM and exactly one owner per world. Per-world co-GMs (membership row with `role: gm`) are forward-compatible in the schema but not exposed in the UI.
+- **Cross-region / multi-process world hosting.** Each deployment is one process. Multi-region is a different conversation if it ever happens.
 
 ## Plugin loading: dual-mode, isomorphic
 
@@ -696,14 +801,18 @@ Players see "the orc saved." The GM sees the actual numbers. Plugins emit events
 
 ## Persistence
 
-SQLite stores two tables per database (multiple worlds keyed by `worldId`):
+SQLite stores four tables, all keyed by `worldId` where appropriate:
 
-- **Snapshots** — `(worldId TEXT, atSeq INTEGER, traits JSON, PRIMARY KEY(worldId, atSeq))`. Traits serialize naturally to a JSON document. Snapshots are taken periodically to bound replay cost.
-- **Events** — `(worldId TEXT, seq INTEGER, type TEXT, payload JSON, visibility JSON, at INTEGER, PRIMARY KEY(worldId, seq))`. Append-only.
+- **`world_snapshot`** — `(worldId TEXT, atSeq INTEGER, state JSON, takenAt INTEGER, PRIMARY KEY(worldId, atSeq))`. Snapshots are taken periodically to bound replay cost.
+- **`world_event`** — `(worldId TEXT, seq INTEGER, type TEXT, payload JSON, visibility JSON, at INTEGER, PRIMARY KEY(worldId, seq))`. Append-only event log.
+- **`world`** — `(id TEXT PRIMARY KEY, name TEXT, gameSystemPlugin TEXT, ownerUserId TEXT, createdAt INTEGER, archivedAt INTEGER NULL)`. The `Worlds` aggregate's index of which worlds exist.
+- **`world_membership`** — `(worldId TEXT, userId TEXT, role TEXT, addedAt INTEGER, PRIMARY KEY(worldId, userId))`. Per-world access list.
 
-Recovery is "load latest snapshot, replay events since." Reconnection and time-travel use the same primitive. WAL mode is enabled for concurrent reads without blocking writes.
+Recovery is "load latest snapshot, replay events since" — keyed per-world. Reconnection and time-travel use the same primitive. WAL mode is enabled for concurrent reads without blocking writes.
 
-The substrate provides a `PersistenceAdapter` interface; the SQLite implementation is the default. Other backends (Postgres, in-memory) can be plugged in without touching plugins. SQLite is also where auth state (users, sessions) lives, sharing one file per deployment.
+The substrate provides a `PersistenceAdapter` interface (event log + snapshots) and a `WorldsRepository` interface (worlds index + memberships). The SQLite implementations are the defaults; other backends could be plugged in without touching plugins. SQLite also hosts the auth tables (users, sessions) — one DB file per deployment, one backup story.
+
+`PersistenceAdapter.hardDeleteWorld(worldId)` drops every event + snapshot row for that world; `WorldsService.hardDelete` orchestrates that plus dropping the `world`/`world_membership` rows and `rm -rf data/plugin-data/<worldId>/`.
 
 ## What this earns
 
@@ -719,5 +828,7 @@ The substrate provides a `PersistenceAdapter` interface; the SQLite implementati
 - **Multi-master replication / CRDTs.** Server-authoritative is sufficient for VTT use cases. CRDTs add complexity that doesn't pay back here.
 - **Sandboxing untrusted plugin code.** Plugins are reviewed and accepted by the GM before installation. The substrate does not attempt to sandbox arbitrary plugin code at runtime.
 - **A spell-description DSL.** Plugins are TypeScript. There is no separate language for content.
-- **Cross-region distribution.** Each world pins to one server process. Sticky sessions at the load balancer. Multi-region is a different conversation if it ever happens.
+- **Cross-region distribution.** Each *deployment* is one process; that one process hosts many worlds (see "Worlds and tenancy"), but worlds don't span processes. Sticky sessions at the load balancer if you front it with one. Multi-region is a different conversation if it ever happens.
+- **Cross-world chat / DMs / global lobby.** Comms, presence, scene, characters, dice — everything is keyed by `worldId`. A "global lobby across worlds" would be a future plugin, not a relaxation of the per-world isolation.
+- **Mid-session world swap.** Switching worlds is a full reconnect. We don't tear down and rebuild the substrate's client on the same page; the page reloads with `?worldId=`.
 - **Backwards compatibility across substrate major versions.** Plugins are expected to follow substrate semver. Hot-loading does not paper over schema drift.

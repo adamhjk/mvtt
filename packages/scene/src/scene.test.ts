@@ -731,7 +731,7 @@ describe("@vtt/scene", () => {
     it("accepts a backgroundImage URL under this scene's plugin-data prefix", async () => {
       await makeScene(pipeline);
       const sceneId = world.query([Scene])[0]!.id;
-      const url = `/plugin-data/@vtt/scene/scenes/${sceneId}/background.png?v=12345`;
+      const url = `/plugin-data/default/@vtt/scene/scenes/${sceneId}/background.png?v=12345`;
       const res = await dispatch(
         pipeline,
         UpdateScene({ sceneId, backgroundImage: url }),
@@ -752,7 +752,7 @@ describe("@vtt/scene", () => {
         pipeline,
         UpdateScene({
           sceneId,
-          backgroundImage: `/plugin-data/@vtt/scene/scenes/${sceneId}/background.png`,
+          backgroundImage: `/plugin-data/default/@vtt/scene/scenes/${sceneId}/background.png`,
         }),
         GM,
       );
@@ -777,7 +777,7 @@ describe("@vtt/scene", () => {
         UpdateScene({
           sceneId,
           backgroundImage:
-            "/plugin-data/@vtt/scene/scenes/some-other-scene/background.png",
+            "/plugin-data/default/@vtt/scene/scenes/some-other-scene/background.png",
         }),
         GM,
       );
@@ -805,7 +805,7 @@ describe("@vtt/scene", () => {
         pipeline,
         UpdateScene({
           sceneId,
-          backgroundImage: `/plugin-data/@vtt/scene/scenes/${sceneId}/../../../etc/passwd.png`,
+          backgroundImage: `/plugin-data/default/@vtt/scene/scenes/${sceneId}/../../../etc/passwd.png`,
         }),
         GM,
       );

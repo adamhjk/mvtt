@@ -13,11 +13,19 @@ packages/
                          registries, definers, ws server/client, wire
                          protocol, persistence interface, visibility,
                          slots, presence channel, reactivity bridge,
-                         dev proxy
+                         dev proxy. Plus the multi-world layer:
+                         WorldsRepository (interface), WorldsService
+                         (DDD orchestrator), WorldsRegistry (lazy
+                         per-worldId WorldRuntime), resolveActivePlugins
+                         (game-system + deps + infra), and an
+                         InMemoryWorldsRepository for tests/smokes.
   auth/                  @vtt/auth — better-auth wrapper + SQLite-backed
-                         user/session, role per user (gm | player), the
-                         AuthSession schema others narrow against
-                         (utility module, not a plugin)
+                         user/session. The user-row `role` is global
+                         (gm | player) and gates *world creation* —
+                         per-world role is synthesized from
+                         world_membership at WS upgrade and threaded
+                         into the AuthSession plugin code reads. Utility
+                         module, not a plugin.
   identity/              @vtt/identity — Player entity per WS connection
                          (transient Identity / Name / Online traits) plus
                          lifecycle systems on the substrate's
@@ -54,15 +62,36 @@ packages/
                          RollEntrySurface, GM-only checkbox in the roller,
                          fills @vtt/comms/chat-input-handlers with the
                          `/r ` slash command
-  persistence-sqlite/    @vtt/persistence-sqlite — concrete adapter (event
-                         log + snapshots) sharing the auth DB file
+  system-simple/         @vtt/system-simple — first game-system plugin.
+                         Marker manifest with gameSystem: true that
+                         depends on @vtt/dice-tray and @vtt/characters,
+                         giving "any RPG" the minimal feel. Real systems
+                         (dnd5e, blades, ...) land alongside it.
+  persistence-sqlite/    @vtt/persistence-sqlite — concrete adapter for
+                         BOTH the event log + snapshots AND the
+                         WorldsRepository (worlds + memberships tables),
+                         sharing one DB file with auth.
   tokens/                @vtt/tokens — Tailwind v4 @theme tokens with
                          light-dark() so any shell renders both modes
-  server/                Node entry: wires auth + persistence + plugins
-                         into startServer; HTTP at /api/auth/*, WS at /ws,
-                         optional dev proxy to Vite
-  client/                Vite + Solid; AuthGate gates the live app, then
-                         renders the @vtt/substrate/root surface
+  server/                Node entry: wires auth + persistence +
+                         WorldsRepository + plugins into startServer.
+                         HTTP at /api/auth/*, /api/worlds (list/create),
+                         /api/worlds/:id/{archive,memberships},
+                         /api/worlds/:id?confirm=true (hard delete),
+                         /api/game-systems, /api/plugin-data/<worldId>/...
+                         (per-world uploads). WS at /ws?worldId=...;
+                         optional dev proxy to Vite. Smokes include a
+                         dedicated multi-world test that proves no
+                         cross-talk between concurrent worlds.
+  client/                Vite + Solid. AuthGate gates auth; WorldGate
+                         resolves which worldId to connect to (URL ?
+                         localStorage ? first-run create modal for the
+                         GM ? "ask your GM" empty state for players).
+                         Authenticated mounts the substrate client with
+                         /ws?worldId=. The workbench-header WorldPicker
+                         lists accessible worlds, switches via full
+                         reload, and (for owners) opens a Members
+                         modal for invite-by-email.
 
 design/                  basics.md (manifesto), this file
 .claude/skills/          ddd / ecs (per-skill guidance), plus pixijs-*
@@ -90,6 +119,11 @@ design/                  basics.md (manifesto), this file
 | `PresenceChannel`     | ✓     | `PresenceMsg` wire kind; server fans presence frames out to every *other* connection on the matching channel; whisper-style scoping via optional `to: userId[]`. Client API is `runtime.presence.publish(channel, payload, to?)` and `runtime.presence.subscribe(channel, listener)`. Never persisted, never replayed. No visibility-trait filter applied to presence frames yet (the originator chooses scope). |
 | `PersistenceAdapter`  | ✓     | Interface in substrate; concrete `@vtt/persistence-sqlite`. Cold-boot replay loads snapshot + replays tail; periodic snapshots every N durable events; final snapshot on graceful shutdown. |
 | `Visibility filter`   | ✓     | Per-event broadcast filter (`Visibility` union + recipient match) **and** per-entity snapshot filter (plugin-registered `entityVisibility` resolvers). Persisted events keep their visibility for future "since: N" replay. |
+| `WorldsRepository`    | ✓     | Interface in substrate (`worlds-repository.ts`); concrete `SqliteWorldsRepository` in `@vtt/persistence-sqlite`. Owns the `world` and `world_membership` tables. `InMemoryWorldsRepository` ships in `@vtt/substrate`'s testing entry for smokes. |
+| `WorldsService`       | ✓     | DDD orchestrator: list/create/archive/hardDelete worlds, addMember/removeMember/listMembers, canAccess/roleFor. Coordinates the worlds repo, the event-log adapter, and the plugin-data filesystem dir on hard delete. Exported only from `@vtt/substrate/server` (uses Node fs/path/crypto). |
+| `WorldsRegistry`      | ✓     | One process, many `WorldRuntime`s. Lazy-instantiates per worldId on first connection; concurrent acquires for the same id coalesce. Each runtime gets its own filtered Registry (game system + transitive deps + always-on infra), its own World/EventBus/CommandPipeline, its own snapshot cadence. `closeAll` snapshots every loaded runtime on graceful shutdown. |
+| `resolveActivePlugins`| ✓     | `(infrastructure ∪ chosenGameSystem ∪ chosenGameSystem.dependsOn) → ordered PluginDef[]`. Throws on missing game system, on a `gameSystem: false` plugin being passed as the choice, or on an unresolvable transitive dep. Diamond deps deduplicated. `@vtt/substrate` is recognised as auto-loaded by Registry and skipped. |
+| `WS upgrade routing`  | ✓     | `/ws?worldId=<id>` is mandatory; missing/invalid → 400. Substrate validates the world exists + isn't archived, then runs `authenticateUpgrade(req, worldId)` which returns the per-world session (or null to 401/403). Conn struct carries `worldId`; broadcasts iterate `conns` and filter to the matching runtime. |
 | `Schema`              | ✓     | Zod re-exported as `z`. `QualifiedNameSchema` for the wire boundary. |
 
 ## Plugins shipped vs `basics.md` standard core
@@ -105,7 +139,10 @@ design/                  basics.md (manifesto), this file
 Plus the supporting plugins not in standard core: `@vtt/shell-workbench`
 (default shell), `@vtt/shell-default` (legacy shell, kept as an
 exemplar but not registered), `@vtt/ping` (still loaded by the smoke
-tests), plus the utility/infrastructure packages `@vtt/auth`,
+tests), and `@vtt/system-simple` (first game-system plugin —
+`gameSystem: true`, depends on dice-tray + characters; the minimal
+"any RPG" baseline that proves the multi-world boot loop works
+end-to-end). Plus the utility/infrastructure packages `@vtt/auth`,
 `@vtt/persistence-sqlite`, `@vtt/tokens` (none of which call
 `definePlugin`).
 
@@ -146,16 +183,16 @@ tests), plus the utility/infrastructure packages `@vtt/auth`,
 
 | Concept                   | mvtt expression | Status |
 | ------------------------- | --------------- | ------ |
-| Aggregate Root            | `World` — owns entities, traits, the event log, the consistency of the entire game session | ✓ |
+| Aggregate Root            | Two roots, at different levels. **`World`** — one live game session, ECS internally. **`Worlds`** — substrate-level aggregate over the *set* of worlds the deployment hosts, plus per-world memberships. Owned by `WorldsService`, persisted via `WorldsRepository`. | ✓ |
 | Logical aggregate         | Sentinel entity + traits + maintaining systems | Pattern available; not yet exercised by any plugin. |
 | Value Object              | Trait/Event/Command payloads (Zod-parsed, immutable) | ✓ |
 | Entity (DDD)              | `EntityId` with composed traits | ✓ |
 | Domain Service            | Pure function `(event, world) → events[]` (a System) | ✓ |
 | Application Service       | Command's `validate` + `apply` — single transactional mutation | ✓ |
-| Repository                | `PersistenceAdapter` for the World; auth has its own better-auth Kysely-backed adapter | ✓ |
+| Repository                | `PersistenceAdapter` for the World's event log + snapshots; `WorldsRepository` for the worlds index + memberships; auth has its own better-auth Kysely-backed adapter | ✓ |
 | Domain Event              | An Event in the event-sourced spine | ✓ |
 | Factory                   | Pattern helpers (`defineDamageSpell`, etc.) | Type-supported via the definers; no game-system factory yet. |
-| Bounded Context           | A plugin | ✓ — auth / identity / permissions / shell / scene / resolution / comms / ping / persistence. |
+| Bounded Context           | A plugin | ✓ — auth / identity / permissions / shell / scene / resolution / comms / ping / persistence / system-simple (first game-system plugin). |
 | Ubiquitous Language       | Plugin-namespaced names, branded so kinds aren't interchangeable | ✓ |
 
 ### DDD anti-patterns checked
@@ -176,7 +213,8 @@ tests), plus the utility/infrastructure packages `@vtt/auth`,
 | 5. Solid for reactive UI | ✓ — fine-grained signals; `useTrait`/`useQuery` subscribe per-trait; client state is signal-typed so memos compose correctly. |
 | 6. Schema-first | ✓ — every trait/event/command/surface/slot has a Zod schema; wire format validated by `WireMsg`. |
 | 7. Domain-driven design throughout | ✓ — this document. |
-| 8. Persistence in SQLite (revised from MongoDB) | ✓ — `data/mvtt.db` shared between auth and world tables, WAL on, snapshots+events. |
+| 8. Persistence in SQLite (revised from MongoDB) | ✓ — `data/mvtt.db` shared between auth, the worlds index/memberships, and the event-log/snapshot tables. WAL on. |
+| 9. Multi-tenant from day one | ✓ — one process, many `WorldRuntime`s; users global / permissions per-world; `WorldsRegistry` lazy-instantiates per worldId; multi-world-smoke verifies cross-talk-free isolation at the wire level. |
 
 ## Known gaps (deferred deliberately, with the trigger that ends the deferral)
 
@@ -186,7 +224,9 @@ tests), plus the utility/infrastructure packages `@vtt/auth`,
 - **Reconnection resume by `lastAppliedSeq`** — every connect currently gets a full snapshot. Tail-only resume on reconnect is a small change once the wire envelope carries `since: N`. Trigger: long-running sessions where re-snapshotting becomes expensive.
 - **Hot-loading** — no GM-installs-plugin-mid-session yet. The `Registry.load` is re-entrant on paper, but the WS handshake currently sends a fixed plugin list at hello. Trigger: AI-author flow that generates a plugin and wants it live without a restart.
 - **Per-side bundling** — `serverOnly()`/`clientOnly()` are no-op markers; no real bundler-driven stripping. Trigger: bundle size becomes a problem.
-- **Plugin dependency resolution** — `dependsOn: ["@vtt/foo@^0", ...]` is just a string array. The registry doesn't yet validate versions or topologically sort. Trigger: the first time a plugin load order matters and we forget to hand-order it in the server entry.
+- **Plugin dependency resolution (load order + version match)** — `dependsOn` is parsed for *names* by `resolveActivePlugins` (which walks the graph and infrastructure-vs-game-system filters per world), but the registry still doesn't check semver ranges or fail loudly on a missing dep at the always-on tier. Trigger: a plugin upgrade that changes a published-event payload shape and a dependent doesn't update in lockstep.
+- **Per-world co-GMs in the UI** — the `world_membership.role` column is `gm | player` for forward-compat, but the Members modal currently only adds members at `player`. Trigger: a deployment that wants two GMs sharing one campaign.
+- **Invite links / pending invites** — adding a member requires the user to already have a better-auth account. There's no "send invite to email, account-creates on accept" flow yet. Trigger: GMs onboarding players who don't have accounts.
 - **Sentinel-entity sugar** — manual via `world.spawn` + a coordinating system. Trigger: an attack/save flow with multiple roll entities coordinating before resolving (i.e. the first shared-mechanics or game-system plugin lands).
 - **Standard-core extensions** — basics.md flags `sheet:header` / `sheet:stats` / `sheet:actions` as the expected character-sheet surfaces. Scene declares the canvas/toolbar surfaces but not the sheet host yet. Trigger: the first plugin that wants a character sheet.
 - **Shared-mechanics tier** — basics.md sketches a layer between standard core and game systems (`@vtt/d20-initiative`, `@vtt/rpg-inventory`). Nothing in this layer exists yet. Trigger: the first game-system plugin that wants initiative or inventory.
@@ -200,5 +240,5 @@ These gaps are intentional v0.x scaffolding — each maps to a future plugin or 
 - Vitest 4, vite 8 + `@tailwindcss/vite` 4.
 - `@vtt/scene` is the first plugin to pull a heavy runtime dep — PixiJS v8 — into the client bundle. Per-side bundling is still a no-op (see gaps), so the full PixiJS surface ships to the browser today.
 - `pnpm dev` runs Vite (`:5173`) + the substrate server (`:3001`) in parallel; both ports serve the same live experience because the substrate's `devProxy` forwards non-API HTTP and HMR upgrades to Vite.
-- `pnpm test` runs vitest unit (every package has a `*.test.ts`: substrate primitives, persistence, identity, permissions, scene, comms, resolution, ping) plus an integration smoke (`packages/server/src/smoke.ts`) over a real WebSocket. `pnpm -r typecheck` runs tsc per-package.
-- `pnpm reset` clears `data/` so the next start prompts to create a Game Master from scratch.
+- `pnpm test` runs vitest unit (every package has a `*.test.ts`: substrate primitives including `worlds-service`/`worlds-registry`/`active-plugins`, persistence including `worlds`, identity, permissions, scene, comms, resolution, ping, system-simple) plus five integration smokes over a real WebSocket: `smoke.ts` (single-world ping round-trip), `scene-smoke.ts`, `characters-smoke.ts`, `books-smoke.ts`, and `multi-world-smoke.ts` (two clients, two worlds, no cross-talk + ghost-world rejection). `pnpm -r typecheck` runs tsc per-package.
+- `pnpm reset` clears `data/` so the next start prompts to create a Game Master from scratch (and starts with zero worlds; the GM's first action becomes the forced create-world modal).

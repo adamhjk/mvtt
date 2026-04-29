@@ -11,13 +11,14 @@ import { books } from "@vtt/books";
 import { pdfBook } from "@vtt/pdf-book";
 import { characters } from "@vtt/characters";
 import { diceTray } from "@vtt/dice-tray";
+import { systemSimple } from "@vtt/system-simple";
 import { App } from "./App";
 import { AuthGate } from "./AuthGate";
+import { WorldGate } from "./WorldGate";
 import { authClient } from "./auth-client";
 import "./styles.css";
 
 const wsProto = location.protocol === "https:" ? "wss" : "ws";
-const wsURL = `${wsProto}://${location.host}/ws`;
 
 function Root() {
   const [authed, setAuthed] = createSignal<boolean | null>(null);
@@ -36,16 +37,31 @@ function Root() {
       fallback={<div class="grid min-h-screen place-items-center text-fg-muted text-sm">loading…</div>}
     >
       <Show when={authed()} fallback={<AuthGate onAuthenticated={onAuthenticated} />}>
-        <Authenticated />
+        <WorldGate>{(ctx) => <Authenticated worldId={ctx.worldId} />}</WorldGate>
       </Show>
     </Show>
   );
 }
 
-function Authenticated() {
-  // Only spin up the WebSocket once we know we have a session — the substrate
-  // rejects the upgrade otherwise and we'd loop on reconnects.
-  const client = startClient({ url: wsURL, plugins: [shellWorkbench, identity, permissions, comms, resolution, scene, books, pdfBook, characters, diceTray] });
+function Authenticated(props: { worldId: string }) {
+  const wsURL = `${wsProto}://${location.host}/ws?worldId=${encodeURIComponent(props.worldId)}`;
+  // Only spin up the WebSocket once we know we have a session AND a worldId.
+  const client = startClient({
+    url: wsURL,
+    plugins: [
+      shellWorkbench,
+      identity,
+      permissions,
+      comms,
+      resolution,
+      scene,
+      books,
+      pdfBook,
+      characters,
+      diceTray,
+      systemSimple,
+    ],
+  });
   return (
     <ClientProvider value={client}>
       <App />

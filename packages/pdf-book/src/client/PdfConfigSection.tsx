@@ -47,7 +47,14 @@ function PdfConfigBody(props: { bookId: string }): JSX.Element {
 
   const upload = async (file: File) => {
     setError(null);
-    const url = `/api/plugin-data/@vtt/pdf-book/books/${encodeURIComponent(
+    const worldId = client.worldId();
+    if (!worldId) {
+      setError("not connected to a world");
+      return;
+    }
+    const url = `/api/plugin-data/${encodeURIComponent(
+      worldId,
+    )}/@vtt/pdf-book/books/${encodeURIComponent(
       props.bookId,
     )}/document.pdf`;
     setBusy(true);

@@ -13,6 +13,7 @@ import { useWorkbenchKeybindings } from "./keybindings.js";
 import { WorkbenchHeaderSurface, PaletteSurface } from "../shared/surfaces.js";
 import { useMe } from "./use-me.js";
 import { WorkbenchDrawers } from "./Drawers.js";
+import { WorldPicker } from "./WorldPicker.js";
 
 /**
  * The whole workbench. Mounted into RootSurface at higher priority than
@@ -59,16 +60,14 @@ export const WorkbenchView = defineView({
       >
         {/* ── header ─────────────────────────────────────────────── */}
         <header class="flex items-center justify-between gap-4 border-b border-border bg-surface px-5 py-2.5">
-          <div class="flex items-baseline gap-3">
+          <div class="flex items-center gap-3">
             <h1
               class="font-display text-base font-semibold tracking-tight text-fg"
               style={{ "font-family": "var(--font-display)" }}
             >
               mvtt
             </h1>
-            <span class="font-display text-[0.62rem] uppercase tracking-[0.2em] text-fg-subtle">
-              workbench
-            </span>
+            <WorldPicker />
           </div>
 
           <div class="flex flex-1 items-center justify-end gap-3">

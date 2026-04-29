@@ -257,6 +257,15 @@ export interface PluginDef {
    * trait names — it runs resolvers in load order at snapshot time.
    */
   readonly entityVisibility?: EntityVisibilityResolver;
+  /**
+   * Marks this plugin as a *game system* — a chooseable top-level rule
+   * system (e.g. `@vtt/system-simple`, `@vtt/dnd5e`). Each world is
+   * created against exactly one game-system plugin, and the substrate's
+   * per-world Registry only loads that plugin plus its transitive
+   * dependsOn (alongside the always-on infrastructure plugins). Worlds
+   * whose chosen game system is not present are not bootable.
+   */
+  readonly gameSystem?: boolean;
 }
 
 function attach<F extends (...a: never[]) => unknown, M extends Record<string, unknown>>(
@@ -411,6 +420,7 @@ export function definePlugin(def: {
   views?: ReadonlyArray<AnyViewDef>;
   fills?: Readonly<Record<string, ReadonlyArray<unknown>>>;
   entityVisibility?: EntityVisibilityResolver;
+  gameSystem?: boolean;
 }): PluginDef {
   return {
     __kind: "plugin",
@@ -426,6 +436,7 @@ export function definePlugin(def: {
     views: def.views ?? [],
     fills: def.fills ?? {},
     entityVisibility: def.entityVisibility,
+    gameSystem: def.gameSystem ?? false,
   };
 }
 

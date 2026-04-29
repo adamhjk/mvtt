@@ -142,15 +142,19 @@ export const ChatComposerView = defineView({
  * Priority 50 sits below PlayerListView (100) and above ChatComposerView
  * (1), so the stack reads players → stream → composer top-to-bottom.
  *
- * `flex-1 min-h-0 overflow-y-auto` lets it absorb the rail's remaining
- * height while keeping the player list and composer their natural sizes.
+ * `flex-1` absorbs leftover rail height; the inner `overflow-y-auto`
+ * scrolls internally as messages accumulate. A floor of `min-h-[12rem]`
+ * (instead of `min-h-0`) keeps the stream from collapsing to a sliver
+ * on short viewports — when the rail itself runs out of room, it's the
+ * rail that scrolls (overflow-y-auto on the rail aside), not the chat
+ * window. 12rem is ~4-6 message rows, enough to be useful.
  */
 export const ChatStreamView = defineView({
   name: "ChatStream",
   surface: WorkbenchChatRailSurface,
   priority: 50,
   render: clientOnly(() => (
-    <div class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+    <div class="flex min-h-[12rem] flex-1 flex-col gap-2 overflow-y-auto">
       <Surface name={ChatStreamSurface.name} />
     </div>
   )),

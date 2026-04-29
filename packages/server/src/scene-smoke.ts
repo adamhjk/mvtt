@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import WebSocket from "ws";
 import { startServer } from "@vtt/substrate/server";
+import { definePlugin, InMemoryWorldsRepository } from "@vtt/substrate";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
@@ -33,11 +34,33 @@ const GM: AuthSession = {
   role: "gm",
 };
 
+// Wrap the plugin under test in a tiny game-system so the smoke can
+// boot the world. In production each game system is its own plugin
+// (system-simple, dnd5e, ...); here we synthesize one that pulls in
+// scene as its only optional dep.
+const sceneTestSystem = definePlugin({
+  name: "@vtt/scene-test-system",
+  version: "0",
+  dependsOn: ["@vtt/scene@^0"],
+  gameSystem: true,
+});
+
+const worldsRepo = new InMemoryWorldsRepository();
+await worldsRepo.migrate();
+const world = await worldsRepo.insert({
+  id: "scene-smoke",
+  name: "Scene smoke",
+  gameSystemPlugin: sceneTestSystem.name,
+  ownerUserId: GM.userId,
+});
+
 // Minimal manifest endpoint mirroring the production server's wiring, so the
 // smoke test exercises the same handler shape.
 const handle = await startServer({
   port: 0,
-  plugins: [shellWorkbench, identity, permissions, scene],
+  infrastructure: [shellWorkbench, identity, permissions],
+  optional: [scene, sceneTestSystem],
+  worldsRepo,
   authenticateUpgrade: async () => GM,
   extractRecipient: (s) => {
     const sess = s as AuthSession | null;
@@ -63,7 +86,7 @@ const handle = await startServer({
 });
 
 const baseURL = `http://127.0.0.1:${handle.port}`;
-const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws`);
+const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws?worldId=${world.id}`);
 
 interface SnapshotMsg {
   kind: "snapshot";
@@ -115,7 +138,7 @@ send({
 
 await new Promise((r) => setTimeout(r, 80));
 
-const sceneEntity = handle.world.query([Scene])[0];
+const sceneEntity = handle.worldsRegistry.get(world.id)!.world.query([Scene])[0];
 const assert = (cond: unknown, msg: string): void => {
   if (!cond) {
     console.error(`FAIL: ${msg}`);
@@ -145,10 +168,10 @@ send({
 
 await new Promise((r) => setTimeout(r, 80));
 
-const tokenEntity = handle.world.query([Token])[0];
+const tokenEntity = handle.worldsRegistry.get(world.id)!.world.query([Token])[0];
 assert(tokenEntity, "expected one Token entity after CreateToken");
 
-const before = handle.world.get(tokenEntity!.id, [Position]) as {
+const before = handle.worldsRegistry.get(world.id)!.world.get(tokenEntity!.id, [Position]) as {
   Position: { movedAt: number };
 };
 
@@ -165,7 +188,7 @@ send({
 
 await new Promise((r) => setTimeout(r, 80));
 
-const after = handle.world.get(tokenEntity!.id, [Position]) as {
+const after = handle.worldsRegistry.get(world.id)!.world.get(tokenEntity!.id, [Position]) as {
   Position: { x: number; y: number; movedAt: number };
 };
 assert(after.Position.x === 175 && after.Position.y === 245, "expected token to be at (175,245)");

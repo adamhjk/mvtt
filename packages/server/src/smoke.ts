@@ -1,10 +1,13 @@
 import WebSocket from "ws";
 import { startServer } from "@vtt/substrate/server";
-import { definePlugin } from "@vtt/substrate";
+import { definePlugin, InMemoryWorldsRepository } from "@vtt/substrate";
 import { Ping, PingReceived, Pong } from "@vtt/ping/shared";
 import { PongRecordingSystem } from "@vtt/ping/server";
 import { shellDefault } from "@vtt/shell-default";
 
+// Marker game-system plugin for the smoke. Real installs use
+// @vtt/system-simple etc.; the smoke just needs *some* plugin to be
+// the world's chosen game system.
 const pingPlugin = definePlugin({
   name: "@vtt/ping",
   version: "0.2.0",
@@ -12,10 +15,26 @@ const pingPlugin = definePlugin({
   events: [PingReceived],
   commands: [Ping],
   systems: [PongRecordingSystem],
+  gameSystem: true,
 });
 
-const handle = await startServer({ port: 0, plugins: [shellDefault, pingPlugin] });
-const ws = new WebSocket(`ws://127.0.0.1:${handle.port}`);
+const worldsRepo = new InMemoryWorldsRepository();
+await worldsRepo.migrate();
+const world = await worldsRepo.insert({
+  id: "smoke-world",
+  name: "Smoke",
+  gameSystemPlugin: pingPlugin.name,
+  ownerUserId: "smoke-user",
+});
+
+const handle = await startServer({
+  port: 0,
+  infrastructure: [shellDefault],
+  optional: [pingPlugin],
+  worldsRepo,
+});
+
+const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws?worldId=${world.id}`);
 
 type Msg =
   | { kind: "hello"; clientId: string }
@@ -62,7 +81,9 @@ assert(event && event.event.type === PingReceived.name, "expected PingReceived e
 assert(event!.event.payload.message === "smoke", "expected message echoed");
 assert(event!.event.payload.pingedAt === issuedAt, "expected pingedAt preserved");
 
-const rows = handle.world.query([Pong]);
+const runtime = handle.worldsRegistry.get(world.id);
+assert(runtime !== null, "expected runtime to exist for smoke world");
+const rows = runtime!.world.query([Pong]);
 assert(rows.length === 1, "expected exactly one Pong entity in the world");
 assert(
   (rows[0]!.values as { Pong: { message: string } }).Pong.message === "smoke",

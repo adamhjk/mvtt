@@ -211,8 +211,12 @@ export const RemoveScene = defineCommand({
  * Cache-bust suffixes (`?v=<bytes>`) are accepted; the upload endpoint
  * stamps them on so the browser re-fetches after a replacement.
  */
-function isBackgroundUrlForScene(url: string, sceneId: string): boolean {
-  const expectedPrefix = `/plugin-data/@vtt/scene/scenes/${sceneId}/`;
+function isBackgroundUrlForScene(
+  url: string,
+  worldId: string,
+  sceneId: string,
+): boolean {
+  const expectedPrefix = `/plugin-data/${worldId}/@vtt/scene/scenes/${sceneId}/`;
   if (!url.startsWith(expectedPrefix)) return false;
   // Disallow path-traversal in the trait URL too — the upload endpoint
   // catches it on writes, but the trait could be set independently
@@ -247,10 +251,14 @@ export const UpdateScene = defineCommand({
     if (
       ctx.cmd.backgroundImage !== undefined &&
       ctx.cmd.backgroundImage !== null &&
-      !isBackgroundUrlForScene(ctx.cmd.backgroundImage, ctx.cmd.sceneId)
+      !isBackgroundUrlForScene(
+        ctx.cmd.backgroundImage,
+        ctx.world.worldId,
+        ctx.cmd.sceneId,
+      )
     ) {
       return fail(
-        `backgroundImage URL must start with /plugin-data/@vtt/scene/scenes/${ctx.cmd.sceneId}/`,
+        `backgroundImage URL must start with /plugin-data/${ctx.world.worldId}/@vtt/scene/scenes/${ctx.cmd.sceneId}/`,
       );
     }
     return ok();

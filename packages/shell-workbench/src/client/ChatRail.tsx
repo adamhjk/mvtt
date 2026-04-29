@@ -16,13 +16,18 @@ import { WorkbenchChatRailSurface } from "../shared/surfaces.js";
  *   - chat composer       — natural height at the bottom
  *
  * The rail is a flex column; the children's own flex/sizing decides the
- * split. The workbench owns no comms-specific knowledge here.
+ * split. `overflow-y-auto` is the safety net for short viewports — when
+ * the natural-height items (player list + roll tray + composer) plus
+ * the chat stream's min height combined exceed the rail height, the
+ * rail itself scrolls. When the rail has plenty of room, the chat
+ * stream's internal scroll is what activates. The workbench owns no
+ * comms-specific knowledge here.
  */
 export function ChatRail(): JSX.Element {
   const widgets = useChatRailWidgets();
   return (
     <aside
-      class="flex min-h-0 shrink-0 flex-col gap-3 overflow-hidden border-l border-border bg-surface-sunken px-3 py-3"
+      class="flex min-h-0 shrink-0 flex-col gap-3 overflow-y-auto border-l border-border bg-surface-sunken px-3 py-3"
       style={{ width: "var(--workbench-rail)" }}
     >
       <For each={widgets()}>

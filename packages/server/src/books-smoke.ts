@@ -1,5 +1,6 @@
 import WebSocket from "ws";
 import { startServer } from "@vtt/substrate/server";
+import { definePlugin, InMemoryWorldsRepository } from "@vtt/substrate";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
@@ -26,9 +27,27 @@ const GM: AuthSession = {
   role: "gm",
 };
 
+const booksTestSystem = definePlugin({
+  name: "@vtt/books-test-system",
+  version: "0",
+  dependsOn: ["@vtt/books@^0", "@vtt/pdf-book@^0"],
+  gameSystem: true,
+});
+
+const worldsRepo = new InMemoryWorldsRepository();
+await worldsRepo.migrate();
+const world = await worldsRepo.insert({
+  id: "books-smoke",
+  name: "Books smoke",
+  gameSystemPlugin: booksTestSystem.name,
+  ownerUserId: GM.userId,
+});
+
 const handle = await startServer({
   port: 0,
-  plugins: [shellWorkbench, identity, permissions, books, pdfBook],
+  infrastructure: [shellWorkbench, identity, permissions],
+  optional: [books, pdfBook, booksTestSystem],
+  worldsRepo,
   authenticateUpgrade: async () => GM,
   extractRecipient: (s) => {
     const sess = s as AuthSession | null;
@@ -36,7 +55,7 @@ const handle = await startServer({
   },
 });
 
-const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws`);
+const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws?worldId=${world.id}`);
 
 interface AckMsg {
   kind: "ack";
@@ -81,7 +100,7 @@ send({
 
 await new Promise((r) => setTimeout(r, 80));
 
-const bookEntity = handle.world.query([Book])[0];
+const bookEntity = handle.worldsRegistry.get(world.id)!.world.query([Book])[0];
 assert(bookEntity, "expected one Book entity after CreateBook");
 
 send({
@@ -99,7 +118,7 @@ send({
 
 await new Promise((r) => setTimeout(r, 80));
 
-const renamed = handle.world.get(bookEntity!.id, [Book]) as {
+const renamed = handle.worldsRegistry.get(world.id)!.world.get(bookEntity!.id, [Book]) as {
   Book: { name: string };
 };
 assert(
@@ -107,7 +126,7 @@ assert(
   `expected book renamed; got ${renamed.Book.name}`,
 );
 
-const pdfUrl = `/plugin-data/@vtt/pdf-book/books/${bookEntity!.id}/document.pdf`;
+const pdfUrl = `/plugin-data/${world.id}/@vtt/pdf-book/books/${bookEntity!.id}/document.pdf`;
 send({
   kind: "command",
   id: "set-pdf",
@@ -123,7 +142,7 @@ send({
 
 await new Promise((r) => setTimeout(r, 80));
 
-const withPdf = handle.world.get(bookEntity!.id, [Book, PdfDocument]) as {
+const withPdf = handle.worldsRegistry.get(world.id)!.world.get(bookEntity!.id, [Book, PdfDocument]) as {
   Book: { name: string };
   PdfDocument: { url: string };
 };

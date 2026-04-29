@@ -82,5 +82,16 @@ export type {
   PersistedEvent,
   PersistedSnapshot,
 } from "./persistence.js";
+export type {
+  WorldsRepository,
+  WorldRecord,
+  MembershipRecord,
+  WorldRole,
+} from "./worlds-repository.js";
+export { resolveActivePlugins, listGameSystems } from "./active-plugins.js";
+export type { ActivePluginSet } from "./active-plugins.js";
+export { WorldsRegistry, WorldRuntime } from "./worlds-registry.js";
+export type { WorldsRegistryOptions } from "./worlds-registry.js";
+export { InMemoryWorldsRepository } from "./testing.js";
 export { matches, withVisibility } from "./visibility.js";
 export type { Visibility, Recipient } from "./visibility.js";

@@ -22,6 +22,7 @@
     "@vtt/scene": "workspace:*",
     "@vtt/shell-workbench": "workspace:*",
     "@vtt/substrate": "workspace:*",
+    "@vtt/system-simple": "workspace:*",
     "@vtt/tokens": "workspace:*",
     "better-auth": "^1.3.0",
     "pdfjs-dist": "^5.4.149",

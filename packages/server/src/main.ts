@@ -13,7 +13,8 @@ import { createWriteStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { startServer } from "@vtt/substrate/server";
+import { startServer, WorldsService } from "@vtt/substrate/server";
+import { listGameSystems, type WorldId } from "@vtt/substrate";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
@@ -26,9 +27,10 @@ import { pdfBookAssetRoots } from "@vtt/pdf-book/server";
 import { characters } from "@vtt/characters";
 import { diceTray } from "@vtt/dice-tray";
 import { diceTrayAssetRoots } from "@vtt/dice-tray/server";
+import { systemSimple } from "@vtt/system-simple";
 import { createAuth } from "@vtt/auth/server";
-import { parseAuthSession } from "@vtt/auth";
-import { SqlitePersistence } from "@vtt/persistence-sqlite";
+import { parseAuthSession, type AuthSession } from "@vtt/auth";
+import { SqlitePersistence, SqliteWorldsRepository } from "@vtt/persistence-sqlite";
 import { toNodeHandler, fromNodeHeaders } from "better-auth/node";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -38,10 +40,10 @@ const dbPath = resolve(dataDir, "mvtt.db");
 const secretPath = resolve(dataDir, "auth.secret");
 const clientRoot = resolve(here, "../../client/dist");
 const iconsRoot = resolve(repoRoot, "assets/icons/ffffff/transparent/1x1");
-// Plugin-owned writable storage. Each plugin gets a subdirectory keyed
-// by its qualified name (e.g. `data/plugin-data/@vtt/scene/...`).
-// Mounted read-only at `/plugin-data/` and written-to via the
-// `/api/plugin-data/...` POST handler below (GM-only, no traversal).
+// Plugin-owned writable storage. Each plugin gets a subdirectory under
+// the world it belongs to: data/plugin-data/<worldId>/<plugin>/...
+// Mounted read-only at `/plugin-data/`; uploads go through
+// /api/plugin-data/<worldId>/<plugin>/...
 const pluginDataDir = resolve(dataDir, "plugin-data");
 mkdirSync(pluginDataDir, { recursive: true });
 
@@ -66,25 +68,31 @@ const auth = createAuth({
 await auth.migrate();
 
 // Share the SQLite handle the auth package opened — one DB file per
-// deployment, world_event/world_snapshot tables alongside the auth tables.
+// deployment, world_event/world_snapshot/world/world_membership tables
+// alongside the auth tables.
 const persistence = new SqlitePersistence({ db: auth.db });
 await persistence.migrate();
+const worldsRepo = new SqliteWorldsRepository(auth.db);
+await worldsRepo.migrate();
+
+// WorldsService used by HTTP routes. The substrate constructs its own
+// internally for WS upgrade gating; both share the same repo so reads
+// stay consistent.
+const worldsService = new WorldsService({
+  worldsRepo,
+  persistence,
+  pluginDataRoot: pluginDataDir,
+});
 
 // One-shot scan of the icon directory at boot. The catalog is fixed at
 // deploy time so there's no need to rescan; the picker fetches this
-// manifest once per session and caches it client-side. Each entry's
-// `slug` is `"<artist>/<name>"` (no extension) — the renderer maps that
-// to `/icons/<slug>.svg` against the assetRoots mount below.
+// manifest once per session and caches it client-side.
 type IconEntry = { slug: string; artist: string; name: string };
 const iconManifest: IconEntry[] = existsSync(iconsRoot)
   ? buildIconManifest(iconsRoot)
   : [];
 const iconManifestBody = JSON.stringify({ icons: iconManifest });
 
-// Image content types we let plugins upload. The substrate's static-file
-// MIME map already serves these correctly; this allowlist is the upload
-// gate (so a plugin can't write a `.html` or `.js` into the public mount
-// and turn the asset folder into a script delivery vector).
 const ALLOWED_PLUGIN_DATA_EXTS = new Set([
   ".png",
   ".jpg",
@@ -95,25 +103,38 @@ const ALLOWED_PLUGIN_DATA_EXTS = new Set([
   ".svg",
   ".pdf",
 ]);
-// Cap upload size — books (PDFs) are routinely 100+ MB so 25 MB
-// would have rejected most rulebooks; 250 MB covers a typical
-// hardcover scan with headroom for high-res maps too. Plugins that
-// genuinely need bigger payloads should ship their own uploader.
 const MAX_PLUGIN_DATA_BYTES = 250 * 1024 * 1024; // 250 MB
 
-// Hand HTTP routes off to better-auth and a small probe endpoint, leaving
-// everything else for the substrate (static client + WS upgrade).
+// Plugin set, split into infrastructure (always-on) and optional
+// (game-system-and-shared-mechanics; loaded per world based on its
+// chosen game system's transitive dependsOn).
+const infrastructurePlugins = [
+  shellWorkbench,
+  identity,
+  permissions,
+  comms,
+];
+const optionalPlugins = [
+  resolution,
+  scene,
+  books,
+  pdfBook,
+  characters,
+  diceTray,
+  systemSimple,
+];
+
 const authHandler = toNodeHandler(auth.auth.handler);
 const httpHandler = async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
   const url = req.url ?? "/";
+  const path = url.split("?")[0]!;
+
   if (url.startsWith("/api/auth/")) {
     await authHandler(req, res);
     return true;
   }
   if (url === "/api/has-gm") {
-    res.statusCode = 200;
-    res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify({ hasGameMaster: auth.hasGameMaster() }));
+    sendJson(res, 200, { hasGameMaster: auth.hasGameMaster() });
     return true;
   }
   if (url === "/api/icons/manifest") {
@@ -123,30 +144,376 @@ const httpHandler = async (req: IncomingMessage, res: ServerResponse): Promise<b
     res.end(iconManifestBody);
     return true;
   }
-  // Plugin-data write path: POST /api/plugin-data/<plugin>/<rest>.
-  // The body is the raw file. On success we return the public URL where
-  // the file is now readable (`/plugin-data/<plugin>/<rest>`). GM-only.
-  // Path safety: the resolved absolute path must stay inside
-  // pluginDataDir; the extension must be in the allowlist.
+
+  // ---- worlds API ----
+
+  if (path === "/api/game-systems" && req.method === "GET") {
+    return await handleListGameSystems(req, res);
+  }
+  if (path === "/api/worlds" && req.method === "GET") {
+    return await handleListWorlds(req, res);
+  }
+  if (path === "/api/worlds" && req.method === "POST") {
+    return await handleCreateWorld(req, res);
+  }
+  // /api/worlds/:id...
+  const worldsIdMatch = /^\/api\/worlds\/([^/]+)(\/.*)?$/.exec(path);
+  if (worldsIdMatch) {
+    const worldId = decodeURIComponent(worldsIdMatch[1]!) as WorldId;
+    const rest = worldsIdMatch[2] ?? "";
+    if (rest === "" && req.method === "DELETE") {
+      return await handleHardDeleteWorld(req, res, worldId, url);
+    }
+    if (rest === "/archive" && req.method === "POST") {
+      return await handleArchiveWorld(req, res, worldId);
+    }
+    if (rest === "/memberships" && req.method === "GET") {
+      return await handleListMemberships(req, res, worldId);
+    }
+    if (rest === "/memberships" && req.method === "POST") {
+      return await handleAddMembership(req, res, worldId);
+    }
+    const memMatch = /^\/memberships\/([^/]+)$/.exec(rest);
+    if (memMatch && req.method === "DELETE") {
+      const userId = decodeURIComponent(memMatch[1]!);
+      return await handleRemoveMembership(req, res, worldId, userId);
+    }
+  }
+
+  // ---- plugin-data upload (per-world) ----
+  // POST /api/plugin-data/<worldId>/<plugin>/<rest>
   if (url.startsWith("/api/plugin-data/") && req.method === "POST") {
-    const rel = decodeURIComponent(url.slice("/api/plugin-data/".length).split("?")[0]!);
+    const rel = decodeURIComponent(
+      url.slice("/api/plugin-data/".length).split("?")[0]!,
+    );
     return await handlePluginDataUpload(req, res, rel);
   }
+
   return false;
 };
+
+function sendJson(res: ServerResponse, status: number, body: object): void {
+  res.statusCode = status;
+  res.setHeader("content-type", "application/json");
+  res.end(JSON.stringify(body));
+}
+
+async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  const MAX_JSON = 64 * 1024;
+  for await (const chunk of req) {
+    const buf = chunk as Buffer;
+    total += buf.length;
+    if (total > MAX_JSON) throw new Error("body too large");
+    chunks.push(buf);
+  }
+  if (chunks.length === 0) return null;
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+  } catch {
+    throw new Error("invalid JSON");
+  }
+}
+
+async function requireSession(req: IncomingMessage): Promise<AuthSession | null> {
+  return parseAuthSession(await auth.resolveSession(fromNodeHeaders(req.headers)));
+}
+
+async function handleListGameSystems(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<boolean> {
+  const session = await requireSession(req);
+  if (!session) {
+    sendJson(res, 401, { error: "not authenticated" });
+    return true;
+  }
+  // The list of game systems is identical across users; the auth check
+  // is just to keep the server's surface area private.
+  const systems = listGameSystems(optionalPlugins).map((p) => ({
+    name: p.name,
+    version: p.version,
+  }));
+  sendJson(res, 200, { gameSystems: systems });
+  return true;
+}
+
+async function handleListWorlds(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<boolean> {
+  const session = await requireSession(req);
+  if (!session) {
+    sendJson(res, 401, { error: "not authenticated" });
+    return true;
+  }
+  const worlds = await worldsRepo.worldsForUser(session.userId);
+  sendJson(res, 200, {
+    worlds: worlds.map((w) => ({
+      id: w.id,
+      name: w.name,
+      gameSystemPlugin: w.gameSystemPlugin,
+      ownerUserId: w.ownerUserId,
+      createdAt: w.createdAt,
+      isOwner: w.ownerUserId === session.userId,
+    })),
+  });
+  return true;
+}
+
+async function handleCreateWorld(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<boolean> {
+  const session = await requireSession(req);
+  if (!session) {
+    sendJson(res, 401, { error: "not authenticated" });
+    return true;
+  }
+  // Only the global GM may create worlds.
+  if (session.role !== "gm") {
+    sendJson(res, 403, { error: "only the GM can create worlds" });
+    return true;
+  }
+  let body: unknown;
+  try {
+    body = await readJsonBody(req);
+  } catch (e) {
+    sendJson(res, 400, { error: (e as Error).message });
+    return true;
+  }
+  const input = body as { name?: unknown; gameSystem?: unknown };
+  if (typeof input.name !== "string" || input.name.trim() === "") {
+    sendJson(res, 400, { error: "missing name" });
+    return true;
+  }
+  if (typeof input.gameSystem !== "string") {
+    sendJson(res, 400, { error: "missing gameSystem" });
+    return true;
+  }
+  const game = optionalPlugins.find(
+    (p) => p.name === input.gameSystem && p.gameSystem === true,
+  );
+  if (!game) {
+    sendJson(res, 400, { error: "unknown game system" });
+    return true;
+  }
+  const world = await worldsService.create({
+    name: input.name.trim(),
+    gameSystemPlugin: game.name,
+    ownerUserId: session.userId,
+  });
+  sendJson(res, 201, {
+    world: {
+      id: world.id,
+      name: world.name,
+      gameSystemPlugin: world.gameSystemPlugin,
+      ownerUserId: world.ownerUserId,
+      createdAt: world.createdAt,
+    },
+  });
+  return true;
+}
+
+async function handleArchiveWorld(
+  req: IncomingMessage,
+  res: ServerResponse,
+  worldId: WorldId,
+): Promise<boolean> {
+  const session = await requireSession(req);
+  if (!session) {
+    sendJson(res, 401, { error: "not authenticated" });
+    return true;
+  }
+  const world = await worldsRepo.get(worldId);
+  if (!world) {
+    sendJson(res, 404, { error: "world not found" });
+    return true;
+  }
+  if (world.ownerUserId !== session.userId) {
+    sendJson(res, 403, { error: "only the world owner can archive it" });
+    return true;
+  }
+  await worldsService.archive(worldId);
+  sendJson(res, 200, { ok: true });
+  return true;
+}
+
+async function handleHardDeleteWorld(
+  req: IncomingMessage,
+  res: ServerResponse,
+  worldId: WorldId,
+  url: string,
+): Promise<boolean> {
+  const session = await requireSession(req);
+  if (!session) {
+    sendJson(res, 401, { error: "not authenticated" });
+    return true;
+  }
+  const world = await worldsRepo.get(worldId);
+  if (!world) {
+    sendJson(res, 404, { error: "world not found" });
+    return true;
+  }
+  if (world.ownerUserId !== session.userId) {
+    sendJson(res, 403, { error: "only the world owner can delete it" });
+    return true;
+  }
+  // Require ?confirm=true so an accidental DELETE doesn't wipe data.
+  const confirm = new URL(url, "http://_").searchParams.get("confirm");
+  if (confirm !== "true") {
+    sendJson(res, 400, {
+      error: "hard delete requires ?confirm=true (drops events, snapshots, plugin-data)",
+    });
+    return true;
+  }
+  await worldsService.hardDelete(worldId);
+  sendJson(res, 200, { ok: true });
+  return true;
+}
+
+async function handleListMemberships(
+  req: IncomingMessage,
+  res: ServerResponse,
+  worldId: WorldId,
+): Promise<boolean> {
+  const session = await requireSession(req);
+  if (!session) {
+    sendJson(res, 401, { error: "not authenticated" });
+    return true;
+  }
+  const world = await worldsRepo.get(worldId);
+  if (!world) {
+    sendJson(res, 404, { error: "world not found" });
+    return true;
+  }
+  const ms = await worldsRepo.listMemberships(worldId);
+  const isMember =
+    world.ownerUserId === session.userId ||
+    ms.some((m) => m.userId === session.userId);
+  if (!isMember) {
+    sendJson(res, 403, { error: "not a member of this world" });
+    return true;
+  }
+  // Enrich with display name + email from the better-auth user table
+  // so the UI can show humans rather than opaque IDs.
+  const userIds = [world.ownerUserId, ...ms.map((m) => m.userId)];
+  const placeholders = userIds.map(() => "?").join(",");
+  const rows = userIds.length
+    ? (auth.db
+        .prepare(
+          `SELECT id, name, email FROM "user" WHERE id IN (${placeholders})`,
+        )
+        .all(...userIds) as Array<{ id: string; name: string; email: string }>)
+    : [];
+  const lookup = new Map(rows.map((r) => [r.id, r]));
+  const decorate = (userId: string): { name: string; email: string } => {
+    const r = lookup.get(userId);
+    return r ? { name: r.name, email: r.email } : { name: userId, email: "" };
+  };
+  sendJson(res, 200, {
+    owner: { userId: world.ownerUserId, ...decorate(world.ownerUserId) },
+    members: ms.map((m) => ({
+      userId: m.userId,
+      role: m.role,
+      addedAt: m.addedAt,
+      ...decorate(m.userId),
+    })),
+  });
+  return true;
+}
+
+async function handleAddMembership(
+  req: IncomingMessage,
+  res: ServerResponse,
+  worldId: WorldId,
+): Promise<boolean> {
+  const session = await requireSession(req);
+  if (!session) {
+    sendJson(res, 401, { error: "not authenticated" });
+    return true;
+  }
+  const world = await worldsRepo.get(worldId);
+  if (!world) {
+    sendJson(res, 404, { error: "world not found" });
+    return true;
+  }
+  if (world.ownerUserId !== session.userId) {
+    sendJson(res, 403, { error: "only the world owner can add members" });
+    return true;
+  }
+  let body: unknown;
+  try {
+    body = await readJsonBody(req);
+  } catch (e) {
+    sendJson(res, 400, { error: (e as Error).message });
+    return true;
+  }
+  const input = body as { userId?: unknown; email?: unknown; role?: unknown };
+  // Prefer email lookup — the GM doesn't typically know better-auth's
+  // opaque userId. Fall back to userId for tooling/scripts.
+  let userId: string | null = null;
+  let userName: string | null = null;
+  if (typeof input.email === "string" && input.email.trim() !== "") {
+    const row = auth.db
+      .prepare(`SELECT id, name FROM "user" WHERE email = ?`)
+      .get(input.email.trim()) as { id?: string; name?: string } | undefined;
+    if (!row?.id) {
+      sendJson(res, 404, {
+        error: "no user with that email — they need to sign up first",
+      });
+      return true;
+    }
+    userId = row.id;
+    userName = row.name ?? null;
+  } else if (typeof input.userId === "string" && input.userId !== "") {
+    userId = input.userId;
+  }
+  if (!userId) {
+    sendJson(res, 400, { error: "missing email or userId" });
+    return true;
+  }
+  if (userId === world.ownerUserId) {
+    sendJson(res, 400, { error: "owner is already implicitly a member" });
+    return true;
+  }
+  const role = input.role === "gm" ? "gm" : "player";
+  await worldsService.addMember({ worldId, userId, role });
+  sendJson(res, 200, { ok: true, userId, name: userName });
+  return true;
+}
+
+async function handleRemoveMembership(
+  req: IncomingMessage,
+  res: ServerResponse,
+  worldId: WorldId,
+  userId: string,
+): Promise<boolean> {
+  const session = await requireSession(req);
+  if (!session) {
+    sendJson(res, 401, { error: "not authenticated" });
+    return true;
+  }
+  const world = await worldsRepo.get(worldId);
+  if (!world) {
+    sendJson(res, 404, { error: "world not found" });
+    return true;
+  }
+  if (world.ownerUserId !== session.userId) {
+    sendJson(res, 403, { error: "only the world owner can remove members" });
+    return true;
+  }
+  await worldsService.removeMember(worldId, userId);
+  sendJson(res, 200, { ok: true });
+  return true;
+}
 
 async function handlePluginDataUpload(
   req: IncomingMessage,
   res: ServerResponse,
   rel: string,
 ): Promise<boolean> {
-  // Drain-and-reject helper: when the validator rejects before we've
-  // read the body, the upstream proxy (Vite in dev) can still be
-  // pumping bytes. Closing the response immediately makes those
-  // writes hit a closed socket — `EPIPE` on the proxy side. Consume
-  // and discard the rest of `req` first, then send. The drain is
-  // bounded by MAX_PLUGIN_DATA_BYTES so a misbehaving client can't
-  // make us read forever.
   const sendAfterDrain = async (status: number, body: object) => {
     if (req.readable) {
       let drained = 0;
@@ -159,61 +526,59 @@ async function handlePluginDataUpload(
           }
         }
       } catch {
-        /* socket already broken — fine, we're rejecting anyway */
+        /* socket already broken */
       }
     }
-    res.statusCode = status;
-    res.setHeader("content-type", "application/json");
-    res.end(JSON.stringify(body));
+    sendJson(res, status, body);
     return true;
   };
 
-  // GM gate — uploads can replace what every player sees, so we
-  // restrict to the most-trusted role. Future per-plugin permission
-  // policies are out of scope.
-  const session = parseAuthSession(
-    await auth.resolveSession(fromNodeHeaders(req.headers)),
-  );
-  if (!session) return sendAfterDrain(401, { error: "not authenticated" });
-  if (session.role !== "gm") return sendAfterDrain(403, { error: "GM only" });
+  // First path segment is the worldId; the rest is the plugin's
+  // freeform path (kept for plugin-determined naming).
+  const slash = rel.indexOf("/");
+  if (slash === -1 || slash === 0) {
+    return sendAfterDrain(400, { error: "expected /api/plugin-data/<worldId>/<rest>" });
+  }
+  const worldIdSegment = rel.slice(0, slash) as WorldId;
+  const subPath = rel.slice(slash + 1);
 
-  // Path safety. Reject empty, traversal, absolute, or
-  // not-an-allowlisted-extension paths up front.
-  if (!rel || rel.includes("..") || rel.startsWith("/")) {
+  if (!subPath || subPath.includes("..") || subPath.startsWith("/")) {
     return sendAfterDrain(400, { error: "invalid path" });
   }
-  const ext = extname(rel).toLowerCase();
+  const ext = extname(subPath).toLowerCase();
   if (!ALLOWED_PLUGIN_DATA_EXTS.has(ext)) {
     return sendAfterDrain(400, {
       error: `extension ${ext || "(none)"} not allowed`,
     });
   }
-  const absolute = resolve(pluginDataDir, rel);
-  if (absolute !== pluginDataDir && !absolute.startsWith(pluginDataDir + sep)) {
-    return sendAfterDrain(400, { error: "path escapes plugin-data root" });
+
+  const session = await requireSession(req);
+  if (!session) return sendAfterDrain(401, { error: "not authenticated" });
+
+  // Must be GM of the named world. For v1 the only GM-of-world is the
+  // owner, so we check ownership.
+  const world = await worldsRepo.get(worldIdSegment);
+  if (!world) return sendAfterDrain(404, { error: "world not found" });
+  if (world.ownerUserId !== session.userId) {
+    return sendAfterDrain(403, { error: "only the world's GM can upload" });
   }
 
-  // Cheap upfront reject when the client volunteered a Content-Length
-  // header that already exceeds the cap — saves a multi-hundred-MB
-  // write+drain when we're going to reject anyway.
+  const worldDir = resolve(pluginDataDir, worldIdSegment);
+  const absolute = resolve(worldDir, subPath);
+  if (absolute !== worldDir && !absolute.startsWith(worldDir + sep)) {
+    return sendAfterDrain(400, { error: "path escapes world plugin-data root" });
+  }
+
   const declaredLen = Number(req.headers["content-length"] ?? "");
   if (Number.isFinite(declaredLen) && declaredLen > MAX_PLUGIN_DATA_BYTES) {
     return sendAfterDrain(413, { error: "payload too large" });
   }
 
-  // Stream the body to a sibling temp file, then atomic-rename into
-  // place on success. v0 buffered everything in RAM (twice — chunks
-  // + concat); a 250 MB upload was 500 MB resident before write,
-  // which made the dev server stall and eventually killed the
-  // proxied request mid-flight. Streaming keeps memory bounded and
-  // also cleans up the partial file on size-cap or write errors.
   const dir = dirname(absolute);
   try {
     mkdirSync(dir, { recursive: true });
   } catch (err) {
-    return sendAfterDrain(500, {
-      error: `mkdir failed: ${(err as Error).message}`,
-    });
+    return sendAfterDrain(500, { error: `mkdir failed: ${(err as Error).message}` });
   }
   const tmpPath = resolve(
     dir,
@@ -222,9 +587,6 @@ async function handlePluginDataUpload(
 
   let received = 0;
   let oversized = false;
-  // Tap each chunk to enforce the byte cap before it lands on disk —
-  // a `Transform` would also work but a passthrough counter on the
-  // request is enough.
   req.on("data", (chunk: Buffer) => {
     received += chunk.length;
     if (received > MAX_PLUGIN_DATA_BYTES) {
@@ -237,36 +599,29 @@ async function handlePluginDataUpload(
   try {
     await pipeline(req, writeStream);
   } catch (err) {
-    // Best-effort cleanup — rename never happened, so the .partial
-    // file is the only artefact.
     try {
       unlinkSync(tmpPath);
     } catch {
       /* already gone */
     }
-    if (oversized) {
-      return sendAfterDrain(413, { error: "payload too large" });
-    }
+    if (oversized) return sendAfterDrain(413, { error: "payload too large" });
     return sendAfterDrain(500, {
       error: `write failed: ${(err as Error).message}`,
     });
   }
 
   // Replace any sibling file with the same base name but a different
-  // extension. Keeps the on-disk story to one file-per-slot even when
-  // the GM uploads PNG, then JPG, etc. The trait points at the new
-  // path; the old file would otherwise linger forever.
+  // extension. Keeps one file-per-slot when GM uploads PNG, then JPG, etc.
   try {
     const stem = basename(absolute, ext);
     for (const sibling of readdirSync(dir)) {
       if (sibling === basename(absolute)) continue;
-      // Skip our own .partial files and any other plugin's siblings.
       if (sibling.startsWith(".")) continue;
       if (basename(sibling, extname(sibling)) === stem) {
         try {
           unlinkSync(resolve(dir, sibling));
         } catch {
-          /* best-effort cleanup */
+          /* best-effort */
         }
       }
     }
@@ -282,33 +637,44 @@ async function handlePluginDataUpload(
     });
   }
 
-  // Cache-bust on overwrite by stamping the URL with the byte length —
-  // crude but enough to make the browser re-fetch even when the path
-  // didn't change (e.g. same name + ext, different bytes).
-  const publicPath = `/plugin-data/${rel}?v=${received}`;
-  res.statusCode = 200;
-  res.setHeader("content-type", "application/json");
-  res.end(JSON.stringify({ path: publicPath, size: received }));
+  // Cache-bust on overwrite. The public URL stays under /plugin-data/.
+  const publicPath = `/plugin-data/${worldIdSegment}/${subPath}?v=${received}`;
+  sendJson(res, 200, { path: publicPath, size: received });
   return true;
 }
 
-// Dev convenience: when DEV_PROXY_URL is set (typical: http://localhost:5173),
-// the substrate's port serves Vite's compiled output with HMR. That way both
-// `:5173` and `:3001` give the same live experience and no one has to remember
-// which port to load. Production deployments leave it unset and serve dist.
 const devProxy = process.env.DEV_PROXY_URL;
 
 const handle = await startServer({
   port,
-  plugins: [shellWorkbench, identity, permissions, comms, resolution, scene, books, pdfBook, characters, diceTray],
+  infrastructure: infrastructurePlugins,
+  optional: optionalPlugins,
+  worldsRepo,
   clientRoot: existsSync(clientRoot) ? clientRoot : undefined,
   httpHandler,
-  authenticateUpgrade: async (req) => {
+  authenticateUpgrade: async (req, worldId) => {
     const headers = fromNodeHeaders(req.headers);
-    return await auth.resolveSession(headers);
+    const raw = await auth.resolveSession(headers);
+    const session = parseAuthSession(raw);
+    if (!session) return null;
+    // Membership gate: only worlds the user can access (owner or
+    // listed in world_membership). The substrate has already
+    // validated the world exists + isn't archived.
+    const allowed = await worldsService.canAccess(worldId, session.userId);
+    if (!allowed) return null;
+    // Per-world session: override the global role with whatever role
+    // applies to this world. Plugins read `session.role` and expect
+    // per-world semantics.
+    const perWorldRole = (await worldsService.roleFor(worldId, session.userId))
+      ?? "player";
+    const perWorldSession: AuthSession = {
+      userId: session.userId,
+      email: session.email,
+      name: session.name,
+      role: perWorldRole,
+    };
+    return perWorldSession;
   },
-  // Tell the substrate how to derive a {userId, role} Recipient from our
-  // opaque session — that's what the per-event visibility filter uses.
   extractRecipient: (session) => {
     const s = parseAuthSession(session);
     return s ? { userId: s.userId, role: s.role } : null;
@@ -318,28 +684,31 @@ const handle = await startServer({
   assetRoots: {
     ...(existsSync(iconsRoot) ? { "/icons/": iconsRoot } : {}),
     "/plugin-data/": pluginDataDir,
-    // Static support files pdfjs-dist needs for accurate rendering
-    // (CMaps, standard fonts, WASM image decoders, ICC profiles).
-    // See @vtt/pdf-book/server/asset-roots.ts for the rationale.
     ...pdfBookAssetRoots(),
-    // dice-box mesh/texture assets vendored under @vtt/dice-tray;
-    // the client's Babylon SceneLoader fetches default.json from
-    // /dice-tray-assets/ at scene startup.
     ...diceTrayAssetRoots(),
   },
 });
 
-const plugins = handle.registry.plugins.map((p) => `${p.name}@${p.version}`).join(", ");
 console.log(`mvtt server listening on ${baseURL}`);
-console.log(`plugins: ${plugins}`);
+console.log(
+  `infrastructure: ${infrastructurePlugins.map((p) => p.name).join(", ")}`,
+);
+console.log(`optional: ${optionalPlugins.map((p) => p.name).join(", ")}`);
+console.log(
+  `game systems: ${listGameSystems(optionalPlugins).map((p) => p.name).join(", ")}`,
+);
 console.log(`auth db: ${dbPath}`);
-console.log(`game master ${auth.hasGameMaster() ? "exists" : "not yet — first signup will become GM"}`);
+console.log(
+  `game master ${auth.hasGameMaster() ? "exists" : "not yet — first signup will become GM"}`,
+);
 if (devProxy) {
   console.log(`dev proxy: forwarding non-API HTTP and HMR to ${devProxy}`);
 } else if (existsSync(clientRoot)) {
   console.log(`client served from ${clientRoot}`);
 } else {
-  console.log(`client bundle not built — run \`pnpm --filter @vtt/client build\` to enable serving at /`);
+  console.log(
+    `client bundle not built — run \`pnpm --filter @vtt/client build\` to enable serving at /`,
+  );
 }
 if (existsSync(iconsRoot)) {
   console.log(`icons: ${iconManifest.length} mounted at /icons/ (${iconsRoot})`);
@@ -375,8 +744,8 @@ function loadOrCreateSecret(path: string): string {
   if (existsSync(path)) {
     return readFileSync(path, "utf-8").trim();
   }
-  const secret = randomBytes(32).toString("base64");
-  writeFileSync(path, secret + "\n", { mode: 0o600 });
+  const generated = randomBytes(32).toString("base64");
+  writeFileSync(path, generated + "\n", { mode: 0o600 });
   console.log(`generated new auth secret at ${path}`);
-  return secret;
+  return generated;
 }
