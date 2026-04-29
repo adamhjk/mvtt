@@ -194,6 +194,8 @@ export const DamageApplicationSystem = defineSystem({
 
 Anything that requires waiting — dice rolls, multi-step resolution, reactions, animations — becomes a temporary entity with its own traits. A second system reacts to completion events and finishes the work. This is the same pattern everywhere; the AI learns it once.
 
+The id of the sentinel is allocated by the server in the command's `apply` and embedded in the spawning event; both the server and every client then call `world.spawnAt(event.<id>, ...)` to materialise the sentinel at the same id. Never let a system call `world.spawn(...)` to allocate a sentinel id — see "Entity ids are server-authoritative" under Trust.
+
 ## Plugins
 
 A plugin is a directory with a manifest and a handful of small files:
@@ -781,6 +783,50 @@ The pattern is uniform. The AI learns it once.
 - Server runs all dice rolls, all rule resolutions, all permission checks.
 - Server never accepts client-emitted events. Only commands cross client → server.
 - Optimistic predictions are a UX layer. Diverging from server-truth is always recoverable by replaying authoritative events.
+- **Server allocates every entity id.** Clients never call `world.spawn(...)` and never predict ids by running an auto-incrementing counter "in lockstep" with the server. Each command's `apply` calls `world.allocateId()` for any entity it will create, embeds the id in the emitted event, and the spawn system on every side calls `world.spawnAt(event.<id>, traits)`. This is non-negotiable — see "Entity ids are server-authoritative" below.
+
+### Entity ids are server-authoritative
+
+Every entity id is allocated by the server in a command's `apply` and embedded in the event payload. Server and clients then call `world.spawnAt(id, traits)` with the id from the event — they never run their own counter and never call `world.spawn(...)` from a system that runs on the client.
+
+This rule exists because the alternative — every side independently calling `world.spawn(...)` and trusting that auto-incrementing counters stay synchronized — is silently broken. Any of the following desyncs the counters and produces "entity does not exist" errors when a client references an id the server never allocated:
+
+- An event filtered out by per-recipient visibility (the server spawns; the filtered-out client doesn't).
+- A system that emits a secondary event (the server's fixpoint runs the secondary system once and then broadcasts the secondary event separately, so a client that cascades inside its own `runSystemsToFixpoint` runs the secondary system twice).
+- Any future derivation, optimization, or per-side codepath that subtly differs in spawn count.
+
+The fix is structural, not defensive. Spawn systems take the id from the event:
+
+```ts
+// Command apply — runs server-side only, allocates the id.
+apply: ({ cmd, world }) => [
+  PendingRollOpened({
+    pendingRollId: world.allocateId(),
+    initiatorCharacterId: cmd.initiatorCharacterId,
+    rollableName: cmd.rollableName,
+    opts: cmd.opts,
+    openedAt: Date.now(),
+  }),
+],
+
+// Mirror system — runs on every recipient, uses the id from the event.
+run: ({ event, world }) => {
+  world.spawnAt(event.pendingRollId, [
+    PendingRoll({ ...event }),
+  ]);
+  return [];
+},
+```
+
+The substrate's primitives:
+
+- `world.allocateId(): EntityId` — returns the next id, advances the counter. Used inside `apply` only.
+- `world.spawnAt(id, traits): void` — spawns an entity at the given id; bumps the counter past it. Throws on duplicate id.
+- `world.spawn(traits): EntityId` — auto-id allocation. Legitimate **only** in commands' `apply` (transitively, by way of `allocateId`) and in systems whose trigger event has `broadcast: false` (so the system runs on the server only). Never call from a universal-mirror system.
+
+Sentinel entities whose identity is naturally keyed (one per user, one per client connection) skip the counter entirely and use a deterministic string id like `workspace-owner:${userId}`. Same effect; no counter dependency at all.
+
+Existing exemplars: every `*Created` / `*Opened` event in `@vtt/characters`, `@vtt/scene`, `@vtt/comms`, `@vtt/books`, `@vtt/resolution`, `@vtt/ping` carries an explicit id; their spawning systems use `spawnAt`.
 
 ### Per-recipient event filtering
 

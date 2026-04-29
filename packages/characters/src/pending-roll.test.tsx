@@ -524,7 +524,7 @@ describe("PendingRollPanel", () => {
     const value = h.world.get(
       h.world.query([PendingRoll])[0]!.id,
       [PendingRoll],
-    ) as { PendingRoll: ConstructorParameters<typeof PendingRoll>[0] };
+    ) as { PendingRoll: Parameters<typeof PendingRoll>[0] };
     otherClient.world.spawn([
       PendingRoll(value.PendingRoll as never),
     ]);

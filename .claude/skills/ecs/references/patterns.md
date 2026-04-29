@@ -178,16 +178,15 @@ Views never mutate state. They subscribe to trait signals (not events) for norma
 
 When state has to coordinate across multiple ticks or entities — pending rolls, in-flight attacks, encounters, concentration — spawn a sentinel entity holding the coordination traits, then have a completion system react to the relevant events.
 
+**Entity ids are server-allocated.** The command's `apply` calls `world.allocateId()` for each entity it will create, embeds the ids in the emitted event, and the spawning system on every side calls `world.spawnAt(event.<id>, traits)`. Never have a system call `world.spawn(...)` to allocate an id — the per-side counters drift and clients end up referencing entities the server never allocated.
+
 ```typescript
-import { defineTrait, defineSystem, EntityId } from "@vtt/substrate";
+import { defineCommand, defineTrait, defineEvent, defineSystem, EntityId, fail, ok } from "@vtt/substrate";
 import { z } from "zod";
 import { Formula, RollContext, Visibility, RollResult } from "@vtt/resolution";
 import { Strength } from "../traits/Strength";
-import { AttackDeclared } from "../events/AttackDeclared";
-import { AttackResolved } from "../events/AttackResolved";
-import { DamageDealt } from "../events/DamageDealt";
-import { RollResolved } from "@vtt/resolution/events";
 
+// Trait
 export const PendingAttack = defineTrait({
   name: "@vtt/simple-d100/PendingAttack",
   schema: z.object({
@@ -198,27 +197,60 @@ export const PendingAttack = defineTrait({
   }),
 });
 
-// Initiation: spawn sentinel + the two roll entities
+// Event — carries the three ids the command pre-allocated
+export const AttackDeclared = defineEvent({
+  name: "@vtt/simple-d100/AttackDeclared",
+  schema: z.object({
+    attackerId: EntityId,
+    targetId: EntityId,
+    attackerRollId: EntityId,
+    defenderRollId: EntityId,
+    pendingAttackId: EntityId,
+  }),
+});
+
+// Command — apply allocates ids server-side, embeds in the event
+export const DeclareAttack = defineCommand({
+  name: "@vtt/simple-d100/DeclareAttack",
+  schema: z.object({ attackerId: EntityId, targetId: EntityId }),
+  validate: ({ cmd, world, actor }) => {
+    // ... usual validation reads
+    return ok();
+  },
+  apply: ({ cmd, world }) => [
+    AttackDeclared({
+      attackerId: cmd.attackerId,
+      targetId: cmd.targetId,
+      attackerRollId: world.allocateId(),
+      defenderRollId: world.allocateId(),
+      pendingAttackId: world.allocateId(),
+    }),
+  ],
+});
+
+// Initiation system — universal mirror; spawns at the ids from the event
 export const AttackInitiationSystem = defineSystem({
   name: "AttackInitiation",
   on: AttackDeclared,
   run: ({ event, world }) => {
-    const attackerRollId = world.spawn([
+    world.spawnAt(event.attackerRollId, [
       Formula({ count: 1, sides: 100 }),
       RollContext({ reason: "d100.attack", actorId: event.attackerId, targetId: event.targetId }),
       Visibility({ mode: "public" }),
     ]);
-    const defenderRollId = world.spawn([
+    world.spawnAt(event.defenderRollId, [
       Formula({ count: 1, sides: 100 }),
       RollContext({ reason: "d100.defense", actorId: event.targetId }),
       Visibility({ mode: "public" }),
     ]);
-    world.spawn([PendingAttack({
-      attackerId: event.attackerId,
-      targetId: event.targetId,
-      attackerRollId,
-      defenderRollId,
-    })]);
+    world.spawnAt(event.pendingAttackId, [
+      PendingAttack({
+        attackerId: event.attackerId,
+        targetId: event.targetId,
+        attackerRollId: event.attackerRollId,
+        defenderRollId: event.defenderRollId,
+      }),
+    ]);
     return [];
   },
 });

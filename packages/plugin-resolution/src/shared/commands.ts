@@ -158,7 +158,7 @@ export const RequestRoll = defineCommand({
     }
     return ok();
   },
-  apply: ({ cmd, session }) => {
+  apply: ({ cmd, session, world }) => {
     // apply may have non-deterministic side effects (rolling dice) but must
     // not read or write the world. The full result lives in the event so
     // every client can mirror state without re-rolling. The rolling user's
@@ -188,6 +188,7 @@ export const RequestRoll = defineCommand({
     return [
       withVisibility(
         RollResolved({
+          rollId: world.allocateId(),
           notation: roll.notation,
           reason: cmd.reason,
           visibility: cmd.visibility,

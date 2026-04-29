@@ -85,16 +85,19 @@ describe("@vtt/identity", () => {
     expect((row.values.Online as { clientId: string }).clientId).toBe("client-1");
   });
 
-  it("PlayerJoined mirror is idempotent on clientId — server's own dispatch doesn't double-spawn", () => {
+  it("PlayerJoined mirror is idempotent on playerId — replaying the same event doesn't double-spawn", () => {
     fire(registry, world, bus, ConnectionOpened({ clientId: "c1", session: SESSION }));
     expect(world.query([Identity])).toHaveLength(1);
+    const playerId = world.query([Identity, Online])[0]!.id;
     // Replay the same PlayerJoined event (as a remote client would receive it).
+    // With server-authoritative ids, the duplicate carries the same playerId
+    // and `world.has` short-circuits the mirror system.
     fire(
       registry,
       world,
       bus,
       PlayerJoined({
-        playerId: "e99" as any,
+        playerId,
         userId: SESSION.userId,
         name: SESSION.name,
         role: SESSION.role,

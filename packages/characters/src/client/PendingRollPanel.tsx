@@ -218,12 +218,22 @@ function PendingRollPanel(props: { pendingRollId: string }): JSX.Element {
                     initiatorCharacterId: pr()!.initiatorCharacterId,
                     initiatorUserId: pr()!.initiatorUserId,
                     contribute: (contribution) => {
-                      client.dispatch(
+                      const handle = client.dispatch(
                         ContributeToPendingRoll({
                           pendingRollId: props.pendingRollId,
                           contribution,
                         }) as CommandInstance,
                       );
+                      void handle.ack.then((ack) => {
+                        if (!ack.ok) {
+                          // eslint-disable-next-line no-console
+                          console.error(
+                            "ContributeToPendingRoll rejected:",
+                            ack.reason,
+                            { contribution },
+                          );
+                        }
+                      });
                     },
                   }) as JSX.Element
                 }

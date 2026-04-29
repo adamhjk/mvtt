@@ -39,10 +39,11 @@ export const CreateScene = defineCommand({
     gridColor: Color.default("#2a2a2a"),
   }),
   validate: (ctx) => requireRole(ctx, "gm"),
-  apply: ({ cmd, session }) => {
+  apply: ({ cmd, session, world }) => {
     const auth = requireSession({ session })!; // validate already enforced
     return [
       SceneCreated({
+        sceneId: world.allocateId(),
         name: cmd.name,
         gridSize: cmd.gridSize,
         widthPx: cmd.widthPx,
@@ -82,10 +83,11 @@ export const CreateToken = defineCommand({
     }
     return ok();
   },
-  apply: ({ cmd, session }) => {
+  apply: ({ cmd, session, world }) => {
     const auth = requireSession({ session })!;
     return [
       TokenCreated({
+        tokenId: world.allocateId(),
         sceneId: cmd.sceneId,
         iconSlug: cmd.iconSlug,
         tint: cmd.tint,

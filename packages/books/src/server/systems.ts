@@ -18,7 +18,7 @@ export const BookSpawningSystem = defineSystem({
   reads: [],
   writes: [Book],
   run: ({ event, world }) => {
-    world.spawn([
+    world.spawnAt(event.bookId, [
       Book({ name: event.name }),
     ]);
     return [];

@@ -29,6 +29,7 @@ export type DieOutcome = z.infer<typeof DieOutcomeSchema>;
 export const RollResolved = defineEvent({
   name: "@vtt/resolution/RollResolved",
   schema: z.object({
+    rollId: EntityId,
     notation: z.string(),
     reason: z.string().optional(),
     visibility: z.enum(["public", "gm-only", "private"]),

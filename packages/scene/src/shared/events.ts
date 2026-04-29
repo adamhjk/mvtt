@@ -3,19 +3,16 @@ import { defineEvent, EntityId, z } from "@vtt/substrate";
 const Color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 /**
- * Scene-level events. We don't put `sceneId` / `tokenId` on creation
- * events because the recording system spawns the entity and we want
- * server and every client to compute the same id by spawning in
- * lockstep — embedding a server-chosen id would diverge when re-running
- * during cold-boot replay (since `apply` doesn't have access to
- * `world.spawn` here). Subsequent commands (MoveToken, RemoveToken)
- * supply the id from the dispatching client's local World, which all
- * clients agree on because the same events spawned the same entities in
- * the same order.
+ * Scene-level events. Creation events carry the server-allocated entity
+ * id (allocated in the command's `apply` via `world.allocateId()`) so
+ * every recipient spawns at the same id via `spawnAt` — the substrate's
+ * answer to the brittle "every side independently auto-increments and
+ * prays the counters match" pattern.
  */
 export const SceneCreated = defineEvent({
   name: "@vtt/scene/SceneCreated",
   schema: z.object({
+    sceneId: EntityId,
     name: z.string(),
     gridSize: z.number().int(),
     widthPx: z.number().int(),
@@ -29,6 +26,7 @@ export const SceneCreated = defineEvent({
 export const TokenCreated = defineEvent({
   name: "@vtt/scene/TokenCreated",
   schema: z.object({
+    tokenId: EntityId,
     sceneId: EntityId,
     iconSlug: z.string(),
     tint: z.number().int(),

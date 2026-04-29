@@ -85,6 +85,43 @@ For anything that needs to coordinate across multiple ticks, multiple entities, 
 
 The sentinel entity + its associated traits + the systems and validators that maintain the invariants form one logical DDD Aggregate.
 
+## Entity Ids Are Server-Authoritative
+
+**The server allocates every entity id. Clients never predict.** Every command's `apply` calls `world.allocateId()` for any entity it will create, embeds the id in the emitted event, and the spawning system calls `world.spawnAt(event.<id>, traits)` on every side.
+
+```ts
+// In the command (server-side only — apply doesn't run on the client).
+apply: ({ cmd, world }) => [
+  PendingRollOpened({
+    pendingRollId: world.allocateId(),
+    initiatorCharacterId: cmd.initiatorCharacterId,
+    rollableName: cmd.rollableName,
+    opts: cmd.opts,
+    openedAt: Date.now(),
+  }),
+],
+
+// In the mirror system (runs on server + every client receiving the event).
+run: ({ event, world }) => {
+  world.spawnAt(event.pendingRollId, [
+    PendingRoll({ /* ... */ }),
+  ]);
+  return [];
+},
+```
+
+Substrate primitives:
+
+- `world.allocateId(): EntityId` — return the next id and advance the counter. Use **only** inside a command's `apply`.
+- `world.spawnAt(id, traits): void` — spawn at a specific id; bumps the counter past it; throws on duplicate.
+- `world.spawn(traits): EntityId` — auto-allocates and spawns. Legitimate **only** in systems that run server-only (i.e. systems triggered by an event with `broadcast: false`). Never use in a universal-mirror system.
+
+For sentinels whose identity is naturally keyed — one per user, one per client connection — use a deterministic string id like `workspace-owner:${userId}` and skip the counter entirely.
+
+**Why it has to be this way:** the alternative — every side independently calls `world.spawn(...)` from a mirror system and trusts that auto-incrementing counters stay synchronized — is silently broken under per-recipient event filtering, secondary events broadcast separately, and any future per-side codepath difference. Once the counters drift, clients reference ids the server never allocated and dispatches fail with "entity does not exist." The fix is structural; defensive guards in spawning systems do not work.
+
+See "Entity ids are server-authoritative" in `design/basics.md` for the full rationale.
+
 ## Anti-Patterns to Avoid
 
 - **Trait with methods.** Traits are value objects. Behavior lives in systems and command validators.
@@ -95,8 +132,10 @@ The sentinel entity + its associated traits + the systems and validators that ma
 - **Reaching across plugin boundaries by importing internals.** Cross-plugin coordination is via published events, slots, and shared trait definitions only. Never import another plugin's systems or private state.
 - **Using ECS for things that aren't part of the live World.** Content catalogs, user accounts, asset metadata, campaign archives — those are DDD aggregates with repositories. ECS is for the World only.
 - **Mutating a trait in place.** Trait values are replaced atomically (`world.set(id, Trait, newValue)`); never mutated by reference. Reactivity, persistence, and replay all depend on this.
-- **Reading state inside `apply` instead of `validate`.** Validation reads the world and rejects; application produces events. Don't query the world inside `apply` — by then the decision is made.
+- **Reading state inside `apply` instead of `validate`.** Validation reads the world and rejects; application produces events. Don't query the world inside `apply` — by then the decision is made. (`world.allocateId()` is the one allowed write — see "Entity Ids Are Server-Authoritative".)
 - **Dispatching commands from a system.** Systems emit events, not commands. Commands are external intent crossing the trust boundary; events are internal facts. Conflating them undermines the trust model.
+- **Calling `world.spawn(...)` from a universal-mirror system.** Every side independently auto-incrementing its counter is silently broken under filtered events and cascading systems; the counters drift and clients end up with entities at different ids than the server. Allocate the id in the command's `apply` via `world.allocateId()`, embed it in the event, and have the system call `world.spawnAt(event.<id>, traits)`. See "Entity Ids Are Server-Authoritative".
+- **Predicting entity ids on the client.** Even a "deterministic" auto-increment is a prediction — the moment a per-recipient visibility filter or secondary-event timing difference lands, the prediction diverges from server truth. Clients only ever spawn at ids the server has explicitly told them about via an event payload.
 
 ## Relationship to DDD
 

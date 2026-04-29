@@ -22,7 +22,7 @@ export const SceneSpawningSystem = defineSystem({
   reads: [],
   writes: [Scene],
   run: ({ event, world }) => {
-    world.spawn([
+    world.spawnAt(event.sceneId, [
       Scene({
         name: event.name,
         gridSize: event.gridSize,
@@ -47,7 +47,7 @@ export const TokenSpawningSystem = defineSystem({
   reads: [],
   writes: [Token, Sprite, Position, OwnedBy],
   run: ({ event, world }) => {
-    world.spawn([
+    world.spawnAt(event.tokenId, [
       Token({ label: event.label, kind: event.kind }),
       Sprite({
         iconSlug: event.iconSlug,

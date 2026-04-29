@@ -8,7 +8,7 @@ export const PongRecordingSystem = defineSystem({
   reads: [],
   writes: [Pong],
   run: ({ event, world }) => {
-    world.spawn([
+    world.spawnAt(event.pongId, [
       Pong({
         message: event.message,
         pingedAt: event.pingedAt,

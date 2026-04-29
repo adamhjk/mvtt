@@ -66,11 +66,12 @@ export const CreateCharacter = defineCommand({
     }
     return ok();
   },
-  apply: ({ cmd, session }) => {
+  apply: ({ cmd, session, world }) => {
     const auth = requireSession({ session })!;
     const ownerUserId = cmd.ownerUserId ?? auth.userId;
     return [
       CharacterCreated({
+        characterId: world.allocateId(),
         name: cmd.name,
         ownerUserId,
         createdByUserId: auth.userId,
@@ -244,11 +245,12 @@ export const OpenPendingRoll = defineCommand({
     }
     return requireOwnerOrGm(ctx, ctx.cmd.initiatorCharacterId);
   },
-  apply: ({ cmd, session }) => {
+  apply: ({ cmd, session, world }) => {
     const auth = requireSession({ session });
     if (!auth) throw new Error("OpenPendingRoll.apply called without session");
     return [
       PendingRollOpened({
+        pendingRollId: world.allocateId(),
         initiatorUserId: auth.userId,
         initiatorCharacterId: cmd.initiatorCharacterId,
         rollableName: cmd.rollableName,

@@ -61,7 +61,7 @@ function slowMemoryPersistence(delayMs: number): PersistenceAdapter {
 
 interface AckMsg { kind: "ack"; commandId: string; ok: boolean; reason?: string }
 interface EventMsg { kind: "event"; seq: number; event: { type: string; payload: unknown } }
-type Msg = { kind: string } & Partial<AckMsg & EventMsg>;
+type Msg = AckMsg | EventMsg | { kind: "hello" | "snapshot" | "synced" | "presence" };
 
 describe("cold-boot race wire smoke", () => {
   let handle: ServerHandle;

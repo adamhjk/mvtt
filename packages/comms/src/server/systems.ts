@@ -46,7 +46,7 @@ export const MessageRecordingSystem = defineSystem({
         | undefined;
       if (got) authorName = got.Character.name;
     }
-    world.spawn([
+    world.spawnAt(event.messageId, [
       ChatMessage({
         authorUserId: event.authorUserId,
         authorName,

@@ -87,6 +87,10 @@ Systems may write to traits but must always emit the corresponding events. No si
 
 Only **commands** cross client → server. Only **events** cross server → client. Treat all client-side code as untrusted; the server validates every command independently.
 
+### Entity ids are server-authoritative
+
+Every entity id is allocated by the server in a command's `apply` via `world.allocateId()` and embedded in the emitted event. Universal-mirror systems on every side then call `world.spawnAt(event.<id>, traits)` — never `world.spawn(...)`. Predicting ids by running a per-side counter "in lockstep" with the server is silently broken under per-recipient event filtering, secondary-event timing differences, and any future per-side codepath difference; the counters drift and clients reference entities the server never allocated. See "Entity ids are server-authoritative" in `design/basics.md`.
+
 ### Password managers stay out of the in-app UI
 
 The signed-in shell is wrapped in `data-1p-ignore` / `data-lpignore` / `data-bwignore` / `data-form-type="other"` (see `packages/shell-default/src/client/Chrome.tsx`) so password managers don't autofill or pop suggestions over plugin forms — game-content forms (dice notation, chat input, character sheets later) routinely look like login forms to those extensions. The auth gate (`packages/client/src/AuthGate.tsx`) is mounted *outside* this wrapper and intentionally still gets password manager support.
@@ -175,8 +179,9 @@ From the ECS skill — bullets repeated here so they're loud:
 - Reaching across plugin boundaries by importing internals. Cross-plugin coordination is via published events, slots, and shared trait definitions only.
 - ECS for things outside the live World — those are DDD aggregates with repositories.
 - Mutating a trait in place. Trait values are replaced atomically via `world.set(id, Trait, newValue)`.
-- Reading state inside `apply`. Validation reads; application emits.
+- Reading state inside `apply`. Validation reads; application emits. (`world.allocateId()` is the one allowed write.)
 - Dispatching commands from a system. Systems emit events.
+- Calling `world.spawn(...)` from a universal-mirror system. Allocate the id via `world.allocateId()` in the command's `apply`, embed it in the event, and call `world.spawnAt(event.<id>, traits)` from the system. Predicting ids on the client is silently broken under filtered events.
 
 ## When in doubt
 

@@ -16,9 +16,10 @@ import { Character } from "../shared/traits.js";
 import { PendingRoll, type Contribution } from "../shared/pending.js";
 
 /**
- * Universal mirror: spawn the Character entity carrying Character +
- * OwnedBy. Runs identically on server and every client so every side
- * agrees on the resulting EntityId.
+ * Universal mirror: spawn the Character entity at the server-allocated
+ * id carried by the event. Both server and clients call `spawnAt` so
+ * the resulting EntityId is identical everywhere — no per-side counter
+ * prediction.
  */
 export const CharacterSpawningSystem = defineSystem({
   name: "CharacterSpawning",
@@ -32,7 +33,7 @@ export const CharacterSpawningSystem = defineSystem({
         : event.playerUserId.length > 0
           ? event.playerUserId
           : undefined;
-    world.spawn([
+    world.spawnAt(event.characterId, [
       Character({ name: event.name, playerUserId }),
       OwnedBy({ userId: event.ownerUserId }),
     ]);
@@ -126,9 +127,10 @@ export const CharacterFieldSetSystem = defineSystem({
 });
 
 /**
- * Universal mirror: spawn the PendingRoll sentinel entity. Mounted
- * identically on server + every client so every side agrees on the id
- * (universal-mirror pattern, same as CharacterSpawningSystem).
+ * Universal mirror: spawn the PendingRoll sentinel entity at the
+ * server-allocated id from the event. `spawnAt` keeps server and every
+ * client agreed on the EntityId regardless of how many events each side
+ * has processed.
  */
 export const PendingRollSpawnSystem = defineSystem({
   name: "PendingRollSpawn",
@@ -136,7 +138,7 @@ export const PendingRollSpawnSystem = defineSystem({
   reads: [],
   writes: [PendingRoll],
   run: ({ event, world }) => {
-    world.spawn([
+    world.spawnAt(event.pendingRollId, [
       PendingRoll({
         initiatorUserId: event.initiatorUserId,
         initiatorCharacterId: event.initiatorCharacterId,

@@ -119,10 +119,25 @@ function PlayerField(props: {
     return deduped;
   });
 
+  let selectEl!: HTMLSelectElement;
+
+  // Membership list arrives via a separate async HTTP fetch, so on a
+  // hard refresh the snapshot's `playerUserId` lands before the matching
+  // <option>. Setting <select value> at that moment falls through to the
+  // first option and Solid won't re-sync when the option later renders.
+  // createEffect runs post-mount (so the ref is bound) and re-runs
+  // whenever options() or props.value changes — re-syncing the property
+  // every time the membership list arrives or the assignment moves.
+  createEffect(() => {
+    options();
+    const want = props.value;
+    if (selectEl.value !== want) selectEl.value = want;
+  });
+
   return (
     <select
+      ref={selectEl}
       disabled={props.disabled || members.loading}
-      value={props.value}
       onChange={(e) => props.onCommit(e.currentTarget.value)}
       class="rounded-(--radius-control) border border-border bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
     >

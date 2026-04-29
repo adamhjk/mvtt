@@ -1,14 +1,14 @@
 import { defineEvent, EntityId, z } from "@vtt/substrate";
 
 /**
- * A new character was created. The recording system spawns the entity
- * in lockstep on every side, so we don't carry a server-chosen id —
- * subsequent commands (RenameCharacter, RemoveCharacter) supply the id
- * from the dispatching client's local World.
+ * A new character was created. `characterId` is allocated by the
+ * server's command `apply` and embedded in the event so every recipient
+ * spawns at the same id — no per-side counter prediction.
  */
 export const CharacterCreated = defineEvent({
   name: "@vtt/characters/CharacterCreated",
   schema: z.object({
+    characterId: EntityId,
     name: z.string().min(1).max(120),
     /** userId of the player who owns the character. */
     ownerUserId: z.string().min(1),
@@ -58,13 +58,14 @@ export const CharacterAssigned = defineEvent({
 });
 
 /**
- * A PendingRoll entity was opened. Carries the initiator + rollable
- * info so clients can spawn the matching sentinel entity in lockstep
- * (universal mirror — same as Character creation).
+ * A PendingRoll entity was opened. `pendingRollId` is allocated by the
+ * server's command `apply` and embedded in the event so every recipient
+ * spawns at the same id.
  */
 export const PendingRollOpened = defineEvent({
   name: "@vtt/characters/PendingRollOpened",
   schema: z.object({
+    pendingRollId: EntityId,
     initiatorUserId: z.string().min(1),
     initiatorCharacterId: EntityId,
     rollableName: z.string().min(1),

@@ -24,10 +24,11 @@ export const CreateBook = defineCommand({
     name: z.string().min(1).max(160),
   }),
   validate: (ctx) => requireRole(ctx, "gm"),
-  apply: ({ cmd, session }) => {
+  apply: ({ cmd, session, world }) => {
     const auth = requireSession({ session })!;
     return [
       BookCreated({
+        bookId: world.allocateId(),
         name: cmd.name,
         createdByUserId: auth.userId,
       }),

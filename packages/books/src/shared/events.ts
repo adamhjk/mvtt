@@ -1,15 +1,14 @@
 import { defineEvent, EntityId, z } from "@vtt/substrate";
 
 /**
- * Book-level events. BookCreated carries no bookId — the recording
- * system spawns the entity in lockstep on every side, so server and all
- * clients agree on the resulting EntityId without round-tripping a
- * server-chosen one through `apply`. Subsequent commands carry the id
- * directly.
+ * Book-level events. `bookId` is allocated by the server's command
+ * `apply` (via `world.allocateId()`) and embedded in the event so every
+ * recipient spawns at the same id via `spawnAt`.
  */
 export const BookCreated = defineEvent({
   name: "@vtt/books/BookCreated",
   schema: z.object({
+    bookId: EntityId,
     name: z.string(),
     createdByUserId: z.string(),
   }),

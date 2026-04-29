@@ -45,11 +45,10 @@ export const PlayerSpawningSystem = defineSystem({
 
 /**
  * Universal mirror: runs on every side that receives PlayerJoined.
- * Idempotency is keyed on `clientId` (the per-socket id), not `userId`
- * — multiple connections per user is the whole point. The server's own
- * dispatch arrives here too: the just-spawned entity already has a
- * matching `Online.clientId`, so the find-by-clientId hits and we no-op.
- * Other clients see no match, so they spawn a mirror entity.
+ * The server has already spawned the entity (in PlayerSpawningSystem)
+ * and put its id on the event as `playerId`; clients call `spawnAt`
+ * with that same id so every side agrees regardless of how many other
+ * events have shifted local counters.
  */
 export const PlayerMirrorSystem = defineSystem({
   name: "PlayerMirror",
@@ -57,13 +56,8 @@ export const PlayerMirrorSystem = defineSystem({
   reads: [Online],
   writes: [Identity, Name, Online],
   run: ({ event, world }) => {
-    const exists = world
-      .query([Online])
-      .some(
-        (r) => (r.values.Online as { clientId: string }).clientId === event.clientId,
-      );
-    if (exists) return [];
-    world.spawn([
+    if (world.has(event.playerId)) return [];
+    world.spawnAt(event.playerId, [
       Identity({ userId: event.userId, role: event.role }),
       Name({ value: event.name }),
       Online({ clientId: event.clientId, since: Date.now() }),

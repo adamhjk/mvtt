@@ -103,7 +103,7 @@ design/                  basics.md (manifesto), this file
 
 | Component             | Status | Notes |
 | --------------------- | ------ | ----- |
-| `World`               | ✓     | Per-world id, `dump` for snapshot, `restore` fires subscribers (so reactive views refresh on catchup), spawn/despawn notify per-trait. |
+| `World`               | ✓     | Per-world id, `dump` for snapshot, `restore` fires subscribers (so reactive views refresh on catchup), spawn/despawn notify per-trait. Server-authoritative id allocation via `allocateId()` + `spawnAt(id, traits)` — universal-mirror systems take the id from the event payload rather than predicting it from a per-side counter. |
 | `TraitRegistry`       | ✓     | Branded `TraitName` keys. Trait-level `transient` flag (presence/Identity/Online opt out of persistence). |
 | `EventRegistry`       | ✓     | Branded `EventName` keys. Event-level `transient` (skip log) and `broadcast` (skip wire) flags. |
 | `CommandRegistry`     | ✓     | Branded `CommandName` keys. Mandatory `validate` / `apply` split. `causalState` threaded into `validate` for CAS-enforcing commands. |
@@ -156,7 +156,7 @@ end-to-end). Plus the utility/infrastructure packages `@vtt/auth`,
 | Concept                   | Substrate expression | Real consumer (where it's used) |
 | ------------------------- | -------------------- | ------------------------------- |
 | Trait                     | `defineTrait({ name, schema, transient? })` | `Identity`, `Name`, `Online`, `OwnedBy`, `EntityVisibility`, `Pong`, `Formula`, `RollResult`, `RolledBy`, `Scene`, `Position`, `Sprite`, `Token`, `ChatMessage` |
-| Entity                    | `World.spawn` returns `EntityId` | Pong / Roll / Scene / Token / ChatMessage entities; Player entities (transient) |
+| Entity                    | `EntityId` allocated server-side via `world.allocateId()` in a command's `apply`, embedded in the event, materialised on every recipient via `world.spawnAt(id, traits)` | Pong / Roll / Scene / Token / ChatMessage / PendingRoll / Character / Book / WorkspaceOwner entities; Player entities (transient, allocated by server-only `PlayerSpawningSystem` then mirrored via `spawnAt`) |
 | Sentinel entity           | Same mechanism | Not yet — `PendingAttack`-style coordination lands when game-system plugins arrive. |
 | Event                     | `defineEvent({ name, schema, transient?, broadcast? })` | Domain: `RollResolved`, `PingReceived`, `SceneCreated`, `TokenCreated`, `TokenMoved`, `TokenRemoved`, `MessageSent`. Lifecycle: `ConnectionOpened`, `ConnectionClosed`, `PlayerJoined`, `PlayerLeft`. |
 | Command                   | `defineCommand({ name, schema, validate, apply })` | `RequestRoll`, `Ping`, `CreateScene`, `CreateToken`, `MoveToken` (CAS), `RemoveToken`, `SendMessage`. |
@@ -170,7 +170,8 @@ end-to-end). Plus the utility/infrastructure packages `@vtt/auth`,
 ### ECS anti-patterns checked
 
 - ✓ Trait with methods — traits are Zod schemas only.
-- ✓ System mutating without emitting events — pipeline persists + broadcasts every emitted event; in-system writes only via `world.set/spawn/despawn`.
+- ✓ System mutating without emitting events — pipeline persists + broadcasts every emitted event; in-system writes only via `world.set/spawnAt/despawn`.
+- ✓ Client predicting entity ids by running an auto-incrementing counter "in lockstep" with the server — universal-mirror systems take the id from the event (allocated by the server's `apply`) and call `spawnAt`, never `spawn`. See "Entity ids are server-authoritative" in `design/basics.md`.
 - ✓ System calling another system — coordination is event-driven via `EventBus`.
 - ✓ View running server logic — `clientOnly()` markers; views dispatch commands and read trait signals.
 - ✓ Reading state inside `apply` — `apply` is constrained to emit events; cmd-payload only.

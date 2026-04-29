@@ -68,7 +68,7 @@ export const SendMessage = defineCommand({
     }
     return ok();
   },
-  apply: ({ cmd, session }) => {
+  apply: ({ cmd, session, world }) => {
     const auth = requireSession({ session });
     if (!auth) {
       // validate already rejected this; defensive
@@ -91,6 +91,7 @@ export const SendMessage = defineCommand({
     return [
       withVisibility(
         MessageSent({
+          messageId: world.allocateId(),
           authorUserId: auth.userId,
           authorName: auth.name,
           body: cmd.body,

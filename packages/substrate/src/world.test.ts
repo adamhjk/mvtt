@@ -107,4 +107,50 @@ describe("World", () => {
     const id = w.spawn([Health({ current: 5, max: 10 })]);
     expect(() => w.set(id, Health, { current: 5, max: 0 })).toThrow();
   });
+
+  it("allocateId hands out the next id without spawning", () => {
+    const w = new World();
+    const id = w.allocateId();
+    expect(id).toBe("e1");
+    expect(w.has(id)).toBe(false);
+    // Subsequent spawn picks up at the bumped counter.
+    const next = w.spawn([Health({ current: 1, max: 1 })]);
+    expect(next).toBe("e2");
+  });
+
+  it("spawnAt places an entity at a caller-provided id and bumps nextId past it", () => {
+    const w = new World();
+    w.spawnAt("e10" as never, [Health({ current: 3, max: 3 })]);
+    expect(w.has("e10" as never)).toBe(true);
+    // Future auto-id spawns must not collide with e10.
+    const next = w.spawn([Health({ current: 1, max: 1 })]);
+    expect(next).toBe("e11");
+  });
+
+  it("spawnAt keeps two diverged Worlds agreed on entity ids", () => {
+    // Simulates server vs. client whose nextId counters have drifted —
+    // exactly the desync that breaks the old auto-increment "universal
+    // mirror" pattern. With spawnAt, both end up with the entity at the
+    // same id regardless of where their counters started.
+    const server = new World();
+    const client = new World();
+    // Drift: server has processed 5 extra spawns the client hasn't seen.
+    for (let i = 0; i < 5; i++) {
+      server.spawn([Health({ current: 1, max: 1 })]);
+    }
+    // Server allocates an id, broadcasts via event payload.
+    const allocated = server.allocateId();
+    server.spawnAt(allocated, [Name({ value: "shared" })]);
+    client.spawnAt(allocated, [Name({ value: "shared" })]);
+    expect(server.query([Name])[0]!.id).toBe(allocated);
+    expect(client.query([Name])[0]!.id).toBe(allocated);
+  });
+
+  it("spawnAt rejects a duplicate id rather than silently overwriting", () => {
+    const w = new World();
+    w.spawnAt("e7" as never, [Health({ current: 1, max: 1 })]);
+    expect(() =>
+      w.spawnAt("e7" as never, [Health({ current: 2, max: 2 })]),
+    ).toThrow();
+  });
 });

@@ -30,6 +30,24 @@ export class World {
     this.worldId = worldId;
   }
 
+  /**
+   * Auto-allocate an id and spawn an entity at it. Legitimate **only**
+   * in two places:
+   *   1. Tests and harness `setupWorld` callbacks (no networking, no
+   *      per-side mirrors — there is only one World).
+   *   2. Systems whose trigger event has `broadcast: false` (i.e. the
+   *      system runs on the server only, so there is no client mirror
+   *      whose counter could drift).
+   *
+   * Anywhere else — universal-mirror systems reacting to broadcast
+   * events — you must use `allocateId()` inside the command's `apply`,
+   * embed the id in the event, and call `spawnAt(event.<id>, ...)` from
+   * the system. Auto-incrementing on every side and praying the counters
+   * stay in sync is silently broken under per-recipient visibility
+   * filtering and any future per-side codepath difference.
+   *
+   * See "Entity ids are server-authoritative" in `design/basics.md`.
+   */
   spawn(traits: Array<{ name: TraitName; value: TraitValue }> = []): EntityId {
     const id = `e${this.nextId++}`;
     const rec: EntityRecord = new Map();
@@ -39,6 +57,44 @@ export class World {
       for (const fn of this.listeners) fn(id, t.name);
     }
     return id;
+  }
+
+  /**
+   * Allocate the next entity id without spawning — used by command
+   * `apply` to pre-allocate server-authoritative ids that get embedded
+   * in events and reused by spawn systems via `spawnAt`. This is the
+   * substrate's escape hatch from the brittle "every side independently
+   * auto-increments and prays the counters match" universal-mirror
+   * pattern: with ids fixed at allocate-time, no per-recipient event
+   * filtering or fixpoint timing can desync client and server.
+   */
+  allocateId(): EntityId {
+    return `e${this.nextId++}`;
+  }
+
+  /**
+   * Spawn an entity at a caller-provided id. The id must not already
+   * exist. Ensures `nextId` advances past `id` so future `spawn`/
+   * `allocateId` calls don't collide. Used by mirror systems that
+   * receive the id from an event payload.
+   */
+  spawnAt(
+    id: EntityId,
+    traits: Array<{ name: TraitName; value: TraitValue }> = [],
+  ): void {
+    if (this.entities.has(id)) {
+      throw new Error(`entity ${id} already exists`);
+    }
+    const rec: EntityRecord = new Map();
+    for (const t of traits) rec.set(t.name, t.value);
+    this.entities.set(id, rec);
+    const num = Number.parseInt(id.slice(1), 10);
+    if (Number.isFinite(num) && num >= this.nextId) {
+      this.nextId = num + 1;
+    }
+    for (const t of traits) {
+      for (const fn of this.listeners) fn(id, t.name);
+    }
   }
 
   despawn(id: EntityId): void {

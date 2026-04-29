@@ -8,8 +8,9 @@ export const Ping = defineCommand({
     issuedAt: z.number(),
   }),
   validate: () => ok(),
-  apply: ({ cmd }) => [
+  apply: ({ cmd, world }) => [
     PingReceived({
+      pongId: world.allocateId(),
       message: cmd.message,
       pingedAt: cmd.issuedAt,
       pongedAt: Date.now(),

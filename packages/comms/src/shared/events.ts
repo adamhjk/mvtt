@@ -3,6 +3,7 @@ import { defineEvent, EntityId, z } from "@vtt/substrate";
 export const MessageSent = defineEvent({
   name: "@vtt/comms/MessageSent",
   schema: z.object({
+    messageId: EntityId,
     authorUserId: z.string().min(1),
     authorName: z.string().min(1),
     body: z.string().min(1).max(2000),

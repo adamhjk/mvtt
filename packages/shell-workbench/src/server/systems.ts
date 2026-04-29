@@ -1,4 +1,4 @@
-import { defineSystem, type EntityId, type World } from "@vtt/substrate";
+import { defineSystem, type EntityId } from "@vtt/substrate";
 import {
   EntityVisibility,
   OwnedBy,
@@ -14,18 +14,6 @@ import {
   WorkspaceBootstrapped,
   WorkspaceStateChanged,
 } from "../shared/events.js";
-
-/**
- * Look up the WorkspaceOwner entity for a userId. Returns null if no
- * owner exists yet for that user in this World.
- */
-function findOwnerEntity(world: World, userId: string): EntityId | null {
-  for (const row of world.query([WorkspaceOwner, OwnedBy])) {
-    const own = row.values.OwnedBy as { userId: string };
-    if (own.userId === userId) return row.id;
-  }
-  return null;
-}
 
 /**
  * The empty default workspace: one pane, one empty tab, no zen, no UI
@@ -57,23 +45,22 @@ function defaultWorkspaceState() {
 }
 
 /**
+ * Deterministic id for a user's WorkspaceOwner sentinel. Derived from
+ * userId so server and every client agree on the id without relying on
+ * synchronized auto-increment counters — this is the entity that
+ * `WorkspaceStateChanged.ownerEntityId` references.
+ */
+function workspaceOwnerEntityId(userId: string): EntityId {
+  return `workspace-owner:${userId}` as EntityId;
+}
+
+/**
  * Bootstrap-on-join: when a user appears (PlayerJoined), make sure they
- * have a WorkspaceOwner sentinel for this world. Runs on every recipient
- * (server + every client that sees the PlayerJoined mirror), and is
- * idempotent — the lookup short-circuits when an owner is already present.
- *
- * Per the design doc: only the user's own connections see their owner
- * entity (visibility = actors([userId])), so each client only ever creates
- * the entity for their own userId. Other users' PlayerJoined arrives but
- * the visibility filter on subsequent WorkspaceStateChanged events keeps
- * them away from each other's data.
- *
- * NOTE: PlayerJoined is broadcast to *every* client (it's how the player
- * list updates), but the WorkspaceOwner entity that gets created for user
- * X carries EntityVisibility{actors:[X]} so it doesn't leak into other
- * users' snapshots. We deliberately spawn on every side (server + clients
- * that see the event) so EntityIds stay in lockstep — same pattern as
- * SceneSpawningSystem.
+ * have a WorkspaceOwner sentinel for this world. Runs as a universal
+ * mirror; the entity's id is deterministically `workspace-owner:<userId>`
+ * so every side computes the same one regardless of how many other
+ * spawns each side has processed. Idempotent — `world.has` short-circuits
+ * when the owner already exists.
  */
 export const WorkspaceBootstrapSystem = defineSystem({
   name: "WorkspaceBootstrap",
@@ -81,8 +68,9 @@ export const WorkspaceBootstrapSystem = defineSystem({
   reads: [WorkspaceOwner, OwnedBy],
   writes: [WorkspaceOwner, OwnedBy, EntityVisibility, WorkspaceState],
   run: ({ event, world }) => {
-    if (findOwnerEntity(world, event.userId)) return [];
-    const ownerId = world.spawn([
+    const ownerId = workspaceOwnerEntityId(event.userId);
+    if (world.has(ownerId)) return [];
+    world.spawnAt(ownerId, [
       WorkspaceOwner({ userId: event.userId }),
       OwnedBy({ userId: event.userId }),
       EntityVisibility({ visibility: actors([event.userId]) }),
