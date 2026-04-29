@@ -9,16 +9,19 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@vtt/assets": "workspace:*",
     "@vtt/auth": "workspace:*",
     "@vtt/books": "workspace:*",
     "@vtt/characters": "workspace:*",
     "@vtt/comms": "workspace:*",
     "@vtt/dice-tray": "workspace:*",
     "@vtt/identity": "workspace:*",
+    "@vtt/notes": "workspace:*",
     "@vtt/pdf-book": "workspace:*",
     "@vtt/permissions": "workspace:*",
     "@vtt/persistence-sqlite": "workspace:*",
     "@vtt/ping": "workspace:*",
+    "better-sqlite3": "^12.9.0",
     "@vtt/resolution": "workspace:*",
     "@vtt/scene": "workspace:*",
     "@vtt/shell-default": "workspace:*",
@@ -29,6 +32,7 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^25.6.0",
     "@types/ws": "^8.5.13",
     "tsx": "^4.19.2"

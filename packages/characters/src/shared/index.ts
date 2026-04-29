@@ -1,10 +1,11 @@
-export { Character } from "./traits.js";
+export { Character, CharacterToken } from "./traits.js";
 export {
   CharacterAssigned,
   CharacterCreated,
   CharacterFieldSet,
   CharacterRenamed,
   CharacterRemoved,
+  CharacterTokenImageSet,
   PendingRollCancelled,
   PendingRollCommitted,
   PendingRollContributed,
@@ -19,6 +20,7 @@ export {
   OpenPendingRoll,
   RenameCharacter,
   RemoveCharacter,
+  SetCharacterTokenImage,
   SetField,
 } from "./commands.js";
 export {

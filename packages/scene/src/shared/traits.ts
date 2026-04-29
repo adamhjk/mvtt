@@ -89,3 +89,38 @@ export const Token = defineTrait({
     kind: z.enum(["creature", "object"]).default("creature"),
   }),
 });
+
+/**
+ * Optional override for a token's visual: when present, the canvas
+ * loads `url` as the sprite's texture instead of the icon-manifest
+ * SVG referenced by `Sprite.iconSlug`. Lazily attached — absent means
+ * "use the iconSlug." Used by `PlaceCharacterToken` to project a
+ * character's uploaded portrait onto the map.
+ *
+ * The URL must live under `/plugin-data/<worldId>/...` (server-side
+ * validation in `PlaceCharacterToken` enforces it). Cache-bust
+ * suffixes (`?v=<bytes>`) are accepted.
+ */
+export const TokenImage = defineTrait({
+  name: "@vtt/scene/TokenImage",
+  schema: z.object({
+    url: z.string().min(1),
+  }),
+});
+
+/**
+ * Back-link from a token entity to the character it represents.
+ * Lazily attached — only tokens placed via `PlaceCharacterToken` carry
+ * it; bare creature/object tokens dropped from the icon picker do not.
+ *
+ * Two roles: enforces "place once per scene per character" in
+ * `PlaceCharacterToken`'s validator, and lets game-system plugins
+ * project per-character state (HP bar, status conditions, …) onto the
+ * map by following the link to the character entity's own traits.
+ */
+export const LinkedCharacter = defineTrait({
+  name: "@vtt/scene/LinkedCharacter",
+  schema: z.object({
+    characterId: EntityId,
+  }),
+});

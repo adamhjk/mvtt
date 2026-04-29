@@ -10,12 +10,14 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@vtt/assets": "workspace:*",
     "@vtt/auth": "workspace:*",
     "@vtt/books": "workspace:*",
     "@vtt/characters": "workspace:*",
     "@vtt/comms": "workspace:*",
     "@vtt/dice-tray": "workspace:*",
     "@vtt/identity": "workspace:*",
+    "@vtt/notes": "workspace:*",
     "@vtt/pdf-book": "workspace:*",
     "@vtt/permissions": "workspace:*",
     "@vtt/resolution": "workspace:*",
@@ -30,6 +32,7 @@
   },
   "devDependencies": {
     "@tailwindcss/oxide-linux-x64-gnu": "4.2.4",
+    "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.2.4",
     "tailwindcss": "^4.2.4",
     "vite": "^8.0.10",

@@ -246,3 +246,16 @@ describe("Notes trait default", () => {
     }
   });
 });
+
+describe("HpBarUnderlay", () => {
+  it("is wired into the scene's TokenUnderlaysSlot", async () => {
+    const { TokenUnderlaysSlot } = await import("@vtt/scene/shared");
+    const fills = systemSimple.fills?.[TokenUnderlaysSlot.name] as
+      | Array<{ id: string; mount: unknown }>
+      | undefined;
+    expect(fills).toBeDefined();
+    expect(fills!).toHaveLength(1);
+    expect(fills![0]!.id).toBe("@vtt/system-simple/hp-bar");
+    expect(typeof fills![0]!.mount).toBe("function");
+  });
+});

@@ -8,18 +8,32 @@ import { definePlugin, InMemoryWorldsRepository } from "@vtt/substrate";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
+import { notes } from "@vtt/notes";
+import { characters } from "@vtt/characters";
 import { scene } from "@vtt/scene";
 import {
+  CharacterTokenPlaced,
   CreateScene,
   CreateToken,
+  LinkedCharacter,
   MoveToken,
+  PlaceCharacterToken,
   Position,
   Scene,
   SceneCreated,
   Token,
   TokenCreated,
+  TokenImage,
   TokenMoved,
 } from "@vtt/scene/shared";
+import {
+  Character,
+  CharacterToken,
+  CharacterTokenImageSet,
+  CreateCharacter,
+  SetCharacterTokenImage,
+} from "@vtt/characters/shared";
+import { OwnedBy } from "@vtt/permissions/shared";
 import type { AuthSession } from "@vtt/auth";
 
 /**
@@ -83,8 +97,8 @@ describe("scene wire smoke", () => {
 
     handle = await startServer({
       port: 0,
-      infrastructure: [shellWorkbench, identity, permissions],
-      optional: [scene, sceneTestSystem],
+      infrastructure: [shellWorkbench, identity, permissions, notes],
+      optional: [characters, scene, sceneTestSystem],
       worldsRepo,
       authenticateUpgrade: async () => GM,
       extractRecipient: (s) => {
@@ -210,5 +224,130 @@ describe("scene wire smoke", () => {
     expect(iconRes.ok).toBe(true);
     const iconBody = await iconRes.text();
     expect(iconBody).toContain("<svg");
+  });
+
+  it("end-to-end: SetCharacterTokenImage + PlaceCharacterToken round-trip", async () => {
+    // Continue using the same WebSocket — the previous test already
+    // created a Scene + a non-character token. We add a Character,
+    // upload its portrait URL via SetCharacterTokenImage, then place
+    // the character on the scene and verify both the trait shape and
+    // place-once enforcement.
+    const runtime = handle.worldsRegistry.get(worldId)!;
+    const sceneId = runtime.world.query([Scene])[0]!.id;
+    const send = (env: object) => ws.send(JSON.stringify(env));
+
+    send({
+      kind: "command",
+      id: "create-character",
+      issuedAt: Date.now(),
+      cmd: {
+        type: CreateCharacter.name,
+        payload: CreateCharacter({ name: "Tarn" }).payload,
+      },
+    });
+    await new Promise((r) => setTimeout(r, 80));
+
+    const charEntity = runtime.world.query([Character, OwnedBy])[0];
+    expect(charEntity).toBeDefined();
+    const charId = charEntity!.id;
+
+    const url = `/plugin-data/${worldId}/@vtt/characters/characters/${charId}/token.png?v=42`;
+    send({
+      kind: "command",
+      id: "set-character-image",
+      issuedAt: Date.now(),
+      cmd: {
+        type: SetCharacterTokenImage.name,
+        payload: SetCharacterTokenImage({
+          characterId: charId,
+          imageUrl: url,
+        }).payload,
+      },
+    });
+    await new Promise((r) => setTimeout(r, 80));
+
+    const ct = runtime.world.get(charId, [CharacterToken]) as
+      | { CharacterToken: { imageUrl: string | null } }
+      | undefined;
+    expect(ct?.CharacterToken.imageUrl).toBe(url);
+
+    send({
+      kind: "command",
+      id: "place-character",
+      issuedAt: Date.now(),
+      cmd: {
+        type: PlaceCharacterToken.name,
+        payload: PlaceCharacterToken({
+          sceneId,
+          characterId: charId,
+          iconSlug: "person",
+          imageUrl: url,
+          tint: 0xffffff,
+          size: 70,
+          label: "Tarn",
+          x: 105,
+          y: 105,
+          ownerUserId: GM.userId,
+        }).payload,
+      },
+    });
+    await new Promise((r) => setTimeout(r, 80));
+
+    const linkedRows = runtime.world.query([LinkedCharacter, Position]);
+    const linked = linkedRows.find((r) => {
+      const lc = r.values.LinkedCharacter as { characterId: string };
+      const pos = r.values.Position as { sceneId: string };
+      return lc.characterId === charId && pos.sceneId === sceneId;
+    });
+    expect(linked).toBeDefined();
+    const tokenImage = runtime.world.get(linked!.id, [TokenImage]) as
+      | { TokenImage: { url: string } }
+      | undefined;
+    expect(tokenImage?.TokenImage.url).toBe(url);
+
+    // Place-once: a second placement of the same character on the
+    // same scene must fail.
+    send({
+      kind: "command",
+      id: "place-character-again",
+      issuedAt: Date.now(),
+      cmd: {
+        type: PlaceCharacterToken.name,
+        payload: PlaceCharacterToken({
+          sceneId,
+          characterId: charId,
+          iconSlug: "person",
+          imageUrl: url,
+          tint: 0xffffff,
+          size: 70,
+          label: "Tarn II",
+          x: 245,
+          y: 245,
+          ownerUserId: GM.userId,
+        }).payload,
+      },
+    });
+    await new Promise((r) => setTimeout(r, 80));
+
+    const acks = messages.filter((m): m is AckMsg => m.kind === "ack");
+    const placeAgain = acks.find((a) => a.commandId === "place-character-again");
+    expect(placeAgain).toBeDefined();
+    expect(placeAgain!.ok).toBe(false);
+
+    // Still exactly one linked token for this character on this scene.
+    const placedAfter = runtime.world
+      .query([LinkedCharacter, Position])
+      .filter((r) => {
+        const lc = r.values.LinkedCharacter as { characterId: string };
+        const pos = r.values.Position as { sceneId: string };
+        return lc.characterId === charId && pos.sceneId === sceneId;
+      });
+    expect(placedAfter).toHaveLength(1);
+
+    const eventTypes = messages
+      .filter((m): m is EventMsg => m.kind === "event")
+      .map((m) => m.event.type);
+    expect(eventTypes).toContain(CharacterTokenImageSet.name);
+    expect(eventTypes).toContain(CharacterTokenPlaced.name);
   });
 });

@@ -54,7 +54,7 @@ export const ScenesPageProvider = definePageProvider({
       <ScenePage
         tabId={tabId}
         entityId={entityId}
-        uiState={uiState}
+        uiState={uiState()}
         setUiState={setUiState}
       />
     );

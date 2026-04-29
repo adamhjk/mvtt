@@ -10,6 +10,7 @@ import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { characters } from "@vtt/characters";
 import { shellWorkbench } from "@vtt/shell-workbench";
+import { notes } from "@vtt/notes";
 import { comms } from "./manifest.js";
 import { SendMessage } from "./shared/commands.js";
 import { ChatMessage } from "./shared/traits.js";
@@ -22,7 +23,7 @@ const ME_CLIENT = "client-me";
 
 function harness(opts?: { asGm?: boolean }) {
   return buildTestClient({
-    plugins: [shellWorkbench, identity, permissions, characters, comms],
+    plugins: [shellWorkbench, notes, identity, permissions, characters, comms],
     clientId: ME_CLIENT,
     session: {
       userId: ME,

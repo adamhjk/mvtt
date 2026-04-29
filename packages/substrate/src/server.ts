@@ -127,6 +127,14 @@ export interface ServerOptions {
   devProxy?: string;
   /** Static-mounted directories, keyed by URL prefix. */
   assetRoots?: Readonly<Record<string, string>>;
+  /**
+   * Called once per world runtime, after cold-boot replay completes
+   * and after the substrate's own broadcast wiring is attached, but
+   * before any connection has been bound to the runtime. Server-only
+   * subsystems (e.g. notes' FTS bridge) use this to subscribe to the
+   * runtime's bus and bootstrap per-world state.
+   */
+  onRuntimeCreated?: (runtime: WorldRuntime) => void;
 }
 
 const MIME: Record<string, string> = {
@@ -341,7 +349,10 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
     optional: opts.optional,
     snapshotEvery,
     snapshotsToKeep,
-    onRuntimeCreated: wireRuntimeBroadcasts,
+    onRuntimeCreated: (rt) => {
+      wireRuntimeBroadcasts(rt);
+      opts.onRuntimeCreated?.(rt);
+    },
   });
 
   const devProxyUrl = opts.devProxy ? new URL(opts.devProxy) : null;

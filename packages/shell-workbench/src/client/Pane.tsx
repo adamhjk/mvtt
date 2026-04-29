@@ -49,6 +49,17 @@ const RESERVED_CONTROLS_PX = 18 * 16;
 const PER_TAB_PX = 11 * 16;
 
 /**
+ * Re-mount key for a tab's rendered page. We deliberately exclude
+ * `uiState` from the key — that field churns on every persisted UI
+ * write, and re-mounting the provider on each write blew up component
+ * state and inner scroll positions. uiState propagates through the
+ * reactive `uiState()` accessor in `PageRenderArgs` instead.
+ */
+function paneKey(tab: WorkspaceTab): string {
+  return `${tab.id}:${tab.pageKind}:${tab.entityId ?? "_null"}`;
+}
+
+/**
  * One leaf in the workspace tree. Renders the tab strip + the active
  * page. Clicking anywhere on the pane focuses it (FocusPane).
  *
@@ -261,32 +272,43 @@ export function Pane(props: { pane: WorkspacePane }): JSX.Element {
           when={activeTab()}
           fallback={<EmptyPaneState ctx={ctx()} />}
         >
-          {(tabAcc) => {
-            const tab = tabAcc();
-            const provider = createMemo<PageProvider | null>(
-              () => providers().get(tab.pageKind) ?? null,
-            );
-            return (
-              <Show
-                when={provider()}
-                fallback={<MissingProvider tab={tab} />}
-              >
-                {(p) => {
-                  const args: PageRenderArgs = {
-                    tabId: tab.id,
-                    entityId: tab.entityId,
-                    uiState: tab.uiState,
-                    setUiState: (next) => {
-                      client.dispatch(
-                        SetTabUiState({ tabId: tab.id, uiState: next }) as never,
-                      );
-                    },
-                  };
-                  return <>{p().render(args) as unknown as JSX.Element}</>;
-                }}
-              </Show>
-            );
-          }}
+          {(tabAcc) => (
+            // Re-key on (tabId, pageKind, entityId) ONLY. uiState
+            // changes do NOT cause a re-render of the provider —
+            // they propagate through the reactive `uiState` accessor
+            // we hand to render(). Without this gating, every
+            // setUiState call would tear down the provider's tree
+            // (destroying component-local state, scroll positions,
+            // in-flight effects) — see #29.
+            <Show
+              keyed
+              when={paneKey(tabAcc())}
+              fallback={null}
+            >
+              {(_key) => {
+                // Snapshot the (id, pageKind, entityId) at this
+                // remount; uiState stays reactive via the closure
+                // over tabAcc(). The plugin's render call happens
+                // exactly once per key change.
+                const tab = tabAcc();
+                const provider = providers().get(tab.pageKind) ?? null;
+                if (provider == null) {
+                  return <MissingProvider tab={tab} />;
+                }
+                const args: PageRenderArgs = {
+                  tabId: tab.id,
+                  entityId: tab.entityId,
+                  uiState: () => tabAcc().uiState,
+                  setUiState: (next) => {
+                    client.dispatch(
+                      SetTabUiState({ tabId: tab.id, uiState: next }) as never,
+                    );
+                  },
+                };
+                return <>{provider.render(args) as unknown as JSX.Element}</>;
+              }}
+            </Show>
+          )}
         </Show>
       </div>
     </section>

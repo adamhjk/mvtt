@@ -51,7 +51,7 @@ export const BooksPageProvider = definePageProvider({
       <BookPage
         tabId={tabId}
         entityId={entityId}
-        uiState={uiState}
+        uiState={uiState()}
         setUiState={setUiState}
       />
     );

@@ -16,6 +16,7 @@
     "@vtt/auth": "workspace:*",
     "@vtt/characters": "workspace:*",
     "@vtt/identity": "workspace:*",
+    "@vtt/notes": "workspace:*",
     "@vtt/permissions": "workspace:*",
     "@vtt/shell-workbench": "workspace:*",
     "@vtt/substrate": "workspace:*",

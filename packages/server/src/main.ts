@@ -14,11 +14,19 @@ import { pipeline } from "node:stream/promises";
 import { randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { startServer, WorldsService } from "@vtt/substrate/server";
-import { listGameSystems, resolveActivePlugins, type WorldId } from "@vtt/substrate";
+import { listGameSystems, resolveActivePlugins, type EntityId, type WorldId, type WorldsRegistry } from "@vtt/substrate";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { comms } from "@vtt/comms";
+import { notes } from "@vtt/notes";
+import {
+  attachNotesSearchBridge,
+  handleNotesSearch,
+  NotesSearchIndex,
+} from "@vtt/notes/server";
+import { assets } from "@vtt/assets";
+import { handleAssetFetch, handleAssetUpload } from "@vtt/assets/server";
 import { resolution } from "@vtt/resolution";
 import { scene } from "@vtt/scene";
 import { books } from "@vtt/books";
@@ -113,6 +121,8 @@ const infrastructurePlugins = [
   identity,
   permissions,
   comms,
+  notes,
+  assets,
 ];
 const optionalPlugins = [
   resolution,
@@ -125,6 +135,43 @@ const optionalPlugins = [
 ];
 
 const authHandler = toNodeHandler(auth.auth.handler);
+
+// Set inside `await startServer(...)`'s resolution; needed by the asset
+// upload/fetch handlers (which dispatch commands and read world state).
+// Top-level await on startServer ensures this is populated before any
+// HTTP request is serviced.
+let assetWorldsRegistry: WorldsRegistry | null = null;
+
+// FTS5 search index for note pages, shared across worlds (rows scoped
+// by worldId). Migrated below; bridged into each WorldRuntime via
+// `onRuntimeCreated`.
+const notesSearchIndex = new NotesSearchIndex(auth.db);
+notesSearchIndex.migrate();
+
+/**
+ * Per-world member auth shared by the asset upload + fetch routes.
+ * Mirrors the WS-upgrade flow: parse the cookie session, gate on world
+ * membership, synthesise a per-world role.
+ */
+async function authenticateForWorld(
+  req: IncomingMessage,
+  worldId: WorldId,
+): Promise<AuthSession | null> {
+  const headers = fromNodeHeaders(req.headers);
+  const raw = await auth.resolveSession(headers);
+  const session = parseAuthSession(raw);
+  if (!session) return null;
+  const allowed = await worldsService.canAccess(worldId, session.userId);
+  if (!allowed) return null;
+  const perWorldRole =
+    (await worldsService.roleFor(worldId, session.userId)) ?? "player";
+  return {
+    userId: session.userId,
+    email: session.email,
+    name: session.name,
+    role: perWorldRole,
+  };
+}
 const httpHandler = async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
   const url = req.url ?? "/";
   const path = url.split("?")[0]!;
@@ -187,6 +234,71 @@ const httpHandler = async (req: IncomingMessage, res: ServerResponse): Promise<b
       url.slice("/api/plugin-data/".length).split("?")[0]!,
     );
     return await handlePluginDataUpload(req, res, rel);
+  }
+
+  // ---- assets upload (per-world) ----
+  // POST /api/worlds/<worldId>/assets/upload
+  const assetUploadMatch = /^\/api\/worlds\/([^/]+)\/assets\/upload$/.exec(path);
+  if (assetUploadMatch && req.method === "POST") {
+    if (!assetWorldsRegistry) {
+      sendJson(res, 503, { error: "server still warming up" });
+      return true;
+    }
+    const worldId = decodeURIComponent(assetUploadMatch[1]!) as WorldId;
+    await handleAssetUpload(req, res, worldId, {
+      registry: assetWorldsRegistry,
+      pluginDataDir,
+      authenticate: authenticateForWorld,
+    });
+    return true;
+  }
+
+  // ---- assets fetch (per-world, visibility-checked) ----
+  // GET /plugin-data/<worldId>/assets/<assetId>
+  // Intercepts BEFORE the static `/plugin-data/` mount so we can run
+  // the EntityVisibility resolver per request.
+  const assetFetchMatch = /^\/plugin-data\/([^/]+)\/assets\/([^/?#]+)$/.exec(path);
+  if (assetFetchMatch && req.method === "GET") {
+    if (!assetWorldsRegistry) {
+      sendJson(res, 503, { error: "server still warming up" });
+      return true;
+    }
+    const worldId = decodeURIComponent(assetFetchMatch[1]!) as WorldId;
+    const assetId = decodeURIComponent(assetFetchMatch[2]!) as EntityId;
+    await handleAssetFetch(req, res, worldId, assetId, {
+      registry: assetWorldsRegistry,
+      pluginDataDir,
+      authenticate: authenticateForWorld,
+    });
+    return true;
+  }
+
+  // ---- notes search (per-world, visibility-filtered) ----
+  // GET /api/worlds/<worldId>/notes/search?q=...
+  const notesSearchMatch = /^\/api\/worlds\/([^/]+)\/notes\/search$/.exec(path);
+  if (notesSearchMatch && req.method === "GET") {
+    if (!assetWorldsRegistry) {
+      sendJson(res, 503, { error: "server still warming up" });
+      return true;
+    }
+    const worldId = decodeURIComponent(notesSearchMatch[1]!) as WorldId;
+    const u = new URL(url, "http://placeholder");
+    const q = u.searchParams.get("q") ?? "";
+    const limitRaw = u.searchParams.get("limit");
+    const limit = limitRaw ? Number(limitRaw) : 25;
+    await handleNotesSearch(
+      req,
+      res,
+      worldId,
+      q,
+      Number.isFinite(limit) ? limit : 25,
+      {
+        registry: assetWorldsRegistry,
+        index: notesSearchIndex,
+        authenticate: authenticateForWorld,
+      },
+    );
+    return true;
   }
 
   return false;
@@ -727,7 +839,18 @@ const handle = await startServer({
     ...pdfBookAssetRoots(),
     ...diceTrayAssetRoots(),
   },
+  onRuntimeCreated: (runtime) => {
+    // Wire the FTS bridge to maintain the per-world index from event
+    // bus broadcasts. Bootstrap re-indexes everything on cold-boot;
+    // subsequent events stream in.
+    attachNotesSearchBridge(runtime, notesSearchIndex);
+  },
 });
+
+// The asset upload/fetch handlers need the registry; it doesn't exist
+// until startServer resolves. Top-level await above + this assignment
+// before any request is serviced means the routes never see null.
+assetWorldsRegistry = handle.worldsRegistry;
 
 console.log(`mvtt server listening on ${baseURL}`);
 console.log(

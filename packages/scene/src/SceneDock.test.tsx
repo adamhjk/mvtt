@@ -7,6 +7,8 @@ import {
 import { ClientProvider } from "@vtt/substrate/client";
 import { definePlugin, qualifiedName } from "@vtt/substrate";
 import { shellWorkbench } from "@vtt/shell-workbench";
+import { notes } from "@vtt/notes";
+import { characters } from "@vtt/characters";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { scene } from "./manifest.js";
@@ -26,7 +28,7 @@ function harness(opts?: { extraTabs?: SceneOverlayTab[] }) {
     },
   });
   return buildTestClient({
-    plugins: [shellWorkbench, identity, permissions, scene, extraTabsPlugin],
+    plugins: [shellWorkbench, notes, identity, permissions, characters, scene, extraTabsPlugin],
   });
 }
 

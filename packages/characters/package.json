@@ -16,6 +16,7 @@
   "dependencies": {
     "@vtt/auth": "workspace:*",
     "@vtt/identity": "workspace:*",
+    "@vtt/notes": "workspace:*",
     "@vtt/permissions": "workspace:*",
     "@vtt/shell-workbench": "workspace:*",
     "@vtt/substrate": "workspace:*",

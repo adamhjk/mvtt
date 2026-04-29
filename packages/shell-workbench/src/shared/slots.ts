@@ -38,23 +38,39 @@ export interface PageEntity {
 }
 
 /**
- * Per-render arguments handed to a PageProvider's `render`. `entityId` is
- * the page's bound entity, or null if the user picked a kind but hasn't
- * named an entity yet — providers render an empty/picker state in that
- * case. `uiState` is whatever the provider stashed last time; `setUiState`
- * persists a new value (dispatched as a workbench command, replicated to
- * the user's other devices).
+ * Per-render arguments handed to a PageProvider's `render`.
  *
  * `tabId` is the workbench's own id for this tab — exposed so providers
  * can self-retarget after they've created a new entity (typical pattern:
  * a "Create scene" form spawns a Scene, then dispatches `RetargetTab`
  * to point this tab at the freshly-created id without leaving an empty
  * tab behind).
+ *
+ * `entityId` is the page's bound entity, or null if the user picked a
+ * kind but hasn't named an entity yet — providers render an empty/
+ * picker state in that case. **Stable for the lifetime of one render**:
+ * the workbench keys the Show on `(tabId, pageKind, entityId)`, so any
+ * change to entityId tears down the provider and calls `render` again
+ * with the new id. This matches the closure-capture semantics of
+ * `useTrait(entityId, …)` — providers don't need to thread reactive
+ * entityId changes through their tree.
+ *
+ * `uiState` is a **reactive accessor** over whatever the provider
+ * stashed last time. Reading `uiState()` inside JSX or an effect
+ * subscribes to changes; the workbench does NOT remount the provider
+ * when uiState updates (that would blow up state and scroll positions
+ * on every persisted UI write). Providers that destructure `uiState`
+ * and pass it as a static prop forfeit reactivity — pass it through
+ * inside JSX (`<X uiState={uiState()} />`) or wrap it in a memo.
+ *
+ * `setUiState` persists a new value (dispatched as a workbench command,
+ * replicated to the user's other devices). Stable across uiState
+ * changes; safe to capture once.
  */
 export interface PageRenderArgs {
   readonly tabId: string;
   readonly entityId: EntityId | null;
-  readonly uiState: unknown;
+  readonly uiState: () => unknown;
   readonly setUiState: (next: unknown) => void;
 }
 

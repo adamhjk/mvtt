@@ -15,6 +15,7 @@ import { characters } from "@vtt/characters";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { shellWorkbench } from "@vtt/shell-workbench";
+import { notes } from "@vtt/notes";
 
 beforeEach(() => cleanup());
 
@@ -25,6 +26,7 @@ function harness() {
   return buildTestClient({
     plugins: [
       shellWorkbench,
+      notes,
       identity,
       permissions,
       characters,

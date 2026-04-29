@@ -116,6 +116,20 @@ export const PendingRollCancelled = defineEvent({
 });
 
 /**
+ * The GM (or owner) set or cleared a character's uploaded token image.
+ * The recording system attaches the CharacterToken trait. `imageUrl`
+ * may be null to clear a previously-set image; the trait is still
+ * attached but with `imageUrl: null`.
+ */
+export const CharacterTokenImageSet = defineEvent({
+  name: "@vtt/characters/CharacterTokenImageSet",
+  schema: z.object({
+    characterId: EntityId,
+    imageUrl: z.string().nullable(),
+  }),
+});
+
+/**
  * A field on a character was set via the generic SetField command.
  * `trait` is the qualified trait name; `path` is the segment list into
  * the trait value; `value` is the new value at that path. The receiving

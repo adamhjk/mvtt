@@ -59,6 +59,35 @@ export const TokenRemoved = defineEvent({
 });
 
 /**
+ * A character was placed on the scene as a linked token. The recording
+ * system spawns the token entity carrying Token + Sprite + Position +
+ * OwnedBy + LinkedCharacter (and TokenImage when `imageUrl` is set).
+ * Carries the server-allocated tokenId so every recipient spawns at
+ * the same id via `spawnAt`.
+ *
+ * Distinct from `TokenCreated` (raw icon-picker drop) because the
+ * spawn shape is different (extra LinkedCharacter trait, optional
+ * TokenImage); merging the two would mean every plain token carries
+ * a useless LinkedCharacter slot.
+ */
+export const CharacterTokenPlaced = defineEvent({
+  name: "@vtt/scene/CharacterTokenPlaced",
+  schema: z.object({
+    tokenId: EntityId,
+    sceneId: EntityId,
+    characterId: EntityId,
+    iconSlug: z.string(),
+    imageUrl: z.string().nullable(),
+    tint: z.number().int(),
+    size: z.number().int(),
+    label: z.string(),
+    x: z.number(),
+    y: z.number(),
+    ownerUserId: z.string(),
+  }),
+});
+
+/**
  * The GM removed a scene. The recording system despawns the scene
  * entity AND cascades through every token whose Position lives in
  * that scene — orphaned tokens render nowhere and would leak into

@@ -29,3 +29,27 @@ export const Character = defineTrait({
     playerUserId: z.string().min(1).optional(),
   }),
 });
+
+/**
+ * Per-character uploaded token portrait. Lazily attached: the trait
+ * only exists once the character has been given a token image; absent
+ * means "no image yet" (the scene's character placement falls back to
+ * the default creature icon).
+ *
+ * `imageUrl` must be a path under
+ * `/plugin-data/<worldId>/@vtt/characters/characters/<characterId>/`
+ * — same shape as scene backgrounds and pdf-book documents. The upload
+ * endpoint stamps a `?v=<bytes>` cache-bust suffix so the browser
+ * re-fetches when the GM replaces the file. Server-side validation in
+ * SetCharacterTokenImage enforces the prefix to keep the trait
+ * pointing at this plugin's own storage.
+ *
+ * `null` is allowed so a previously-set image can be cleared without
+ * needing a separate "remove trait" API in the substrate.
+ */
+export const CharacterToken = defineTrait({
+  name: "@vtt/characters/CharacterToken",
+  schema: z.object({
+    imageUrl: z.string().nullable(),
+  }),
+});

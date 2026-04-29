@@ -1,7 +1,17 @@
 import { definePlugin } from "@vtt/substrate";
 import { PagesSlot } from "@vtt/shell-workbench/shared";
-import { Scene, Position, Sprite, Token } from "./shared/traits.js";
+import { LinkKindsSlot } from "@vtt/notes/shared";
+import { sceneLinkKind } from "./shared/scene-link-kind.js";
 import {
+  LinkedCharacter,
+  Position,
+  Scene,
+  Sprite,
+  Token,
+  TokenImage,
+} from "./shared/traits.js";
+import {
+  CharacterTokenPlaced,
   SceneCreated,
   SceneRemoved,
   SceneUpdated,
@@ -13,13 +23,15 @@ import {
   CreateScene,
   CreateToken,
   MoveToken,
+  PlaceCharacterToken,
   RemoveScene,
   RemoveToken,
   UpdateScene,
 } from "./shared/commands.js";
 import { SceneCanvasSurface } from "./shared/surfaces.js";
-import { SceneOverlayTabsSlot } from "./shared/slot.js";
+import { SceneOverlayTabsSlot, TokenUnderlaysSlot } from "./shared/slot.js";
 import {
+  CharacterTokenPlacementSystem,
   SceneSpawningSystem,
   SceneRemovalSystem,
   SceneUpdateSystem,
@@ -28,6 +40,7 @@ import {
   TokenRemovalSystem,
 } from "./server/systems.js";
 import {
+  CharactersOverlayTab,
   SceneCanvasView,
   ScenesPageProvider,
   TokensOverlayTab,
@@ -36,14 +49,16 @@ import {
 
 export const scene = definePlugin({
   name: "@vtt/scene",
-  version: "0.3.0",
+  version: "0.4.0",
   dependsOn: [
     "@vtt/substrate@^0",
     "@vtt/identity@^0",
     "@vtt/permissions@^0",
     "@vtt/shell-workbench@^0",
+    "@vtt/characters@^0",
+    "@vtt/notes@^0",
   ],
-  traits: [Scene, Position, Sprite, Token],
+  traits: [Scene, Position, Sprite, Token, TokenImage, LinkedCharacter],
   events: [
     SceneCreated,
     SceneRemoved,
@@ -51,11 +66,13 @@ export const scene = definePlugin({
     TokenCreated,
     TokenMoved,
     TokenRemoved,
+    CharacterTokenPlaced,
   ],
   commands: [
     CreateScene,
     CreateToken,
     MoveToken,
+    PlaceCharacterToken,
     RemoveScene,
     RemoveToken,
     UpdateScene,
@@ -67,13 +84,19 @@ export const scene = definePlugin({
     TokenSpawningSystem,
     TokenMovementSystem,
     TokenRemovalSystem,
+    CharacterTokenPlacementSystem,
   ],
   surfaces: [SceneCanvasSurface],
-  slots: [SceneOverlayTabsSlot],
+  slots: [SceneOverlayTabsSlot, TokenUnderlaysSlot],
   views: [SceneCanvasView],
   fills: {
     [PagesSlot.name]: [ScenesPageProvider],
-    [SceneOverlayTabsSlot.name]: [ConfigOverlayTab, TokensOverlayTab],
+    [SceneOverlayTabsSlot.name]: [
+      ConfigOverlayTab,
+      TokensOverlayTab,
+      CharactersOverlayTab,
+    ],
+    [LinkKindsSlot.name]: [sceneLinkKind],
   },
 });
 

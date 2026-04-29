@@ -1,6 +1,11 @@
-import { defineSystem, type EntityId } from "@vtt/substrate";
+import {
+  defineSystem,
+  type EntityId,
+  type TraitName,
+} from "@vtt/substrate";
 import { OwnedBy } from "@vtt/permissions/shared";
 import {
+  CharacterTokenPlaced,
   SceneCreated,
   SceneRemoved,
   SceneUpdated,
@@ -8,7 +13,14 @@ import {
   TokenMoved,
   TokenRemoved,
 } from "../shared/events.js";
-import { Position, Scene, Sprite, Token } from "../shared/traits.js";
+import {
+  LinkedCharacter,
+  Position,
+  Scene,
+  Sprite,
+  Token,
+  TokenImage,
+} from "../shared/traits.js";
 
 /**
  * Universal mirror system: spawns the Scene entity on every side
@@ -90,6 +102,44 @@ export const TokenMovementSystem = defineSystem({
       rotation: got.Position.rotation,
       movedAt: event.movedAt,
     });
+    return [];
+  },
+});
+
+/**
+ * Universal mirror: spawn a token that's linked to a Character. Carries
+ * the standard Token + Sprite + Position + OwnedBy plus LinkedCharacter
+ * (back-link to the character entity) and, when an image was uploaded,
+ * a TokenImage trait the canvas reads in preference to iconSlug. The
+ * place-once invariant is enforced by `PlaceCharacterToken`'s validator.
+ */
+export const CharacterTokenPlacementSystem = defineSystem({
+  name: "CharacterTokenPlacement",
+  on: CharacterTokenPlaced,
+  reads: [],
+  writes: [Token, Sprite, Position, OwnedBy, LinkedCharacter, TokenImage],
+  run: ({ event, world }) => {
+    const traits: Array<{ name: TraitName; value: unknown }> = [
+      Token({ label: event.label, kind: "creature" }),
+      Sprite({
+        iconSlug: event.iconSlug,
+        tint: event.tint,
+        size: event.size,
+      }),
+      Position({
+        sceneId: event.sceneId,
+        x: event.x,
+        y: event.y,
+        rotation: 0,
+        movedAt: 0,
+      }),
+      OwnedBy({ userId: event.ownerUserId }),
+      LinkedCharacter({ characterId: event.characterId }),
+    ];
+    if (event.imageUrl !== null) {
+      traits.push(TokenImage({ url: event.imageUrl }));
+    }
+    world.spawnAt(event.tokenId, traits);
     return [];
   },
 });

@@ -1,5 +1,13 @@
-export { Scene, Position, Sprite, Token } from "./traits.js";
 export {
+  LinkedCharacter,
+  Position,
+  Scene,
+  Sprite,
+  Token,
+  TokenImage,
+} from "./traits.js";
+export {
+  CharacterTokenPlaced,
   SceneCreated,
   SceneRemoved,
   SceneUpdated,
@@ -11,6 +19,7 @@ export {
   CreateScene,
   CreateToken,
   MoveToken,
+  PlaceCharacterToken,
   RemoveScene,
   RemoveToken,
   UpdateScene,
@@ -18,6 +27,9 @@ export {
 export { SceneCanvasSurface } from "./surfaces.js";
 export {
   SceneOverlayTabsSlot,
+  TokenUnderlaysSlot,
   type SceneOverlayTab,
   type SceneOverlayTabRenderArgs,
+  type TokenUnderlay,
+  type TokenUnderlayMountArgs,
 } from "./slot.js";

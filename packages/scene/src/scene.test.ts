@@ -11,9 +11,12 @@ import {
 import type { AuthSession } from "@vtt/auth";
 import { OwnedBy } from "@vtt/permissions/shared";
 import {
+  CharacterTokenPlaced,
   CreateScene,
   CreateToken,
+  LinkedCharacter,
   MoveToken,
+  PlaceCharacterToken,
   RemoveScene,
   RemoveToken,
   Position,
@@ -25,11 +28,14 @@ import {
   Sprite,
   Token,
   TokenCreated,
+  TokenImage,
   TokenMoved,
   TokenRemoved,
   UpdateScene,
 } from "./shared/index.js";
+import { Character } from "@vtt/characters/shared";
 import {
+  CharacterTokenPlacementSystem,
   SceneRemovalSystem,
   SceneSpawningSystem,
   SceneUpdateSystem,
@@ -40,8 +46,17 @@ import {
 
 const sceneServerPlugin = definePlugin({
   name: "@vtt/scene",
-  version: "0.3.0",
-  traits: [Scene, Position, Sprite, Token, OwnedBy],
+  version: "0.4.0",
+  traits: [
+    Scene,
+    Position,
+    Sprite,
+    Token,
+    TokenImage,
+    LinkedCharacter,
+    OwnedBy,
+    Character,
+  ],
   events: [
     SceneCreated,
     SceneRemoved,
@@ -49,11 +64,13 @@ const sceneServerPlugin = definePlugin({
     TokenCreated,
     TokenMoved,
     TokenRemoved,
+    CharacterTokenPlaced,
   ],
   commands: [
     CreateScene,
     CreateToken,
     MoveToken,
+    PlaceCharacterToken,
     RemoveScene,
     RemoveToken,
     UpdateScene,
@@ -65,6 +82,7 @@ const sceneServerPlugin = definePlugin({
     TokenSpawningSystem,
     TokenMovementSystem,
     TokenRemovalSystem,
+    CharacterTokenPlacementSystem,
   ],
   surfaces: [SceneCanvasSurface],
 });
@@ -885,6 +903,222 @@ describe("@vtt/scene", () => {
         GM,
       );
       expect(res.result.ok).toBe(false);
+    });
+  });
+
+  describe("PlaceCharacterToken", () => {
+    /**
+     * Spawn a Character entity directly — the scene tests don't load
+     * the characters plugin, so we register the Character trait + a
+     * matching OwnedBy and skip the normal CharacterCreated flow.
+     */
+    function spawnCharacter(ownerUserId: string): EntityId {
+      return world.spawn([
+        Character({ name: "Tarn" }),
+        OwnedBy({ userId: ownerUserId }),
+      ]);
+    }
+
+    function placePayload(
+      sceneId: EntityId,
+      characterId: EntityId,
+      ownerUserId: string,
+      overrides: Partial<{
+        imageUrl: string | null;
+        iconSlug: string;
+        x: number;
+        y: number;
+        size: number;
+        label: string;
+        tint: number;
+      }> = {},
+    ) {
+      return {
+        sceneId,
+        characterId,
+        iconSlug: overrides.iconSlug ?? "person",
+        imageUrl: overrides.imageUrl !== undefined ? overrides.imageUrl : null,
+        tint: overrides.tint ?? 0xffffff,
+        size: overrides.size ?? 70,
+        label: overrides.label ?? "Tarn",
+        x: overrides.x ?? 0,
+        y: overrides.y ?? 0,
+        ownerUserId,
+      };
+    }
+
+    it("owner places their own character; spawns Token + LinkedCharacter (no TokenImage when imageUrl=null)", async () => {
+      await makeScene(pipeline);
+      const sceneId = world.query([Scene])[0]!.id;
+      const charId = spawnCharacter(PLAYER.userId);
+      const seen: string[] = [];
+      bus.onAny((e) => seen.push(e.type));
+      const res = await dispatch(
+        pipeline,
+        PlaceCharacterToken(placePayload(sceneId, charId, PLAYER.userId)),
+        PLAYER,
+      );
+      expect(res.result.ok).toBe(true);
+      expect(seen).toEqual([CharacterTokenPlaced.name]);
+      const placedRows = world.query([Token, LinkedCharacter, Position]);
+      expect(placedRows).toHaveLength(1);
+      const lc = placedRows[0]!.values.LinkedCharacter as {
+        characterId: EntityId;
+      };
+      expect(lc.characterId).toBe(charId);
+      // No TokenImage when imageUrl was null.
+      const tokenImage = world.get(placedRows[0]!.id, [TokenImage]);
+      expect(tokenImage).toBeUndefined();
+    });
+
+    it("attaches TokenImage when imageUrl is provided", async () => {
+      await makeScene(pipeline);
+      const sceneId = world.query([Scene])[0]!.id;
+      const charId = spawnCharacter(PLAYER.userId);
+      const url =
+        `/plugin-data/${world.worldId}/@vtt/characters/characters/${charId}/token.png?v=42`;
+      const res = await dispatch(
+        pipeline,
+        PlaceCharacterToken(
+          placePayload(sceneId, charId, PLAYER.userId, { imageUrl: url }),
+        ),
+        PLAYER,
+      );
+      expect(res.result.ok).toBe(true);
+      const tokenId = world.query([LinkedCharacter])[0]!.id;
+      const got = world.get(tokenId, [TokenImage]) as
+        | { TokenImage: { url: string } }
+        | undefined;
+      expect(got).toBeDefined();
+      expect(got!.TokenImage.url).toBe(url);
+    });
+
+    it("GM may place any character", async () => {
+      await makeScene(pipeline);
+      const sceneId = world.query([Scene])[0]!.id;
+      const charId = spawnCharacter(PLAYER.userId);
+      const res = await dispatch(
+        pipeline,
+        PlaceCharacterToken(placePayload(sceneId, charId, PLAYER.userId)),
+        GM,
+      );
+      expect(res.result.ok).toBe(true);
+    });
+
+    it("rejects placement by a non-owner non-GM", async () => {
+      await makeScene(pipeline);
+      const sceneId = world.query([Scene])[0]!.id;
+      const charId = spawnCharacter(PLAYER.userId);
+      const res = await dispatch(
+        pipeline,
+        PlaceCharacterToken(placePayload(sceneId, charId, PLAYER.userId)),
+        OTHER_PLAYER,
+      );
+      expect(res.result.ok).toBe(false);
+      expect(world.query([LinkedCharacter])).toHaveLength(0);
+    });
+
+    it("rejects placement when scene does not exist", async () => {
+      const charId = spawnCharacter(PLAYER.userId);
+      const res = await dispatch(
+        pipeline,
+        PlaceCharacterToken(
+          placePayload("ghost-scene" as EntityId, charId, PLAYER.userId),
+        ),
+        PLAYER,
+      );
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("rejects placement when character does not exist", async () => {
+      await makeScene(pipeline);
+      const sceneId = world.query([Scene])[0]!.id;
+      const res = await dispatch(
+        pipeline,
+        PlaceCharacterToken(
+          placePayload(sceneId, "ghost-char" as EntityId, PLAYER.userId),
+        ),
+        PLAYER,
+      );
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("rejects imageUrl outside this world's plugin-data prefix", async () => {
+      await makeScene(pipeline);
+      const sceneId = world.query([Scene])[0]!.id;
+      const charId = spawnCharacter(PLAYER.userId);
+      const res = await dispatch(
+        pipeline,
+        PlaceCharacterToken(
+          placePayload(sceneId, charId, PLAYER.userId, {
+            imageUrl: "https://evil.example.com/img.png",
+          }),
+        ),
+        PLAYER,
+      );
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("place-once: rejects a second placement of the same character on the same scene", async () => {
+      await makeScene(pipeline);
+      const sceneId = world.query([Scene])[0]!.id;
+      const charId = spawnCharacter(PLAYER.userId);
+      const r1 = await dispatch(
+        pipeline,
+        PlaceCharacterToken(placePayload(sceneId, charId, PLAYER.userId)),
+        PLAYER,
+      );
+      expect(r1.result.ok).toBe(true);
+      const r2 = await dispatch(
+        pipeline,
+        PlaceCharacterToken(
+          placePayload(sceneId, charId, PLAYER.userId, { x: 700, y: 700 }),
+        ),
+        PLAYER,
+      );
+      expect(r2.result.ok).toBe(false);
+      expect(world.query([LinkedCharacter])).toHaveLength(1);
+    });
+
+    it("place-once: same character may be placed on a different scene", async () => {
+      await makeScene(pipeline);
+      const sceneA = world.query([Scene])[0]!.id;
+      const charId = spawnCharacter(PLAYER.userId);
+      await dispatch(
+        pipeline,
+        PlaceCharacterToken(placePayload(sceneA, charId, PLAYER.userId)),
+        PLAYER,
+      );
+      // Spawn a second scene without going through CreateScene a second
+      // time, just in case CreateScene's no-op-on-collision path changes.
+      const sceneB = world.spawn([
+        Scene({
+          name: "Other",
+          gridSize: 70,
+          widthPx: 700,
+          heightPx: 700,
+          backgroundColor: "#222222",
+          gridColor: "#2a2a2a",
+          backgroundImage: null,
+        }),
+      ]);
+      const r2 = await dispatch(
+        pipeline,
+        PlaceCharacterToken(placePayload(sceneB, charId, PLAYER.userId)),
+        PLAYER,
+      );
+      expect(r2.result.ok).toBe(true);
+      expect(world.query([LinkedCharacter])).toHaveLength(2);
+    });
+
+    it("CharacterTokenPlacementSystem is wired and writes Token + LinkedCharacter", () => {
+      expect(CharacterTokenPlacementSystem.on.name).toBe(
+        CharacterTokenPlaced.name,
+      );
+      const writes = CharacterTokenPlacementSystem.writes.map((t) => t.name);
+      expect(writes).toEqual(
+        expect.arrayContaining([Token.name, LinkedCharacter.name, TokenImage.name]),
+      );
     });
   });
 });

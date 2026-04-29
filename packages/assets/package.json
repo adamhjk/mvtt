@@ -1,0 +1,36 @@
+{
+  "name": "@vtt/assets",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/manifest.ts",
+    "./shared": "./src/shared/index.ts",
+    "./client": "./src/client/index.ts",
+    "./server": "./src/server/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@vtt/auth": "workspace:*",
+    "@vtt/identity": "workspace:*",
+    "@vtt/notes": "workspace:*",
+    "@vtt/permissions": "workspace:*",
+    "@vtt/shell-workbench": "workspace:*",
+    "@vtt/substrate": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.9.0"
+  },
+  "peerDependenciesMeta": {
+    "solid-js": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@vtt/notes": "workspace:*",
+    "@vtt/shell-workbench": "workspace:*",
+    "solid-js": "^1.9.0"
+  }
+}

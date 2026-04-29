@@ -17,7 +17,9 @@
     "@vtt/identity": "workspace:*",
     "@vtt/permissions": "workspace:*",
     "@vtt/resolution": "workspace:*",
-    "@vtt/substrate": "workspace:*"
+    "@vtt/scene": "workspace:*",
+    "@vtt/substrate": "workspace:*",
+    "pixi.js": "^8.18.1"
   },
   "peerDependencies": {
     "solid-js": "^1.9.0"

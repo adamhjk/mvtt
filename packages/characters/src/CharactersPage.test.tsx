@@ -10,6 +10,7 @@ import { OwnedBy } from "@vtt/permissions/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { shellWorkbench } from "@vtt/shell-workbench";
+import { notes } from "@vtt/notes";
 import { characters } from "./manifest.js";
 import { Character } from "./shared/traits.js";
 import { CreateCharacter } from "./shared/commands.js";
@@ -22,7 +23,7 @@ const ME_CLIENT = "client-me";
 
 function harness() {
   return buildTestClient({
-    plugins: [shellWorkbench, identity, permissions, characters],
+    plugins: [shellWorkbench, notes, identity, permissions, characters],
     clientId: ME_CLIENT,
     session: {
       userId: ME,
@@ -47,7 +48,7 @@ describe("CharactersPageProvider", () => {
       CharactersPageProvider.render({
         tabId: "tab-1",
         entityId: null,
-        uiState: undefined,
+        uiState: () => undefined,
         setUiState: () => {},
       }) as never,
     );
@@ -68,7 +69,7 @@ describe("CharactersPageProvider", () => {
       CharactersPageProvider.render({
         tabId: "tab-1",
         entityId: null,
-        uiState: undefined,
+        uiState: () => undefined,
         setUiState: () => {},
       }) as never,
     );
@@ -82,7 +83,7 @@ describe("CharactersPageProvider", () => {
       CharactersPageProvider.render({
         tabId: "tab-1",
         entityId: null,
-        uiState: undefined,
+        uiState: () => undefined,
         setUiState: () => {},
       }) as never,
     );
@@ -101,7 +102,7 @@ describe("CharactersPageProvider", () => {
       CharactersPageProvider.render({
         tabId: "tab-1",
         entityId: null,
-        uiState: undefined,
+        uiState: () => undefined,
         setUiState: () => {},
       }) as never,
     );
@@ -119,7 +120,7 @@ describe("CharactersPageProvider", () => {
       CharactersPageProvider.render({
         tabId: "tab-1",
         entityId: id,
-        uiState: undefined,
+        uiState: () => undefined,
         setUiState: () => {},
       }) as never,
     );

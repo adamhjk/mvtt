@@ -7,6 +7,7 @@ import {
   CharacterSheetVitalsSlot,
   PendingRollContributorsSlot,
 } from "@vtt/characters/shared";
+import { TokenUnderlaysSlot } from "@vtt/scene/shared";
 import {
   Concept,
   MaxHp,
@@ -21,6 +22,7 @@ import {
   ActionsFill,
   ConceptIdentityFill,
   HelpWithCharacterContributor,
+  HpBarUnderlay,
   NotesTabFill,
   StatsTabFill,
   StatusFill,
@@ -72,6 +74,7 @@ export const systemSimple = definePlugin({
     [CharacterSheetTabsSlot.name]: [StatsTabFill, NotesTabFill],
     [CharacterSheetActionsSlot.name]: [ActionsFill],
     [PendingRollContributorsSlot.name]: [HelpWithCharacterContributor],
+    [TokenUnderlaysSlot.name]: [HpBarUnderlay],
   },
 });
 

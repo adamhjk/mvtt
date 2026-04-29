@@ -4,7 +4,9 @@ import {
   PagesSlot,
   type ChatRailWidget,
 } from "@vtt/shell-workbench/shared";
-import { Character } from "./shared/traits.js";
+import { LinkKindsSlot } from "@vtt/notes/shared";
+import { characterLinkKind } from "./shared/character-link-kind.js";
+import { Character, CharacterToken } from "./shared/traits.js";
 import { PendingRoll } from "./shared/pending.js";
 import {
   CharacterAssigned,
@@ -12,6 +14,7 @@ import {
   CharacterFieldSet,
   CharacterRenamed,
   CharacterRemoved,
+  CharacterTokenImageSet,
   PendingRollCancelled,
   PendingRollCommitted,
   PendingRollContributed,
@@ -26,6 +29,7 @@ import {
   OpenPendingRoll,
   RemoveCharacter,
   RenameCharacter,
+  SetCharacterTokenImage,
   SetField,
 } from "./shared/commands.js";
 import {
@@ -43,6 +47,7 @@ import {
   CharacterSpawningSystem,
   CharacterRenameSystem,
   CharacterRemovalSystem,
+  CharacterTokenImageSetSystem,
   PendingRollCancelSystem,
   PendingRollCommitSystem,
   PendingRollContributionSystem,
@@ -86,14 +91,16 @@ export const characters = definePlugin({
     "@vtt/identity@^0",
     "@vtt/permissions@^0",
     "@vtt/shell-workbench@^0",
+    "@vtt/notes@^0",
   ],
-  traits: [Character, PendingRoll],
+  traits: [Character, CharacterToken, PendingRoll],
   events: [
     CharacterCreated,
     CharacterRenamed,
     CharacterRemoved,
     CharacterAssigned,
     CharacterFieldSet,
+    CharacterTokenImageSet,
     PendingRollOpened,
     PendingRollContributed,
     PendingRollCommitted,
@@ -104,6 +111,7 @@ export const characters = definePlugin({
     RemoveCharacter,
     RenameCharacter,
     AssignCharacter,
+    SetCharacterTokenImage,
     SetField,
     OpenPendingRoll,
     ContributeToPendingRoll,
@@ -116,6 +124,7 @@ export const characters = definePlugin({
     CharacterRemovalSystem,
     CharacterAssignmentSystem,
     CharacterFieldSetSystem,
+    CharacterTokenImageSetSystem,
     PendingRollSpawnSystem,
     PendingRollContributionSystem,
     PendingRollCommitSystem,
@@ -133,6 +142,7 @@ export const characters = definePlugin({
     [PagesSlot.name]: [CharactersPageProvider],
     [CharacterSheetIdentitySlot.name]: [defaultIdentityFill],
     [ChatRailWidgetsSlot.name]: [pendingRollWidget],
+    [LinkKindsSlot.name]: [characterLinkKind],
   },
 });
 

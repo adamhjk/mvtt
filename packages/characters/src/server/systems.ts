@@ -6,13 +6,14 @@ import {
   CharacterFieldSet,
   CharacterRemoved,
   CharacterRenamed,
+  CharacterTokenImageSet,
   PendingRollCancelled,
   PendingRollCommitted,
   PendingRollContributed,
   PendingRollOpened,
 } from "../shared/events.js";
 import { setAtPath } from "../shared/path.js";
-import { Character } from "../shared/traits.js";
+import { Character, CharacterToken } from "../shared/traits.js";
 import { PendingRoll, type Contribution } from "../shared/pending.js";
 
 /**
@@ -203,6 +204,27 @@ export const PendingRollCancelSystem = defineSystem({
   writes: [],
   run: ({ event, world }) => {
     if (world.has(event.pendingRollId)) world.despawn(event.pendingRollId);
+    return [];
+  },
+});
+
+/**
+ * Universal mirror: attach (or replace) the CharacterToken trait on
+ * the target Character entity. `world.set` creates the trait if not
+ * present, so the same system handles both first-upload and
+ * replace/clear flows. No-op if the character has been despawned
+ * between dispatch and apply.
+ */
+export const CharacterTokenImageSetSystem = defineSystem({
+  name: "CharacterTokenImageSet",
+  on: CharacterTokenImageSet,
+  reads: [],
+  writes: [CharacterToken],
+  run: ({ event, world }) => {
+    if (!world.has(event.characterId)) return [];
+    world.set(event.characterId, CharacterToken, {
+      imageUrl: event.imageUrl,
+    });
     return [];
   },
 });

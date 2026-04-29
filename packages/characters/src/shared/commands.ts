@@ -15,6 +15,7 @@ import {
   CharacterFieldSet,
   CharacterRemoved,
   CharacterRenamed,
+  CharacterTokenImageSet,
   PendingRollCancelled,
   PendingRollCommitted,
   PendingRollContributed,
@@ -23,6 +24,27 @@ import {
 import { setAtPath } from "./path.js";
 import { Character } from "./traits.js";
 import { ContributionSchema, PendingRoll } from "./pending.js";
+
+/**
+ * Loose validation that `imageUrl` belongs to this character's
+ * plugin-data prefix within this world. Stops a malicious client from
+ * pointing the trait at an arbitrary URL — the upload endpoint already
+ * gates writes to GMs and to the allowed extension list.
+ *
+ * Cache-bust suffixes (`?v=<bytes>`) are accepted; the upload endpoint
+ * stamps them on so the browser re-fetches after a replacement.
+ */
+function isCharacterTokenUrl(
+  url: string,
+  worldId: string,
+  characterId: string,
+): boolean {
+  const expectedPrefix =
+    `/plugin-data/${worldId}/@vtt/characters/characters/${characterId}/`;
+  if (!url.startsWith(expectedPrefix)) return false;
+  if (url.includes("..")) return false;
+  return true;
+}
 
 /**
  * Anyone authenticated may create their own character; a GM may create
@@ -404,6 +426,49 @@ export const AssignCharacter = defineCommand({
     CharacterAssigned({
       characterId: cmd.characterId,
       playerUserId: cmd.playerUserId,
+    }),
+  ],
+});
+
+/**
+ * Owner-or-GM: set or clear the character's uploaded token image.
+ * Pass `imageUrl: null` to clear. The upload endpoint enforces the
+ * GM-only / size / extension policy server-side; this command keeps
+ * the trait pointing at this plugin's own storage by validating the
+ * URL belongs to the character's plugin-data prefix.
+ */
+export const SetCharacterTokenImage = defineCommand({
+  name: "@vtt/characters/SetCharacterTokenImage",
+  schema: z.object({
+    characterId: EntityId,
+    imageUrl: z.string().nullable(),
+  }),
+  validate: (ctx) => {
+    if (!requireSession(ctx)) return fail("not authenticated");
+    if (!ctx.world.has(ctx.cmd.characterId)) {
+      return fail(`character ${ctx.cmd.characterId} does not exist`);
+    }
+    if (!ctx.world.get(ctx.cmd.characterId, [Character])) {
+      return fail(`entity ${ctx.cmd.characterId} is not a character`);
+    }
+    if (
+      ctx.cmd.imageUrl !== null &&
+      !isCharacterTokenUrl(
+        ctx.cmd.imageUrl,
+        ctx.world.worldId,
+        ctx.cmd.characterId,
+      )
+    ) {
+      return fail(
+        `imageUrl must start with /plugin-data/${ctx.world.worldId}/@vtt/characters/characters/${ctx.cmd.characterId}/`,
+      );
+    }
+    return requireOwnerOrGm(ctx, ctx.cmd.characterId);
+  },
+  apply: ({ cmd }) => [
+    CharacterTokenImageSet({
+      characterId: cmd.characterId,
+      imageUrl: cmd.imageUrl,
     }),
   ],
 });

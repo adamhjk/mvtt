@@ -25,9 +25,12 @@ import {
   CharacterSheetStatusSlot,
   CharacterSheetTabsSlot,
   CharacterSheetVitalsSlot,
+  CharacterToken,
+  CharacterTokenImageSet,
   CreateCharacter,
   RemoveCharacter,
   RenameCharacter,
+  SetCharacterTokenImage,
   SetField,
 } from "./shared/index.js";
 import {
@@ -36,6 +39,7 @@ import {
   CharacterRemovalSystem,
   CharacterRenameSystem,
   CharacterSpawningSystem,
+  CharacterTokenImageSetSystem,
 } from "./server/systems.js";
 
 // Synthetic game-system trait for SetField tests — a small ability-scores
@@ -54,19 +58,21 @@ const TestAbilities = defineTrait({
 const charactersServerPlugin = definePlugin({
   name: "@vtt/characters",
   version: "0.1.0",
-  traits: [Character, OwnedBy, TestAbilities],
+  traits: [Character, CharacterToken, OwnedBy, TestAbilities],
   events: [
     CharacterCreated,
     CharacterRenamed,
     CharacterRemoved,
     CharacterAssigned,
     CharacterFieldSet,
+    CharacterTokenImageSet,
   ],
   commands: [
     CreateCharacter,
     RemoveCharacter,
     RenameCharacter,
     AssignCharacter,
+    SetCharacterTokenImage,
     SetField,
   ],
   systems: [
@@ -75,6 +81,7 @@ const charactersServerPlugin = definePlugin({
     CharacterRemovalSystem,
     CharacterAssignmentSystem,
     CharacterFieldSetSystem,
+    CharacterTokenImageSetSystem,
   ],
   slots: [
     CharacterSheetIdentitySlot,
@@ -716,6 +723,162 @@ describe("@vtt/characters", () => {
         PLAYER,
       );
       expect(events).toContain(CharacterFieldSet.name);
+    });
+  });
+
+  describe("SetCharacterTokenImage", () => {
+    const goodUrl = (charId: string) =>
+      `/plugin-data/${world.worldId}/@vtt/characters/characters/${charId}/token.png?v=42`;
+
+    it("attaches a CharacterToken trait when the owner uploads", async () => {
+      const id = await makeCharacter(pipeline, world);
+      const res = await dispatch(
+        pipeline,
+        SetCharacterTokenImage({
+          characterId: id,
+          imageUrl: goodUrl(id),
+        }),
+        PLAYER,
+      );
+      expect(res.result.ok).toBe(true);
+      expect(res.events.map((e) => e.type)).toEqual([
+        CharacterTokenImageSet.name,
+      ]);
+      const got = world.get(id, [CharacterToken]) as
+        | { CharacterToken: { imageUrl: string | null } }
+        | undefined;
+      expect(got).toBeDefined();
+      expect(got!.CharacterToken.imageUrl).toBe(goodUrl(id));
+    });
+
+    it("GM may upload for any character", async () => {
+      const id = await makeCharacter(pipeline, world);
+      const res = await dispatch(
+        pipeline,
+        SetCharacterTokenImage({
+          characterId: id,
+          imageUrl: goodUrl(id),
+        }),
+        GM,
+      );
+      expect(res.result.ok).toBe(true);
+    });
+
+    it("rejects upload by a non-owner non-GM", async () => {
+      const id = await makeCharacter(pipeline, world);
+      const res = await dispatch(
+        pipeline,
+        SetCharacterTokenImage({
+          characterId: id,
+          imageUrl: goodUrl(id),
+        }),
+        OTHER_PLAYER,
+      );
+      expect(res.result.ok).toBe(false);
+      expect(world.get(id, [CharacterToken])).toBeUndefined();
+    });
+
+    it("rejects URLs outside the character's plugin-data prefix", async () => {
+      const id = await makeCharacter(pipeline, world);
+      const res = await dispatch(
+        pipeline,
+        SetCharacterTokenImage({
+          characterId: id,
+          imageUrl: "https://evil.example.com/lol.png",
+        }),
+        PLAYER,
+      );
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("rejects URLs containing path traversal", async () => {
+      const id = await makeCharacter(pipeline, world);
+      const res = await dispatch(
+        pipeline,
+        SetCharacterTokenImage({
+          characterId: id,
+          imageUrl:
+            `/plugin-data/${world.worldId}/@vtt/characters/characters/${id}/../../foo.png`,
+        }),
+        PLAYER,
+      );
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("rejects when the URL targets a different character's prefix", async () => {
+      const idA = await makeCharacter(pipeline, world);
+      const idB = await makeCharacter(pipeline, world, OTHER_PLAYER, {
+        name: "Other",
+      });
+      const res = await dispatch(
+        pipeline,
+        SetCharacterTokenImage({
+          characterId: idA,
+          imageUrl: goodUrl(idB),
+        }),
+        PLAYER,
+      );
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("clearing with imageUrl=null replaces the trait with null", async () => {
+      const id = await makeCharacter(pipeline, world);
+      await dispatch(
+        pipeline,
+        SetCharacterTokenImage({
+          characterId: id,
+          imageUrl: goodUrl(id),
+        }),
+        PLAYER,
+      );
+      const res = await dispatch(
+        pipeline,
+        SetCharacterTokenImage({ characterId: id, imageUrl: null }),
+        PLAYER,
+      );
+      expect(res.result.ok).toBe(true);
+      const got = world.get(id, [CharacterToken]) as
+        | { CharacterToken: { imageUrl: string | null } }
+        | undefined;
+      expect(got).toBeDefined();
+      expect(got!.CharacterToken.imageUrl).toBeNull();
+    });
+
+    it("rejects setting on a non-existent character", async () => {
+      const res = await dispatch(
+        pipeline,
+        SetCharacterTokenImage({
+          characterId: "ghost" as EntityId,
+          imageUrl: null,
+        }),
+        GM,
+      );
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("rejects setting on an entity that isn't a character", async () => {
+      const stranger = world.spawn([OwnedBy({ userId: PLAYER.userId })]);
+      const res = await dispatch(
+        pipeline,
+        SetCharacterTokenImage({ characterId: stranger, imageUrl: null }),
+        PLAYER,
+      );
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("CharacterTokenImageSetSystem is wired and a no-op for despawned ids", () => {
+      expect(CharacterTokenImageSetSystem.on.name).toBe(
+        CharacterTokenImageSet.name,
+      );
+      const events = CharacterTokenImageSetSystem.run({
+        event: {
+          characterId: "ghost" as EntityId,
+          imageUrl: null,
+        } as never,
+        world,
+        registry,
+      });
+      expect(events).toEqual([]);
     });
   });
 });

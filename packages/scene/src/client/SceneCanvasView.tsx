@@ -23,10 +23,27 @@ import {
   Texture,
   type FederatedPointerEvent,
 } from "pixi.js";
-import { Position, Scene, Sprite, Token } from "../shared/traits.js";
-import { CreateToken, MoveToken, RemoveToken } from "../shared/commands.js";
+import {
+  Position,
+  Scene,
+  Sprite,
+  Token,
+  TokenImage,
+} from "../shared/traits.js";
+import {
+  CreateToken,
+  MoveToken,
+  PlaceCharacterToken,
+  RemoveToken,
+} from "../shared/commands.js";
 import { SceneCanvasSurface } from "../shared/surfaces.js";
-import { TOKEN_DND_MIME, decodeTokenDnd } from "./dnd.js";
+import { TokenUnderlaysSlot, type TokenUnderlay } from "../shared/slot.js";
+import {
+  CHARACTER_DND_MIME,
+  TOKEN_DND_MIME,
+  decodeCharacterDnd,
+  decodeTokenDnd,
+} from "./dnd.js";
 import { useMe } from "./use-me.js";
 
 /**
@@ -302,6 +319,10 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
           // Outline thickness depends on zoom; pan doesn't change zoom
           // but we redraw cheaply.
           redrawSelection();
+          // Persist on every pan tick — the inner save is debounced
+          // to ~150ms so we don't spam sessionStorage with every
+          // pixel of movement.
+          saveViewport();
         }
       });
 
@@ -385,6 +406,7 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         // Outline thickness is normalised to screen pixels, so it has
         // to be redrawn at every zoom step.
         redrawSelection();
+        saveViewport();
       };
       app.canvas.addEventListener("wheel", onWheel, { passive: false });
 
@@ -397,49 +419,94 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
       host.addEventListener("mousedown", onMouseDown);
 
       // — drag-and-drop from the picker ——————————————————————————
-      // The picker writes a TOKEN_DND_MIME payload; we read it here on
-      // drop, project the cursor to world coords, snap to grid, and
-      // dispatch CreateToken. Listening on the host (not the canvas) so
-      // the dataTransfer types check sees the payload — Pixi's canvas
-      // is inside the host but doesn't itself receive HTML5 drag events
-      // from outside the iframe consistently.
+      // The Tokens tab writes a TOKEN_DND_MIME payload; the Characters
+      // tab writes a CHARACTER_DND_MIME payload. Both flow into the
+      // same drop handler here, which decodes whichever MIME is on
+      // the dataTransfer and dispatches the matching command
+      // (CreateToken vs PlaceCharacterToken). Listening on the host
+      // (not the canvas) so the dataTransfer types check sees the
+      // payload — Pixi's canvas is inside the host but doesn't itself
+      // receive HTML5 drag events from outside the iframe consistently.
       const onDragOver = (ev: DragEvent) => {
         const types = ev.dataTransfer?.types;
-        if (!types || !Array.from(types).includes(TOKEN_DND_MIME)) return;
+        if (!types) return;
+        const list = Array.from(types);
+        if (
+          !list.includes(TOKEN_DND_MIME) &&
+          !list.includes(CHARACTER_DND_MIME)
+        ) {
+          return;
+        }
         ev.preventDefault();
         if (ev.dataTransfer) ev.dataTransfer.dropEffect = "copy";
       };
-      const onDrop = (ev: DragEvent) => {
-        if (!ev.dataTransfer) return;
-        const raw = ev.dataTransfer.getData(TOKEN_DND_MIME);
-        if (!raw) return;
-        ev.preventDefault();
-        const payload = decodeTokenDnd(raw);
-        if (!payload) return;
+      /**
+       * Project the drop's client-coordinate cursor onto the scene
+       * grid, snapping to the centre of the cell underneath. Returns
+       * `null` if the scene's grid info isn't available.
+       */
+      const dropTarget = (
+        ev: DragEvent,
+      ): { x: number; y: number; grid: number } | null => {
         const sc = client.world.get(ctx.sceneId, [Scene]) as
           | { Scene: { gridSize: number } }
           | undefined;
-        if (!sc) return;
+        if (!sc) return null;
         const grid = sc.Scene.gridSize;
         const rect = host!.getBoundingClientRect();
         const screenX = ev.clientX - rect.left;
         const screenY = ev.clientY - rect.top;
         const wx = (screenX - world.x) / world.scale.x;
         const wy = (screenY - world.y) / world.scale.y;
-        const tx = Math.floor(wx / grid) * grid + grid / 2;
-        const ty = Math.floor(wy / grid) * grid + grid / 2;
-        client.dispatch(
-          CreateToken({
-            sceneId: ctx.sceneId,
-            iconSlug: payload.slug,
-            tint: 0xffffff,
-            size: grid,
-            label: payload.label,
-            kind: "creature",
-            x: tx,
-            y: ty,
-          }) as CommandInstance,
-        );
+        const x = Math.floor(wx / grid) * grid + grid / 2;
+        const y = Math.floor(wy / grid) * grid + grid / 2;
+        return { x, y, grid };
+      };
+      const onDrop = (ev: DragEvent) => {
+        if (!ev.dataTransfer) return;
+        const charRaw = ev.dataTransfer.getData(CHARACTER_DND_MIME);
+        if (charRaw) {
+          ev.preventDefault();
+          const payload = decodeCharacterDnd(charRaw);
+          if (!payload) return;
+          const tgt = dropTarget(ev);
+          if (!tgt) return;
+          client.dispatch(
+            PlaceCharacterToken({
+              sceneId: ctx.sceneId,
+              characterId: payload.characterId,
+              iconSlug: payload.iconSlug,
+              imageUrl: payload.imageUrl,
+              tint: 0xffffff,
+              size: tgt.grid,
+              label: payload.label,
+              x: tgt.x,
+              y: tgt.y,
+              ownerUserId: payload.ownerUserId,
+            }) as CommandInstance,
+          );
+          return;
+        }
+        const tokenRaw = ev.dataTransfer.getData(TOKEN_DND_MIME);
+        if (tokenRaw) {
+          ev.preventDefault();
+          const payload = decodeTokenDnd(tokenRaw);
+          if (!payload) return;
+          const tgt = dropTarget(ev);
+          if (!tgt) return;
+          client.dispatch(
+            CreateToken({
+              sceneId: ctx.sceneId,
+              iconSlug: payload.slug,
+              tint: 0xffffff,
+              size: tgt.grid,
+              label: payload.label,
+              kind: "creature",
+              x: tgt.x,
+              y: tgt.y,
+            }) as CommandInstance,
+          );
+        }
       };
       host.addEventListener("dragover", onDragOver);
       host.addEventListener("drop", onDrop);
@@ -452,10 +519,77 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
       // background.color is updated independently from a third effect
       // so the canvas-clear matches the grid's bg-fill rect even when
       // the camera is zoomed out beyond the grid extent.
+      //
+      // Viewport persistence: pan + zoom is mutable Pixi state on
+      // `world.x/y/scale` and would otherwise be lost any time the
+      // canvas remounts (workbench tab switch, hot-module reload,
+      // pane focus change in older substrates). We mirror it into
+      // sessionStorage keyed by `(worldId, sceneId)` so restoring is
+      // free even when something *does* unmount us, and so dock-tab
+      // switches or window resizes can't quietly snap the camera.
+      const viewportKey = (() => {
+        const wid = client.worldId() ?? "default-world";
+        return `vtt:scene-viewport:${wid}:${ctx.sceneId}`;
+      })();
+      const loadSavedViewport = ():
+        | { x: number; y: number; scale: number }
+        | null => {
+        try {
+          const raw = sessionStorage.getItem(viewportKey);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw) as {
+            x?: unknown;
+            y?: unknown;
+            scale?: unknown;
+          };
+          if (
+            typeof parsed.x === "number" &&
+            typeof parsed.y === "number" &&
+            typeof parsed.scale === "number" &&
+            Number.isFinite(parsed.x) &&
+            Number.isFinite(parsed.y) &&
+            Number.isFinite(parsed.scale) &&
+            parsed.scale > 0
+          ) {
+            return { x: parsed.x, y: parsed.y, scale: parsed.scale };
+          }
+        } catch {
+          /* malformed entry — ignore and fit fresh */
+        }
+        return null;
+      };
+      let saveTimer: number | null = null;
+      const saveViewport = () => {
+        if (saveTimer !== null) return;
+        saveTimer = window.setTimeout(() => {
+          saveTimer = null;
+          try {
+            sessionStorage.setItem(
+              viewportKey,
+              JSON.stringify({
+                x: world.x,
+                y: world.y,
+                scale: world.scale.x,
+              }),
+            );
+          } catch {
+            /* quota or disabled — silently drop, viewport just won't
+               survive remount */
+          }
+        }, 150);
+      };
+
+      // `fitted` flips true the first time we successfully install
+      // *some* viewport — either restored from sessionStorage or
+      // freshly auto-fit to the scene extent. The "successfully"
+      // qualifier matters: if `sceneTrait()` is still null on the
+      // first effect run (trait hasn't replicated from snapshot/
+      // catchup yet), we must NOT mark ourselves fitted, or the
+      // delayed trait arrival won't trigger the fit.
       let fitted = false;
-      const fitToViewport = () => {
+      const fitToViewport = (): boolean => {
         const s = sceneTrait();
-        if (!s) return;
+        if (!s) return false;
         const w = s.widthPx;
         const h = s.heightPx;
         const pad = 0.95;
@@ -466,6 +600,22 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         world.x = (app.screen.width - w * scale) / 2;
         world.y = (app.screen.height - h * scale) / 2;
         fitted = true;
+        saveViewport();
+        return true;
+      };
+      /**
+       * Try to restore a saved viewport for this scene. Returns true
+       * if the viewport was applied — caller skips the auto-fit so we
+       * don't yank the user's last pan/zoom.
+       */
+      const restoreSavedViewport = (): boolean => {
+        const saved = loadSavedViewport();
+        if (!saved) return false;
+        world.scale.set(saved.scale);
+        world.x = saved.x;
+        world.y = saved.y;
+        fitted = true;
+        return true;
       };
 
       const drawBgFill = () => {
@@ -537,10 +687,27 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
           dimsKey();
           drawGrid();
         });
-        // Viewport fit → only on dim/gridSize changes (dimsKey is a
-        // string memo with === equality, so rename/recolor don't fire).
+        // Viewport setup → install the camera once per mount, the
+        // first time the scene trait is actually available. We prefer
+        // a previously persisted viewport (sessionStorage, keyed by
+        // world+scene) so dock-tab switches, pane focus changes, and
+        // HMR reloads all preserve where the user was looking;
+        // falling through to fitToViewport gives a sensible default
+        // for a brand-new scene with no saved viewport.
+        //
+        // Tracked deps include `dimsKey()` so this effect re-runs
+        // when the trait first loads — `dimsKey` returns "" while
+        // sceneTrait() is null and switches to "WxH@G" once the
+        // snapshot/catchup applies. We bail out early on the empty
+        // string so we don't mark ourselves fitted prematurely.
+        // Once fitted, subsequent dim changes (a GM resizing the
+        // scene mid-session) deliberately don't refit — the user may
+        // have framed a specific area and a forced refit would yank
+        // it away.
         createEffect(() => {
-          dimsKey();
+          if (fitted) return;
+          if (dimsKey() === "") return;
+          if (restoreSavedViewport()) return;
           fitToViewport();
         });
         // Background image → load Pixi texture from the URL when set,
@@ -585,22 +752,47 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         });
       });
 
-      // Re-fit if the host resizes (window resize, panel reflow such
-      // as a workbench drawer opening). Pixi's `resizeTo` plugin only
-      // listens for the window `resize` event, so a container reflow
-      // (e.g. dice-tray drawer expanding) doesn't update app.screen on
-      // its own — without `app.resize()` here the canvas DOM element
-      // shrinks via CSS while the WebGL framebuffer stays its old size,
-      // and the rendered image gets stretched/squashed.
+      // Resize the renderer if the host's CSS box changes (window
+      // resize, panel reflow such as a dock open/close). Pixi's
+      // `resizeTo` plugin only listens for the window `resize` event,
+      // so a container reflow (dice-tray drawer expanding, scene
+      // dock toggling) doesn't update `app.screen` on its own —
+      // without `app.resize()` here the canvas DOM element shrinks
+      // via CSS while the WebGL framebuffer stays its old size, and
+      // the rendered image gets stretched/squashed.
+      //
+      // We deliberately do NOT call `fitToViewport()` here. The old
+      // behaviour was "refit on every resize after the initial fit,"
+      // which meant opening the dock or switching to a Characters
+      // tab quietly snapped the camera back to default — losing the
+      // user's pan/zoom on every workbench interaction. Rendering
+      // adapts to the new screen extent automatically; the camera
+      // (world.x/y/scale) is the user's, not the layout's, to set.
       const ro = new ResizeObserver(() => {
         app.resize();
-        if (!fitted) return;
-        fitToViewport();
       });
       ro.observe(host);
 
       // — token sprites synced from World ——————————————————————
-      const sprites = new Map<EntityId, Entry>();
+      // `Entry` augmented with an `underlayContainer` (kept beneath the
+      // sprite so game-system decorators draw underneath) plus the
+      // cleanup callbacks each decorator returned at mount. Sprite x/y
+      // is mirrored onto the container every time `syncEntry` runs.
+      type TokenEntry = Entry & {
+        underlayContainer: Container;
+        underlayCleanups: Array<() => void>;
+        imageUrl: string | null;
+      };
+      const sprites = new Map<EntityId, TokenEntry>();
+
+      // Underlay decorators registered by other plugins (e.g. system-simple's
+      // HP bar). Materialised once per canvas mount; the slot's contents
+      // are stable for the runtime's lifetime.
+      const underlays = (client.registry.fillsForSlot(
+        TokenUnderlaysSlot,
+      ) as TokenUnderlay[])
+        .slice()
+        .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
 
       const ensureSprite = (id: EntityId): void => {
         const got = client.world.get(id, [Sprite, Position, Token]) as
@@ -621,9 +813,18 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
           if (sprites.has(id)) removeSprite(id);
           return;
         }
+        // The optional TokenImage trait overrides the iconSlug for
+        // characters placed via `PlaceCharacterToken`. Read separately
+        // so the inner `world.get([Sprite, Position, Token])` doesn't
+        // narrow to undefined when an unrelated token lacks it.
+        const tokenImage = client.world.get(id, [TokenImage]) as
+          | { TokenImage: { url: string } }
+          | undefined;
+        const imageUrl = tokenImage?.TokenImage.url ?? null;
+
         const existing = sprites.get(id);
         if (existing) {
-          syncEntry(existing, id, got);
+          syncEntry(existing, id, got, imageUrl);
           return;
         }
         // Spawn the sprite synchronously with a placeholder texture so the
@@ -634,13 +835,25 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         sprite.anchor.set(0.5);
         sprite.eventMode = "static";
         sprite.cursor = "grab";
-        const entry: Entry = {
+
+        // Underlay container — added to the token layer BEFORE the
+        // sprite so it z-orders underneath. The container's local
+        // origin tracks the sprite's centre; decorators draw in
+        // container-local coords.
+        const underlayContainer = new Container();
+        underlayContainer.eventMode = "none";
+        tokenLayer.addChild(underlayContainer);
+
+        const entry: TokenEntry = {
           sprite,
           slug: got.Sprite.iconSlug,
           size: got.Sprite.size,
           tint: got.Sprite.tint,
           movedAt: got.Position.movedAt,
           dragging: false,
+          underlayContainer,
+          underlayCleanups: [],
+          imageUrl,
         };
         sprite.on("pointerdown", (e: FederatedPointerEvent) => {
           // Let middle-button bubble to the stage so force-pan works
@@ -661,9 +874,26 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         });
         sprites.set(id, entry);
         tokenLayer.addChild(sprite);
-        syncEntry(entry, id, got);
-        // Kick off the texture load now; swap in when it lands.
-        loadIcon(got.Sprite.iconSlug)
+        syncEntry(entry, id, got, imageUrl);
+        // Mount the underlay decorators once per token. They own their
+        // own world.subscribe lifetime and return cleanups we invoke
+        // when the token despawns.
+        for (const u of underlays) {
+          try {
+            const off = u.mount({
+              tokenId: id,
+              container: underlayContainer,
+              world: client.world,
+              initialSize: entry.size,
+            });
+            entry.underlayCleanups.push(off);
+          } catch (err) {
+            console.warn(`token underlay ${u.id} mount failed`, err);
+          }
+        }
+        // Kick off the texture load now; swap in when it lands. When
+        // a TokenImage is present, prefer it over the iconSlug.
+        loadTokenTexture(imageUrl, got.Sprite.iconSlug)
           .then((tex) => {
             if (sprites.get(id) !== entry) return;
             entry.sprite.texture = tex;
@@ -671,27 +901,36 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
             entry.sprite.height = entry.size;
           })
           .catch((err) => {
-            console.warn(`failed to load icon ${got.Sprite.iconSlug}`, err);
+            console.warn(
+              `failed to load token texture (image=${imageUrl ?? "—"} slug=${got.Sprite.iconSlug})`,
+              err,
+            );
           });
       };
 
       const syncEntry = (
-        entry: Entry,
+        entry: TokenEntry,
         id: EntityId,
         got: {
           Sprite: { iconSlug: string; tint: number; size: number };
           Position: { x: number; y: number; movedAt: number };
         },
+        imageUrl: string | null,
       ): void => {
-        if (got.Sprite.iconSlug !== entry.slug) {
-          // Slug change: swap texture asynchronously; identity preserved.
+        const textureKeyChanged =
+          got.Sprite.iconSlug !== entry.slug || imageUrl !== entry.imageUrl;
+        if (textureKeyChanged) {
+          // Texture identity changed (slug edit, or TokenImage attached/
+          // replaced/cleared). Swap texture asynchronously; entity
+          // identity preserved so the underlay container survives.
           entry.slug = got.Sprite.iconSlug;
-          loadIcon(got.Sprite.iconSlug)
+          entry.imageUrl = imageUrl;
+          loadTokenTexture(imageUrl, got.Sprite.iconSlug)
             .then((tex) => {
               if (sprites.get(id) === entry) entry.sprite.texture = tex;
             })
             .catch((err) => {
-              console.warn(`failed to swap icon ${got.Sprite.iconSlug}`, err);
+              console.warn(`failed to swap token texture for ${id}`, err);
             });
         }
         entry.sprite.tint = got.Sprite.tint;
@@ -702,6 +941,11 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
           entry.sprite.x = got.Position.x;
           entry.sprite.y = got.Position.y;
         }
+        // Mirror the sprite's centre onto the underlay container so
+        // decorators using container-local coords stay glued to the
+        // token through movement, drag, and zoom.
+        entry.underlayContainer.x = entry.sprite.x;
+        entry.underlayContainer.y = entry.sprite.y;
         entry.movedAt = got.Position.movedAt;
       };
 
@@ -717,15 +961,33 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
           redrawSelection();
         }
         sprites.delete(id);
+        // Run each decorator's cleanup before destroying its container
+        // — decorators may be holding world.subscribe handles.
+        for (const off of entry.underlayCleanups) {
+          try {
+            off();
+          } catch (err) {
+            console.warn("underlay cleanup failed", err);
+          }
+        }
         tokenLayer.removeChild(entry.sprite);
+        tokenLayer.removeChild(entry.underlayContainer);
         entry.sprite.destroy();
+        entry.underlayContainer.destroy({ children: true });
       };
 
-      // initial sweep + subscription
+      // initial sweep + subscription. Subscribe to TokenImage as well
+      // so the canvas re-syncs the texture when the GM uploads or
+      // replaces a character portrait.
       const seedQuery = client.world.query([Sprite, Position, Token]);
       for (const row of seedQuery) ensureSprite(row.id);
       const offWorld = client.world.subscribe((id, name) => {
-        if (name !== Sprite.name && name !== Position.name && name !== Token.name) {
+        if (
+          name !== Sprite.name &&
+          name !== Position.name &&
+          name !== Token.name &&
+          name !== TokenImage.name
+        ) {
           return;
         }
         if (!client.world.has(id)) {
@@ -771,12 +1033,40 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         onCleanup(() => {
           ro.disconnect();
           offWorld();
+          if (saveTimer !== null) {
+            window.clearTimeout(saveTimer);
+            saveTimer = null;
+            // Flush a final write so the very last viewport edit
+            // before unmount survives.
+            try {
+              sessionStorage.setItem(
+                viewportKey,
+                JSON.stringify({
+                  x: world.x,
+                  y: world.y,
+                  scale: world.scale.x,
+                }),
+              );
+            } catch {
+              /* see saveViewport() */
+            }
+          }
           app.canvas.removeEventListener("wheel", onWheel);
           host?.removeEventListener("mousedown", onMouseDown);
           host?.removeEventListener("dragover", onDragOver);
           host?.removeEventListener("drop", onDrop);
           window.removeEventListener("keydown", onKeyDown);
-          for (const [, e] of sprites) e.sprite.destroy();
+          for (const [, e] of sprites) {
+            for (const off of e.underlayCleanups) {
+              try {
+                off();
+              } catch (err) {
+                console.warn("underlay cleanup failed", err);
+              }
+            }
+            e.sprite.destroy();
+            e.underlayContainer.destroy({ children: true });
+          }
           sprites.clear();
           // `releaseGlobalResources: true` drains Pixi's process-wide
           // pools (batches, texture caches). Without it, Solid HMR
@@ -823,6 +1113,28 @@ function loadIcon(slug: string): Promise<Texture> {
   p = Assets.load<Texture>(`/icons/${slug}.svg`);
   textureCache.set(slug, p);
   return p;
+}
+
+/**
+ * Load whichever texture should back a token. When `imageUrl` is set
+ * (e.g. from a `TokenImage` trait attached by `PlaceCharacterToken`),
+ * load that — it points at `/plugin-data/<worldId>/...` and Pixi's
+ * Assets cache dedups repeats of the same URL including its
+ * `?v=<bytes>` cache-bust suffix. Otherwise fall back to the icon
+ * manifest.
+ */
+function loadTokenTexture(
+  imageUrl: string | null,
+  iconSlug: string,
+): Promise<Texture> {
+  if (imageUrl !== null) {
+    const cached = textureCache.get(imageUrl);
+    if (cached) return cached;
+    const p = Assets.load<Texture>(imageUrl);
+    textureCache.set(imageUrl, p);
+    return p;
+  }
+  return loadIcon(iconSlug);
 }
 
 /**

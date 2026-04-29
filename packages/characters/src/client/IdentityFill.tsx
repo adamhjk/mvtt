@@ -7,10 +7,15 @@ import {
   createMemo,
   createSignal,
   For,
+  Show,
   type JSX,
 } from "solid-js";
-import { Character } from "../shared/traits.js";
-import { AssignCharacter, RenameCharacter } from "../shared/commands.js";
+import { Character, CharacterToken } from "../shared/traits.js";
+import {
+  AssignCharacter,
+  RenameCharacter,
+  SetCharacterTokenImage,
+} from "../shared/commands.js";
 import { useMe } from "./use-me.js";
 import { useWorldMembers, type WorldMember } from "./world-members.js";
 
@@ -29,6 +34,7 @@ export function IdentityFill(props: { characterId: string }): JSX.Element {
   const me = useMe();
   const character = useTrait(props.characterId, Character);
   const ownership = useTrait(props.characterId, OwnedBy);
+  const tokenImage = useTrait(props.characterId, CharacterToken);
 
   const canEdit = createMemo(() => {
     const m = me();
@@ -56,8 +62,30 @@ export function IdentityFill(props: { characterId: string }): JSX.Element {
     );
   };
 
+  const setTokenImage = (imageUrl: string | null) => {
+    client.dispatch(
+      SetCharacterTokenImage({
+        characterId: props.characterId,
+        imageUrl,
+      }) as CommandInstance,
+    );
+  };
+
   return (
     <div class="flex flex-col gap-2">
+      <div class="flex flex-col gap-1">
+        <span class="font-display text-[0.6rem] uppercase tracking-[0.2em] text-fg-subtle">
+          Token
+        </span>
+        <TokenImageField
+          characterId={props.characterId}
+          worldId={client.worldId() ?? ""}
+          value={tokenImage()?.imageUrl ?? null}
+          disabled={!canEdit() || !character() || !client.worldId()}
+          onUpload={(url) => setTokenImage(url)}
+          onClear={() => setTokenImage(null)}
+        />
+      </div>
       <div class="flex flex-col gap-1">
         <span class="font-display text-[0.6rem] uppercase tracking-[0.2em] text-fg-subtle">
           Name
@@ -80,6 +108,166 @@ export function IdentityFill(props: { characterId: string }): JSX.Element {
       </div>
     </div>
   );
+}
+
+/**
+ * Upload + preview + clear for the character's token portrait. Mirrors
+ * the scene plugin's BackgroundImageField — the upload POSTs the raw
+ * file body to
+ * `/api/plugin-data/<worldId>/@vtt/characters/characters/<characterId>/token.<ext>`,
+ * scoped to this character's plugin-data prefix within this world. On
+ * success the response carries the public URL (with a cache-bust
+ * suffix); we dispatch SetCharacterTokenImage so every client picks up
+ * the change.
+ *
+ * GM-or-owner: the upload endpoint enforces GM-only world-data writes
+ * server-side, so non-GM-non-owners see a disabled control. Inside
+ * `data-1p-ignore` etc. so the file picker doesn't get suggested as a
+ * password input by extensions.
+ */
+function TokenImageField(props: {
+  characterId: string;
+  worldId: string;
+  value: string | null;
+  disabled: boolean;
+  onUpload: (next: string) => void;
+  onClear: () => void;
+}): JSX.Element {
+  const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+  let fileInput: HTMLInputElement | undefined;
+
+  const upload = async (file: File) => {
+    setError(null);
+    const ext =
+      extensionFromName(file.name) ??
+      extensionFromMime(file.type) ??
+      ".bin";
+    const url =
+      `/api/plugin-data/${encodeURIComponent(props.worldId)}` +
+      `/@vtt/characters/characters/${encodeURIComponent(props.characterId)}` +
+      `/token${ext}`;
+    setBusy(true);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        body: file,
+        credentials: "same-origin",
+        headers: file.type ? { "content-type": file.type } : {},
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? `upload failed (${res.status})`);
+      }
+      const body = (await res.json()) as { path: string };
+      props.onUpload(body.path);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+      if (fileInput) fileInput.value = "";
+    }
+  };
+
+  return (
+    <div class="flex items-start gap-3">
+      <div
+        class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-(--radius-control) border border-border bg-surface"
+        aria-label="current token image preview"
+      >
+        <Show
+          when={props.value}
+          fallback={
+            // Mirror the scene-side default: when no portrait is
+            // uploaded, the placed token paints the 3d-meeple icon, so
+            // the sheet's preview shows the same silhouette rather
+            // than a vague "none" label.
+            <img
+              src="/icons/delapouite/3d-meeple.svg"
+              alt="default character token"
+              class="h-3/4 w-3/4 pointer-events-none"
+              style={{ filter: "var(--icon-filter)" }}
+              draggable={false}
+            />
+          }
+        >
+          {(url) => (
+            <img
+              src={url()}
+              alt="character token"
+              class="h-full w-full object-cover"
+              draggable={false}
+            />
+          )}
+        </Show>
+      </div>
+      <div class="flex flex-1 flex-col gap-2">
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={props.disabled || busy()}
+            onClick={() => fileInput?.click()}
+            class="rounded-(--radius-control) bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:bg-accent-hover transition disabled:opacity-50"
+          >
+            {busy() ? "Uploading…" : props.value ? "Replace…" : "Upload…"}
+          </button>
+          <Show when={props.value}>
+            <button
+              type="button"
+              disabled={props.disabled || busy()}
+              onClick={() => props.onClear()}
+              class="rounded-(--radius-control) border border-border bg-surface px-3 py-1.5 text-xs text-fg-muted hover:border-danger hover:text-danger transition disabled:opacity-50"
+            >
+              Remove
+            </button>
+          </Show>
+        </div>
+        <p class="text-[0.7rem] text-fg-subtle">
+          PNG, JPG, GIF, WebP, AVIF, or SVG. Max 250 MB.
+        </p>
+        <Show when={error()}>
+          <p class="rounded-(--radius-control) border border-danger/40 bg-danger/10 px-2 py-1 text-[0.7rem] text-danger">
+            {error()}
+          </p>
+        </Show>
+      </div>
+      <input
+        ref={fileInput}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/svg+xml"
+        class="hidden"
+        onChange={(e) => {
+          const file = e.currentTarget.files?.[0];
+          if (file) void upload(file);
+        }}
+      />
+    </div>
+  );
+}
+
+function extensionFromName(name: string): string | null {
+  const dot = name.lastIndexOf(".");
+  if (dot < 0 || dot === name.length - 1) return null;
+  return name.slice(dot).toLowerCase();
+}
+
+function extensionFromMime(mime: string): string | null {
+  switch (mime) {
+    case "image/png":
+      return ".png";
+    case "image/jpeg":
+      return ".jpg";
+    case "image/gif":
+      return ".gif";
+    case "image/webp":
+      return ".webp";
+    case "image/avif":
+      return ".avif";
+    case "image/svg+xml":
+      return ".svg";
+    default:
+      return null;
+  }
 }
 
 function PlayerField(props: {

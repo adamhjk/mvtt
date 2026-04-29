@@ -5,6 +5,7 @@ import { definePlugin, InMemoryWorldsRepository } from "@vtt/substrate";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
+import { notes } from "@vtt/notes";
 import { characters } from "@vtt/characters";
 import {
   Character,
@@ -68,7 +69,7 @@ describe("characters wire smoke", () => {
     worldId = world.id;
     handle = await startServer({
       port: 0,
-      infrastructure: [shellWorkbench, identity, permissions],
+      infrastructure: [shellWorkbench, identity, permissions, notes],
       optional: [characters, charactersTestSystem],
       worldsRepo,
       authenticateUpgrade: async () => PLAYER,

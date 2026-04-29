@@ -9,6 +9,8 @@ import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { comms } from "@vtt/comms";
+import { notes } from "@vtt/notes";
+import { assets } from "@vtt/assets";
 import { resolution } from "@vtt/resolution";
 import { scene } from "@vtt/scene";
 import { books } from "@vtt/books";
@@ -38,6 +40,8 @@ const ALL_PLUGINS: ReadonlyArray<PluginDef> = [
   identity,
   permissions,
   comms,
+  notes,
+  assets,
   resolution,
   scene,
   books,

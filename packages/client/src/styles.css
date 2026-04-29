@@ -1,7 +1,20 @@
 @import "tailwindcss";
 @import "@vtt/tokens/tokens.css";
 
+@plugin "@tailwindcss/typography";
+
 @source "../../**/src/**/*.{ts,tsx,html}";
+
+/*
+ * Prose headings get a scroll margin so click-to-scroll lands the
+ * heading just below any sticky chrome rather than flush against the
+ * top edge of the scroll container — better visual landing target
+ * and prevents the heading appearing "hidden" after the scroll
+ * settles.
+ */
+.prose :where(h1, h2, h3, h4, h5, h6) {
+  scroll-margin-top: 1rem;
+}
 
 body {
   margin: 0;
