@@ -448,29 +448,38 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
       }
     }
 
+    // Acquire the runtime BEFORE handing the socket to the WS server.
+    // Doing acquire inside the connection handler created a window where
+    // the socket was open and the client could send commands, but the
+    // server's `sock.on("message", …)` listener hadn't been attached yet
+    // — Node EventEmitters don't buffer, so frames arriving during the
+    // cold-boot replay were silently dropped. The first browser load
+    // after world creation hit this every time (cold-boot from disk);
+    // a hard refresh worked because the runtime was already cached.
+    let runtime: WorldRuntime;
+    try {
+      runtime = await worldsRegistry.acquire(worldId);
+    } catch (err) {
+      socket.write(
+        `HTTP/1.1 500 Internal Server Error\r\n\r\n${(err as Error).message}`,
+      );
+      socket.destroy();
+      return;
+    }
+
     wss.handleUpgrade(req, socket, head, (sock) => {
-      wss.emit("connection", sock, req, { session, worldId });
+      wss.emit("connection", sock, req, { session, worldId, runtime });
     });
   });
 
   wss.on(
     "connection",
-    async (
+    (
       sock: WebSocket,
       _req: IncomingMessage,
-      ctx: { session: unknown; worldId: WorldId },
+      ctx: { session: unknown; worldId: WorldId; runtime: WorldRuntime },
     ) => {
-      let runtime: WorldRuntime;
-      try {
-        runtime = await worldsRegistry.acquire(ctx.worldId);
-      } catch (err) {
-        // Race: world archived/deleted between upgrade auth and acquire.
-        sock.send(
-          JSON.stringify({ kind: "error", reason: (err as Error).message }),
-        );
-        sock.close();
-        return;
-      }
+      const runtime = ctx.runtime;
 
       const clientId = `client-${nextClient++}`;
       const recipient = opts.extractRecipient
@@ -489,43 +498,8 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
         conn.isAlive = true;
       });
 
-      sock.send(
-        JSON.stringify({
-          kind: "hello",
-          clientId,
-          worldId: ctx.worldId,
-          plugins: runtime.registry.plugins.map((p) => ({
-            name: p.name,
-            version: p.version,
-          })),
-        }),
-      );
-
-      sock.send(
-        JSON.stringify({
-          kind: "snapshot",
-          worldId: ctx.worldId,
-          atSeq: runtime.pipeline.currentSeq,
-          state: dumpForRecipient(
-            runtime.world.dump(),
-            runtime.registry,
-            recipient,
-          ),
-        }),
-      );
-      sock.send(
-        JSON.stringify({
-          kind: "synced",
-          atSeq: runtime.pipeline.currentSeq,
-        }),
-      );
-
-      // Lifecycle event scoped to this runtime.
-      const opened = runSystemsToFixpoint(runtime.registry, runtime.world, [
-        ConnectionOpened({ clientId, session: ctx.session }),
-      ]);
-      for (const ev of opened) runtime.bus.emit(ev);
-
+      // Register the message listener synchronously, BEFORE any sends or
+      // system runs, so frames can never land in a dropped-event gap.
       sock.on("message", async (raw) => {
         let parsed: unknown;
         try {
@@ -577,6 +551,43 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
           return;
         }
       });
+
+      sock.send(
+        JSON.stringify({
+          kind: "hello",
+          clientId,
+          worldId: ctx.worldId,
+          plugins: runtime.registry.plugins.map((p) => ({
+            name: p.name,
+            version: p.version,
+          })),
+        }),
+      );
+
+      sock.send(
+        JSON.stringify({
+          kind: "snapshot",
+          worldId: ctx.worldId,
+          atSeq: runtime.pipeline.currentSeq,
+          state: dumpForRecipient(
+            runtime.world.dump(),
+            runtime.registry,
+            recipient,
+          ),
+        }),
+      );
+      sock.send(
+        JSON.stringify({
+          kind: "synced",
+          atSeq: runtime.pipeline.currentSeq,
+        }),
+      );
+
+      // Lifecycle event scoped to this runtime.
+      const opened = runSystemsToFixpoint(runtime.registry, runtime.world, [
+        ConnectionOpened({ clientId, session: ctx.session }),
+      ]);
+      for (const ev of opened) runtime.bus.emit(ev);
 
       sock.on("close", () => {
         conns.delete(conn);
