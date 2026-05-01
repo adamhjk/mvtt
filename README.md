@@ -1,4 +1,4 @@
-# MVTT
+# mvtt
 
 mvtt is a self hosted virtual tabletop, distributed as free software. It's designed to be:
 
@@ -119,6 +119,10 @@ In plain language, the AGPL means:
 - You can run mvtt for any purpose, study how it works, modify it, and share it.
 - If you distribute mvtt — *or run a modified version of it as a network service that other people interact with* — you must make the corresponding source code (including your modifications) available to those users under the same AGPLv3 terms.
 - There is no warranty. mvtt is alpha software; see the Status section.
+
+### Icons
+
+The icons under [`assets/icons/`](./assets/icons) are **not** covered by the AGPL. They come from [game-icons.net](https://game-icons.net) and are licensed under **Creative Commons Attribution 3.0 (CC BY 3.0)**, with a small number of CC0 contributions. Per-author attribution and the full list of contributors live in [`assets/icons/license.txt`](./assets/icons/license.txt); if you redistribute or build on these icons, follow the CC BY 3.0 attribution requirement and keep that file alongside them.
 
 ## Contributions
 

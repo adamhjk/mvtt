@@ -11,7 +11,7 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PACKAGES_DIR = join(REPO_ROOT, "packages");
 const HEADER_PATH = join(REPO_ROOT, "scripts", "license-header.txt");
 
-export const HEADER_MARKER = "// MVTT, An RPG virtual tabletop";
+export const HEADER_MARKER = "// mvtt, an RPG virtual tabletop";
 
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
 const EXCLUDED_DIRS = new Set([
