@@ -30,10 +30,10 @@ import {
   NotesUiState,
   Page,
   PageDraft,
-  PageHistory,
   PageOrdering,
   RemovePage,
   RenamePage,
+  ReorderPages,
   SetNotesUiState,
   buildLinkKindIndex,
   type WikiLinkRef,
@@ -56,8 +56,9 @@ import { pendingScroll, setPendingScroll } from "./scroll-target.js";
  * content on the right. Owner/GM gets the Edit button; other users see
  * "Alice is editing" when the lock is live.
  *
- * v1 keeps it minimal — no drag-reorder, no visibility picker yet.
- * Both layer in cleanly with the existing dnd helper + a popover.
+ * The rail mirrors the PDF reader's TOC sidebar — toggleable via a
+ * header button, persisted in the per-tab `NotesUiState`. Pages can
+ * be drag-reordered (manual sort mode only) or sorted alphabetically.
  */
 export function NoteView(props: {
   noteId: EntityId;
@@ -80,7 +81,11 @@ export function NoteView(props: {
     write: (value) => SetNotesUiState({ entityId: sentinelId, value }),
   });
 
-  const myPages = createMemo(() =>
+  /**
+   * Manual order — the canonical ordinal-driven order the server keeps.
+   * Drag-reorder dispatches `ReorderPages` against this list.
+   */
+  const manualPages = createMemo(() =>
     allPagesRows()
       .filter(
         (r) =>
@@ -94,6 +99,14 @@ export function NoteView(props: {
       }))
       .sort((a, b) => a.ordinal - b.ordinal),
   );
+
+  const displayPages = createMemo(() => {
+    const list = manualPages();
+    if (ui.pageSortMode === "alpha") {
+      return [...list].sort((a, b) => a.title.localeCompare(b.title));
+    }
+    return list;
+  });
 
   const setActivePageId = (pid: EntityId | null) => {
     setUi("activePageId", pid);
@@ -110,7 +123,7 @@ export function NoteView(props: {
     setUi("activePageId", pid);
   };
   const effectiveActive = createMemo(() => {
-    const ids = myPages().map((p) => p.id);
+    const ids = manualPages().map((p) => p.id);
     const a = ui.activePageId;
     if (a && ids.includes(a)) return a as EntityId;
     return ids[0] ?? null;
@@ -185,15 +198,36 @@ export function NoteView(props: {
     if (!window.confirm(`Remove page "${title}"?`)) return;
     dispatch(RemovePage({ pageId }));
   };
+  const reorderPages = (nextIds: EntityId[]) => {
+    // Skip the round-trip if the order didn't actually change.
+    const cur = manualPages().map((p) => p.id);
+    if (cur.length === nextIds.length && cur.every((id, i) => id === nextIds[i])) {
+      return;
+    }
+    dispatch(ReorderPages({ noteId: props.noteId, pageIds: nextIds }));
+  };
 
   const noteTitle = () =>
     (note() as { title: string } | undefined)?.title ?? "(deleted note)";
 
   return (
-    <section class="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
-      <header class="flex items-baseline justify-between border-b border-border-muted pb-2">
+    <section class="flex h-full min-h-0 flex-col gap-3 overflow-hidden px-4 pt-3 pb-2">
+      <header class="flex items-center gap-3 border-b border-border-muted pb-2">
+        <button
+          type="button"
+          onClick={() => setUi("railCollapsed", !ui.railCollapsed)}
+          aria-pressed={!ui.railCollapsed}
+          aria-label={ui.railCollapsed ? "show pages" : "hide pages"}
+          title={ui.railCollapsed ? "show pages" : "hide pages"}
+          class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 font-mono text-xs text-fg-muted hover:border-accent hover:text-fg transition"
+          classList={{
+            "!border-accent !text-fg": !ui.railCollapsed,
+          }}
+        >
+          ☰
+        </button>
         <h2
-          class="font-display text-2xl tracking-tight text-fg"
+          class="flex-1 min-w-0 truncate font-display text-2xl tracking-tight text-fg"
           style={{ "font-family": "var(--font-display)" }}
         >
           {noteTitle()}
@@ -203,23 +237,28 @@ export function NoteView(props: {
         </span>
       </header>
       <div class="flex flex-1 min-h-0 gap-4">
-        <PageRail
-          pages={myPages()}
-          activeId={effectiveActive()}
-          onSelect={(id) => setActivePageId(id)}
-          onAdd={canEdit() ? addPage : null}
-          onRemove={
-            canEdit()
-              ? (id, t) => {
-                  if (myPages().length === 1) {
-                    window.alert("Can't remove the last page.");
-                    return;
+        <Show when={!ui.railCollapsed}>
+          <PageRail
+            pages={displayPages()}
+            activeId={effectiveActive()}
+            sortMode={ui.pageSortMode}
+            onSelect={(id) => setActivePageId(id)}
+            onAdd={canEdit() ? addPage : null}
+            onRemove={
+              canEdit()
+                ? (id, t) => {
+                    if (manualPages().length === 1) {
+                      window.alert("Can't remove the last page.");
+                      return;
+                    }
+                    removePage(id, t);
                   }
-                  removePage(id, t);
-                }
-              : null
-          }
-        />
+                : null
+            }
+            onSetSortMode={(mode) => setUi("pageSortMode", mode)}
+            onReorder={canEdit() ? reorderPages : null}
+          />
+        </Show>
         <div class="flex flex-1 min-w-0 min-h-0 flex-col gap-2">
           <Show
             keyed
@@ -299,22 +338,139 @@ function BacklinksFooter(props: { noteId: EntityId }): JSX.Element {
   );
 }
 
+interface PageRow {
+  id: EntityId;
+  title: string;
+  ordinal: number;
+}
+
 function PageRail(props: {
-  pages: ReadonlyArray<{ id: EntityId; title: string; ordinal: number }>;
+  pages: ReadonlyArray<PageRow>;
   activeId: EntityId | null;
+  sortMode: "manual" | "alpha";
   onSelect: (id: EntityId) => void;
   onAdd: (() => void) | null;
   onRemove: ((id: EntityId, title: string) => void) | null;
+  /** null when the viewer can't reorder (no edit permission). */
+  onReorder: ((nextIds: EntityId[]) => void) | null;
+  onSetSortMode: (mode: "manual" | "alpha") => void;
 }): JSX.Element {
+  // Drag state: id of the row picked up + id of the row currently
+  // hovered (for the drop-line indicator). Cleared on drop or cancel.
+  const [draggingId, setDraggingId] = createSignal<EntityId | null>(null);
+  const [overId, setOverId] = createSignal<EntityId | null>(null);
+
+  const reorderable = () =>
+    props.onReorder !== null && props.sortMode === "manual";
+
+  const onDragStart = (e: DragEvent, id: EntityId) => {
+    if (!reorderable()) {
+      e.preventDefault();
+      return;
+    }
+    setDraggingId(id);
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      // Firefox requires data on the transfer for the drag to start.
+      e.dataTransfer.setData("text/plain", id);
+    }
+  };
+  const onDragOver = (e: DragEvent, overTargetId: EntityId) => {
+    if (!reorderable() || !draggingId()) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    if (overId() !== overTargetId) setOverId(overTargetId);
+  };
+  const onDrop = (e: DragEvent, targetId: EntityId) => {
+    if (!reorderable()) return;
+    e.preventDefault();
+    const src = draggingId();
+    setDraggingId(null);
+    setOverId(null);
+    if (!src || src === targetId) return;
+    const ids = props.pages.map((p) => p.id);
+    const fromIdx = ids.indexOf(src);
+    const toIdx = ids.indexOf(targetId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const next = [...ids];
+    next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, src);
+    props.onReorder?.(next);
+  };
+  const onDragEnd = () => {
+    setDraggingId(null);
+    setOverId(null);
+  };
+
   return (
-    <aside class="w-48 shrink-0 flex flex-col gap-1 border-r border-border-muted pr-3">
-      <h3 class="font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle pb-1">
-        Pages
-      </h3>
+    <aside class="flex w-52 shrink-0 flex-col gap-2 border-r border-border-muted pr-3">
+      <div class="flex items-center justify-between gap-2 pb-1">
+        <h3 class="font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle">
+          Pages
+        </h3>
+        <div
+          class="flex items-center rounded-(--radius-control) border border-border bg-surface p-px text-[0.6rem]"
+          role="group"
+          aria-label="page sort"
+        >
+          <button
+            type="button"
+            onClick={() => props.onSetSortMode("manual")}
+            aria-pressed={props.sortMode === "manual"}
+            title="manual order — drag to reorder"
+            class="rounded-(--radius-control) px-1.5 py-0.5 font-mono uppercase tracking-[0.1em] transition"
+            classList={{
+              "bg-accent text-accent-fg": props.sortMode === "manual",
+              "text-fg-subtle hover:text-fg": props.sortMode !== "manual",
+            }}
+          >
+            ≡
+          </button>
+          <button
+            type="button"
+            onClick={() => props.onSetSortMode("alpha")}
+            aria-pressed={props.sortMode === "alpha"}
+            title="alphabetical order"
+            class="rounded-(--radius-control) px-1.5 py-0.5 font-mono uppercase tracking-[0.1em] transition"
+            classList={{
+              "bg-accent text-accent-fg": props.sortMode === "alpha",
+              "text-fg-subtle hover:text-fg": props.sortMode !== "alpha",
+            }}
+          >
+            A↓
+          </button>
+        </div>
+      </div>
+      <Show when={props.onAdd}>
+        <button
+          type="button"
+          onClick={() => props.onAdd?.()}
+          class="flex items-center justify-center gap-1 rounded-(--radius-control) border border-dashed border-border-muted px-2 py-1 text-xs text-fg-subtle hover:border-accent hover:text-fg transition"
+        >
+          <span aria-hidden class="font-mono text-sm leading-none">＋</span>
+          <span>Add page</span>
+        </button>
+      </Show>
       <ul class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-px">
         <For each={props.pages}>
           {(p) => (
-            <li>
+            <li
+              draggable={reorderable()}
+              onDragStart={(e) => onDragStart(e, p.id)}
+              onDragOver={(e) => onDragOver(e, p.id)}
+              onDrop={(e) => onDrop(e, p.id)}
+              onDragEnd={onDragEnd}
+              class="relative"
+              classList={{
+                "opacity-40": draggingId() === p.id,
+              }}
+            >
+              <Show when={overId() === p.id && draggingId() && draggingId() !== p.id}>
+                <span
+                  aria-hidden
+                  class="pointer-events-none absolute -top-px left-0 right-0 h-0.5 bg-accent"
+                />
+              </Show>
               <button
                 type="button"
                 onClick={() => props.onSelect(p.id)}
@@ -325,6 +481,15 @@ function PageRail(props: {
                     : "text-fg hover:bg-surface-elevated",
                 ].join(" ")}
               >
+                <Show when={reorderable()}>
+                  <span
+                    aria-hidden
+                    class="font-mono text-[0.7rem] leading-none text-fg-subtle opacity-0 group-hover:opacity-70 cursor-grab"
+                    title="drag to reorder"
+                  >
+                    ⋮⋮
+                  </span>
+                </Show>
                 <span class="flex-1 truncate">{p.title}</span>
                 <Show when={props.onRemove && p.id === props.activeId}>
                   <button
@@ -344,15 +509,6 @@ function PageRail(props: {
           )}
         </For>
       </ul>
-      <Show when={props.onAdd}>
-        <button
-          type="button"
-          onClick={() => props.onAdd?.()}
-          class="text-left px-2 py-1 rounded-(--radius-control) text-xs text-fg-subtle border border-dashed border-border-muted hover:border-accent hover:text-fg transition"
-        >
-          + Add page
-        </button>
-      </Show>
     </aside>
   );
 }
@@ -447,12 +603,19 @@ function PageContent(props: {
       // The sentinel survives retarget (its id derives from tabId,
       // which is stable across `RetargetTab`).
       e.preventDefault();
+      const sentinelTrait = client.world.get(props.sentinelId, [NotesUiState]) as
+        | { UiState: { railCollapsed: boolean; pageSortMode: "manual" | "alpha" } }
+        | undefined;
+      const railCollapsed = sentinelTrait?.UiState.railCollapsed ?? false;
+      const pageSortMode = sentinelTrait?.UiState.pageSortMode ?? "manual";
       client.dispatch(
         SetNotesUiState({
           entityId: props.sentinelId,
           value: {
             activePageId: r.pageId ?? null,
             pendingHeadingId: r.anchor ?? null,
+            railCollapsed,
+            pageSortMode,
           },
         }) as CommandInstance,
       );
@@ -493,10 +656,6 @@ function PageContent(props: {
     if (l.expires <= Date.now()) return null;
     if (!l.userId || l.userId === "-") return null;
     return l.userId;
-  });
-  const isLockedByMe = createMemo(() => {
-    const u = lockHolderUserId();
-    return u !== null && u === props.meUserId;
   });
   const isLockedByOther = createMemo(() => {
     const u = lockHolderUserId();
@@ -570,9 +729,6 @@ function PageContent(props: {
           <NoteEditor pageId={props.pageId} onDone={stopEdit} />
         </Show>
       </div>
-      <Show when={!editing()}>
-        <PageHistoryFooter pageId={props.pageId} />
-      </Show>
     </div>
   );
 }
@@ -666,50 +822,4 @@ function PageTitleField(props: {
       title="Click to rename this page"
     />
   );
-}
-
-function PageHistoryFooter(props: { pageId: EntityId }): JSX.Element {
-  const history = useTrait(props.pageId, PageHistory);
-  const [open, setOpen] = createSignal(false);
-  const entries = createMemo(() => {
-    const h = history() as
-      | { entries: Array<{ rev: number; savedAt: number; savedByUserId: string }> }
-      | undefined;
-    if (!h) return [];
-    return [...h.entries].reverse();
-  });
-  return (
-    <Show when={entries().length > 0}>
-      <details
-        class="border-t border-border-muted pt-2 text-xs text-fg-subtle"
-        open={open()}
-        onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
-      >
-        <summary class="cursor-pointer font-display tracking-[0.18em] uppercase">
-          History · {entries().length}
-        </summary>
-        <ul class="mt-1 flex flex-col gap-px">
-          <For each={entries()}>
-            {(entry) => (
-              <li class="flex items-center justify-between gap-2 rounded-(--radius-control) px-2 py-1 hover:bg-surface-elevated">
-                <span class="font-mono text-[0.62rem]">rev {entry.rev}</span>
-                <span class="flex-1 truncate">{entry.savedByUserId}</span>
-                <span class="text-fg-subtle">
-                  {formatRelative(entry.savedAt)}
-                </span>
-              </li>
-            )}
-          </For>
-        </ul>
-      </details>
-    </Show>
-  );
-}
-
-function formatRelative(epochMs: number): string {
-  const secs = Math.floor((Date.now() - epochMs) / 1000);
-  if (secs < 60) return `${secs}s ago`;
-  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
-  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
-  return `${Math.floor(secs / 86400)}d ago`;
 }

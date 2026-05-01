@@ -25,25 +25,46 @@ import {
  * writes it BEFORE retargeting the tab so the destination NoteView
  * picks it up on first mount). The receiving NoteView consumes it once
  * and clears the field so it doesn't re-fire on rehydration.
+ *
+ * `railCollapsed` toggles the page-rail sidebar. The PDF reader's TOC
+ * sidebar is the visual analogue. Persisted per-tab so toggling on
+ * one tab doesn't affect another open note.
+ *
+ * `pageSortMode` controls how the page rail sorts: "manual" (the
+ * authored ordinal — drag-reorderable) or "alpha" (alphabetical by
+ * page title — read-only).
  */
+const PageSortMode = z.enum(["manual", "alpha"]);
+
 export const NotesUiState = defineTrait({
   name: "@vtt/notes/UiState",
   schema: z
     .object({
       activePageId: EntityId.nullable().default(null),
       pendingHeadingId: z.string().nullable().default(null),
+      railCollapsed: z.boolean().default(false),
+      pageSortMode: PageSortMode.default("manual"),
     })
-    .default({ activePageId: null, pendingHeadingId: null }),
+    .default({
+      activePageId: null,
+      pendingHeadingId: null,
+      railCollapsed: false,
+      pageSortMode: "manual",
+    }),
+});
+
+const NotesUiStateValue = z.object({
+  activePageId: EntityId.nullable(),
+  pendingHeadingId: z.string().nullable(),
+  railCollapsed: z.boolean(),
+  pageSortMode: PageSortMode,
 });
 
 export const NotesUiStateChanged = defineEvent({
   name: "@vtt/notes/UiStateChanged",
   schema: z.object({
     entityId: EntityId,
-    value: z.object({
-      activePageId: EntityId.nullable(),
-      pendingHeadingId: z.string().nullable(),
-    }),
+    value: NotesUiStateValue,
   }),
   transient: true,
   broadcast: true,
@@ -62,10 +83,7 @@ export const SetNotesUiState = defineCommand({
   name: "@vtt/notes/SetUiState",
   schema: z.object({
     entityId: EntityId,
-    value: z.object({
-      activePageId: EntityId.nullable(),
-      pendingHeadingId: z.string().nullable(),
-    }),
+    value: NotesUiStateValue,
   }),
   validate: () => ok(),
   apply: ({ cmd }) => [

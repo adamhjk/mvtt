@@ -1,0 +1,26 @@
+{
+  "skill_name": "dice-notation",
+  "evals": [
+    {
+      "id": 0,
+      "name": "dnd5e-greatsword-gwf-crit",
+      "prompt": "I'm building a D&D 5e character trait that fires when the player attacks with a greatsword while having the Great Weapon Fighting style. Give me three @dice-roller/rpg-dice-roller notation strings: (a) the to-hit roll for a +5 attack with advantage, marked so the parser flags natural 20s, (b) the normal damage (2d6+3), but rerolling any 1 or 2 once thanks to GWF, (c) the crit damage on the same attack, also benefitting from GWF on the dice that get rerolled. Keep all three as single notation strings — no library code, just the strings — and explain why each is correct including any execution-order considerations. The player has STR mod +3.",
+      "expected_output": "Three correct dice-notation strings with brief explanations: (a) `2d20kh1cs=20+5` or `2d20kh1cs>=20+5`; (b) `2d6ro<=2+3` or `2d6ro<3+3`; (c) `4d6ro<=2+3`. The explanation should justify the use of `kh1` for advantage, `cs` for cosmetic crit flag, `ro` (reroll-once) rather than `r` (unlimited reroll), and the doubled 2d6 → 4d6 on a crit while keeping +3 added once.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "wod-pool-explode-botch",
+      "prompt": "I'm modeling Old World of Darkness for our VTT. The basic resolution is: roll N d10s, count any 8+ as a success, count 1s as botches that subtract from successes, and 10s explode (roll again, also count as ≥8 if applicable). Give me a single @dice-roller/rpg-dice-roller notation for an 8-die pool that does all of this in one string. Then give me the variant where the GM doesn't allow exploding 10s (some chronicles disable the rule of 10). Be careful about the trickier corners of the notation — there's a known pitfall around the `!=` operator near `!` that has bitten people; if it applies here say why it doesn't (or how you avoided it).",
+      "expected_output": "Two correct notations: with-explode `8d10!>=8f=1` (or `8d10!=10>=8f=1` is WRONG because != near ! becomes compound — model should explicitly call this out and use a safe form). Without-explode: `8d10>=8f=1`. The explanation should note that the default explode compare point is `=max` so `!` alone explodes on 10, that target success comes after explode in execution order regardless of notation order, and that failure target `f=1` MUST follow the success target.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "ability-scores-best-of-two",
+      "prompt": "Two requests for our character creator: (1) I want a 'classic' ability score generator that rolls 4d6 and drops the lowest die, then does that six times so we get six numbers between 3 and 18. Give me the notation. (2) Some of our players want a 'lucky' generator: roll the *whole set of six 4d6dl1 stats* TWICE, then keep whichever set has the higher total. Give me the notation for that too — and walk me through what the parser actually does with `kh1` when it's applied to a roll group containing six sub-rolls (vs being applied to a single die expression), because that's exactly the kind of corner I want to confirm we got right.",
+      "expected_output": "(1) `{4d6dl1, 4d6dl1, 4d6dl1, 4d6dl1, 4d6dl1, 4d6dl1}` to render six independent stats, OR a recognition that the user can run six separate `4d6dl1` rolls. (2) The 'lucky' version requires NESTED groups, but the parser does NOT support nested roll groups directly — model should either (a) note this limitation and propose two separate roll-set rolls + code-side comparison, or (b) attempt a `{ {4d6dl1, ...}, {4d6dl1, ...} }kh1` and acknowledge if that's invalid syntax. The walkthrough should explain that `kh1` on a multi-sub-roll group keeps the sub-roll with the highest total (treating each sub-roll's total as the comparison value), vs on a single-die expression where `kh1` would keep the highest individual die.",
+      "files": []
+    }
+  ]
+}
