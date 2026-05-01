@@ -1,6 +1,8 @@
 import { definePlugin } from "@vtt/substrate";
 import { PagesSlot } from "@vtt/shell-workbench/shared";
+import { LinkKindsSlot } from "@vtt/notes/shared";
 import { Book } from "./shared/traits.js";
+import { bookLinkKind } from "./shared/book-link-kind.js";
 import {
   BookCreated,
   BookRemoved,
@@ -11,6 +13,12 @@ import {
   RemoveBook,
   UpdateBook,
 } from "./shared/commands.js";
+import {
+  BooksUiState,
+  BooksUiStateChanged,
+  BooksUiStateMirror,
+  SetBooksUiState,
+} from "./shared/ui-state.js";
 import { BookCanvasSurface } from "./shared/surfaces.js";
 import { BookConfigSectionsSlot, BookOverlayTabsSlot } from "./shared/slot.js";
 import {
@@ -32,17 +40,24 @@ export const books = definePlugin({
     "@vtt/identity@^0",
     "@vtt/permissions@^0",
     "@vtt/shell-workbench@^0",
+    "@vtt/notes@^0",
   ],
-  traits: [Book],
-  events: [BookCreated, BookRemoved, BookUpdated],
-  commands: [CreateBook, RemoveBook, UpdateBook],
-  systems: [BookSpawningSystem, BookRemovalSystem, BookUpdateSystem],
+  traits: [Book, BooksUiState],
+  events: [BookCreated, BookRemoved, BookUpdated, BooksUiStateChanged],
+  commands: [CreateBook, RemoveBook, UpdateBook, SetBooksUiState],
+  systems: [
+    BookSpawningSystem,
+    BookRemovalSystem,
+    BookUpdateSystem,
+    BooksUiStateMirror,
+  ],
   surfaces: [BookCanvasSurface],
   slots: [BookOverlayTabsSlot, BookConfigSectionsSlot],
   views: [BookCanvasFallbackView],
   fills: {
     [PagesSlot.name]: [BooksPageProvider],
     [BookOverlayTabsSlot.name]: [ConfigOverlayTab],
+    [LinkKindsSlot.name]: [bookLinkKind],
   },
 });
 

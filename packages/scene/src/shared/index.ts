@@ -26,6 +26,12 @@ export {
 } from "./commands.js";
 export { SceneCanvasSurface } from "./surfaces.js";
 export {
+  SceneUiState,
+  SceneUiStateChanged,
+  SceneUiStateMirror,
+  SetSceneUiState,
+} from "./ui-state.js";
+export {
   SceneOverlayTabsSlot,
   TokenUnderlaysSlot,
   type SceneOverlayTab,

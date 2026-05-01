@@ -22,13 +22,36 @@ import { type EntityId } from "@vtt/substrate";
 import { notes } from "./manifest.js";
 import {
   Note,
+  NotesUiState,
   Page,
   BelongsToNote,
   PageOrdering,
   Headings,
 } from "./shared/index.js";
+import { TabSentinel, tabSentinelEntityId } from "@vtt/shell-workbench/shared";
 import { headingIdFor } from "./shared/headings.js";
 import { NoteView } from "./client/NoteView.jsx";
+
+const TAB_ID = "tab-1";
+
+/**
+ * Spawn the tab sentinel with the given initial NotesUiState. Mirrors
+ * what the workbench's WorkspaceStateApplySystem would do at runtime
+ * when a tab opens — but we're not dispatching workbench commands in
+ * these unit tests, so we seed the sentinel directly.
+ */
+function seedTabSentinel(
+  world: import("@vtt/substrate").World,
+  uiState: { activePageId: EntityId | null; pendingHeadingId: string | null },
+): void {
+  const sentinelId = tabSentinelEntityId(TAB_ID);
+  world.spawnAt(sentinelId, [
+    TabSentinel({ tabId: TAB_ID }),
+    OwnedBy({ userId: ME_USER_ID }),
+    EntityVisibility({ visibility: everyone() }),
+    NotesUiState(uiState),
+  ]);
+}
 
 beforeEach(() => cleanup());
 
@@ -142,37 +165,16 @@ function installScrollSpy(): ReturnType<typeof vi.fn> {
 describe("NoteView click → scroll-to-anchor", () => {
   it("clicking a same-page heading link scrolls to the heading", async () => {
     const h = harness();
+    seedTabSentinel(h.world, {
+      activePageId: h.setup.pageA,
+      pendingHeadingId: null,
+    });
     const introId = headingIdFor("Intro", 1);
     const scrollSpy = installScrollSpy();
 
-    // uiState starts on PageA.
-    const [uiState, setUiState] = (() => {
-      let s: unknown = { activePageId: h.setup.pageA };
-      const setters: Array<(next: unknown) => void> = [];
-      return [
-        () => s,
-        (next: unknown) => {
-          s = next;
-          for (const fn of setters) fn(next);
-        },
-        setters,
-      ] as const;
-    })();
-    void uiState;
-    void setUiState;
-
-    // Use a Solid signal so reactivity flows through NoteView's props.
-    const { createSignal } = await import("solid-js");
-    const [ui, setUi] = createSignal<unknown>({ activePageId: h.setup.pageA });
-
     render(() => (
       <ClientProvider value={h.client}>
-        <NoteView
-          noteId={h.setup.noteId}
-          tabId="tab-1"
-          uiState={ui() as never}
-          setUiState={setUi}
-        />
+        <NoteView noteId={h.setup.noteId} tabId={TAB_ID} />
       </ClientProvider>
     ));
 
@@ -206,20 +208,16 @@ describe("NoteView click → scroll-to-anchor", () => {
 
   it("clicking a cross-page heading link switches the page AND scrolls", async () => {
     const h = harness();
+    seedTabSentinel(h.world, {
+      activePageId: h.setup.pageA,
+      pendingHeadingId: null,
+    });
     const tacticsId = headingIdFor("Tactics", 1);
     const scrollSpy = installScrollSpy();
 
-    const { createSignal } = await import("solid-js");
-    const [ui, setUi] = createSignal<unknown>({ activePageId: h.setup.pageA });
-
     render(() => (
       <ClientProvider value={h.client}>
-        <NoteView
-          noteId={h.setup.noteId}
-          tabId="tab-1"
-          uiState={ui() as never}
-          setUiState={setUi}
-        />
+        <NoteView noteId={h.setup.noteId} tabId={TAB_ID} />
       </ClientProvider>
     ));
 
@@ -236,11 +234,16 @@ describe("NoteView click → scroll-to-anchor", () => {
 
     fireEvent.click(crossPageChip!);
 
-    // After click: uiState should now point at PageB and carry the
-    // pending heading id.
+    // After click: NotesUiState on the sentinel should now point at
+    // PageB. We read it through the world (the optimistic store
+    // reconciles via the trait subscription, so this is the
+    // authoritative source).
     await waitFor(() => {
-      const u = ui() as { activePageId?: EntityId; pendingHeadingId?: string };
-      expect(u.activePageId).toBe(h.setup.pageB);
+      const sentinelId = tabSentinelEntityId(TAB_ID);
+      const got = h.world.get(sentinelId, [NotesUiState]) as
+        | { UiState: { activePageId: EntityId | null } }
+        | undefined;
+      expect(got?.UiState.activePageId).toBe(h.setup.pageB);
     });
 
     // PageB's Tactics heading is now in DOM; the scroll fires against it.

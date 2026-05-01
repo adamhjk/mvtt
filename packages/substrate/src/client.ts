@@ -264,6 +264,12 @@ export function useClient(): ClientHandle {
   return c;
 }
 
-export { Surface, useTrait, useTraitPath, useQuery } from "./reactivity.jsx";
-export type { QueryRow } from "./reactivity.jsx";
+export {
+  Surface,
+  useTrait,
+  useTraitPath,
+  useQuery,
+  createOptimisticTrait,
+} from "./reactivity.jsx";
+export type { QueryRow, OptimisticTraitOptions } from "./reactivity.jsx";
 export type { PluginDef } from "./define.js";

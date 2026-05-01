@@ -9,6 +9,12 @@ export {
   RemoveBook,
   UpdateBook,
 } from "./commands.js";
+export {
+  BooksUiState,
+  BooksUiStateChanged,
+  BooksUiStateMirror,
+  SetBooksUiState,
+} from "./ui-state.js";
 export { BookCanvasSurface } from "./surfaces.js";
 export {
   BookOverlayTabsSlot,
@@ -18,3 +24,11 @@ export {
   type BookConfigSection,
   type BookConfigSectionRenderArgs,
 } from "./slot.js";
+export { bookLinkKind } from "./book-link-kind.js";
+export {
+  pendingBookNav,
+  publishBookNav,
+  clearBookNav,
+  type PendingBookNav,
+  __resetPendingBookNavForTests,
+} from "./pending-nav.js";

@@ -1,21 +1,51 @@
 import "@testing-library/jest-dom/vitest";
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { screen, cleanup, fireEvent, render } from "@solidjs/testing-library";
 import {
   buildTestClient,
 } from "@vtt/substrate/client-testing";
 import { ClientProvider } from "@vtt/substrate/client";
-import { definePlugin, qualifiedName } from "@vtt/substrate";
+import {
+  definePlugin,
+  qualifiedName,
+  type World,
+} from "@vtt/substrate";
+import { EntityVisibility, OwnedBy, everyone } from "@vtt/permissions/shared";
 import { shellWorkbench } from "@vtt/shell-workbench";
+import { TabSentinel, tabSentinelEntityId } from "@vtt/shell-workbench/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
+import { notes } from "@vtt/notes";
 import { books } from "./manifest.js";
+import { BooksUiState, SetBooksUiState } from "./shared/index.js";
 import { BookOverlayTabsSlot, type BookOverlayTab } from "./shared/slot.js";
 import { BooksDock } from "./client/BooksDock.js";
 
 beforeEach(() => cleanup());
 
 const BOOK_ID = "book-1";
+const TAB_ID = "tab-1";
+const ME = "alice";
+
+/**
+ * Spawn the per-tab sentinel a `BooksDock` looks up via `useTabSentinel`.
+ * In production the workbench's `WorkspaceStateApply` system spawns this
+ * on tab open; tests skip workbench commands and seed it directly.
+ */
+function seedSentinel(
+  world: World,
+  initial: { dockOpen: boolean; dockActiveId: string | null } = {
+    dockOpen: false,
+    dockActiveId: null,
+  },
+): void {
+  world.spawnAt(tabSentinelEntityId(TAB_ID), [
+    TabSentinel({ tabId: TAB_ID }),
+    OwnedBy({ userId: ME }),
+    EntityVisibility({ visibility: everyone() }),
+    BooksUiState(initial),
+  ]);
+}
 
 function harness(opts?: { extraTabs?: BookOverlayTab[] }) {
   const extraTabsPlugin = definePlugin({
@@ -26,7 +56,7 @@ function harness(opts?: { extraTabs?: BookOverlayTab[] }) {
     },
   });
   return buildTestClient({
-    plugins: [shellWorkbench, identity, permissions, books, extraTabsPlugin],
+    plugins: [shellWorkbench, notes, identity, permissions, books, extraTabsPlugin],
   });
 }
 
@@ -42,44 +72,45 @@ function tab(label: string, body: string, priority = 0): BookOverlayTab {
 describe("books BooksDock", () => {
   it("renders one pill per registered tab", () => {
     const h = harness({ extraTabs: [tab("Custom", "custom body")] });
+    seedSentinel(h.world);
     render(() => (
       <ClientProvider value={h.client}>
-        <BooksDock bookId={BOOK_ID} uiState={{}} setUiState={() => {}} />
+        <BooksDock bookId={BOOK_ID} tabId={TAB_ID} />
       </ClientProvider>
     ));
     expect(screen.getByRole("button", { name: /Config/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Custom/i })).toBeInTheDocument();
   });
 
-  it("clicking a pill opens the dock with that tab active in uiState", () => {
+  it("clicking a pill dispatches SetBooksUiState with the activated tab", () => {
     const h = harness({ extraTabs: [tab("Custom", "custom body")] });
-    const setUiState = vi.fn();
+    seedSentinel(h.world);
     render(() => (
       <ClientProvider value={h.client}>
-        <BooksDock bookId={BOOK_ID} uiState={{}} setUiState={setUiState} />
+        <BooksDock bookId={BOOK_ID} tabId={TAB_ID} />
       </ClientProvider>
     ));
     fireEvent.click(screen.getByRole("button", { name: /Custom/i }));
-    expect(setUiState).toHaveBeenCalledWith(
-      expect.objectContaining({
-        bookDockOpen: true,
-        bookDockActive: expect.stringContaining("@test/books/custom"),
-      }),
+
+    const dispatched = h.dispatched.find(
+      (cmd) => cmd.type === SetBooksUiState.name,
     );
+    expect(dispatched).toBeDefined();
+    expect((dispatched!.payload as { value: { dockOpen: boolean; dockActiveId: string } }).value).toEqual({
+      dockOpen: true,
+      dockActiveId: expect.stringContaining("@test/books/custom"),
+    });
   });
 
-  it("renders the active tab body when uiState.bookDockOpen is true", () => {
+  it("renders the active tab body when the trait is open with a matching id", () => {
     const h = harness({ extraTabs: [tab("Custom", "custom body")] });
+    seedSentinel(h.world, {
+      dockOpen: true,
+      dockActiveId: "@test/books/custom",
+    });
     render(() => (
       <ClientProvider value={h.client}>
-        <BooksDock
-          bookId={BOOK_ID}
-          uiState={{
-            bookDockOpen: true,
-            bookDockActive: "@test/books/custom",
-          }}
-          setUiState={() => {}}
-        />
+        <BooksDock bookId={BOOK_ID} tabId={TAB_ID} />
       </ClientProvider>
     ));
     expect(screen.getByTestId("tab-Custom")).toBeInTheDocument();

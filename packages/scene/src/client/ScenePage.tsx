@@ -49,23 +49,14 @@ export const ScenesPageProvider = definePageProvider({
     const first = world.query([Scene])[0];
     return first?.id ?? null;
   },
-  render: ({ tabId, entityId, uiState, setUiState }) => {
-    return (
-      <ScenePage
-        tabId={tabId}
-        entityId={entityId}
-        uiState={uiState()}
-        setUiState={setUiState}
-      />
-    );
+  render: ({ tabId, entityId }) => {
+    return <ScenePage tabId={tabId} entityId={entityId} />;
   },
 });
 
 function ScenePage(props: {
   tabId: string;
   entityId: string | null;
-  uiState: unknown;
-  setUiState: (next: unknown) => void;
 }): JSX.Element {
   return (
     <Show
@@ -76,22 +67,12 @@ function ScenePage(props: {
         </section>
       }
     >
-      {(idAcc) => (
-        <SceneBody
-          sceneId={idAcc()}
-          uiState={props.uiState}
-          setUiState={props.setUiState}
-        />
-      )}
+      {(idAcc) => <SceneBody sceneId={idAcc()} tabId={props.tabId} />}
     </Show>
   );
 }
 
-function SceneBody(props: {
-  sceneId: string;
-  uiState: unknown;
-  setUiState: (next: unknown) => void;
-}): JSX.Element {
+function SceneBody(props: { sceneId: string; tabId: string }): JSX.Element {
   // Layout: canvas takes the entire available height minus the dock.
   // No inner header — the workbench's tab strip already shows the
   // scene name. The Pixi canvas's `resizeTo: host` adapts to the
@@ -108,11 +89,7 @@ function SceneBody(props: {
           context={{ sceneId: props.sceneId }}
         />
       </div>
-      <SceneDock
-        sceneId={props.sceneId}
-        uiState={props.uiState}
-        setUiState={props.setUiState}
-      />
+      <SceneDock sceneId={props.sceneId} tabId={props.tabId} />
     </section>
   );
 }

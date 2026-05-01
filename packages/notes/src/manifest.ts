@@ -11,6 +11,12 @@ import {
   PageOrdering,
 } from "./shared/traits.js";
 import {
+  NotesUiState,
+  NotesUiStateChanged,
+  NotesUiStateMirror,
+  SetNotesUiState,
+} from "./shared/ui-state.js";
+import {
   EditBegun,
   EditEnded,
   EditLockExtended,
@@ -91,6 +97,7 @@ export const notes = definePlugin({
     PageDraft,
     PageHistory,
     EditorLock,
+    NotesUiState,
   ],
   events: [
     NoteCreated,
@@ -107,6 +114,7 @@ export const notes = definePlugin({
     EditEnded,
     PageBodyDraft,
     PageBodySet,
+    NotesUiStateChanged,
   ],
   commands: [
     CreateNote,
@@ -123,6 +131,7 @@ export const notes = definePlugin({
     EndEdit,
     SetDraftBody,
     SetPageBody,
+    SetNotesUiState,
   ],
   systems: [
     NoteSpawnSystem,
@@ -142,6 +151,7 @@ export const notes = definePlugin({
     EditExtendSystem,
     EditEndSystem,
     LockReleaseSystem,
+    NotesUiStateMirror,
   ],
   slots: [LinkKindsSlot],
   fills: {

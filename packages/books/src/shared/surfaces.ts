@@ -10,13 +10,20 @@ import { defineSurface, EntityId, z } from "@vtt/substrate";
  * renders its own content rather than always defaulting to "the first
  * Book in the world."
  *
+ * Wiki-link "go to page N / TOC entry X" navigation hints flow
+ * through a separate session-local signal (`pendingBookNav`), not
+ * this surface context. See `pending-nav.ts` for the rationale —
+ * Surface re-mounts its view on every context change, which would
+ * otherwise tear down the projection's viewer state every time a
+ * link was clicked.
+ *
  * If no projection plugin is loaded, the surface is empty and the
  * Books page renders its own "no projection registered" hint.
  */
 export const BookCanvasSurface = defineSurface({
   name: "@vtt/books/canvas",
   kind: "single",
-  context: z.object({ bookId: EntityId }),
+  context: z.object({ bookId: EntityId, tabId: z.string().min(1) }),
   description:
-    "The main content pane for one book. Exactly one renderer view fills this — typically a projection plugin (PDF, markdown, etc.). Parameterised by the bookId in the surface's context.",
+    "The main content pane for one book. Exactly one renderer view fills this — typically a projection plugin (PDF, markdown, etc.). Parameterised by the bookId in the surface's context, and the workbench tabId so projection plugins can attach their per-tab UI state to the right tab sentinel.",
 });

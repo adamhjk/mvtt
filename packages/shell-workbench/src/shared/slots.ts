@@ -55,23 +55,15 @@ export interface PageEntity {
  * `useTrait(entityId, …)` — providers don't need to thread reactive
  * entityId changes through their tree.
  *
- * `uiState` is a **reactive accessor** over whatever the provider
- * stashed last time. Reading `uiState()` inside JSX or an effect
- * subscribes to changes; the workbench does NOT remount the provider
- * when uiState updates (that would blow up state and scroll positions
- * on every persisted UI write). Providers that destructure `uiState`
- * and pass it as a static prop forfeit reactivity — pass it through
- * inside JSX (`<X uiState={uiState()} />`) or wrap it in a memo.
- *
- * `setUiState` persists a new value (dispatched as a workbench command,
- * replicated to the user's other devices). Stable across uiState
- * changes; safe to capture once.
+ * Per-tab UI state lives on the workbench's per-tab sentinel entity,
+ * NOT on the provider's render args. Plugins use
+ * `useTabSentinel(tabId)` from `@vtt/shell-workbench/client` and bind
+ * their UI traits via `createOptimisticTrait` from `@vtt/substrate/client`.
+ * See `design/optimistic-ui-state.md`.
  */
 export interface PageRenderArgs {
   readonly tabId: string;
   readonly entityId: EntityId | null;
-  readonly uiState: () => unknown;
-  readonly setUiState: (next: unknown) => void;
 }
 
 /**

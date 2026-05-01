@@ -17,11 +17,11 @@ import { BookCanvasSurface } from "../shared/surfaces.js";
  * gives them a hint about what to do (load a projection plugin) rather
  * than an unexplained blank pane.
  */
-export const BookCanvasFallbackView = defineView<{ bookId: string }>({
+export const BookCanvasFallbackView = defineView<{ bookId: string; tabId: string }>({
   name: "BookCanvasFallback",
   surface: BookCanvasSurface,
   priority: -100,
-  render: clientOnly((_ctx: { bookId: string }): JSX.Element => {
+  render: clientOnly((_ctx: { bookId: string; tabId: string }): JSX.Element => {
     return (
       <div class="flex h-full items-center justify-center bg-surface-sunken px-6 text-center">
         <p class="font-display text-sm text-fg-subtle">

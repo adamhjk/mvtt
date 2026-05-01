@@ -2,13 +2,19 @@ import {
   createEffect,
   createMemo,
   createSignal,
+  on,
   onCleanup,
   Show,
   For,
   type JSX,
   type Accessor,
 } from "solid-js";
-import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
+import {
+  createOptimisticTrait,
+  useClient,
+  useQuery,
+  useTrait,
+} from "@vtt/substrate/client";
 import {
   type CommandInstance,
   type EntityId,
@@ -21,29 +27,24 @@ import {
   EditorLock,
   EndEdit,
   Note,
+  NotesUiState,
   Page,
   PageDraft,
   PageHistory,
   PageOrdering,
   RemovePage,
   RenamePage,
+  SetNotesUiState,
   buildLinkKindIndex,
   type WikiLinkRef,
 } from "../shared/index.js";
-import { RetargetTab, SetTabUiState } from "@vtt/shell-workbench/shared";
+import {
+  OpenPage,
+  OpenPageInNewTab,
+  RetargetTab,
+} from "@vtt/shell-workbench/shared";
+import { useTabSentinel } from "@vtt/shell-workbench/client";
 import { NOTES_KIND } from "./NotesPage.jsx";
-
-interface NotesUiState {
-  readonly activePageId?: EntityId;
-  /**
-   * Heading id (`hd:…`) the next page render should scroll into view.
-   * Set by cross-page / cross-note link clicks; consumed (and cleared
-   * back to `undefined` via `setUiState`) by the receiving PageContent
-   * on its first render. Same-page anchor clicks bypass uiState
-   * entirely and use a local signal for transient scrolls.
-   */
-  readonly pendingHeadingId?: string;
-}
 import { useMe } from "./use-me.js";
 import { useBacklinks } from "./use-backlinks.js";
 import { MarkdownView } from "./markdown.jsx";
@@ -60,23 +61,24 @@ import { pendingScroll, setPendingScroll } from "./scroll-target.js";
  */
 export function NoteView(props: {
   noteId: EntityId;
-  /** Workbench tab id — needed for RetargetTab + uiState persistence. */
+  /** Workbench tab id — needed for RetargetTab + sentinel-bound UI state. */
   tabId: string;
-  /**
-   * Per-tab persisted state from the workbench. Notes uses
-   * `{ activePageId }` so that a deep-link arriving via uiState
-   * (set by a cross-note `[[gg > poop]]` click) lands on the right
-   * page on tab retarget, and so the user's last-viewed page survives
-   * tab focus changes / page reloads.
-   */
-  uiState: NotesUiState | null | undefined;
-  setUiState: (next: unknown) => void;
 }): JSX.Element {
   const client = useClient();
   const me = useMe();
   const note = useTrait(props.noteId, Note);
   const allPagesRows = useQuery([Page, BelongsToNote, PageOrdering]);
   const owner = useTrait(props.noteId, OwnedBy);
+
+  // Per-tab UI state lives on the tab sentinel as `NotesUiState`, written
+  // optimistically through `createOptimisticTrait`. The store survives
+  // the sub-tree (via the workbench Pane re-key boundary) but not a
+  // sentinel change — and the sentinel id is derived from `tabId`,
+  // which is stable across note retargets.
+  const sentinelId = useTabSentinel(props.tabId);
+  const [ui, setUi] = createOptimisticTrait(sentinelId, NotesUiState, {
+    write: (value) => SetNotesUiState({ entityId: sentinelId, value }),
+  });
 
   const myPages = createMemo(() =>
     allPagesRows()
@@ -93,42 +95,24 @@ export function NoteView(props: {
       .sort((a, b) => a.ordinal - b.ordinal),
   );
 
-  // Active-page state lives in the workbench's per-tab `uiState` so
-  // it survives tab retargets driven by deep cross-note links. Local
-  // state would reset on every retarget, dropping the page hint.
-  const activePageId = createMemo<EntityId | null>(
-    () => props.uiState?.activePageId ?? null,
-  );
   const setActivePageId = (pid: EntityId | null) => {
-    const next: NotesUiState = {
-      ...((props.uiState as NotesUiState | null | undefined) ?? {}),
-      activePageId: pid ?? undefined,
-    };
-    props.setUiState(next);
+    setUi("activePageId", pid);
   };
   /**
    * Atomic "switch page (and optionally scroll to a heading)" used by
-   * link clicks within the same note. Combined into one setUiState
-   * call so the receiving PageContent sees both fields in its initial
-   * uiState (rather than a two-frame race).
+   * link clicks within the same note. The page change is the persistent
+   * write; the anchor lives in the module-level `pendingScroll` signal
+   * so it survives any PageContent remount and gets cleared on a
+   * stability timer instead of through trait writes.
    */
   const navigateInNote = (pid: EntityId, anchor: string | null) => {
-    // Arm the scroll target first — survives the PageContent remount
-    // cascade triggered by setUiState below.
     if (anchor) armScroll(pid, anchor);
-    const next: NotesUiState = {
-      ...((props.uiState as NotesUiState | null | undefined) ?? {}),
-      activePageId: pid,
-      // We've already armed pendingScroll, so don't echo the anchor
-      // through uiState.
-      pendingHeadingId: undefined,
-    };
-    props.setUiState(next);
+    setUi("activePageId", pid);
   };
   const effectiveActive = createMemo(() => {
     const ids = myPages().map((p) => p.id);
-    const a = activePageId();
-    if (a && ids.includes(a)) return a;
+    const a = ui.activePageId;
+    if (a && ids.includes(a)) return a as EntityId;
     return ids[0] ?? null;
   });
 
@@ -166,23 +150,19 @@ export function NoteView(props: {
     if (clearTimer) clearTimeout(clearTimer);
   });
 
-  // Inbound `pendingHeadingId` from uiState (the cross-note path: the
-  // outgoing NoteView dispatched SetTabUiState before RetargetTab so
-  // we'd see it here on the destination side). Capture into the
-  // module-level pendingScroll, then clear from uiState so it doesn't
-  // re-fire on rehydration / unrelated reactivity.
+  // Inbound `pendingHeadingId` from the trait (the cross-note path:
+  // the outgoing NoteView wrote it BEFORE retargeting the tab so the
+  // destination side sees it on first mount). Capture into the
+  // module-level pendingScroll, then clear from the trait so it
+  // doesn't re-fire on rehydration / unrelated reactivity.
   createEffect(() => {
-    const anchor = props.uiState?.pendingHeadingId;
-    const pageId = props.uiState?.activePageId;
+    const anchor = ui.pendingHeadingId;
+    const pageId = ui.activePageId;
     if (!anchor || !pageId) return;
-    armScroll(pageId, anchor);
+    armScroll(pageId as EntityId, anchor);
     queueMicrotask(() => {
-      if (props.uiState?.pendingHeadingId !== anchor) return;
-      const next: NotesUiState = {
-        ...((props.uiState as NotesUiState | null | undefined) ?? {}),
-        pendingHeadingId: undefined,
-      };
-      props.setUiState(next);
+      if (ui.pendingHeadingId !== anchor) return;
+      setUi("pendingHeadingId", null);
     });
   });
 
@@ -253,13 +233,12 @@ export function NoteView(props: {
                 pageId={id}
                 noteId={props.noteId}
                 tabId={props.tabId}
+                sentinelId={sentinelId}
                 canEdit={canEdit()}
                 meUserId={me()?.userId ?? null}
                 onSelectPage={(pid, anchor) =>
                   navigateInNote(pid, anchor ?? null)
                 }
-                uiState={props.uiState}
-                setUiState={props.setUiState}
                 pendingAnchor={() => {
                   const ps = pendingScroll();
                   if (!ps) return null;
@@ -382,21 +361,26 @@ function PageContent(props: {
   pageId: EntityId;
   noteId: EntityId;
   tabId: string;
+  /**
+   * The per-tab sentinel entity id — same value `useTabSentinel(tabId)`
+   * returns. Passed in (rather than recomputed) so the cross-note link
+   * path can write `NotesUiState` on this sentinel before retargeting
+   * without recomputing the sentinel id from the tab id.
+   */
+  sentinelId: EntityId;
   canEdit: boolean;
   meUserId: string | null;
   /**
    * Switch the active page in this note. `anchor` (when set) is the
    * heading id to scroll to once the new page is rendered. Same-note
-   * navigation only — cross-note goes through SetTabUiState +
+   * navigation only — cross-note goes through SetNotesUiState +
    * RetargetTab in the click handler below.
    */
   onSelectPage: (pageId: EntityId, anchor?: string | null) => void;
-  uiState: NotesUiState | null | undefined;
-  setUiState: (next: unknown) => void;
   /**
    * Reactive accessor returning the heading anchor we should scroll
-   * to right now (or null). Lifted to NoteView so it survives the
-   * PageContent remount cascade caused by uiState writes.
+   * to right now (or null). Lifted to NoteView so it survives any
+   * PageContent remount.
    */
   pendingAnchor: Accessor<string | null>;
   /** Notify NoteView that a scroll just landed (resets stability timer). */
@@ -414,12 +398,18 @@ function PageContent(props: {
   /**
    * Click on a wiki-link chip in read-mode markdown. For the note kind,
    * intra-note (Note > Page) clicks just switch the active page; cross-
-   * note clicks RetargetTab the workbench tab. Heading anchors flow
-   * through `pendingHeadingId` (uiState for cross-mount cases, local
-   * signal for same-page).
+   * note clicks RetargetTab the workbench tab so the user stays in
+   * their reading flow. Heading anchors flow through `pendingHeadingId`
+   * (uiState for cross-mount cases, local signal for same-page).
    *
-   * v1: peek activations are a no-op (no peek infrastructure yet); the
-   * chip just acts like a regular click against the navigate path.
+   * For other kinds (character, scene, asset, …), a `navigate`
+   * activation dispatches `OpenPage`: focuses an already-open tab
+   * pointed at the same `(pageKind, entityId)`, or opens a new tab in
+   * the active pane if none exists. Cmd/Ctrl-click forces a new tab.
+   * The notes tab is left alone — cross-kind links should not clobber
+   * the user's place in the note.
+   *
+   * v1: peek activations are a no-op (no peek infrastructure yet).
    */
   const onLink = (ref: WikiLinkRef, e: MouseEvent) => {
     const idx = buildLinkKindIndex(client.registry);
@@ -451,18 +441,19 @@ function PageContent(props: {
         }
         return;
       }
-      // Different note — set the page+anchor hint via uiState BEFORE
-      // retargeting so the new NoteView mounts directly on the
-      // requested page and scrolls to the heading.
+      // Different note — write the page+anchor hint to the sentinel's
+      // NotesUiState BEFORE retargeting so the new NoteView mounts
+      // directly on the requested page and scrolls to the heading.
+      // The sentinel survives retarget (its id derives from tabId,
+      // which is stable across `RetargetTab`).
       e.preventDefault();
-      const nextUiState: NotesUiState = {
-        ...(r.pageId ? { activePageId: r.pageId } : {}),
-        ...(r.anchor ? { pendingHeadingId: r.anchor } : {}),
-      };
       client.dispatch(
-        SetTabUiState({
-          tabId: props.tabId,
-          uiState: nextUiState,
+        SetNotesUiState({
+          entityId: props.sentinelId,
+          value: {
+            activePageId: r.pageId ?? null,
+            pendingHeadingId: r.anchor ?? null,
+          },
         }) as CommandInstance,
       );
       client.dispatch(
@@ -475,22 +466,22 @@ function PageContent(props: {
       return;
     }
 
+    const meta = e.metaKey || e.ctrlKey;
     const activation = kind.activate(resolved, {
       modifiers: {
-        meta: e.metaKey || e.ctrlKey,
+        meta,
         shift: e.shiftKey,
         alt: e.altKey,
       },
     });
     if (activation.type === "navigate") {
       e.preventDefault();
-      client.dispatch(
-        RetargetTab({
-          tabId: props.tabId,
-          pageKind: activation.pageKind,
-          entityId: activation.entityId,
-        }) as CommandInstance,
-      );
+      const payload = {
+        pageKind: activation.pageKind,
+        entityId: activation.entityId,
+      };
+      const cmd = meta ? OpenPageInNewTab(payload) : OpenPage(payload);
+      client.dispatch(cmd as CommandInstance);
     }
   };
 
@@ -605,12 +596,18 @@ function PageTitleField(props: {
   const [local, setLocal] = createSignal(remoteTitle());
   const [focused, setFocused] = createSignal(false);
 
-  // Sync remote → local whenever the trait changes AND the input
-  // isn't currently focused. Avoids overwriting a user's typing.
-  createEffect(() => {
-    const t = remoteTitle();
-    if (!focused()) setLocal(t);
-  });
+  // Sync remote → local on every trait change, but only when the input
+  // isn't currently focused (so a teammate's rename doesn't clobber
+  // your in-progress edit). `on(remoteTitle, ...)` deliberately leaves
+  // `focused` untracked: otherwise blurring the input flips `focused`
+  // → false and synchronously runs this effect *before* `commit()`
+  // reads `local()`, resetting the user's typed value back to the
+  // remote title, which makes `commit` bail on the no-change check.
+  createEffect(
+    on(remoteTitle, (t) => {
+      if (!focused()) setLocal(t);
+    }),
+  );
 
   const commit = () => {
     const next = local().trim();
@@ -628,7 +625,7 @@ function PageTitleField(props: {
   if (!props.canEdit) {
     return (
       <h3
-        class="font-display text-lg tracking-tight text-fg truncate"
+        class="font-display text-4xl leading-tight tracking-tight text-fg truncate"
         style={{ "font-family": "var(--font-display)" }}
       >
         {remoteTitle()}
@@ -663,7 +660,7 @@ function PageTitleField(props: {
       data-lpignore="true"
       data-bwignore="true"
       data-form-type="other"
-      class="flex-1 min-w-0 rounded-(--radius-control) border border-transparent bg-transparent px-2 py-1 font-display text-lg tracking-tight text-fg outline-none focus:border-border focus:bg-surface hover:border-border-muted transition"
+      class="flex-1 min-w-0 rounded-(--radius-control) border border-transparent bg-transparent px-2 py-1 font-display text-4xl leading-tight tracking-tight text-fg outline-none focus:border-border focus:bg-surface hover:border-border-muted transition"
       style={{ "font-family": "var(--font-display)" }}
       placeholder="Page title…"
       title="Click to rename this page"

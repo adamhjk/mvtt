@@ -46,23 +46,14 @@ export const BooksPageProvider = definePageProvider({
     const first = world.query([Book])[0];
     return first?.id ?? null;
   },
-  render: ({ tabId, entityId, uiState, setUiState }) => {
-    return (
-      <BookPage
-        tabId={tabId}
-        entityId={entityId}
-        uiState={uiState()}
-        setUiState={setUiState}
-      />
-    );
+  render: ({ tabId, entityId }) => {
+    return <BookPage tabId={tabId} entityId={entityId} />;
   },
 });
 
 function BookPage(props: {
   tabId: string;
   entityId: string | null;
-  uiState: unknown;
-  setUiState: (next: unknown) => void;
 }): JSX.Element {
   return (
     <Show
@@ -73,35 +64,21 @@ function BookPage(props: {
         </section>
       }
     >
-      {(idAcc) => (
-        <BookBody
-          bookId={idAcc()}
-          uiState={props.uiState}
-          setUiState={props.setUiState}
-        />
-      )}
+      {(idAcc) => <BookBody bookId={idAcc()} tabId={props.tabId} />}
     </Show>
   );
 }
 
-function BookBody(props: {
-  bookId: string;
-  uiState: unknown;
-  setUiState: (next: unknown) => void;
-}): JSX.Element {
+function BookBody(props: { bookId: string; tabId: string }): JSX.Element {
   return (
     <section class="flex h-full min-h-0 flex-col">
       <div class="relative min-h-0 flex-1 overflow-hidden">
         <Surface
           name={BookCanvasSurface.name}
-          context={{ bookId: props.bookId }}
+          context={{ bookId: props.bookId, tabId: props.tabId }}
         />
       </div>
-      <BooksDock
-        bookId={props.bookId}
-        uiState={props.uiState}
-        setUiState={props.setUiState}
-      />
+      <BooksDock bookId={props.bookId} tabId={props.tabId} />
     </section>
   );
 }

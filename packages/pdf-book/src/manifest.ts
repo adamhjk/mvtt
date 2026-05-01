@@ -3,6 +3,12 @@ import { BookConfigSectionsSlot } from "@vtt/books/shared";
 import { PdfDocument } from "./shared/traits.js";
 import { PdfDocumentSet } from "./shared/events.js";
 import { SetPdfDocument } from "./shared/commands.js";
+import {
+  PdfReaderState,
+  PdfReaderStateChanged,
+  PdfReaderStateMirror,
+  SetPdfReaderState,
+} from "./shared/ui-state.js";
 import { PdfDocumentSetSystem } from "./server/systems.js";
 import { PdfCanvasView, PdfConfigSection } from "./client/index.js";
 
@@ -14,11 +20,12 @@ export const pdfBook = definePlugin({
     "@vtt/identity@^0",
     "@vtt/permissions@^0",
     "@vtt/books@^0",
+    "@vtt/shell-workbench@^0",
   ],
-  traits: [PdfDocument],
-  events: [PdfDocumentSet],
-  commands: [SetPdfDocument],
-  systems: [PdfDocumentSetSystem],
+  traits: [PdfDocument, PdfReaderState],
+  events: [PdfDocumentSet, PdfReaderStateChanged],
+  commands: [SetPdfDocument, SetPdfReaderState],
+  systems: [PdfDocumentSetSystem, PdfReaderStateMirror],
   views: [PdfCanvasView],
   fills: {
     // PDF upload lives inside the Book's built-in Config tab (matches

@@ -7,6 +7,7 @@ import { Identity, Name, Online } from "@vtt/identity/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { books } from "@vtt/books";
+import { notes } from "@vtt/notes";
 import { definePlugin, defineSlot, defineSurface, z } from "@vtt/substrate";
 import { PdfDocument } from "./shared/traits.js";
 import { pdfBook } from "./manifest.js";
@@ -45,7 +46,7 @@ const ME_CLIENT = "client-me";
 
 function harness(opts?: { asGm?: boolean; existingPdf?: boolean }) {
   return buildTestClient({
-    plugins: [workbenchStub, identity, permissions, books, pdfBook],
+    plugins: [workbenchStub, notes, identity, permissions, books, pdfBook],
     clientId: ME_CLIENT,
     setupWorld: ({ world }) => {
       world.spawn([

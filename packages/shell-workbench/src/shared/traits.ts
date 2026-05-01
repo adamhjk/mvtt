@@ -3,15 +3,17 @@ import { defineTrait, EntityId, QualifiedNameSchema, z } from "@vtt/substrate";
 /**
  * The shape of a single tab. `pageKind` references a registered PageProvider
  * by qualified name; `entityId` may be null for "kind picked, entity not yet
- * chosen" — providers render an empty/picker state in that case. `uiState`
- * is opaque per-tab JSON the provider owns (scroll position, sub-tab inside
- * a sheet). The Workbench treats it as transparent JSON.
+ * chosen" — providers render an empty/picker state in that case.
+ *
+ * Per-tab UI state (active page in a note, dock state on a scene/book,
+ * PDF reader state, etc.) lives on the per-tab sentinel entity (see
+ * `TabSentinel` and `design/optimistic-ui-state.md`), NOT on this tab
+ * record. The workbench owns layout; plugins own their slice of state.
  */
 const TabSchema = z.object({
   id: z.string().min(1),
   pageKind: QualifiedNameSchema,
   entityId: EntityId.nullable(),
-  uiState: z.unknown().optional(),
 });
 export type WorkspaceTab = z.infer<typeof TabSchema>;
 
@@ -128,5 +130,22 @@ export const WorkspaceOwner = defineTrait({
   name: "@vtt/shell-workbench/WorkspaceOwner",
   schema: z.object({
     userId: z.string().min(1),
+  }),
+});
+
+/**
+ * One sentinel entity per open tab. Plugins attach their own per-tab UI-
+ * state traits to this entity (see `design/optimistic-ui-state.md`). The
+ * sentinel's id is deterministic from `tabId` (see `tabSentinelEntityId`)
+ * so server and clients converge without id allocation. Spawned/despawned
+ * by the workbench's WorkspaceStateApply system as the user's `tabs`
+ * record gains/loses entries; OwnedBy + EntityVisibility{actors:[userId]}
+ * keep the sentinel scoped to the owning user's connections, just like
+ * WorkspaceOwner.
+ */
+export const TabSentinel = defineTrait({
+  name: "@vtt/shell-workbench/TabSentinel",
+  schema: z.object({
+    tabId: z.string().min(1),
   }),
 });

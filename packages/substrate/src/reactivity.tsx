@@ -1,5 +1,12 @@
 import { createMemo, createSignal, onCleanup, type Accessor, For } from "solid-js";
-import type { AnyViewDef, TraitMeta } from "./define.js";
+import {
+  createStore,
+  reconcile,
+  unwrap,
+  type SetStoreFunction,
+  type Store,
+} from "solid-js/store";
+import type { AnyViewDef, CommandInstance, TraitMeta } from "./define.js";
 import type { EntityId, SurfaceName, TraitName } from "./schema.js";
 import { useClient } from "./client.js";
 import { readTraitWithDefault } from "./derivation.js";
@@ -90,6 +97,124 @@ function readPath(root: unknown, path: ReadonlyArray<string | number>): unknown 
     }
   }
   return cur;
+}
+
+export interface OptimisticTraitOptions<T extends TraitMeta> {
+  /**
+   * Build the command that persists a write. Called after the local store
+   * has already been mutated, with the unwrapped post-mutation value. The
+   * returned command MUST NOT call `world.allocateId()` in its `apply`:
+   * this primitive writes one trait on one already-existing entity, and
+   * predicting server-allocated ids on the client is silently broken under
+   * filtered events. If you need to create entities, use a non-optimistic
+   * dispatch.
+   */
+  readonly write: (next: TraitValue<T>) => CommandInstance;
+  /**
+   * Initial value override. Used only when the trait isn't attached AND
+   * the schema has no `.default(...)`. Discipline: UI-state traits should
+   * declare a Zod default; `initial` is the escape hatch for context-
+   * dependent initial values.
+   */
+  readonly initial?: TraitValue<T>;
+  /**
+   * If set, command dispatch is trailing-edge debounced by this many
+   * milliseconds. The local store still updates synchronously on every
+   * `setStore` call — only the network write coalesces to one dispatch
+   * carrying the latest value. A pending dispatch is flushed synchronously
+   * on `onCleanup`. Default 0 (dispatch every setter call).
+   */
+  readonly debounceMs?: number;
+}
+
+/**
+ * Optimistic per-trait reactive store. Returns `[store, setStore]` where:
+ *
+ *   • Reads (`store.foo`) are path-granular — sibling fields can change
+ *     without invalidating this read. No more parent re-renders cascading
+ *     through the component tree.
+ *   • Writes (`setStore(...)`) update the local store synchronously and
+ *     dispatch the configured command in parallel.
+ *   • Server events for `(entityId, trait)` reconcile the store via
+ *     Solid's `reconcile` — server is canonical, last-write-wins.
+ *   • An `ack.ok === false` ack rolls the store back to the most recent
+ *     server-confirmed value (`lastServerValue`). Disconnect resolves to
+ *     `ok: false`, so the same path covers connection drops.
+ *
+ * Throws at construction if the trait has no value on `entityId`, no Zod
+ * `.default(...)`, and no `initial` — the contract is "stable shape from
+ * first read", not "consumers handle undefined".
+ *
+ * Designed for plugin UI state on a per-tab sentinel entity. Not for
+ * commands that allocate entities — see `OptimisticTraitOptions.write`.
+ */
+export function createOptimisticTrait<T extends TraitMeta>(
+  entityId: EntityId,
+  trait: T,
+  options: OptimisticTraitOptions<T>,
+): readonly [Store<TraitValue<T>>, SetStoreFunction<TraitValue<T>>] {
+  const client = useClient();
+  const fromWorld = readTraitWithDefault(client.world, entityId, trait) as
+    | TraitValue<T>
+    | undefined;
+  const seed = fromWorld ?? options.initial;
+  if (seed === undefined) {
+    throw new Error(
+      `createOptimisticTrait: trait ${trait.name} has no value on ${entityId}, no Zod default, and no initial. Add a .default(...) to the schema or pass initial.`,
+    );
+  }
+
+  // Solid's createStore requires `T extends object`. TraitValue<T> resolves
+  // to z.infer<S> which is an object-shaped record in practice, but the
+  // generic doesn't know that, hence the intersection narrowing.
+  type V = TraitValue<T> & object;
+  // Clone on capture for both the store backing and `lastServerValue`. A
+  // Solid store proxy is backed by the object passed to createStore;
+  // mutations through the proxy mutate that object in place. If we kept
+  // `lastServerValue` pointing at the same reference, an optimistic
+  // setStore would silently mutate `lastServerValue` too, and the rollback
+  // path would have nothing left to roll back to. Trait values are
+  // JSON-shaped (see `derivation.ts:251`) so structuredClone is sound.
+  const [store, rawSet] = createStore<V>(structuredClone(seed) as V);
+  let lastServerValue: V = structuredClone(seed) as V;
+
+  const off = client.world.subscribe((id, name) => {
+    if (id !== entityId || name !== trait.name) return;
+    const next = readTraitWithDefault(client.world, entityId, trait) as V | undefined;
+    if (next === undefined) return;
+    lastServerValue = structuredClone(next);
+    rawSet(reconcile(next));
+  });
+
+  let pending: ReturnType<typeof setTimeout> | null = null;
+  const flush = () => {
+    if (pending !== null) {
+      clearTimeout(pending);
+      pending = null;
+    }
+    const handle = client.dispatch(options.write(unwrap(store) as TraitValue<T>));
+    handle.ack.then((ack) => {
+      if (!ack.ok) rawSet(reconcile(lastServerValue));
+    });
+  };
+
+  const debounceMs = options.debounceMs ?? 0;
+  const set = ((...args: unknown[]) => {
+    (rawSet as (...a: unknown[]) => void)(...args);
+    if (debounceMs <= 0) {
+      flush();
+      return;
+    }
+    if (pending !== null) clearTimeout(pending);
+    pending = setTimeout(flush, debounceMs);
+  }) as SetStoreFunction<TraitValue<T>>;
+
+  onCleanup(() => {
+    off();
+    if (pending !== null) flush();
+  });
+
+  return [store, set] as const;
 }
 
 export interface QueryRow {

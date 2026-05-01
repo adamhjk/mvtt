@@ -1,4 +1,4 @@
-import { createSignal, For, onCleanup, Show, type JSX } from "solid-js";
+import { createMemo, createSignal, Index, onCleanup, Show, type JSX } from "solid-js";
 import { useClient } from "@vtt/substrate/client";
 import { Pane } from "./Pane.js";
 import { SetSplitProportions } from "../shared/commands.js";
@@ -62,27 +62,62 @@ function Node(props: {
   paneById: Record<string, WorkspacePane>;
   zenPaneId: string | null;
 }): JSX.Element {
+  // Both branches go through a small wrapper component rather than an
+  // inline IIFE. The IIFE form reads props.node / props.paneById inside
+  // Show's reactive computation — when those change (every FocusPane
+  // dispatch clones the whole state, so paneById is a fresh dict), the
+  // computation re-runs and `createComponent(Pane, …)` is called again,
+  // unmounting and remounting the Pane subtree. PdfReader's URL effect
+  // then re-fires `pdfjs.getDocument(...)` and snaps the viewer back to
+  // page 1. Wrapping the per-branch JSX in a component scopes the
+  // reactive reads to the child's own body, which updates internal
+  // signals without re-mounting.
   return (
     <Show
       when={props.node.kind === "split"}
-      fallback={(() => {
-        if (props.node.kind !== "pane") return null;
-        const pane = props.paneById[props.node.paneId];
-        if (!pane) return null;
-        return <Pane pane={pane} />;
-      })() as JSX.Element}
+      fallback={
+        <PaneLeaf node={props.node} paneById={props.paneById} />
+      }
     >
-      {(() => {
-        if (props.node.kind !== "split") return null;
-        return (
-          <SplitNode
-            split={props.node}
-            path={props.path}
-            paneById={props.paneById}
-            zenPaneId={props.zenPaneId}
-          />
-        );
-      })() as JSX.Element}
+      <SplitBranch
+        node={props.node}
+        path={props.path}
+        paneById={props.paneById}
+        zenPaneId={props.zenPaneId}
+      />
+    </Show>
+  );
+}
+
+function PaneLeaf(props: {
+  node: TreeShape;
+  paneById: Record<string, WorkspacePane>;
+}): JSX.Element {
+  const pane = createMemo(() => {
+    if (props.node.kind !== "pane") return null;
+    return props.paneById[props.node.paneId] ?? null;
+  });
+  return (
+    <Show when={pane()}>{(p) => <Pane pane={p()} />}</Show>
+  );
+}
+
+function SplitBranch(props: {
+  node: TreeShape;
+  path: ReadonlyArray<number>;
+  paneById: Record<string, WorkspacePane>;
+  zenPaneId: string | null;
+}): JSX.Element {
+  return (
+    <Show when={props.node.kind === "split" ? props.node : null}>
+      {(splitAcc) => (
+        <SplitNode
+          split={splitAcc() as Extract<TreeShape, { kind: "split" }>}
+          path={props.path}
+          paneById={props.paneById}
+          zenPaneId={props.zenPaneId}
+        />
+      )}
     </Show>
   );
 }
@@ -179,13 +214,24 @@ function SplitNode(props: {
       ref={containerEl}
       class={`flex min-h-0 min-w-0 flex-1 ${flexAxis}`}
     >
-      <For each={props.split.children}>
+      {/*
+        `<Index>` not `<For>`. For keys children by reference, so every
+        substrate state clone (FocusPane, OpenPage, even bumpInteracted)
+        produces fresh `children` array entries and unmounts every pane.
+        That tears down PdfReader and snaps pdfjs back to page 1 every
+        time the user clicks a different pane. Index keys by position —
+        as long as the tree's shape is stable (same axis, same number of
+        children), the wrapper divs and Node instances stay mounted; the
+        per-child node is exposed as a reactive accessor so its content
+        still updates on tree changes.
+      */}
+      <Index each={props.split.children}>
         {(child, i) => {
           const total = () =>
             proportions().reduce((a, b) => a + b, 0);
           return (
             <>
-              <Show when={i() > 0}>
+              <Show when={i > 0}>
                 <div
                   role="separator"
                   aria-orientation={
@@ -195,7 +241,7 @@ function SplitNode(props: {
                   classList={{
                     "bg-border": draft() !== null,
                   }}
-                  onMouseDown={(e) => beginDrag(i(), e)}
+                  onMouseDown={(e) => beginDrag(i, e)}
                 >
                   {/* a slightly-wider invisible hit target so the divider
                       is grabbable without being a chunky 1px target */}
@@ -212,12 +258,12 @@ function SplitNode(props: {
               <div
                 class="flex min-h-0 min-w-0 flex-col"
                 style={{
-                  flex: `${(proportions()[i()] ?? 1) / total()} 1 0`,
+                  flex: `${(proportions()[i] ?? 1) / total()} 1 0`,
                 }}
               >
                 <Node
-                  node={child}
-                  path={[...props.path, i()]}
+                  node={child()}
+                  path={[...props.path, i]}
                   paneById={props.paneById}
                   zenPaneId={props.zenPaneId}
                 />
@@ -225,7 +271,7 @@ function SplitNode(props: {
             </>
           );
         }}
-      </For>
+      </Index>
     </div>
   );
 }

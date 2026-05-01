@@ -32,12 +32,16 @@ const LazyPdfReader = lazy(async () => {
  * Fills BookCanvasSurface at priority 0 (above @vtt/books's -100
  * fallback). Empty state when no PDF is uploaded yet — the upload
  * tab in the bottom dock is the way in.
+ *
+ * The reader subscribes to `pendingBookNav` from `@vtt/books/shared`
+ * for `[[book:Name#42]]` wiki-link navigation; `bookId` is forwarded
+ * so it can filter requests for the book it's currently rendering.
  */
-export const PdfCanvasView = defineView<{ bookId: string }>({
+export const PdfCanvasView = defineView<{ bookId: string; tabId: string }>({
   name: "PdfCanvas",
   surface: BookCanvasSurface,
   priority: 0,
-  render: clientOnly((ctx: { bookId: string }): JSX.Element => {
+  render: clientOnly((ctx: { bookId: string; tabId: string }): JSX.Element => {
     const doc = useTrait(ctx.bookId, PdfDocument);
     return (
       <Show
@@ -60,7 +64,7 @@ export const PdfCanvasView = defineView<{ bookId: string }>({
               </div>
             }
           >
-            <LazyPdfReader url={url()} />
+            <LazyPdfReader url={url()} bookId={ctx.bookId} tabId={ctx.tabId} />
           </Suspense>
         )}
       </Show>

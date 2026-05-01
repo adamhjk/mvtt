@@ -6,6 +6,7 @@ import {
   onCleanup,
   onMount,
   Show,
+  untrack,
   type JSX,
 } from "solid-js";
 // We import from `pdfjs-dist/legacy/...` rather than the package's
@@ -32,6 +33,11 @@ import type { PDFDocumentProxy } from "pdfjs-dist";
 // dynamic chunk for this module so it only ships when a Book is
 // actually opened.
 import "pdfjs-dist/legacy/web/pdf_viewer.css";
+import { pendingBookNav, clearBookNav } from "@vtt/books/shared";
+import { createOptimisticTrait } from "@vtt/substrate/client";
+import { type EntityId } from "@vtt/substrate";
+import { useTabSentinel } from "@vtt/shell-workbench/client";
+import { PdfReaderState, SetPdfReaderState } from "../shared/ui-state.js";
 
 // One-time worker URL hook. `new URL(..., import.meta.url)` is the
 // standard ESM idiom Vite (and other bundlers) special-case to emit a
@@ -68,21 +74,19 @@ interface OutlineNode {
 }
 
 /**
- * Persisted reader state per-document. Keyed by the PDF's public URL
- * (which already includes a `?v=<bytes>` cache-bust suffix from the
- * upload endpoint, so a replaced PDF gets a fresh slot — exactly what
- * we want, since page numbers don't carry across replacements).
+ * Persisted reader state lives on the per-tab sentinel as
+ * `PdfReaderState`, written through `createOptimisticTrait` (immediate
+ * local feedback, server-confirmed reconciliation, last-write-wins).
+ * Replaces the previous `sessionStorage` shim; persistence is now
+ * uniform with every other plugin's UI state — see
+ * `design/optimistic-ui-state.md`.
  *
- * Stored in `sessionStorage` rather than a substrate trait because:
- *   - it's per-tab, per-user UI state — not part of the shared world
- *   - it survives the dev-time HMR remount and any future component
- *     remount path (the Solid analysis says PdfReader is stable today,
- *     but persisting cheaply here is the belt-and-braces against any
- *     future regression that does cause a remount)
- *   - sessionStorage scopes naturally to a single tab — opening the
- *     same book in two windows doesn't cross-contaminate spots.
+ * State scope: per-tab (not per-document). Switching the PDF inside an
+ * existing tab keeps the page number, which we clamp to the new
+ * document's page range on restore. This matches what most readers do
+ * and is rare in practice.
  */
-interface PersistedReaderState {
+type PersistedReaderState = {
   page: number;
   /** PDFViewer scaleValue (preset or numeric string). */
   scale: string;
@@ -90,46 +94,8 @@ interface PersistedReaderState {
   scrollTop: number;
   query: string;
   /** Whether the outline sidebar is visible. */
-  outlineOpen?: boolean;
-}
-
-const STORAGE_PREFIX = "vtt:pdf-book:reader:";
-
-function loadPersistedState(url: string): PersistedReaderState | null {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_PREFIX + url);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<PersistedReaderState>;
-    if (
-      typeof parsed.page !== "number" ||
-      typeof parsed.scale !== "string" ||
-      typeof parsed.scrollTop !== "number" ||
-      typeof parsed.query !== "string"
-    ) {
-      return null;
-    }
-    return {
-      page: parsed.page,
-      scale: parsed.scale,
-      scrollTop: parsed.scrollTop,
-      query: parsed.query,
-      outlineOpen:
-        typeof parsed.outlineOpen === "boolean" ? parsed.outlineOpen : false,
-    };
-  } catch {
-    // sessionStorage can throw (private mode, quota, JSON parse) — a
-    // failed restore is a non-event, just start fresh.
-    return null;
-  }
-}
-
-function savePersistedState(url: string, state: PersistedReaderState): void {
-  try {
-    sessionStorage.setItem(STORAGE_PREFIX + url, JSON.stringify(state));
-  } catch {
-    /* see loadPersistedState — quota/private-mode failures are fine to swallow */
-  }
-}
+  outlineOpen: boolean;
+};
 
 /**
  * Full PDF reader powered by pdfjs-dist's `PDFViewer` — the same
@@ -157,7 +123,51 @@ function savePersistedState(url: string, state: PersistedReaderState): void {
  * replacement). Cleanup on unmount destroys the loading task, the
  * document, and calls `viewer.cleanup()` to free per-page caches.
  */
-export function PdfReader(props: { url: string }): JSX.Element {
+/**
+ * Find the first outline node whose title matches `needle` (case- and
+ * whitespace-insensitive), walking the tree depth-first. Returns the
+ * matching node or null.
+ */
+function findOutlineByTitle(
+  nodes: ReadonlyArray<OutlineNode>,
+  needle: string,
+): OutlineNode | null {
+  const normalised = needle.trim().toLowerCase().replace(/\s+/g, " ");
+  for (const n of nodes) {
+    const title = n.title.trim().toLowerCase().replace(/\s+/g, " ");
+    if (title === normalised) return n;
+    const child = findOutlineByTitle(n.items, needle);
+    if (child) return child;
+  }
+  return null;
+}
+
+export function PdfReader(props: {
+  url: string;
+  /**
+   * Entity id of the Book this reader is rendering. Used to filter
+   * the shared `pendingBookNav` signal — only requests targeting
+   * this book apply.
+   */
+  bookId: string;
+  /**
+   * Workbench tab id — used to look up the per-tab sentinel that
+   * carries this reader's persisted state via `PdfReaderState`.
+   */
+  tabId: string;
+}): JSX.Element {
+  const sentinelId: EntityId = useTabSentinel(props.tabId);
+  const [readerState, setReaderState] = createOptimisticTrait(
+    sentinelId,
+    PdfReaderState,
+    {
+      write: (value) => SetPdfReaderState({ entityId: sentinelId, value }),
+      // Page changes, scroll, and zoom can fire many times per second
+      // during rapid scrolling. Coalesce to one dispatch per ~250ms,
+      // flushed on cleanup.
+      debounceMs: 250,
+    },
+  );
   const [pageNumber, setPageNumber] = createSignal(1);
   const [pageCount, setPageCount] = createSignal(0);
   // Default scale is "page-width" rather than "auto": auto recomputes
@@ -196,15 +206,21 @@ export function PdfReader(props: { url: string }): JSX.Element {
   // could have moved on if a replace happened mid-load).
   let pendingRestore: PersistedReaderState | null = null;
 
+  // pagesinit gates the pending-nav apply. Until pdfjs has laid out
+  // pages, `viewer.currentPageNumber = N` is silently dropped. We
+  // also need the outline (loaded async after the doc resolves) for
+  // TOC nav, so there are two readiness signals; the apply function
+  // checks both as appropriate.
+  const [pagesReady, setPagesReady] = createSignal(false);
+
   // Save state imperatively rather than via createEffect so the writes
   // happen exactly when pdfjs reports a change — no extra reactive
   // round-trip and no risk of saving stale snapshots during the
-  // initial restore.
+  // initial restore. The optimistic store debounces internally so
+  // rapid scroll/zoom events coalesce into one network write.
   const persist = () => {
     if (!viewer) return;
-    const url = props.url;
-    if (!url) return;
-    savePersistedState(url, {
+    setReaderState({
       page: viewer.currentPageNumber,
       scale: viewer.currentScaleValue ?? scaleValue(),
       scrollTop: containerEl?.scrollTop ?? 0,
@@ -240,43 +256,65 @@ export function PdfReader(props: { url: string }): JSX.Element {
       if (!viewer) return;
       const restore = pendingRestore;
       pendingRestore = null;
+
+      // Scale is a pure viewer setting and always safe to restore.
       if (restore) {
         setScaleValue(restore.scale);
         viewer.currentScaleValue = restore.scale;
+      } else {
+        viewer.currentScaleValue = scaleValue();
+      }
+
+      // Page + scrollTop restore: only when there's NO pending wiki-
+      // link nav for this book. A click is more recent intent than
+      // the persisted spot, and replaying scrollTop afterwards (via
+      // rAF) would scroll us away from the linked page. The pending-
+      // nav createEffect below fires once `pagesReady()` flips true
+      // and does the actual `currentPageNumber = N` jump.
+      const req = pendingBookNav();
+      const havePendingNav =
+        req &&
+        req.bookId === props.bookId &&
+        (req.page !== undefined || req.tocTitle !== undefined);
+
+      if (restore && !havePendingNav) {
         if (restore.page >= 1) {
           viewer.currentPageNumber = restore.page;
         }
-        // scrollTop is applied after the next frame so pdfjs has
-        // settled the page heights at the new scale. A direct
-        // assignment here would race with pdfjs's own scroll-to-page
-        // call from currentPageNumber and end up clobbered.
         if (restore.scrollTop > 0 && containerEl) {
+          // scrollTop is applied after the next frame so pdfjs has
+          // settled the page heights at the new scale. A direct
+          // assignment here would race with pdfjs's own scroll-to-
+          // page call and end up clobbered.
           requestAnimationFrame(() => {
             if (containerEl) containerEl.scrollTop = restore.scrollTop;
           });
         }
-        if (restore.query) {
-          setFindQuery(restore.query);
-          // Re-issue the find dispatch so the highlight overlay shows.
-          // Wait for the next tick — find needs the text layer ready
-          // for at least the current page.
-          queueMicrotask(() => {
-            if (!eventBus) return;
-            eventBus.dispatch("find", {
-              source: window,
-              type: "",
-              query: restore.query,
-              caseSensitive: false,
-              entireWord: false,
-              highlightAll: true,
-              findPrevious: false,
-              matchDiacritics: false,
-            });
-          });
-        }
-      } else {
-        viewer.currentScaleValue = scaleValue();
       }
+
+      // Find query is independent of page navigation; restore it
+      // unconditionally so a linked page still highlights matches.
+      if (restore?.query) {
+        setFindQuery(restore.query);
+        // Re-issue the find dispatch so the highlight overlay shows.
+        // Wait for the next tick — find needs the text layer ready
+        // for at least the current page.
+        queueMicrotask(() => {
+          if (!eventBus) return;
+          eventBus.dispatch("find", {
+            source: window,
+            type: "",
+            query: restore.query,
+            caseSensitive: false,
+            entireWord: false,
+            highlightAll: true,
+            findPrevious: false,
+            matchDiacritics: false,
+          });
+        });
+      }
+
+      setPagesReady(true);
     });
     // pagechanging: scroll-driven page change. Update the toolbar's
     // page number display, and persist so the spot survives a
@@ -325,10 +363,21 @@ export function PdfReader(props: { url: string }): JSX.Element {
 
   // Memoise the URL with `===` equality (Solid's default) so a parent
   // re-render that passes the same string doesn't retrigger the load
-  // effect. Without this guard, any parent reactive update — e.g. the
-  // workbench rebuilding `args` when uiState changes — would call
+  // effect. Without this guard, any parent reactive update would call
   // setDocument again and lose the user's current page/zoom/find.
   const urlMemo = createMemo(() => props.url);
+
+  // Belt-and-braces against the URL effect re-firing for the same URL.
+  // urlMemo's `===` equality should already prevent that, but a wiki-
+  // link click → OpenPage → WorkspaceStateChanged round-trip can land
+  // a stale event that nudges Solid's tracking enough to retrigger
+  // this effect — and re-calling pdfjs.getDocument destroys the
+  // loaded doc and snaps the viewer back to page 1, exactly the
+  // symptom users see when they click `[[book:...#56]]` and watch the
+  // page swap to 56 then back to 1. A real URL change (GM uploads a
+  // replacement) flows through this guard via a fresh `?v=<bytes>`
+  // suffix; same-string re-fires bail.
+  let lastLoadedUrl: string | null = null;
 
   // Load (or reload) the document whenever the URL actually changes.
   // This is the only place we touch pdfjs.getDocument — the toolbar
@@ -336,16 +385,39 @@ export function PdfReader(props: { url: string }): JSX.Element {
   createEffect(() => {
     const url = urlMemo();
     if (!viewer || !linkService) return;
+    if (url === lastLoadedUrl) return;
+    lastLoadedUrl = url;
     setError(null);
     setPageNumber(1);
     setPageCount(0);
     setMatches({ current: 0, total: 0 });
     setOutline(null);
 
-    // Capture any persisted state for THIS URL before kicking off the
-    // load. The pagesinit handler will consume it once pdfjs is ready
-    // to address pages — see the handler's restore block.
-    pendingRestore = loadPersistedState(url);
+    // Capture the persisted state from the trait BEFORE kicking off
+    // the load. The pagesinit handler will consume it once pdfjs is
+    // ready to address pages — see the handler's restore block.
+    //
+    // Reads are wrapped in `untrack` so this effect's only reactive
+    // dependency is `urlMemo()`. Without it, every `persist()` call
+    // (page change, scroll, zoom) would update the store, retrigger
+    // this effect, and reload the document — snapping the user back
+    // to page 1 on every interaction.
+    const snapshot: PersistedReaderState = untrack(() => ({
+      page: readerState.page,
+      scale: readerState.scale,
+      scrollTop: readerState.scrollTop,
+      query: readerState.query,
+      outlineOpen: readerState.outlineOpen,
+    }));
+    // Defaults aren't a "restore" — only treat the snapshot as one
+    // when at least one field looks user-set.
+    const isFreshDefault =
+      snapshot.page === 1 &&
+      snapshot.scale === "page-width" &&
+      snapshot.scrollTop === 0 &&
+      snapshot.query === "" &&
+      snapshot.outlineOpen === false;
+    pendingRestore = isFreshDefault ? null : snapshot;
     if (pendingRestore?.outlineOpen) setOutlineOpen(true);
 
     // The four "support file" options below dramatically improve
@@ -434,6 +506,50 @@ export function PdfReader(props: { url: string }): JSX.Element {
     eventBus = null;
     linkService = null;
     findController = null;
+  });
+
+  // Pending-nav consumer. The book wiki-link kind publishes
+  // `{ bookId, page?, tocTitle?, nonce }` to the shared
+  // `pendingBookNav` signal on click. We watch the signal, filter to
+  // requests for our own book, wait for the doc (and outline, for
+  // TOC nav) to be ready, then apply and clear.
+  //
+  // Page nav is also re-applied at pagesinit time via a dedicated
+  // path below (after sessionStorage restore) so the wiki-link click
+  // beats out the persisted spot, regardless of which microtask runs
+  // first.
+  createEffect(() => {
+    const req = pendingBookNav();
+    if (!req || req.bookId !== props.bookId) return;
+    if (!viewer) return;
+    if (req.page !== undefined) {
+      if (!pagesReady()) return;
+      const clamped = Math.max(
+        1,
+        Math.min(pageCount(), Math.floor(req.page)),
+      );
+      viewer.currentPageNumber = clamped;
+      clearBookNav(req.bookId, req.nonce);
+      return;
+    }
+    if (req.tocTitle !== undefined) {
+      const nodes = outline();
+      if (nodes === null) return; // outline still loading
+      if (nodes.length > 0) {
+        const hit = findOutlineByTitle(nodes, req.tocTitle);
+        if (hit && hit.dest != null && linkService) {
+          void linkService.goToDestination(
+            hit.dest as string | unknown[] as Parameters<
+              PDFLinkService["goToDestination"]
+            >[0],
+          );
+          setOutlineOpen(true);
+        }
+      }
+      // Clear even when the outline is empty or no entry matched —
+      // we tried; bumping the nonce next click will re-fire.
+      clearBookNav(req.bookId, req.nonce);
+    }
   });
 
   // — toolbar handlers ———————————————————————————————————————

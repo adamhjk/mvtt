@@ -163,6 +163,93 @@ describe("shell-workbench WorkspaceTreeView", () => {
     expect(container.querySelectorAll('[role="tablist"]').length).toBeLessThanOrEqual(1);
   });
 
+  it("the Pane subtree's DOM identity survives a `tree` reference change in a split (For-vs-Index regression)", async () => {
+    // Repro for the bug where SplitNode's `<For each={split.children}>`
+    // keyed children by reference. Every WorkspaceState clone (FocusPane,
+    // OpenPage, bumpInteracted) does `structuredClone(state.tree)`, so
+    // `split.children` got fresh entries — For sees new refs → unmounts
+    // every child wrapper → Pane unmounts → PdfReader unmounts → pdfjs
+    // reloads and snaps the viewer back to page 1. The fix uses `<Index>`
+    // (keys by position) so identity survives the clone.
+    const noteId = "e2";
+    const tree: TreeShape = {
+      kind: "split",
+      axis: "row",
+      proportions: [1, 1],
+      children: [
+        { kind: "pane", paneId: "p1" },
+        { kind: "pane", paneId: "p2" },
+      ],
+    };
+    const panes = {
+      p1: { paneId: "p1", tabIds: ["t1"], activeTabId: "t1" },
+      p2: { paneId: "p2", tabIds: [], activeTabId: null },
+    };
+    const tabs = {
+      t1: { id: "t1", pageKind: noteProvider.kind, entityId: noteId },
+    };
+    const h = harness({ tree, panes, tabs });
+    const { createSignal } = await import("solid-js");
+    const [treeSig, setTree] = createSignal<TreeShape>(tree);
+    const [paneByIdSig, setPaneById] = createSignal<
+      Record<string, WorkspacePane>
+    >(panes);
+    render(() => (
+      <ClientProvider value={h.client}>
+        <WorkspaceTreeView
+          tree={treeSig()}
+          paneById={paneByIdSig()}
+          zenPaneId={null}
+        />
+      </ClientProvider>
+    ));
+    const before = screen.getByTestId("page-body");
+    // Clone everything — exactly what FocusPane's apply does.
+    setTree(structuredClone(tree));
+    setPaneById({
+      p1: { paneId: "p1", tabIds: ["t1"], activeTabId: "t1" },
+      p2: { paneId: "p2", tabIds: [], activeTabId: null },
+    });
+    const after = screen.getByTestId("page-body");
+    expect(after).toBe(before);
+  });
+
+  it("the Pane subtree's DOM identity survives a `paneById` reference change with the same pane shape", async () => {
+    // Repro for the bug where FocusPane (or any other WorkspaceState
+    // mutation that re-clones panes) used to remount every Pane via the
+    // IIFE pattern in <Show fallback={...}>. Mounting a fresh Pane
+    // tears down PdfReader and reloads pdfjs.getDocument, snapping the
+    // user back to page 1. The fix moves the per-branch JSX into stable
+    // child components (PaneLeaf / SplitBranch).
+    const noteId = "e2";
+    const h = harness({
+      tree: { kind: "pane", paneId: "p1" },
+      panes: { p1: { paneId: "p1", tabIds: ["t1"], activeTabId: "t1" } },
+      tabs: {
+        t1: { id: "t1", pageKind: noteProvider.kind, entityId: noteId },
+      },
+    });
+    const { createSignal } = await import("solid-js");
+    const [paneById, setPaneById] = createSignal<Record<string, WorkspacePane>>(
+      { p1: { paneId: "p1", tabIds: ["t1"], activeTabId: "t1" } },
+    );
+    render(() => (
+      <ClientProvider value={h.client}>
+        <WorkspaceTreeView
+          tree={{ kind: "pane", paneId: "p1" }}
+          paneById={paneById()}
+          zenPaneId={null}
+        />
+      </ClientProvider>
+    ));
+    const before = screen.getByTestId("page-body");
+    // Replace paneById with a fresh dict whose pane object is also a
+    // fresh reference — exactly what FocusPane does via clone().
+    setPaneById({ p1: { paneId: "p1", tabIds: ["t1"], activeTabId: "t1" } });
+    const after = screen.getByTestId("page-body");
+    expect(after).toBe(before);
+  });
+
   it("renders both panes for a 2-way split", () => {
     const tree: TreeShape = {
       kind: "split",

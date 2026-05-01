@@ -30,6 +30,12 @@ export {
   PAGE_HISTORY_CAP,
 } from "./traits.js";
 export {
+  NotesUiState,
+  NotesUiStateChanged,
+  SetNotesUiState,
+  NotesUiStateMirror,
+} from "./ui-state.js";
+export {
   EditBegun,
   EditEnded,
   EditLockExtended,

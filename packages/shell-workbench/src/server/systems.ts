@@ -6,10 +6,12 @@ import {
 } from "@vtt/permissions/shared";
 import { PlayerJoined } from "@vtt/identity/shared";
 import {
+  TabSentinel,
   WorkspaceOwner,
   WorkspaceState,
   type WorkspaceTree,
 } from "../shared/traits.js";
+import { tabSentinelEntityId } from "../shared/tab-sentinel.js";
 import {
   WorkspaceBootstrapped,
   WorkspaceStateChanged,
@@ -100,10 +102,45 @@ export const WorkspaceStateApplySystem = defineSystem({
   name: "WorkspaceStateApply",
   on: WorkspaceStateChanged,
   reads: [WorkspaceState],
-  writes: [WorkspaceState],
+  writes: [WorkspaceState, TabSentinel, OwnedBy, EntityVisibility],
   run: ({ event, world }) => {
     if (!world.has(event.ownerEntityId)) return [];
+    const prev = world.get(event.ownerEntityId, [WorkspaceState]) as
+      | { WorkspaceState: { tabs: Record<string, unknown> } }
+      | undefined;
+    const prevTabIds = prev ? Object.keys(prev.WorkspaceState.tabs) : [];
+    const nextState = event.next as { tabs: Record<string, unknown> };
+    const nextTabIds = Object.keys(nextState.tabs);
+    const before = new Set(prevTabIds);
+    const after = new Set(nextTabIds);
+
+    // Order matters. `world.set(WorkspaceState, …)` fires every
+    // `useTrait`/`useQuery` subscriber synchronously, which in Solid
+    // re-evaluates dependent JSX *immediately*, mounting the new
+    // pane/tab/NoteView and running their `createOptimisticTrait`
+    // calls — which look up the per-tab sentinel by deterministic id.
+    // If we spawned sentinels AFTER world.set, the new view would
+    // race the spawn and find no sentinel, no default, no initial,
+    // and throw. Spawn before world.set; despawn after, so a view
+    // rendering the closing tab still has its sentinel through the
+    // last frame of the trait-update cascade.
+    for (const tabId of after) {
+      if (before.has(tabId)) continue;
+      const id = tabSentinelEntityId(tabId);
+      if (world.has(id)) continue;
+      world.spawnAt(id, [
+        TabSentinel({ tabId }),
+        OwnedBy({ userId: event.userId }),
+        EntityVisibility({ visibility: actors([event.userId]) }),
+      ]);
+    }
     world.set(event.ownerEntityId, WorkspaceState, event.next);
+    for (const tabId of before) {
+      if (after.has(tabId)) continue;
+      const id = tabSentinelEntityId(tabId);
+      if (!world.has(id)) continue;
+      world.despawn(id);
+    }
     return [];
   },
 });

@@ -1,25 +1,17 @@
 import { createMemo, For, Show, type JSX } from "solid-js";
-import { useClient } from "@vtt/substrate/client";
+import { createOptimisticTrait, useClient } from "@vtt/substrate/client";
+import { type EntityId } from "@vtt/substrate";
+import { useTabSentinel } from "@vtt/shell-workbench/client";
+import { BooksUiState, SetBooksUiState } from "../shared/ui-state.js";
 import {
   BookOverlayTabsSlot,
   type BookOverlayTab,
 } from "../shared/slot.js";
 
-/**
- * Persisted state shape stashed in the workbench tab's `uiState` blob.
- * Mirrors scene's dock — same field names with a `book` prefix to
- * avoid collisions with scene's keys when other plugins put both kinds
- * of dock state in the same tab.
- */
-interface DockUiState {
-  bookDockOpen?: boolean;
-  bookDockActive?: string | null;
-}
-
 interface BooksDockProps {
   bookId: string;
-  uiState: unknown;
-  setUiState: (next: unknown) => void;
+  /** Workbench tab id — used to look up the per-tab sentinel. */
+  tabId: string;
 }
 
 /**
@@ -32,11 +24,17 @@ interface BooksDockProps {
  * Tab order: priority desc, then label asc for stability. Built-in
  * Config (priority 100) lands first; projection plugins fill below.
  *
- * Persistence: same uiState round-trip as scene's dock, so dock state
- * survives tab switches and replicates across devices.
+ * Persistence: dock state lives on the per-tab sentinel as
+ * `BooksUiState`, written through `createOptimisticTrait` (immediate
+ * local feedback, server-confirmed reconciliation, last-write-wins).
+ * Survives tab switches and replicates across the user's connections.
  */
 export function BooksDock(props: BooksDockProps): JSX.Element {
   const client = useClient();
+  const sentinelId: EntityId = useTabSentinel(props.tabId);
+  const [ui, setUi] = createOptimisticTrait(sentinelId, BooksUiState, {
+    write: (value) => SetBooksUiState({ entityId: sentinelId, value }),
+  });
 
   const tabs = createMemo<BookOverlayTab[]>(() => {
     const fills = client.registry.fillsForSlot(
@@ -50,10 +48,9 @@ export function BooksDock(props: BooksDockProps): JSX.Element {
     });
   });
 
-  const ui = (): DockUiState => (props.uiState ?? {}) as DockUiState;
-  const open = createMemo(() => ui().bookDockOpen ?? false);
+  const open = createMemo(() => ui.dockOpen);
   const activeId = createMemo<string | null>(() => {
-    const want = ui().bookDockActive ?? null;
+    const want = ui.dockActiveId;
     const list = tabs();
     if (want && list.some((t) => t.id === want)) return want;
     return list[0]?.id ?? null;
@@ -64,17 +61,12 @@ export function BooksDock(props: BooksDockProps): JSX.Element {
     return tabs().find((t) => t.id === id) ?? null;
   });
 
-  const update = (patch: Partial<DockUiState>) => {
-    const base = (props.uiState ?? {}) as Record<string, unknown>;
-    props.setUiState({ ...base, ...patch });
-  };
-
   const toggle = () => {
-    update({ bookDockOpen: !open() });
+    setUi("dockOpen", !ui.dockOpen);
   };
 
   const activate = (id: string) => {
-    update({ bookDockActive: id, bookDockOpen: true });
+    setUi({ dockOpen: true, dockActiveId: id });
   };
 
   return (

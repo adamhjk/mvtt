@@ -48,8 +48,6 @@ describe("CharactersPageProvider", () => {
       CharactersPageProvider.render({
         tabId: "tab-1",
         entityId: null,
-        uiState: () => undefined,
-        setUiState: () => {},
       }) as never,
     );
     expect(screen.getByText(/no characters yet/i)).toBeInTheDocument();
@@ -69,8 +67,6 @@ describe("CharactersPageProvider", () => {
       CharactersPageProvider.render({
         tabId: "tab-1",
         entityId: null,
-        uiState: () => undefined,
-        setUiState: () => {},
       }) as never,
     );
     expect(screen.getByText("Aelric")).toBeInTheDocument();
@@ -83,8 +79,6 @@ describe("CharactersPageProvider", () => {
       CharactersPageProvider.render({
         tabId: "tab-1",
         entityId: null,
-        uiState: () => undefined,
-        setUiState: () => {},
       }) as never,
     );
     const input = screen.getByPlaceholderText(/Tarn the Bold/i) as HTMLInputElement;
@@ -102,8 +96,6 @@ describe("CharactersPageProvider", () => {
       CharactersPageProvider.render({
         tabId: "tab-1",
         entityId: null,
-        uiState: () => undefined,
-        setUiState: () => {},
       }) as never,
     );
     const submit = screen.getByRole("button", { name: /create character/i });
@@ -120,8 +112,6 @@ describe("CharactersPageProvider", () => {
       CharactersPageProvider.render({
         tabId: "tab-1",
         entityId: id,
-        uiState: () => undefined,
-        setUiState: () => {},
       }) as never,
     );
     // SheetShell mounts; the default Identity fill renders the name input.

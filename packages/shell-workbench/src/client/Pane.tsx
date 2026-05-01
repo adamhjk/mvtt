@@ -22,7 +22,6 @@ import {
   FocusTab,
   OpenPageAsSplit,
   OpenPageInNewTab,
-  SetTabUiState,
   ToggleZen,
 } from "../shared/commands.js";
 import type { WorkspacePane, WorkspaceTab } from "../shared/traits.js";
@@ -49,11 +48,11 @@ const RESERVED_CONTROLS_PX = 18 * 16;
 const PER_TAB_PX = 11 * 16;
 
 /**
- * Re-mount key for a tab's rendered page. We deliberately exclude
- * `uiState` from the key — that field churns on every persisted UI
- * write, and re-mounting the provider on each write blew up component
- * state and inner scroll positions. uiState propagates through the
- * reactive `uiState()` accessor in `PageRenderArgs` instead.
+ * Re-mount key for a tab's rendered page. Per-tab UI state lives on the
+ * tab sentinel as plugin-owned traits (read via `createOptimisticTrait`),
+ * so the key only needs the workbench-layout fields (id, pageKind,
+ * entityId). A retarget changes entityId, which keys a fresh provider
+ * mount on the new entity; UI-state writes don't touch any of these.
  */
 function paneKey(tab: WorkspaceTab): string {
   return `${tab.id}:${tab.pageKind}:${tab.entityId ?? "_null"}`;
@@ -273,23 +272,17 @@ export function Pane(props: { pane: WorkspacePane }): JSX.Element {
           fallback={<EmptyPaneState ctx={ctx()} />}
         >
           {(tabAcc) => (
-            // Re-key on (tabId, pageKind, entityId) ONLY. uiState
-            // changes do NOT cause a re-render of the provider —
-            // they propagate through the reactive `uiState` accessor
-            // we hand to render(). Without this gating, every
-            // setUiState call would tear down the provider's tree
-            // (destroying component-local state, scroll positions,
-            // in-flight effects) — see #29.
+            // Re-key on (tabId, pageKind, entityId). Per-tab UI state
+            // lives on the tab sentinel as plugin-owned traits, so the
+            // workbench has no separate "ui state changed" reactive
+            // path that would tear down a provider's subtree. The
+            // provider's render(args) runs exactly once per key change.
             <Show
               keyed
               when={paneKey(tabAcc())}
               fallback={null}
             >
               {(_key) => {
-                // Snapshot the (id, pageKind, entityId) at this
-                // remount; uiState stays reactive via the closure
-                // over tabAcc(). The plugin's render call happens
-                // exactly once per key change.
                 const tab = tabAcc();
                 const provider = providers().get(tab.pageKind) ?? null;
                 if (provider == null) {
@@ -298,12 +291,6 @@ export function Pane(props: { pane: WorkspacePane }): JSX.Element {
                 const args: PageRenderArgs = {
                   tabId: tab.id,
                   entityId: tab.entityId,
-                  uiState: () => tabAcc().uiState,
-                  setUiState: (next) => {
-                    client.dispatch(
-                      SetTabUiState({ tabId: tab.id, uiState: next }) as never,
-                    );
-                  },
                 };
                 return <>{provider.render(args) as unknown as JSX.Element}</>;
               }}

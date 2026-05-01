@@ -21,7 +21,11 @@ import {
  */
 export type LinkActivation =
   | { type: "peek"; render: () => unknown }
-  | { type: "navigate"; pageKind: string; entityId: EntityId }
+  | {
+      type: "navigate";
+      pageKind: string;
+      entityId: EntityId;
+    }
   | { type: "command"; command: string; payload: unknown }
   | { type: "custom"; run: (ctx: LinkActivationContext) => void };
 

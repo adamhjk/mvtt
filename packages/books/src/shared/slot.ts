@@ -25,9 +25,9 @@ export interface BookOverlayTabRenderArgs {
  */
 export type BookOverlayTab = {
   /**
-   * Plugin-namespaced id, e.g. `@vtt/books/dock/config`. Used as a key
-   * in the dock's URL/uiState so the active tab survives tab-swap and
-   * reload.
+   * Plugin-namespaced id, e.g. `@vtt/books/dock/config`. Persisted as
+   * `BooksUiState.dockActiveId` on the per-tab sentinel, so the active
+   * tab survives tab-swap and reload.
    */
   id: QualifiedName;
   label: string;

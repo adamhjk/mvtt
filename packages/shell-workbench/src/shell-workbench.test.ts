@@ -16,9 +16,11 @@ import {
 } from "@vtt/permissions/shared";
 import { PlayerJoined } from "@vtt/identity/shared";
 import {
+  TabSentinel,
   WorkspaceState,
   WorkspaceOwner,
 } from "./shared/traits.js";
+import { tabSentinelEntityId } from "./shared/tab-sentinel.js";
 import {
   WorkspaceBootstrapped,
   WorkspaceStateChanged,
@@ -37,7 +39,6 @@ import {
   RetargetTab,
   SetDrawerKeepOpen,
   SetSplitProportions,
-  SetTabUiState,
   ToggleDrawer,
   ToggleZen,
   allCommands,
@@ -65,7 +66,7 @@ function setup() {
   const workbenchPlugin = definePlugin({
     name: "@vtt/shell-workbench",
     version: "0.1.0",
-    traits: [WorkspaceState, WorkspaceOwner, OwnedBy, EntityVisibility],
+    traits: [WorkspaceState, WorkspaceOwner, TabSentinel, OwnedBy, EntityVisibility],
     events: [PlayerJoined, WorkspaceStateChanged, WorkspaceBootstrapped],
     commands: [...allCommands],
     systems: [WorkspaceBootstrapSystem, WorkspaceStateApplySystem],
@@ -153,7 +154,6 @@ describe("@vtt/shell-workbench schemas", () => {
     expect(FocusTab.name).toBe("@vtt/shell-workbench/FocusTab");
     expect(FocusPane.name).toBe("@vtt/shell-workbench/FocusPane");
     expect(ToggleZen.name).toBe("@vtt/shell-workbench/ToggleZen");
-    expect(SetTabUiState.name).toBe("@vtt/shell-workbench/SetTabUiState");
     expect(MoveTab.name).toBe("@vtt/shell-workbench/MoveTab");
     expect(SetSplitProportions.name).toBe(
       "@vtt/shell-workbench/SetSplitProportions",
@@ -344,6 +344,133 @@ describe("WorkspaceStateApplySystem", () => {
     expect(getState(world, ownerId).lastInteractedAt).toBe(
       stateBefore.lastInteractedAt,
     );
+  });
+
+  it("spawns a TabSentinel for each tab that appears in WorkspaceState.tabs", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world);
+    expect(world.query([TabSentinel])).toHaveLength(0);
+
+    const res = await dispatch(
+      pipeline,
+      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
+    );
+    expect(res.result.ok).toBe(true);
+
+    const tabId = Object.keys(getState(world, ownerId).tabs)[0]!;
+    const sentinelId = tabSentinelEntityId(tabId);
+    expect(world.has(sentinelId)).toBe(true);
+    const got = world.get(sentinelId, [TabSentinel, OwnedBy, EntityVisibility]) as {
+      TabSentinel: { tabId: string };
+      OwnedBy: { userId: string };
+      EntityVisibility: { visibility: { kind: string; userIds?: string[] } };
+    };
+    expect(got.TabSentinel.tabId).toBe(tabId);
+    expect(got.OwnedBy.userId).toBe(PLAYER.userId);
+    expect(got.EntityVisibility.visibility.kind).toBe("users");
+    expect(got.EntityVisibility.visibility.userIds).toEqual([PLAYER.userId]);
+  });
+
+  it("despawns a TabSentinel when its tab is closed", async () => {
+    const { registry, world, pipeline } = setup();
+    bootstrap(registry, world);
+
+    await dispatch(
+      pipeline,
+      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
+    );
+    const sentinels = world.query([TabSentinel]);
+    expect(sentinels).toHaveLength(1);
+    const sentinelId = sentinels[0]!.id;
+    const tabId = (sentinels[0]!.values.TabSentinel as { tabId: string }).tabId;
+
+    // Find the pane the tab lives in.
+    const ownerRow = world.query([WorkspaceOwner])[0]!;
+    const state = (
+      world.get(ownerRow.id, [WorkspaceState]) as { WorkspaceState: import("zod").z.infer<typeof WorkspaceState.schema> }
+    ).WorkspaceState;
+    const paneId = Object.values(state.panes).find((p) => p.tabIds.includes(tabId))!.paneId;
+
+    const res = await dispatch(pipeline, CloseTab({ paneId, tabId }));
+    expect(res.result.ok).toBe(true);
+    expect(world.has(sentinelId)).toBe(false);
+    expect(world.query([TabSentinel])).toHaveLength(0);
+  });
+
+  it("preserves a TabSentinel when its tab moves between panes", async () => {
+    const { registry, world, pipeline } = setup();
+    bootstrap(registry, world);
+
+    // Open one tab, then split — moving the tab into the new pane.
+    await dispatch(
+      pipeline,
+      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
+    );
+    const beforeSentinels = world.query([TabSentinel]);
+    expect(beforeSentinels).toHaveLength(1);
+    const tabId = (beforeSentinels[0]!.values.TabSentinel as { tabId: string }).tabId;
+    const sentinelIdBefore = beforeSentinels[0]!.id;
+
+    // Open a second tab in a new split — first sentinel must persist.
+    await dispatch(
+      pipeline,
+      OpenPageAsSplit({
+        pageKind: KIND_2,
+        entityId: "ent-2" as EntityId,
+        direction: "right",
+      }),
+    );
+    expect(world.has(sentinelIdBefore)).toBe(true);
+    expect(world.query([TabSentinel])).toHaveLength(2);
+
+    // The original tab id is unchanged — same sentinel.
+    const stillThere = world
+      .query([TabSentinel])
+      .find((row) => (row.values.TabSentinel as { tabId: string }).tabId === tabId);
+    expect(stillThere?.id).toBe(sentinelIdBefore);
+  });
+
+  it("spawns the sentinel BEFORE WorkspaceState fires its subscribers — Solid views querying the sentinel from a WorkspaceState reactor must find it already in the world", () => {
+    const { registry, world } = setup();
+    const ownerId = bootstrap(registry, world);
+    const before = getState(world, ownerId);
+    const tabId = "tab-race-test";
+    const next = {
+      ...before,
+      tabs: { [tabId]: { id: tabId, pageKind: KIND, entityId: null } },
+    };
+    // Hook the WorkspaceState write — when the trait fires its
+    // subscribers, the sentinel MUST already exist. (In production
+    // this is what Solid's `useTrait` reactivity does inline.)
+    let sentinelExistsWhenWsFires: boolean | null = null;
+    const off = world.subscribe((id, traitName) => {
+      if (id !== ownerId || traitName !== WorkspaceState.name) return;
+      sentinelExistsWhenWsFires = world.has(tabSentinelEntityId(tabId));
+    });
+    runSystemsToFixpoint(registry, world, [
+      WorkspaceStateChanged({ ownerEntityId: ownerId, userId: PLAYER.userId, next }),
+    ]);
+    off();
+    expect(sentinelExistsWhenWsFires).toBe(true);
+  });
+
+  it("is idempotent — replaying the same WorkspaceStateChanged does not double-spawn", () => {
+    const { registry, world } = setup();
+    const ownerId = bootstrap(registry, world);
+    const before = getState(world, ownerId);
+    const tabId = "tab-X";
+    const next = {
+      ...before,
+      tabs: { [tabId]: { id: tabId, pageKind: KIND, entityId: null } },
+    };
+    runSystemsToFixpoint(registry, world, [
+      WorkspaceStateChanged({ ownerEntityId: ownerId, userId: PLAYER.userId, next }),
+    ]);
+    runSystemsToFixpoint(registry, world, [
+      WorkspaceStateChanged({ ownerEntityId: ownerId, userId: PLAYER.userId, next }),
+    ]);
+    expect(world.query([TabSentinel])).toHaveLength(1);
+    expect(world.has(tabSentinelEntityId(tabId))).toBe(true);
   });
 });
 
@@ -634,25 +761,6 @@ describe("ToggleZen", () => {
     expect(after1.zenPaneId).toBe(after1.activePaneId);
     await dispatch(pipeline, ToggleZen({}));
     expect(getState(world, ownerId).zenPaneId).toBeNull();
-  });
-});
-
-describe("SetTabUiState", () => {
-  it("replaces uiState verbatim", async () => {
-    const { registry, world, pipeline } = setup();
-    const ownerId = bootstrap(registry, world);
-    await dispatch(
-      pipeline,
-      OpenPage({ pageKind: KIND, entityId: "a" as EntityId }),
-    );
-    const mid = getState(world, ownerId);
-    const tabId = mid.panes[mid.activePaneId]!.activeTabId!;
-    await dispatch(
-      pipeline,
-      SetTabUiState({ tabId, uiState: { scrollTop: 42 } }),
-    );
-    const after = getState(world, ownerId);
-    expect(after.tabs[tabId]!.uiState).toEqual({ scrollTop: 42 });
   });
 });
 

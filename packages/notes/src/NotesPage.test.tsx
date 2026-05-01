@@ -21,10 +21,34 @@ import {
 } from "@vtt/permissions/shared";
 import { everyone } from "@vtt/permissions/shared";
 import { notes } from "./manifest.js";
-import { Note, Page, BelongsToNote, PageOrdering } from "./shared/index.js";
+import {
+  Note,
+  NotesUiState,
+  Page,
+  BelongsToNote,
+  PageOrdering,
+} from "./shared/index.js";
+import { TabSentinel, tabSentinelEntityId } from "@vtt/shell-workbench/shared";
 import {
   NotesPageProvider,
 } from "./client/NotesPage.js";
+
+/**
+ * Spawn the tab sentinel a NoteView's `createOptimisticTrait` looks up.
+ * In production the workbench's WorkspaceStateApplySystem spawns this on
+ * tab open; tests skip workbench commands and seed the sentinel directly.
+ */
+function seedTabSentinel(
+  world: import("@vtt/substrate").World,
+  tabId: string,
+): void {
+  world.spawnAt(tabSentinelEntityId(tabId), [
+    TabSentinel({ tabId }),
+    OwnedBy({ userId: ME_USER_ID }),
+    EntityVisibility({ visibility: everyone() }),
+    NotesUiState({ activePageId: null, pendingHeadingId: null }),
+  ]);
+}
 
 beforeEach(() => cleanup());
 
@@ -73,8 +97,6 @@ describe("NotesPage hub (no entityId)", () => {
       NotesPageProvider.render({
         tabId: "tab-1",
         entityId: null,
-        uiState: () => null,
-        setUiState: () => {},
       }) as never,
     );
     expect(
@@ -91,8 +113,6 @@ describe("NotesPage hub (no entityId)", () => {
       NotesPageProvider.render({
         tabId: "tab-1",
         entityId: null,
-        uiState: () => null,
-        setUiState: () => {},
       }) as never,
     );
     const input = screen.getByRole("textbox", { name: /Title/i });
@@ -119,8 +139,6 @@ describe("NotesPage hub (no entityId)", () => {
       NotesPageProvider.render({
         tabId: "tab-1",
         entityId: null,
-        uiState: () => null,
-        setUiState: () => {},
       }) as never,
     );
     const titleEl = await screen.findByText("Goblin Cave");
@@ -140,12 +158,11 @@ describe("NotesPage view (with entityId)", () => {
   it("renders the title, page rail, and rendered markdown", async () => {
     const h = harness({ withNote: true });
     const noteId = h.world.query([Note])[0]!.id;
+    seedTabSentinel(h.world, "tab-1");
     mountWithClient(h, () =>
       NotesPageProvider.render({
         tabId: "tab-1",
         entityId: noteId,
-        uiState: () => null,
-        setUiState: () => {},
       }) as never,
     );
     expect(await screen.findByText("Goblin Cave")).toBeInTheDocument();
@@ -160,12 +177,11 @@ describe("NotesPage view (with entityId)", () => {
   it("Edit button dispatches BeginEdit", async () => {
     const h = harness({ withNote: true });
     const noteId = h.world.query([Note])[0]!.id;
+    seedTabSentinel(h.world, "tab-1");
     mountWithClient(h, () =>
       NotesPageProvider.render({
         tabId: "tab-1",
         entityId: noteId,
-        uiState: () => null,
-        setUiState: () => {},
       }) as never,
     );
     fireEvent.click(await screen.findByRole("button", { name: /^Edit$/ }));

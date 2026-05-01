@@ -493,35 +493,6 @@ export const ToggleZen = defineCommand({
 });
 
 /**
- * Persist the per-tab uiState (scroll position, internal sub-tab, etc.).
- * Replaces verbatim — providers own the shape and decide when to call.
- */
-export const SetTabUiState = defineCommand({
-  name: "@vtt/shell-workbench/SetTabUiState",
-  schema: z.object({
-    tabId: z.string().min(1),
-    uiState: z.unknown(),
-  }),
-  validate: (ctx) => {
-    const r = withOwner(ctx);
-    if (!r.ok) return fail(r.reason);
-    if (!r.owned.state.tabs[ctx.cmd.tabId]) {
-      return fail(`unknown tab ${ctx.cmd.tabId}`);
-    }
-    return ok();
-  },
-  apply: (ctx) => {
-    const r = withOwner(ctx);
-    if (!r.ok) throw new Error("validate failed");
-    const owned = r.owned;
-    const next = clone(owned.state);
-    const tab = next.tabs[ctx.cmd.tabId]!;
-    tab.uiState = ctx.cmd.uiState;
-    return emit(owned, bumpInteracted(next));
-  },
-});
-
-/**
  * Move a tab to another pane (drag-to-pane, or palette "open in pane N").
  * The target pane must exist in the tree.
  */
@@ -843,7 +814,6 @@ export const allCommands = [
   FocusTab,
   FocusPane,
   ToggleZen,
-  SetTabUiState,
   MoveTab,
   SetSplitProportions,
   OpenDrawer,

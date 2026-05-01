@@ -1,24 +1,17 @@
 import { createMemo, For, Show, type JSX } from "solid-js";
-import { useClient } from "@vtt/substrate/client";
+import { createOptimisticTrait, useClient } from "@vtt/substrate/client";
+import { type EntityId } from "@vtt/substrate";
+import { useTabSentinel } from "@vtt/shell-workbench/client";
+import { SceneUiState, SetSceneUiState } from "../shared/ui-state.js";
 import {
   SceneOverlayTabsSlot,
   type SceneOverlayTab,
 } from "../shared/slot.js";
 
-/**
- * Persisted state shape stashed in the workbench tab's `uiState` blob.
- * Cherry-picked from the wider uiState; other plugins or future scene
- * tabs can stash their own keys alongside.
- */
-interface DockUiState {
-  sceneDockOpen?: boolean;
-  sceneDockActive?: string | null;
-}
-
 interface SceneDockProps {
   sceneId: string;
-  uiState: unknown;
-  setUiState: (next: unknown) => void;
+  /** Workbench tab id — used to look up the per-tab sentinel. */
+  tabId: string;
 }
 
 /**
@@ -35,14 +28,17 @@ interface SceneDockProps {
  * Config (priority 100) lands first, Tokens (80) second, third-party
  * fills below.
  *
- * Persistence: the open/closed flag and active-tab id round-trip
- * through the workbench's `setUiState` so dock state survives tab
- * switches and replicates to the user's other devices. There's a
- * ~50-100ms latency on toggle (one substrate command roundtrip);
- * acceptable for a UI control that fires once per minute.
+ * Persistence: dock state lives on the per-tab sentinel as
+ * `SceneUiState`, written through `createOptimisticTrait` (immediate
+ * local feedback, server-confirmed reconciliation, last-write-wins).
+ * Survives tab switches and replicates across the user's connections.
  */
 export function SceneDock(props: SceneDockProps): JSX.Element {
   const client = useClient();
+  const sentinelId: EntityId = useTabSentinel(props.tabId);
+  const [ui, setUi] = createOptimisticTrait(sentinelId, SceneUiState, {
+    write: (value) => SetSceneUiState({ entityId: sentinelId, value }),
+  });
 
   const tabs = createMemo<SceneOverlayTab[]>(() => {
     const fills = client.registry.fillsForSlot(
@@ -56,10 +52,9 @@ export function SceneDock(props: SceneDockProps): JSX.Element {
     });
   });
 
-  const ui = (): DockUiState => (props.uiState ?? {}) as DockUiState;
-  const open = createMemo(() => ui().sceneDockOpen ?? false);
+  const open = createMemo(() => ui.dockOpen);
   const activeId = createMemo<string | null>(() => {
-    const want = ui().sceneDockActive ?? null;
+    const want = ui.dockActiveId;
     const list = tabs();
     if (want && list.some((t) => t.id === want)) return want;
     return list[0]?.id ?? null;
@@ -70,19 +65,14 @@ export function SceneDock(props: SceneDockProps): JSX.Element {
     return tabs().find((t) => t.id === id) ?? null;
   });
 
-  const update = (patch: Partial<DockUiState>) => {
-    const base = (props.uiState ?? {}) as Record<string, unknown>;
-    props.setUiState({ ...base, ...patch });
-  };
-
   const toggle = () => {
-    update({ sceneDockOpen: !open() });
+    setUi("dockOpen", !ui.dockOpen);
   };
 
   const activate = (id: string) => {
     // Activating a tab also opens the dock — clicking a pill while
     // closed should reveal that pill's content.
-    update({ sceneDockActive: id, sceneDockOpen: true });
+    setUi({ dockOpen: true, dockActiveId: id });
   };
 
   return (

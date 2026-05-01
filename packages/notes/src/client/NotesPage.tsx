@@ -42,27 +42,14 @@ export const NotesPageProvider = definePageProvider({
     const first = world.query([Note])[0];
     return first?.id ?? null;
   },
-  render: ({ tabId, entityId, uiState, setUiState }) => {
-    return (
-      <NotesPage
-        tabId={tabId}
-        entityId={entityId}
-        uiState={uiState()}
-        setUiState={setUiState}
-      />
-    );
+  render: ({ tabId, entityId }) => {
+    return <NotesPage tabId={tabId} entityId={entityId} />;
   },
 });
-
-interface NotesUiState {
-  readonly activePageId?: EntityId;
-}
 
 function NotesPage(props: {
   tabId: string;
   entityId: string | null;
-  uiState: unknown;
-  setUiState: (next: unknown) => void;
 }): JSX.Element {
   return (
     <Show
@@ -74,12 +61,7 @@ function NotesPage(props: {
       }
     >
       {(idAcc) => (
-        <NoteView
-          noteId={idAcc() as EntityId}
-          tabId={props.tabId}
-          uiState={props.uiState as NotesUiState | null | undefined}
-          setUiState={props.setUiState}
-        />
+        <NoteView noteId={idAcc() as EntityId} tabId={props.tabId} />
       )}
     </Show>
   );

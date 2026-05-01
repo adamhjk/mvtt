@@ -31,6 +31,12 @@ import {
 import { SceneCanvasSurface } from "./shared/surfaces.js";
 import { SceneOverlayTabsSlot, TokenUnderlaysSlot } from "./shared/slot.js";
 import {
+  SceneUiState,
+  SceneUiStateChanged,
+  SceneUiStateMirror,
+  SetSceneUiState,
+} from "./shared/ui-state.js";
+import {
   CharacterTokenPlacementSystem,
   SceneSpawningSystem,
   SceneRemovalSystem,
@@ -58,7 +64,7 @@ export const scene = definePlugin({
     "@vtt/characters@^0",
     "@vtt/notes@^0",
   ],
-  traits: [Scene, Position, Sprite, Token, TokenImage, LinkedCharacter],
+  traits: [Scene, Position, Sprite, Token, TokenImage, LinkedCharacter, SceneUiState],
   events: [
     SceneCreated,
     SceneRemoved,
@@ -67,6 +73,7 @@ export const scene = definePlugin({
     TokenMoved,
     TokenRemoved,
     CharacterTokenPlaced,
+    SceneUiStateChanged,
   ],
   commands: [
     CreateScene,
@@ -76,6 +83,7 @@ export const scene = definePlugin({
     RemoveScene,
     RemoveToken,
     UpdateScene,
+    SetSceneUiState,
   ],
   systems: [
     SceneSpawningSystem,
@@ -85,6 +93,7 @@ export const scene = definePlugin({
     TokenMovementSystem,
     TokenRemovalSystem,
     CharacterTokenPlacementSystem,
+    SceneUiStateMirror,
   ],
   surfaces: [SceneCanvasSurface],
   slots: [SceneOverlayTabsSlot, TokenUnderlaysSlot],

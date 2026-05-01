@@ -20,9 +20,10 @@ interface CharacterRef {
  * or a character name (case-insensitive exact match). Display reads
  * `Character.name` reactively, so renames propagate to every chip.
  *
- * Click semantics: peek by default (the shell's link-renderer mounts a
- * popover with a small character card); cmd-click navigates to the
- * Characters tab targeting this entity.
+ * Click semantics: navigate to the Characters tab targeting this
+ * entity. The notes dispatcher uses OpenPage semantics, so a click
+ * focuses an already-open Characters tab pointed at this character,
+ * or opens a new one in the active pane if none exists.
  */
 export const characterLinkKind = defineLinkKind<CharacterRef>({
   name: "character",
@@ -50,16 +51,11 @@ export const characterLinkKind = defineLinkKind<CharacterRef>({
     return got?.Character.name ?? "(missing character)";
   },
   target: (ref) => ({ entityId: ref.characterId }),
-  activate: (ref, ctx) => {
-    if (ctx.modifiers.meta) {
-      return {
-        type: "navigate",
-        pageKind: "@vtt/characters/characters",
-        entityId: ref.characterId,
-      };
-    }
-    return { type: "peek", render: () => null };
-  },
+  activate: (ref) => ({
+    type: "navigate",
+    pageKind: "@vtt/characters/characters",
+    entityId: ref.characterId,
+  }),
   autocomplete: (query, world) => {
     const needle = query.trim().toLowerCase();
     const out: LinkSuggestion[] = [];

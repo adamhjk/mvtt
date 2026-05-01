@@ -1,11 +1,13 @@
 export {
   WorkspaceState,
   WorkspaceOwner,
+  TabSentinel,
   type WorkspaceTab,
   type WorkspacePane,
   type WorkspaceTree,
   type WorkbenchDrawerState,
 } from "./traits.js";
+export { tabSentinelEntityId } from "./tab-sentinel.js";
 export {
   WorkspaceStateChanged,
   WorkspaceBootstrapped,
@@ -40,7 +42,6 @@ export {
   FocusTab,
   FocusPane,
   ToggleZen,
-  SetTabUiState,
   MoveTab,
   SetSplitProportions,
   OpenDrawer,

@@ -6,6 +6,7 @@ import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { books } from "@vtt/books";
+import { notes } from "@vtt/notes";
 import { pdfBook } from "@vtt/pdf-book";
 import {
   Book,
@@ -71,7 +72,7 @@ describe("books wire smoke", () => {
     worldId = world.id;
     handle = await startServer({
       port: 0,
-      infrastructure: [shellWorkbench, identity, permissions],
+      infrastructure: [shellWorkbench, notes, identity, permissions],
       optional: [books, pdfBook, booksTestSystem],
       worldsRepo,
       authenticateUpgrade: async () => GM,

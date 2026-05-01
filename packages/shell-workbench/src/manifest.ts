@@ -2,6 +2,7 @@ import { definePlugin } from "@vtt/substrate";
 import {
   WorkspaceState,
   WorkspaceOwner,
+  TabSentinel,
 } from "./shared/traits.js";
 import {
   WorkspaceStateChanged,
@@ -34,7 +35,7 @@ export const shellWorkbench = definePlugin({
     "@vtt/identity@^0",
     "@vtt/permissions@^0",
   ],
-  traits: [WorkspaceState, WorkspaceOwner],
+  traits: [WorkspaceState, WorkspaceOwner, TabSentinel],
   events: [WorkspaceStateChanged, WorkspaceBootstrapped],
   commands: [...allCommands],
   systems: [WorkspaceBootstrapSystem, WorkspaceStateApplySystem],
