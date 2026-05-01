@@ -5,9 +5,7 @@
 //
 // MVTT is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License version 3
-// as published by the Free Software Foundation, with the Swamp
-// Extension and Definition Exception (found in the "COPYING-EXCEPTION"
-// file).
+// as published by the Free Software Foundation.
 //
 // MVTT is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
