@@ -31,7 +31,8 @@ import {
   Show,
   type JSX,
 } from "solid-js";
-import { Note } from "../shared/traits.js";
+import { Note, Page } from "../shared/traits.js";
+import { NotesUiState } from "../shared/ui-state.js";
 import { CreateNote, DeleteNote } from "../shared/commands.js";
 import { NoteCreated } from "../shared/events.js";
 import { NoteView } from "./NoteView.jsx";
@@ -61,6 +62,22 @@ export const NotesPageProvider = definePageProvider({
   },
   render: ({ tabId, entityId }) => {
     return <NotesPage tabId={tabId} entityId={entityId} />;
+  },
+  // The note's own title is conveyed by the tab label; what's worth
+  // surfacing for share is *which sub-page* of the note the sender is on
+  // — that's the bit a recipient otherwise wouldn't know to navigate to.
+  summarizeTabState: ({ sentinelId, world }) => {
+    if (!world.has(sentinelId)) return null;
+    const got = world.get(sentinelId, [NotesUiState]) as
+      | { UiState: { activePageId: string | null } }
+      | undefined;
+    const activePageId = got?.UiState.activePageId ?? null;
+    if (activePageId == null) return null;
+    const page = world.get(activePageId as EntityId, [Page]) as
+      | { Page: { title: string } }
+      | undefined;
+    if (!page) return null;
+    return `page “${page.Page.title}”`;
   },
 });
 

@@ -100,14 +100,19 @@ function CharactersHub(props: { tabId: string }): JSX.Element {
         id: row.id,
         name: (row.values.Character as { name: string }).name,
         ownerUserId: (row.values.OwnedBy as { userId: string }).userId,
+        playerUserId: (row.values.Character as {
+          playerUserId?: string;
+        }).playerUserId,
       }))
       .sort((a, b) => a.name.localeCompare(b.name)),
   );
 
-  const canRemove = (ownerUserId: string) => {
+  const canRemove = (c: { ownerUserId: string; playerUserId?: string }) => {
     const m = me();
     if (!m) return false;
-    return m.role === "gm" || m.userId === ownerUserId;
+    if (m.role === "gm") return true;
+    if (m.userId === c.ownerUserId) return true;
+    return c.playerUserId === m.userId;
   };
 
   const open = (characterId: string) => {
@@ -184,7 +189,7 @@ function CharactersHub(props: { tabId: string }): JSX.Element {
                   >
                     Open
                   </button>
-                  <Show when={canRemove(c.ownerUserId)}>
+                  <Show when={canRemove(c)}>
                     <button
                       type="button"
                       onClick={() => remove(c.id, c.name)}

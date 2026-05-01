@@ -26,6 +26,7 @@ export {
 } from "./traits.js";
 export { tabSentinelEntityId } from "./tab-sentinel.js";
 export {
+  TabShared,
   WorkspaceStateChanged,
   WorkspaceBootstrapped,
 } from "./events.js";
@@ -66,6 +67,8 @@ export {
   ToggleDrawer,
   SetDrawerKeepOpen,
   ResizeDrawer,
+  ShareTab,
   allCommands,
+  findOwnerFor,
 } from "./commands.js";
 export { definePageProvider } from "./define-page-provider.js";

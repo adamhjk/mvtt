@@ -67,6 +67,15 @@ export const PdfReaderState = defineTrait({
       query: "",
       outlineOpen: false,
     }),
+  // Strip scrollTop when the value is packaged into a share snapshot.
+  // scrollTop is a pixel offset into the viewer's scroll container, and
+  // at "page-width" scale that meaning depends on the recipient's window
+  // size — replaying the sender's offset on a smaller container lands
+  // them N pages earlier than intended (the live bug: GM at page 119
+  // shares, recipient lands on 106). The recipient's restore code skips
+  // scrollTop when it's zero, so the rAF mid-page-position restore is
+  // self-bypassed and the page-number restore wins cleanly.
+  shareValue: (value) => ({ ...value, scrollTop: 0 }),
 });
 
 export const PdfReaderStateChanged = defineEvent({

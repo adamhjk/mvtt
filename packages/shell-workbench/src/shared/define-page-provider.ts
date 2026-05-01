@@ -41,6 +41,7 @@ export function definePageProvider(def: {
   list: PageProvider["list"];
   defaultEntity?: PageProvider["defaultEntity"];
   render: PageProvider["render"];
+  summarizeTabState?: PageProvider["summarizeTabState"];
   priority?: number;
 }): PageProvider {
   return {
@@ -51,6 +52,7 @@ export function definePageProvider(def: {
     list: def.list,
     defaultEntity: def.defaultEntity,
     render: def.render,
+    summarizeTabState: def.summarizeTabState,
     priority: def.priority,
   };
 }

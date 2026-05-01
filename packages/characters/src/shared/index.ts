@@ -65,3 +65,4 @@ export {
   type Contribution,
   type PendingRollValue,
 } from "./pending.js";
+export { requireCharacterEditor } from "./checks.js";

@@ -148,6 +148,9 @@ export const WorkspaceOwner = defineTrait({
   schema: z.object({
     userId: z.string().min(1),
   }),
+  // Identity-bound: the userId names the owning user; copying it onto
+  // another workspace would mis-attribute the workspace.
+  share: false,
 });
 
 /**
@@ -165,4 +168,8 @@ export const TabSentinel = defineTrait({
   schema: z.object({
     tabId: z.string().min(1),
   }),
+  // Marker trait whose tabId names the entity itself; it would be wrong to
+  // copy onto another tab's sentinel (the recipient gets its own freshly-
+  // marked sentinel via TabSharedApplySystem).
+  share: false,
 });

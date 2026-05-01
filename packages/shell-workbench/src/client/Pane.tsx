@@ -25,9 +25,10 @@ import {
   type JSX,
 } from "solid-js";
 import { Portal } from "solid-js/web";
-import { useClient } from "@vtt/substrate/client";
+import { useClient, useQuery } from "@vtt/substrate/client";
 import { TabPicker } from "./TabPicker.js";
 import { useWorkspace } from "./use-workspace.js";
+import { useMe } from "./use-me.js";
 import { useProviderContext, type ProviderRunContext } from "./provider-context.js";
 import {
   usePageProviders,
@@ -39,8 +40,11 @@ import {
   FocusTab,
   OpenPageAsSplit,
   OpenPageInNewTab,
+  ShareTab,
   ToggleZen,
 } from "../shared/commands.js";
+import { Identity, Name, Online } from "@vtt/identity/shared";
+import { tabSentinelEntityId } from "../shared/tab-sentinel.js";
 import type { WorkspacePane, WorkspaceTab } from "../shared/traits.js";
 import type { PageProvider, PageRenderArgs } from "../shared/slots.js";
 
@@ -362,6 +366,7 @@ function TabChip(props: {
         />
       </Show>
       <TabPicker tab={props.tab} ctx={props.ctx} compact />
+      <ShareMenu tab={props.tab} />
       <button
         type="button"
         class="ml-1 rounded-(--radius-control) px-1 text-[0.7rem] text-fg-subtle opacity-0 hover:bg-surface-elevated hover:text-danger group-hover:opacity-100 transition"
@@ -375,6 +380,315 @@ function TabChip(props: {
       >
         ✕
       </button>
+    </div>
+  );
+}
+
+/**
+ * Width of the share dropdown, in px. Matches the Tailwind `w-72` class on
+ * the popover (`18rem` × 16px). Exposed as a constant so the position-
+ * clamping math doesn't have to query layout.
+ */
+const SHARE_MENU_WIDTH = 288;
+
+/**
+ * Compute a viewport-clamped `left` for the share dropdown. The popover is
+ * a portaled fixed element; default-anchoring it to the right of the
+ * triggering button (so it cascades toward the pane center) is fine in
+ * the middle of the strip but pushes the popover off-screen when the tab
+ * is at the far left or far right edge of the viewport. This function
+ * picks `left` so:
+ *
+ *   - the popover's right edge prefers to align with the button's right
+ *     edge (`buttonRight - menuWidth`), matching the visual cascade of
+ *     the existing OverflowMenu pattern,
+ *   - but the result is clamped into `[margin, viewport - menuWidth - margin]`
+ *     so the popover always fits with a small gutter on both sides.
+ *
+ * Pure function: takes only numbers, no DOM. The Pane test file unit-tests
+ * the three branches (no-clamp, left-clamped, right-clamped).
+ */
+export function clampShareMenuLeft(args: {
+  buttonRight: number;
+  viewportWidth: number;
+  menuWidth?: number;
+  margin?: number;
+}): number {
+  const menuWidth = args.menuWidth ?? SHARE_MENU_WIDTH;
+  const margin = args.margin ?? 8;
+  const preferred = args.buttonRight - menuWidth;
+  const minLeft = margin;
+  const maxLeft = args.viewportWidth - menuWidth - margin;
+  if (preferred < minLeft) return minLeft;
+  if (preferred > maxLeft) return maxLeft;
+  return preferred;
+}
+
+/**
+ * Per-tab "share" affordance — a small button that opens a popover listing
+ * the other online users. The dispatcher picks recipients (or "everyone")
+ * and optionally GM-pulls them to the new tab via `forceFocus`. Player-to-
+ * player sharing is allowed; only `forceFocus` is GM-gated, enforced both
+ * server-side in `ShareTab.validate` and client-side here by disabling the
+ * checkbox for non-GM connections (the visual confirmation matches the
+ * authoritative rule).
+ *
+ * The whole point of this verb is that the recipient lands on the same
+ * view as the sender — page 11 of the rulebook, sub-page 5 of a note —
+ * which is handled entirely by the substrate: `ShareTab.apply` snapshots
+ * every share-eligible trait off the sender's tab sentinel, so the
+ * client doesn't have to enumerate or care.
+ */
+export function ShareMenu(props: { tab: WorkspaceTab }): JSX.Element {
+  const client = useClient();
+  const me = useMe();
+  const presence = useQuery([Identity, Name, Online]);
+  const providers = usePageProviders();
+  const worldVersion = useProviderTraitsVersion();
+  const [open, setOpen] = createSignal(false);
+  const [mode, setMode] = createSignal<"everyone" | "select">("everyone");
+  const [selected, setSelected] = createSignal<ReadonlySet<string>>(
+    new Set<string>(),
+  );
+  const [forceFocus, setForceFocus] = createSignal(false);
+  const [pos, setPos] = createSignal<{ top: number; left: number } | null>(null);
+  let rootEl: HTMLDivElement | undefined;
+  let buttonEl: HTMLButtonElement | undefined;
+  let menuEl: HTMLDivElement | undefined;
+
+  const onDocClick = (e: MouseEvent) => {
+    if (rootEl?.contains(e.target as Node)) return;
+    if (menuEl?.contains(e.target as Node)) return;
+    setOpen(false);
+  };
+  document.addEventListener("mousedown", onDocClick);
+  onCleanup(() => document.removeEventListener("mousedown", onDocClick));
+
+  const onResize = () => {
+    if (open()) computePos();
+  };
+  window.addEventListener("resize", onResize);
+  onCleanup(() => window.removeEventListener("resize", onResize));
+
+  const computePos = () => {
+    if (!buttonEl) return;
+    const rect = buttonEl.getBoundingClientRect();
+    const left = clampShareMenuLeft({
+      buttonRight: rect.right,
+      viewportWidth: window.innerWidth,
+    });
+    setPos({ top: rect.bottom + 4, left });
+  };
+
+  /**
+   * One-line summary of what's about to travel — "page 11", "page 'Skarn'",
+   * etc. Only renders when the tab's PageProvider implements
+   * `summarizeTabState` and returns a non-null value. The dependency on
+   * `worldVersion()` is what makes this re-run when the underlying per-tab
+   * UI-state trait changes mid-share-menu (the user toggles to a different
+   * sub-page while the dropdown is open).
+   */
+  const summary = createMemo<string | null>(() => {
+    worldVersion();
+    const provider = providers().get(props.tab.pageKind);
+    if (!provider?.summarizeTabState) return null;
+    try {
+      return provider.summarizeTabState({
+        sentinelId: tabSentinelEntityId(props.tab.id),
+        world: client.world,
+      });
+    } catch {
+      return null;
+    }
+  });
+
+  /** Online users other than me — the share-target candidates. */
+  const others = createMemo<{ userId: string; name: string }[]>(() => {
+    const meInfo = me();
+    const myId = meInfo?.userId ?? null;
+    const seen = new Set<string>();
+    const out: { userId: string; name: string }[] = [];
+    for (const row of presence()) {
+      const id = row.values.Identity as { userId: string };
+      if (id.userId === myId) continue;
+      if (seen.has(id.userId)) continue;
+      seen.add(id.userId);
+      const nm = (row.values as { Name?: { value: string } }).Name;
+      out.push({ userId: id.userId, name: nm?.value ?? id.userId });
+    }
+    return out;
+  });
+
+  const isGm = createMemo(() => me()?.role === "gm");
+
+  const recipientList = (): string[] => {
+    if (mode() === "everyone") return others().map((u) => u.userId);
+    return others()
+      .map((u) => u.userId)
+      .filter((id) => selected().has(id));
+  };
+
+  const canSend = createMemo(() => recipientList().length > 0);
+
+  const send = async () => {
+    const targets = recipientList();
+    if (targets.length === 0) return;
+    // Flush any pending optimistic writes on this tab's sentinel before
+    // ShareTab fires server-side. Without this, a per-tab UI-state trait
+    // (PdfReaderState.page, NotesUiState.activePageId, etc.) whose write
+    // is mid-debounce won't be visible to the server's `traitsOn`
+    // snapshot, and the recipient lands on the previously-committed
+    // value instead of what the sender currently sees.
+    await client.optimisticFlushes.flushFor(tabSentinelEntityId(props.tab.id));
+    client.dispatch(
+      ShareTab({
+        tabId: props.tab.id,
+        recipientUserIds: targets,
+        forceFocus: forceFocus() && isGm(),
+      }) as never,
+    );
+    setOpen(false);
+    // Reset transient menu state so the next open starts neutral.
+    setMode("everyone");
+    setSelected(new Set<string>());
+    setForceFocus(false);
+  };
+
+  const toggleSelected = (uid: string) => {
+    setSelected((prev) => {
+      const next = new Set<string>(prev);
+      if (next.has(uid)) next.delete(uid);
+      else next.add(uid);
+      return next;
+    });
+  };
+
+  return (
+    <div ref={rootEl} class="relative">
+      <button
+        ref={buttonEl}
+        type="button"
+        class="ml-1 rounded-(--radius-control) px-1 text-[0.7rem] text-fg-subtle opacity-0 hover:bg-surface-elevated hover:text-fg group-hover:opacity-100 transition"
+        title="share this tab with another player"
+        aria-label="share tab"
+        aria-haspopup="dialog"
+        aria-expanded={open()}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!open()) computePos();
+          setOpen((v) => !v);
+        }}
+      >
+        ↗
+      </button>
+
+      <Show when={open() && pos()}>
+        <Portal>
+          <div
+            ref={menuEl}
+            role="dialog"
+            aria-label="share tab"
+            class="fixed z-50 w-72 rounded-(--radius-card) border border-border bg-surface-elevated p-3 text-xs shadow-2xl ring-1 ring-black/10"
+            style={{ top: `${pos()!.top}px`, left: `${pos()!.left}px` }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Show when={summary() !== null}>
+              <p class="mb-2 text-[0.65rem] uppercase tracking-[0.14em] text-fg-subtle">
+                includes:{" "}
+                <span class="normal-case tracking-normal text-fg">
+                  {summary()}
+                </span>
+              </p>
+            </Show>
+            <Show
+              when={others().length > 0}
+              fallback={
+                <p class="text-fg-subtle">no other players are online</p>
+              }
+            >
+              <div class="flex flex-col gap-2">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="share-mode"
+                    checked={mode() === "everyone"}
+                    onChange={() => setMode("everyone")}
+                  />
+                  <span>everyone ({others().length})</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="share-mode"
+                    checked={mode() === "select"}
+                    onChange={() => setMode("select")}
+                  />
+                  <span>just…</span>
+                </label>
+                <Show when={mode() === "select"}>
+                  <ul class="ml-6 flex flex-col gap-1">
+                    <For each={others()}>
+                      {(u) => (
+                        <li>
+                          <label class="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selected().has(u.userId)}
+                              onChange={() => toggleSelected(u.userId)}
+                            />
+                            <span>{u.name}</span>
+                          </label>
+                        </li>
+                      )}
+                    </For>
+                  </ul>
+                </Show>
+
+                <hr class="my-1 border-border-muted" />
+
+                <label
+                  class="flex items-center gap-2"
+                  classList={{
+                    "opacity-50 cursor-not-allowed": !isGm(),
+                    "cursor-pointer": isGm(),
+                  }}
+                  title={
+                    isGm()
+                      ? "open the tab on their screen and pull focus to it"
+                      : "only the GM can pull players to a tab"
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={forceFocus()}
+                    disabled={!isGm()}
+                    onChange={(e) => setForceFocus(e.currentTarget.checked)}
+                  />
+                  <span>pull them to it (force focus)</span>
+                </label>
+
+                <div class="mt-2 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    class="rounded-(--radius-control) px-2 py-1 text-fg-subtle hover:bg-surface hover:text-fg transition"
+                    onClick={() => setOpen(false)}
+                  >
+                    cancel
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-(--radius-control) bg-accent px-2 py-1 text-on-accent disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={!canSend()}
+                    onClick={send}
+                  >
+                    send
+                  </button>
+                </div>
+              </div>
+            </Show>
+          </div>
+        </Portal>
+      </Show>
     </div>
   );
 }

@@ -22,6 +22,7 @@ import {
   TabSentinel,
 } from "./shared/traits.js";
 import {
+  TabShared,
   WorkspaceStateChanged,
   WorkspaceBootstrapped,
 } from "./shared/events.js";
@@ -38,6 +39,7 @@ import {
 } from "./shared/slots.js";
 import { allCommands } from "./shared/commands.js";
 import {
+  TabSharedApplySystem,
   WorkspaceBootstrapSystem,
   WorkspaceStateApplySystem,
 } from "./server/systems.js";
@@ -53,9 +55,13 @@ export const shellWorkbench = definePlugin({
     "@vtt/permissions@^0",
   ],
   traits: [WorkspaceState, WorkspaceOwner, TabSentinel],
-  events: [WorkspaceStateChanged, WorkspaceBootstrapped],
+  events: [WorkspaceStateChanged, WorkspaceBootstrapped, TabShared],
   commands: [...allCommands],
-  systems: [WorkspaceBootstrapSystem, WorkspaceStateApplySystem],
+  systems: [
+    WorkspaceBootstrapSystem,
+    WorkspaceStateApplySystem,
+    TabSharedApplySystem,
+  ],
   surfaces: [
     WorkbenchHeaderSurface,
     WorkbenchChatRailSurface,

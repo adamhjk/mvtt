@@ -114,6 +114,28 @@ describe("World", () => {
     expect(out[0]!.id).toBe(a);
   });
 
+  it("traitsOn returns every trait on the entity, keyed by qualified name", () => {
+    const w = new World();
+    const id = w.spawn([Health({ current: 5, max: 10 }), Name({ value: "hero" })]);
+    const traits = w.traitsOn(id);
+    expect(traits.size).toBe(2);
+    expect(traits.get("@test/world/Health" as never)).toEqual({ current: 5, max: 10 });
+    expect(traits.get("@test/world/Name" as never)).toEqual({ value: "hero" });
+  });
+
+  it("traitsOn returns an empty map for an unknown entity (no throw)", () => {
+    const w = new World();
+    expect(w.traitsOn("nope" as never).size).toBe(0);
+  });
+
+  it("traitsOn returns a fresh map — mutating it does not affect the world", () => {
+    const w = new World();
+    const id = w.spawn([Health({ current: 5, max: 10 })]);
+    w.traitsOn(id).delete("@test/world/Health" as never);
+    // World still has the trait — the returned map was a copy.
+    expect(w.get(id, [Health])).toBeDefined();
+  });
+
   it("rejects setting a trait on an unknown entity", () => {
     const w = new World();
     expect(() => w.set("missing", Health, { current: 1, max: 1 })).toThrow();

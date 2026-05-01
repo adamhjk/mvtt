@@ -104,15 +104,20 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
         id: row.id,
         name: (row.values.Character as { name: string }).name,
         ownerUserId: (row.values.OwnedBy as { userId: string }).userId,
+        playerUserId: (row.values.Character as {
+          playerUserId?: string;
+        }).playerUserId,
         imageUrl: tokenImageByCharacter().get(row.id) ?? null,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
-  const canPlace = (ownerUserId: string) => {
+  const canPlace = (c: { ownerUserId: string; playerUserId?: string }) => {
     const m = me();
     if (!m) return false;
-    return m.role === "gm" || m.userId === ownerUserId;
+    if (m.role === "gm") return true;
+    if (m.userId === c.ownerUserId) return true;
+    return c.playerUserId === m.userId;
   };
 
   const place = (c: {
@@ -200,7 +205,7 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
           <For each={sortedCharacters()}>
             {(c) => {
               const placed = createMemo(() => placedOnThisScene().has(c.id));
-              const allowed = createMemo(() => canPlace(c.ownerUserId));
+              const allowed = createMemo(() => canPlace(c));
               const disabled = createMemo(() => placed() || !allowed());
               const title = () => {
                 if (placed()) return `${c.name} is already on this scene`;

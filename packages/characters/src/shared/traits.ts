@@ -29,9 +29,12 @@ import { defineTrait, z } from "@vtt/substrate";
  * "speak as" dropdown: a player sees every Character whose
  * `playerUserId` is their own userId, plus their plain self.
  *
- * Ownership (who can rename/remove/reassign) is carried by the
- * standard `OwnedBy` trait spawned by the recording system — owner-or-GM
- * gates editing.
+ * Editing rights (rename / remove / reassign / set fields / roll)
+ * are granted to three actors: the GM, the `OwnedBy.userId` (creator),
+ * and the `playerUserId` (currently-assigned player). Use
+ * `requireCharacterEditor` to gate writes — a GM may keep ownership
+ * while delegating play to a player, and assignment is the act that
+ * grants edit rights without transferring ownership.
  */
 export const Character = defineTrait({
   name: "@vtt/characters/Character",

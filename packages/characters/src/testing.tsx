@@ -93,6 +93,14 @@ export interface BuildCharacterHarnessOptions
   readonly plugins?: ReadonlyArray<PluginDef>;
   /** Owner userId of the test character. Defaults to `meUserId`. */
   readonly ownerUserId?: string;
+  /**
+   * Assigned player on the test character. Distinct from `ownerUserId`
+   * so tests can exercise the GM-owns-but-player-plays case (the
+   * editor-rights path that comes from `Character.playerUserId`).
+   * Empty string spawns an unassigned character; omit to leave
+   * `playerUserId` undefined.
+   */
+  readonly playerUserId?: string;
   /** Make the synthetic user a GM. Defaults to `false` (player). */
   readonly asGm?: boolean;
   /** Override the synthetic user's userId. Defaults to `"test-me"`. */
@@ -181,8 +189,17 @@ export function buildCharacterHarness(
       role,
     },
     setupWorld: ({ world, registry }) => {
+      const playerUserId =
+        opts.playerUserId === undefined
+          ? undefined
+          : opts.playerUserId.length > 0
+            ? opts.playerUserId
+            : undefined;
       characterId = world.spawn([
-        Character({ name: opts.characterName ?? "Tarn" }),
+        Character({
+          name: opts.characterName ?? "Tarn",
+          playerUserId,
+        }),
         OwnedBy({ userId: ownerUserId }),
       ]);
       world.spawn([

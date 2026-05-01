@@ -25,7 +25,12 @@ import {
   type CommandInstance,
   type PluginDef,
 } from "./index.js";
-import { ClientProvider, type ClientHandle, type DispatchHandle } from "./client.js";
+import {
+  ClientProvider,
+  createOptimisticFlushRegistry,
+  type ClientHandle,
+  type DispatchHandle,
+} from "./client.js";
 import { render } from "@solidjs/testing-library";
 import { type JSX } from "solid-js";
 
@@ -159,6 +164,7 @@ export function buildTestClient(opts: BuildTestClientOptions): TestClientHarness
     },
     onConnect: () => () => {},
     onSynced: () => () => {},
+    optimisticFlushes: createOptimisticFlushRegistry(),
     close: () => {},
   };
 

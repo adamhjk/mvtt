@@ -21,8 +21,10 @@ import {
   EventBus,
   Registry,
   World,
+  defineTrait,
   definePlugin,
   runSystemsToFixpoint,
+  z,
   type CommandInstance,
   type EntityId,
 } from "@vtt/substrate";
@@ -56,11 +58,14 @@ import {
   RetargetTab,
   SetDrawerKeepOpen,
   SetSplitProportions,
+  ShareTab,
   ToggleDrawer,
   ToggleZen,
   allCommands,
 } from "./shared/commands.js";
+import { TabShared } from "./shared/events.js";
 import {
+  TabSharedApplySystem,
   WorkspaceBootstrapSystem,
   WorkspaceStateApplySystem,
 } from "./server/systems.js";
@@ -73,6 +78,43 @@ const PLAYER: AuthSession = {
   role: "player",
 };
 
+const PLAYER_2: AuthSession = {
+  userId: "player-2",
+  email: "p2@test.dev",
+  name: "Player Two",
+  role: "player",
+};
+
+const GM: AuthSession = {
+  userId: "gm-1",
+  email: "gm@test.dev",
+  name: "GM",
+  role: "gm",
+};
+
+/**
+ * Stand-in for a per-plugin per-tab UI-state trait. ShareTab gathers traits
+ * with `share: true` (default) off the sender's tab sentinel and replays
+ * them on the recipient's; this trait verifies that path end-to-end without
+ * pulling a real plugin (notes/pdf-book) into the workbench's tests.
+ */
+const TestTabUiState = defineTrait({
+  name: "@test/share/UiState",
+  schema: z.object({ activePage: z.number().int().min(1) }),
+});
+
+/**
+ * Stand-in for a trait that opts out of sharing. ShareTab must not copy
+ * this onto the recipient's sentinel even though it's attached to the
+ * sender's. Mirrors the role of TabSentinel/OwnedBy/EntityVisibility but
+ * keeps the workbench tests free of cross-plugin imports.
+ */
+const TestPrivateState = defineTrait({
+  name: "@test/share/Private",
+  schema: z.object({ secret: z.string() }),
+  share: false,
+});
+
 /**
  * Build a minimal server-side world: registry loaded with everything we
  * need to drive bootstrap + every command. Uses the *real* substrate +
@@ -83,10 +125,22 @@ function setup() {
   const workbenchPlugin = definePlugin({
     name: "@vtt/shell-workbench",
     version: "0.1.0",
-    traits: [WorkspaceState, WorkspaceOwner, TabSentinel, OwnedBy, EntityVisibility],
-    events: [PlayerJoined, WorkspaceStateChanged, WorkspaceBootstrapped],
+    traits: [
+      WorkspaceState,
+      WorkspaceOwner,
+      TabSentinel,
+      OwnedBy,
+      EntityVisibility,
+      TestTabUiState,
+      TestPrivateState,
+    ],
+    events: [PlayerJoined, WorkspaceStateChanged, WorkspaceBootstrapped, TabShared],
     commands: [...allCommands],
-    systems: [WorkspaceBootstrapSystem, WorkspaceStateApplySystem],
+    systems: [
+      WorkspaceBootstrapSystem,
+      WorkspaceStateApplySystem,
+      TabSharedApplySystem,
+    ],
     entityVisibility: (traits) => {
       const ev = traits[EntityVisibility.name] as
         | { visibility: import("@vtt/substrate").Visibility }
@@ -111,11 +165,11 @@ function bootstrap(
   // does on a real ConnectionOpened-spawned PlayerJoined emission.
   runSystemsToFixpoint(registry, world, [
     PlayerJoined({
-      playerId: "player-entity-id",
+      playerId: `${userId}-player`,
       userId,
       name: "Player",
       role: "player",
-      clientId: "c1",
+      clientId: `c-${userId}`,
     }),
   ]);
   // Locate the freshly-spawned WorkspaceOwner.
@@ -1135,5 +1189,288 @@ describe("drawers", () => {
     await dispatch(pipeline, CloseDrawer({ id: DRAWER_A }));
     await dispatch(pipeline, OpenDrawer({ id: DRAWER_A }));
     expect(getState(world, ownerId).openDrawers[DRAWER_A]!.keepOpen).toBe(false);
+  });
+});
+
+// — ShareTab ——————————————————————————————————————————————————————
+
+describe("ShareTab", () => {
+  /**
+   * Open a tab in the sender's workspace and return the new tab id —
+   * helper because every share test needs a sender with at least one tab.
+   */
+  async function openSenderTab(
+    pipeline: CommandPipeline,
+    senderOwnerId: EntityId,
+    world: World,
+    session: AuthSession = PLAYER,
+    pageKind = KIND,
+    entityId: EntityId | null = null,
+  ): Promise<string> {
+    await dispatch(pipeline, OpenPage({ pageKind, entityId }), session);
+    const state = getState(world, senderOwnerId);
+    const tabIds = Object.keys(state.tabs);
+    if (tabIds.length === 0) throw new Error("no tab opened");
+    return tabIds[tabIds.length - 1]!;
+  }
+
+  it("delivers a fresh tab into the recipient's workspace with the same (pageKind, entityId)", async () => {
+    const { registry, world, pipeline } = setup();
+    bootstrap(registry, world, PLAYER.userId);
+    const recipientOwnerId = bootstrap(registry, world, PLAYER_2.userId);
+    const senderOwnerId = world
+      .query([WorkspaceOwner, OwnedBy])
+      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+
+    const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
+    await dispatch(
+      pipeline,
+      ShareTab({ tabId: senderTabId, recipientUserIds: [PLAYER_2.userId] }),
+      PLAYER,
+    );
+
+    const recipientState = getState(world, recipientOwnerId);
+    const recipientTabs = Object.values(recipientState.tabs);
+    expect(recipientTabs).toHaveLength(1);
+    expect(recipientTabs[0]!.pageKind).toBe(KIND);
+    // The recipient's tab id is freshly minted — not the sender's.
+    expect(recipientTabs[0]!.id).not.toBe(senderTabId);
+  });
+
+  it("snapshots the sender's per-tab UI-state traits onto the recipient's new sentinel", async () => {
+    const { registry, world, pipeline } = setup();
+    bootstrap(registry, world, PLAYER.userId);
+    bootstrap(registry, world, PLAYER_2.userId);
+    const senderOwnerId = world
+      .query([WorkspaceOwner, OwnedBy])
+      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+    const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
+
+    // The sender's per-tab UI state — the "page 11" of the rulebook.
+    world.set(
+      tabSentinelEntityId(senderTabId),
+      TestTabUiState,
+      { activePage: 11 },
+    );
+
+    await dispatch(
+      pipeline,
+      ShareTab({ tabId: senderTabId, recipientUserIds: [PLAYER_2.userId] }),
+      PLAYER,
+    );
+
+    const recipientOwnerId = world
+      .query([WorkspaceOwner, OwnedBy])
+      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER_2.userId)!.id;
+    const recipientTabId = Object.keys(getState(world, recipientOwnerId).tabs)[0]!;
+    const recipientSentinelId = tabSentinelEntityId(recipientTabId);
+    const got = world.get(recipientSentinelId, [TestTabUiState]) as
+      | { UiState: { activePage: number } }
+      | undefined;
+    expect(got?.UiState.activePage).toBe(11);
+  });
+
+  it("does NOT copy traits whose definition sets share: false", async () => {
+    const { registry, world, pipeline } = setup();
+    bootstrap(registry, world, PLAYER.userId);
+    bootstrap(registry, world, PLAYER_2.userId);
+    const senderOwnerId = world
+      .query([WorkspaceOwner, OwnedBy])
+      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+    const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
+
+    // A trait that opts out of sharing — must not land on the recipient.
+    world.set(
+      tabSentinelEntityId(senderTabId),
+      TestPrivateState,
+      { secret: "do not copy" },
+    );
+
+    await dispatch(
+      pipeline,
+      ShareTab({ tabId: senderTabId, recipientUserIds: [PLAYER_2.userId] }),
+      PLAYER,
+    );
+
+    const recipientOwnerId = world
+      .query([WorkspaceOwner, OwnedBy])
+      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER_2.userId)!.id;
+    const recipientTabId = Object.keys(getState(world, recipientOwnerId).tabs)[0]!;
+    const traits = world.traitsOn(tabSentinelEntityId(recipientTabId));
+    expect(traits.has("@test/share/Private" as never)).toBe(false);
+  });
+
+  it("recipient's sentinel is freshly scoped — TabSentinel/OwnedBy/EntityVisibility name the recipient, not the sender", async () => {
+    const { registry, world, pipeline } = setup();
+    bootstrap(registry, world, PLAYER.userId);
+    const recipientOwnerId = bootstrap(registry, world, PLAYER_2.userId);
+    const senderOwnerId = world
+      .query([WorkspaceOwner, OwnedBy])
+      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+    const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
+
+    await dispatch(
+      pipeline,
+      ShareTab({ tabId: senderTabId, recipientUserIds: [PLAYER_2.userId] }),
+      PLAYER,
+    );
+
+    const recipientTabId = Object.keys(getState(world, recipientOwnerId).tabs)[0]!;
+    const got = world.get(tabSentinelEntityId(recipientTabId), [
+      TabSentinel,
+      OwnedBy,
+      EntityVisibility,
+    ]) as {
+      TabSentinel: { tabId: string };
+      OwnedBy: { userId: string };
+      EntityVisibility: { visibility: { kind: string; userIds?: string[] } };
+    };
+    expect(got.TabSentinel.tabId).toBe(recipientTabId);
+    expect(got.OwnedBy.userId).toBe(PLAYER_2.userId);
+    expect(got.EntityVisibility.visibility.kind).toBe("users");
+    expect(got.EntityVisibility.visibility.userIds).toEqual([PLAYER_2.userId]);
+  });
+
+  it("forceFocus: false leaves the recipient's activeTabId untouched", async () => {
+    const { registry, world, pipeline } = setup();
+    bootstrap(registry, world, PLAYER.userId);
+    const recipientOwnerId = bootstrap(registry, world, PLAYER_2.userId);
+    const senderOwnerId = world
+      .query([WorkspaceOwner, OwnedBy])
+      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+    const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
+
+    const beforeActive = getState(world, recipientOwnerId)
+      .panes[getState(world, recipientOwnerId).activePaneId]!.activeTabId;
+    expect(beforeActive).toBeNull(); // recipient has no tabs yet
+
+    await dispatch(
+      pipeline,
+      ShareTab({
+        tabId: senderTabId,
+        recipientUserIds: [PLAYER_2.userId],
+        forceFocus: false,
+      }),
+      PLAYER,
+    );
+
+    const afterPane = getState(world, recipientOwnerId)
+      .panes[getState(world, recipientOwnerId).activePaneId]!;
+    // New tab is in the pane's tab list, but pane.activeTabId stays null —
+    // the recipient sees a new tab head appear without being yanked to it.
+    expect(afterPane.tabIds).toHaveLength(1);
+    expect(afterPane.activeTabId).toBeNull();
+  });
+
+  it("forceFocus: true (as GM) flips the recipient's activeTabId to the shared tab", async () => {
+    const { registry, world, pipeline } = setup();
+    bootstrap(registry, world, GM.userId);
+    const recipientOwnerId = bootstrap(registry, world, PLAYER_2.userId);
+    const gmOwnerId = world
+      .query([WorkspaceOwner, OwnedBy])
+      .find((r) => (r.values.OwnedBy as { userId: string }).userId === GM.userId)!.id;
+    const senderTabId = await openSenderTab(pipeline, gmOwnerId, world, GM);
+
+    await dispatch(
+      pipeline,
+      ShareTab({
+        tabId: senderTabId,
+        recipientUserIds: [PLAYER_2.userId],
+        forceFocus: true,
+      }),
+      GM,
+    );
+
+    const recipientState = getState(world, recipientOwnerId);
+    const pane = recipientState.panes[recipientState.activePaneId]!;
+    const recipientTabId = Object.keys(recipientState.tabs)[0]!;
+    expect(pane.activeTabId).toBe(recipientTabId);
+  });
+
+  it("forceFocus: true is rejected when the dispatcher is not a GM", async () => {
+    const { registry, world, pipeline } = setup();
+    bootstrap(registry, world, PLAYER.userId);
+    bootstrap(registry, world, PLAYER_2.userId);
+    const senderOwnerId = world
+      .query([WorkspaceOwner, OwnedBy])
+      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+    const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
+
+    const ack = await dispatch(
+      pipeline,
+      ShareTab({
+        tabId: senderTabId,
+        recipientUserIds: [PLAYER_2.userId],
+        forceFocus: true,
+      }),
+      PLAYER,
+    );
+    expect(ack.result.ok).toBe(false);
+  });
+
+  it("delivers to multiple recipients in one dispatch — each gets a fresh tab", async () => {
+    const { registry, world, pipeline } = setup();
+    bootstrap(registry, world, PLAYER.userId);
+    const r1Owner = bootstrap(registry, world, PLAYER_2.userId);
+    const r2Owner = bootstrap(registry, world, "player-3");
+    const senderOwnerId = world
+      .query([WorkspaceOwner, OwnedBy])
+      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+    const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
+
+    await dispatch(
+      pipeline,
+      ShareTab({
+        tabId: senderTabId,
+        recipientUserIds: [PLAYER_2.userId, "player-3"],
+      }),
+      PLAYER,
+    );
+
+    expect(Object.keys(getState(world, r1Owner).tabs)).toHaveLength(1);
+    expect(Object.keys(getState(world, r2Owner).tabs)).toHaveLength(1);
+  });
+
+  it("rejects sharing a tab with yourself", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world, PLAYER.userId);
+    const senderTabId = await openSenderTab(pipeline, ownerId, world);
+
+    const ack = await dispatch(
+      pipeline,
+      ShareTab({ tabId: senderTabId, recipientUserIds: [PLAYER.userId] }),
+      PLAYER,
+    );
+    expect(ack.result.ok).toBe(false);
+  });
+
+  it("rejects an unknown recipient (no workspace)", async () => {
+    const { registry, world, pipeline } = setup();
+    const ownerId = bootstrap(registry, world, PLAYER.userId);
+    const senderTabId = await openSenderTab(pipeline, ownerId, world);
+
+    const ack = await dispatch(
+      pipeline,
+      ShareTab({ tabId: senderTabId, recipientUserIds: ["nobody"] }),
+      PLAYER,
+    );
+    expect(ack.result.ok).toBe(false);
+  });
+
+  it("rejects sharing an unknown tab", async () => {
+    const { registry, world, pipeline } = setup();
+    bootstrap(registry, world, PLAYER.userId);
+    bootstrap(registry, world, PLAYER_2.userId);
+
+    const ack = await dispatch(
+      pipeline,
+      ShareTab({ tabId: "no-such-tab", recipientUserIds: [PLAYER_2.userId] }),
+      PLAYER,
+    );
+    expect(ack.result.ok).toBe(false);
+  });
+
+  it("rejects an empty recipient list at the schema layer", () => {
+    expect(() => ShareTab({ tabId: "t", recipientUserIds: [] })).toThrow();
   });
 });

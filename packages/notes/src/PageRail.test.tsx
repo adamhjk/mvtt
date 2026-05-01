@@ -199,24 +199,29 @@ describe("PageRail sort mode", () => {
     ]);
     mount(h.client, h.setup.noteId);
 
+    // Each page row is an <li> that uniquely contains its title; reading
+    // textContent off the rows isolates page order from the rest of the
+    // rail's button chrome (drag-handle glyph, sort toggles, the ✕ on the
+    // active row, etc.) so the test stays stable as that chrome evolves.
+    const TITLES = ["Zebra", "Aardvark", "Mongoose"] as const;
+    const orderedTitles = (): string[] => {
+      const allLis = Array.from(document.querySelectorAll("li"));
+      return allLis
+        .map((li) => {
+          const text = li.textContent ?? "";
+          return TITLES.find((t) => text.includes(t));
+        })
+        .filter((t): t is (typeof TITLES)[number] => Boolean(t));
+    };
+
     // Default (manual) order: Zebra, Aardvark, Mongoose.
-    let titles = await screen
-      .findAllByRole("button")
-      .then((btns) =>
-        btns
-          .map((b) => b.textContent?.trim() ?? "")
-          .filter((t) => /^(Zebra|Aardvark|Mongoose)$/.test(t)),
-      );
-    expect(titles).toEqual(["Zebra", "Aardvark", "Mongoose"]);
+    expect(orderedTitles()).toEqual(["Zebra", "Aardvark", "Mongoose"]);
 
     // Switch to alphabetical.
     fireEvent.click(screen.getByRole("button", { name: /alphabetical/i }));
 
-    await waitFor(async () => {
-      const sortedTitles = (await screen.findAllByRole("button"))
-        .map((b) => b.textContent?.trim() ?? "")
-        .filter((t) => /^(Zebra|Aardvark|Mongoose)$/.test(t));
-      expect(sortedTitles).toEqual(["Aardvark", "Mongoose", "Zebra"]);
+    await waitFor(() => {
+      expect(orderedTitles()).toEqual(["Aardvark", "Mongoose", "Zebra"]);
     });
 
     // Switching to alpha doesn't dispatch a server reorder.

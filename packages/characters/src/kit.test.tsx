@@ -112,11 +112,13 @@ const kitTestPlugin = definePlugin({
 function harness(opts?: {
   asGm?: boolean;
   ownerUserId?: string;
+  playerUserId?: string;
 }): CharacterHarness {
   return buildCharacterHarness({
     plugins: [kitTestPlugin],
     asGm: opts?.asGm,
     ownerUserId: opts?.ownerUserId,
+    playerUserId: opts?.playerUserId,
     setupWorld: ({ world, characterId }) => {
       world.set(characterId, Stats, { might: 3, quickness: 2 });
       world.set(characterId, Vitals, { hp: 4, proficient: false });
@@ -251,6 +253,28 @@ describe("kit/NumberField", () => {
     mountWithClient(h, () => <NumberField {...bindMight(h)} min={0} max={5} />);
     const input = screen.getByRole("spinbutton") as HTMLInputElement;
     expect(input.disabled).toBe(false);
+  });
+
+  it("is enabled for a player assigned to a character the GM still owns", () => {
+    // GM owns the character but assigned it to me. Editor rights flow
+    // through Character.playerUserId, so the bound input must enable.
+    const h = harness({
+      ownerUserId: "gm-1",
+      playerUserId: "test-me",
+    });
+    mountWithClient(h, () => <NumberField {...bindMight(h)} min={0} max={5} />);
+    const input = screen.getByRole("spinbutton") as HTMLInputElement;
+    expect(input.disabled).toBe(false);
+  });
+
+  it("is disabled when assigned to a different player", () => {
+    const h = harness({
+      ownerUserId: "gm-1",
+      playerUserId: "someone-else",
+    });
+    mountWithClient(h, () => <NumberField {...bindMight(h)} min={0} max={5} />);
+    const input = screen.getByRole("spinbutton") as HTMLInputElement;
+    expect(input.disabled).toBe(true);
   });
 });
 

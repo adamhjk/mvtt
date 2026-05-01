@@ -434,6 +434,7 @@ function PageRail(props: {
             type="button"
             onClick={() => props.onSetSortMode("manual")}
             aria-pressed={props.sortMode === "manual"}
+            aria-label="manual order"
             title="manual order — drag to reorder"
             class="rounded-(--radius-control) px-1.5 py-0.5 font-mono uppercase tracking-[0.1em] transition"
             classList={{
@@ -447,6 +448,7 @@ function PageRail(props: {
             type="button"
             onClick={() => props.onSetSortMode("alpha")}
             aria-pressed={props.sortMode === "alpha"}
+            aria-label="alphabetical order"
             title="alphabetical order"
             class="rounded-(--radius-control) px-1.5 py-0.5 font-mono uppercase tracking-[0.1em] transition"
             classList={{

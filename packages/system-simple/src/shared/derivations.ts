@@ -24,6 +24,13 @@ import { MaxHp, Stats } from "./traits.js";
  * Demonstrates the substrate's derivation pipeline end-to-end:
  * input → topo-sorted compute → world.set → emit `*Changed` event →
  * client trait sync → kit's <ValueField> updates.
+ *
+ * Runs on every side (`where: "both"`): when a `CharacterFieldSet`
+ * event arrives at the client and the universal mirror writes Stats,
+ * the client's own derivation pass recomputes MaxHp locally so the
+ * sheet's HP summary and TrackField update without waiting for a
+ * separate server-broadcast trait write — the substrate has no such
+ * out-of-band channel, derived traits flow only through derivations.
  */
 export const MaxHpDerivation = defineDerivation({
   name: "@vtt/system-simple/max-hp",
@@ -31,4 +38,5 @@ export const MaxHpDerivation = defineDerivation({
   output: MaxHp,
   compute: ([stats]) => stats.might * 3,
   toEvent: (entityId, value) => MaxHpChanged({ entityId, value }),
+  where: "both",
 });

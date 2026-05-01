@@ -57,6 +57,8 @@ export function IdentityFill(props: { characterId: string }): JSX.Element {
     const m = me();
     if (!m) return false;
     if (m.role === "gm") return true;
+    const c = character();
+    if (c && c.playerUserId === m.userId) return true;
     const o = ownership();
     return !!o && o.userId === m.userId;
   });

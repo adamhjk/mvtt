@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { defineEvent, EntityId, z } from "@vtt/substrate";
+import { defineEvent, EntityId, QualifiedNameSchema, z } from "@vtt/substrate";
 
 /**
  * The owning user's WorkspaceState changed. Marked **transient** (never
@@ -38,6 +38,45 @@ export const WorkspaceStateChanged = defineEvent({
     ownerEntityId: EntityId,
     userId: z.string().min(1),
     next: z.unknown(),
+  }),
+  transient: true,
+  broadcast: true,
+});
+
+/**
+ * A user shared one of their tabs into another user's workspace. Emitted
+ * once per recipient by the `ShareTab` command; the visibility is scoped
+ * to the recipient (`actors([recipientUserId])`) so only that user's
+ * connections see it.
+ *
+ * Carries (a) the recipient's pre-computed next `WorkspaceState` so the
+ * mirror system can write it directly, mirroring the WorkspaceStateChanged
+ * pattern, and (b) the per-tab UI-state `snapshot` gathered off the
+ * sender's tab sentinel — the recipient's mirror system replays each
+ * `[traitName, value]` onto the freshly-spawned recipient tab sentinel
+ * so the recipient lands on "page 11 of the rulebook" / "page 5 of the
+ * note" exactly as the sender saw it. System traits (`TabSentinel`,
+ * `OwnedBy`, `EntityVisibility`) and any other trait whose definition
+ * sets `share: false` are filtered out by the sender side.
+ *
+ * `forceFocus: true` instructs the mirror to also flip the recipient's
+ * `activePaneId` to the new tab's pane (GM-only, enforced in `validate`).
+ * `forceFocus: false` inserts the tab in the active pane but leaves
+ * focus alone so the recipient notices the new tab without being
+ * yanked out of what they were doing.
+ */
+export const TabShared = defineEvent({
+  name: "@vtt/shell-workbench/TabShared",
+  schema: z.object({
+    recipientUserId: z.string().min(1),
+    recipientOwnerEntityId: EntityId,
+    newTabId: z.string().min(1),
+    pageKind: QualifiedNameSchema,
+    entityId: EntityId.nullable(),
+    snapshot: z.record(z.string(), z.unknown()),
+    forceFocus: z.boolean(),
+    sharedBy: z.string().min(1),
+    recipientNext: z.unknown(),
   }),
   transient: true,
   broadcast: true,

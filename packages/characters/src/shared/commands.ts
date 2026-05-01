@@ -24,8 +24,7 @@ import {
   z,
 } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
-import { requireOwnerOrGm } from "@vtt/permissions/shared";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { requireCharacterEditor } from "./checks.js";
 import {
   CharacterAssigned,
   CharacterCreated,
@@ -122,8 +121,9 @@ export const CreateCharacter = defineCommand({
 });
 
 /**
- * Owner-or-GM: change a character's display name. Game-system plugins
- * dispatch their own commands for sheet-specific state.
+ * Editor-gated (owner, assigned player, or GM): change a character's
+ * display name. Game-system plugins dispatch their own commands for
+ * sheet-specific state.
  */
 export const RenameCharacter = defineCommand({
   name: "@vtt/characters/RenameCharacter",
@@ -142,7 +142,7 @@ export const RenameCharacter = defineCommand({
     if (!got) {
       return fail(`entity ${ctx.cmd.characterId} is not a character`);
     }
-    return requireOwnerOrGm(ctx, ctx.cmd.characterId);
+    return requireCharacterEditor(ctx, ctx.cmd.characterId);
   },
   apply: ({ cmd }) => [
     CharacterRenamed({
@@ -153,7 +153,7 @@ export const RenameCharacter = defineCommand({
 });
 
 /**
- * Owner-or-GM: delete a character. Future game-system traits live on
+ * Editor-gated: delete a character. Future game-system traits live on
  * the same entity, so they go away in lockstep when the entity is
  * despawned by the removal system.
  */
@@ -173,7 +173,7 @@ export const RemoveCharacter = defineCommand({
     if (!got) {
       return fail(`entity ${ctx.cmd.characterId} is not a character`);
     }
-    return requireOwnerOrGm(ctx, ctx.cmd.characterId);
+    return requireCharacterEditor(ctx, ctx.cmd.characterId);
   },
   apply: ({ cmd }) => [CharacterRemoved({ characterId: cmd.characterId })],
 });
@@ -186,7 +186,7 @@ export const RemoveCharacter = defineCommand({
  *   - entity must have the trait OR the trait's Zod schema must define
  *     a default (so a write to a defaulted trait materialises it)
  *   - the path-edited result must satisfy the trait's full schema
- *   - owner-or-GM (read access is always permitted; writes are gated)
+ *   - editor-gated: owner, assigned player, or GM (reads always allowed)
  *
  * Plugins that need richer per-field semantics (e.g., HP clamping
  * against MaxHp) define their own command and the kit field opts in
@@ -240,7 +240,7 @@ export const SetField = defineCommand({
       );
     }
 
-    return requireOwnerOrGm(ctx, ctx.cmd.characterId);
+    return requireCharacterEditor(ctx, ctx.cmd.characterId);
   },
   apply: ({ cmd }) => [
     CharacterFieldSet({
@@ -256,7 +256,7 @@ export const SetField = defineCommand({
  * Open a PendingRoll: spawn a sentinel entity carrying the rollable
  * name + the initiator's per-call opts. Visible to everyone in the
  * world so other players can offer help / modifiers via
- * ContributeToPendingRoll. Owner-or-GM-of-character gated.
+ * ContributeToPendingRoll. Editor-gated: owner, assigned player, or GM.
  *
  * The kit's `<RollableLabel>` dispatches this instead of the
  * rollable's command directly when `rollable.interactive === true`.
@@ -282,7 +282,7 @@ export const OpenPendingRoll = defineCommand({
     if (!ctx.registry.rollables.get(ctx.cmd.rollableName)) {
       return fail(`unknown rollable: ${ctx.cmd.rollableName}`);
     }
-    return requireOwnerOrGm(ctx, ctx.cmd.initiatorCharacterId);
+    return requireCharacterEditor(ctx, ctx.cmd.initiatorCharacterId);
   },
   apply: ({ cmd, session, world }) => {
     const auth = requireSession({ session });
@@ -331,20 +331,15 @@ export const ContributeToPendingRoll = defineCommand({
         `contribution.fromUserId must match the dispatcher; got ${ctx.cmd.contribution.fromUserId} but session is ${auth.userId}`,
       );
     }
-    // If the contribution names a character, the dispatcher must own it.
+    // If the contribution names a character, the dispatcher must be
+    // its editor (owner, assigned player, or GM).
     const fromChar = ctx.cmd.contribution.fromCharacterId;
     if (fromChar) {
       if (!ctx.world.has(fromChar)) {
         return fail(`character ${fromChar} does not exist`);
       }
-      if (auth.role !== "gm") {
-        const owned = ctx.world.get(fromChar, [OwnedBy]) as
-          | { OwnedBy: { userId: string } }
-          | undefined;
-        if (!owned || owned.OwnedBy.userId !== auth.userId) {
-          return fail(`you don't own character ${fromChar}`);
-        }
-      }
+      const editor = requireCharacterEditor(ctx, fromChar);
+      if (!editor.ok) return editor;
     }
     return ok();
   },
@@ -414,7 +409,7 @@ export const CancelPendingRoll = defineCommand({
 });
 
 /**
- * Owner-or-GM: change which player a character is assigned to. Pass
+ * Editor-gated: change which player a character is assigned to. Pass
  * an empty string to clear the assignment ("unassigned"). The chat
  * composer's "speak as" dropdown reads `Character.playerUserId` to
  * decide which characters a given player can speak as.
@@ -437,7 +432,7 @@ export const AssignCharacter = defineCommand({
     if (!got) {
       return fail(`entity ${ctx.cmd.characterId} is not a character`);
     }
-    return requireOwnerOrGm(ctx, ctx.cmd.characterId);
+    return requireCharacterEditor(ctx, ctx.cmd.characterId);
   },
   apply: ({ cmd }) => [
     CharacterAssigned({
@@ -448,7 +443,7 @@ export const AssignCharacter = defineCommand({
 });
 
 /**
- * Owner-or-GM: set or clear the character's uploaded token image.
+ * Editor-gated: set or clear the character's uploaded token image.
  * Pass `imageUrl: null` to clear. The upload endpoint enforces the
  * GM-only / size / extension policy server-side; this command keeps
  * the trait pointing at this plugin's own storage by validating the
@@ -480,7 +475,7 @@ export const SetCharacterTokenImage = defineCommand({
         `imageUrl must start with /plugin-data/${ctx.world.worldId}/@vtt/characters/characters/${ctx.cmd.characterId}/`,
       );
     }
-    return requireOwnerOrGm(ctx, ctx.cmd.characterId);
+    return requireCharacterEditor(ctx, ctx.cmd.characterId);
   },
   apply: ({ cmd }) => [
     CharacterTokenImageSet({

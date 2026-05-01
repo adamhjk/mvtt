@@ -461,3 +461,158 @@ describe("createOptimisticTrait — disposal", () => {
     expect(lastSeen).toBe(beforeDispose);
   });
 });
+
+/* -------------------------------------------------------------------------- */
+/* Per-client optimistic-flush registry — the seam ShareTab and other         */
+/* cross-cutting verbs hook into to coalesce pending writes before reading    */
+/* the trait server-side.                                                     */
+/* -------------------------------------------------------------------------- */
+
+describe("OptimisticFlushRegistry", () => {
+  it("registers on createOptimisticTrait and unregisters on cleanup", async () => {
+    const h = makeHarness(({ world }) => {
+      world.spawnAt("e1" as EntityId, [UiTrait({ count: 0, text: "" })]);
+    });
+    // No flushers registered yet — flushFor is a no-op.
+    await h.client.optimisticFlushes.flushFor("e1" as EntityId);
+    expect(h.dispatched).toHaveLength(0);
+
+    const { unmount } = withClient(h, () =>
+      createOptimisticTrait("e1" as EntityId, UiTrait, {
+        write: (v) => SetUi({ entityId: "e1" as EntityId, value: v }),
+        debounceMs: 100,
+      }),
+    );
+
+    // Mounted but never written — flushFor short-circuits via dirty=false,
+    // dispatching nothing.
+    await h.client.optimisticFlushes.flushFor("e1" as EntityId);
+    expect(h.dispatched).toHaveLength(0);
+
+    unmount();
+
+    // After unmount the unregister fires — even if a future caller tries
+    // to flush this entity, the flusher is gone and nothing happens.
+    await h.client.optimisticFlushes.flushFor("e1" as EntityId);
+    expect(h.dispatched).toHaveLength(0);
+  });
+
+  it("flushFor coalesces a pending debounced write into one dispatch", async () => {
+    const h = makeHarness(({ world }) => {
+      world.spawnAt("e1" as EntityId, [UiTrait({ count: 0, text: "" })]);
+    });
+    let setStore!: (v: { count: number; text: string }) => void;
+    const { unmount } = withClient(h, () => {
+      const [, set] = createOptimisticTrait("e1" as EntityId, UiTrait, {
+        write: (v) => SetUi({ entityId: "e1" as EntityId, value: v }),
+        debounceMs: 250,
+      });
+      setStore = (v) => set(v);
+      return null;
+    });
+
+    // Three rapid writes inside the debounce window.
+    setStore({ count: 7, text: "" });
+    setStore({ count: 8, text: "" });
+    setStore({ count: 11, text: "" });
+
+    // Nothing has been dispatched yet — debounce hasn't fired.
+    expect(h.dispatched).toHaveLength(0);
+
+    // The flush forces the latest pending value through immediately.
+    await h.client.optimisticFlushes.flushFor("e1" as EntityId);
+    expect(h.dispatched).toHaveLength(1);
+    expect(
+      (h.dispatched[0]!.payload as { value: { count: number } }).value.count,
+    ).toBe(11);
+
+    // A second flush with no fresh writes is a no-op.
+    await h.client.optimisticFlushes.flushFor("e1" as EntityId);
+    expect(h.dispatched).toHaveLength(1);
+
+    unmount();
+  });
+
+  it("prepareFlush syncs external state into the store before each dispatch (the PdfReader case)", async () => {
+    const h = makeHarness(({ world }) => {
+      world.spawnAt("e1" as EntityId, [UiTrait({ count: 0, text: "" })]);
+    });
+
+    // External state we don't own: the user has navigated to "page 95"
+    // without our setStore being called. flushFor must dispatch *95*,
+    // not the last value persist() landed via setStore. This is exactly
+    // the bug the bug report described — "shared page 95, recipient
+    // gets page 62" because the optimistic store had the previous
+    // pagechanging event's value, not the current viewer.currentPageNumber.
+    let externalCount = 0;
+
+    const { unmount } = withClient(h, () => {
+      const [, set] = createOptimisticTrait("e1" as EntityId, UiTrait, {
+        write: (v) => SetUi({ entityId: "e1" as EntityId, value: v }),
+        debounceMs: 250,
+        prepareFlush: () => {
+          // Mirror the PdfReader pattern: write the external library's
+          // current value into the store right before dispatch.
+          set({ count: externalCount, text: "" });
+        },
+      });
+      return null;
+    });
+
+    // Simulate a user-driven navigation in the underlying library:
+    // external state moves from 0 → 95 without the writer being told.
+    externalCount = 95;
+
+    // No setStore call has happened. dispatched should be empty so far.
+    expect(h.dispatched).toHaveLength(0);
+
+    await h.client.optimisticFlushes.flushFor("e1" as EntityId);
+
+    // prepareFlush ran, copied externalCount=95 into the store, dirty
+    // became true, the dispatch fired with the latest value.
+    expect(h.dispatched).toHaveLength(1);
+    expect(
+      (h.dispatched[0]!.payload as { value: { count: number } }).value.count,
+    ).toBe(95);
+
+    // A second flush with no further external changes is a no-op
+    // (dirty=false, and prepareFlush re-writing the same value is a
+    // no-op store update — Solid's reconcile dedupes by reference, but
+    // even if it set dirty, the dispatched value would still be 95).
+    h.dispatched.length = 0;
+    await h.client.optimisticFlushes.flushFor("e1" as EntityId);
+    // Either zero dispatches (ideal) or one with the same value 95;
+    // both are correct. Assert at most one and the value is 95.
+    expect(h.dispatched.length).toBeLessThanOrEqual(1);
+    if (h.dispatched.length === 1) {
+      expect(
+        (h.dispatched[0]!.payload as { value: { count: number } }).value.count,
+      ).toBe(95);
+    }
+
+    unmount();
+  });
+
+  it("flushFor on a different entity doesn't trigger this entity's pending write", async () => {
+    const h = makeHarness(({ world }) => {
+      world.spawnAt("e1" as EntityId, [UiTrait({ count: 0, text: "" })]);
+      world.spawnAt("e2" as EntityId, [UiTrait({ count: 0, text: "" })]);
+    });
+    let setE1!: (v: { count: number; text: string }) => void;
+    const { unmount } = withClient(h, () => {
+      const [, set] = createOptimisticTrait("e1" as EntityId, UiTrait, {
+        write: (v) => SetUi({ entityId: "e1" as EntityId, value: v }),
+        debounceMs: 250,
+      });
+      setE1 = (v) => set(v);
+      return null;
+    });
+
+    setE1({ count: 99, text: "" });
+    await h.client.optimisticFlushes.flushFor("e2" as EntityId);
+    // e1's pending write didn't get pulled by an e2 flush.
+    expect(h.dispatched).toHaveLength(0);
+
+    unmount();
+  });
+});

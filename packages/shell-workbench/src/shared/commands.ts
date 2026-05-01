@@ -28,6 +28,7 @@ import {
   type World,
 } from "@vtt/substrate";
 import { actors } from "@vtt/permissions/shared";
+import { requireRole } from "@vtt/permissions/shared";
 import { requireSession } from "@vtt/identity/shared";
 import { OwnedBy } from "@vtt/permissions/shared";
 import {
@@ -37,16 +38,19 @@ import {
   type WorkspaceTab,
   type WorkspaceTree,
 } from "./traits.js";
-import { WorkspaceStateChanged } from "./events.js";
+import { tabSentinelEntityId } from "./tab-sentinel.js";
+import { TabShared, WorkspaceStateChanged } from "./events.js";
 
 const MAX_PANES = 4;
 
 /**
- * Find this user's WorkspaceOwner entity. Owned-by-userId is the lookup
- * key; the bootstrap-on-join system guarantees one exists for every
- * (worldId, userId) pair after PlayerJoined.
+ * Find a user's WorkspaceOwner entity by userId. Owned-by-userId is the
+ * lookup key; the bootstrap-on-join system guarantees one exists for every
+ * (worldId, userId) pair after PlayerJoined. Used by `withOwner` for the
+ * dispatching user's own workspace, and by cross-user verbs (ShareTab) that
+ * need to write into a different user's workspace.
  */
-function findOwner(
+export function findOwnerFor(
   world: World,
   userId: string,
 ): { entityId: EntityId; state: z.infer<typeof WorkspaceState.schema> } | null {
@@ -72,7 +76,7 @@ function withOwner<T>(
 ): { ok: true; owned: OwnedContext } | { ok: false; reason: string } {
   const auth = requireSession(ctx);
   if (!auth) return { ok: false, reason: "not authenticated" };
-  const found = findOwner(ctx.world, auth.userId);
+  const found = findOwnerFor(ctx.world, auth.userId);
   if (!found) {
     return {
       ok: false,
@@ -822,6 +826,126 @@ export const ResizeDrawer = defineCommand({
   },
 });
 
+/**
+ * Send a tab into one or more other users' workspaces. The recipient gets
+ * a fresh tab pointing at the same `(pageKind, entityId)` plus a snapshot
+ * of the sender's per-tab UI-state traits (the page they were on, the zoom
+ * level, the active sub-tab, etc.) so they land on the same view.
+ *
+ * Player-to-player sharing is allowed; only `forceFocus: true` (where the
+ * recipient's `activePaneId` is also flipped to the new tab) requires the
+ * GM role — letting any player yank another player's screen mid-session
+ * is the kind of thing one griefer ruins for everyone.
+ *
+ * The snapshot is gathered server-side off the sender's tab sentinel —
+ * the client never enumerates traits — so a sender can't lie about UI
+ * state, and traits whose `share: false` flag marks them identity-bound
+ * (TabSentinel, OwnedBy, EntityVisibility) are filtered out before the
+ * event ships.
+ *
+ * Each recipient gets a separate `TabShared` event with its visibility
+ * scoped to that recipient via `actors([recipientUserId])`, so the wire
+ * cost of a 6-player share is six private one-on-one notifications, not
+ * a fan-out the substrate has to filter at delivery time.
+ */
+export const ShareTab = defineCommand({
+  name: "@vtt/shell-workbench/ShareTab",
+  schema: z.object({
+    tabId: z.string().min(1),
+    recipientUserIds: z.array(z.string().min(1)).min(1),
+    forceFocus: z.boolean().default(false),
+  }),
+  validate: (ctx) => {
+    const r = withOwner(ctx);
+    if (!r.ok) return fail(r.reason);
+    const tab = r.owned.state.tabs[ctx.cmd.tabId];
+    if (!tab) return fail(`unknown tab ${ctx.cmd.tabId}`);
+    if (ctx.cmd.forceFocus) {
+      const role = requireRole(ctx, "gm");
+      if (!role.ok) return fail("forceFocus requires the GM role");
+    }
+    // Refuse self-shares — they'd be a confusing no-op (the sender already
+    // has the tab) and they short-circuit the "snapshot ⇒ replay onto a
+    // *fresh* sentinel" semantics.
+    if (ctx.cmd.recipientUserIds.includes(r.owned.userId)) {
+      return fail("cannot share a tab with yourself");
+    }
+    // Each recipient must have a workspace (joined the world at least once).
+    for (const uid of ctx.cmd.recipientUserIds) {
+      if (!findOwnerFor(ctx.world, uid)) {
+        return fail(`recipient ${uid} has no workspace`);
+      }
+    }
+    return ok();
+  },
+  apply: (ctx) => {
+    const r = withOwner(ctx);
+    if (!r.ok) throw new Error("ShareTab.apply called without an owner — validate failed");
+    const senderTab = r.owned.state.tabs[ctx.cmd.tabId];
+    if (!senderTab) throw new Error("validate should have caught a missing tab");
+
+    // Gather the sender's per-tab UI-state traits off the sentinel and
+    // filter to the ones whose definition opts in to sharing. Identity-
+    // bound traits (TabSentinel, OwnedBy, EntityVisibility) are written
+    // fresh on the recipient by the apply system; unknown traits (a
+    // sentinel from a plugin we don't have loaded) are silently skipped.
+    const senderSentinelId = tabSentinelEntityId(ctx.cmd.tabId);
+    const snapshot: Record<string, unknown> = {};
+    for (const [traitName, value] of ctx.world.traitsOn(senderSentinelId)) {
+      const meta = ctx.registry.traits.get(traitName);
+      if (!meta || meta.share === false) continue;
+      // Let the trait sanitise its value before it travels — strips
+      // owner-specific fields (PdfReaderState.scrollTop etc.) whose
+      // meaning is meaningless on a recipient with a differently-sized
+      // viewport. Defaults to identity when the trait doesn't set one.
+      snapshot[traitName] = meta.shareValue ? meta.shareValue(value) : value;
+    }
+
+    const events = [];
+    for (const recipientUserId of ctx.cmd.recipientUserIds) {
+      const recipient = findOwnerFor(ctx.world, recipientUserId);
+      if (!recipient) {
+        throw new Error(`validate should have caught missing recipient ${recipientUserId}`);
+      }
+      const newTabId = newId("tab");
+      const recipientNext = clone(recipient.state);
+      recipientNext.tabs[newTabId] = {
+        id: newTabId,
+        pageKind: senderTab.pageKind,
+        entityId: senderTab.entityId,
+      };
+      // Insert into the recipient's currently active pane in both modes;
+      // forceFocus only changes whether we *also* activate the new tab.
+      const pane = recipientNext.panes[recipientNext.activePaneId];
+      if (!pane) {
+        // Defensive — every WorkspaceState invariant guarantees activePaneId
+        // names a real pane, but if it's malformed we'd rather skip than
+        // emit a corrupt event for this recipient.
+        continue;
+      }
+      pane.tabIds.push(newTabId);
+      if (ctx.cmd.forceFocus) pane.activeTabId = newTabId;
+      events.push(
+        withVisibility(
+          TabShared({
+            recipientUserId,
+            recipientOwnerEntityId: recipient.entityId,
+            newTabId,
+            pageKind: senderTab.pageKind,
+            entityId: senderTab.entityId,
+            snapshot,
+            forceFocus: ctx.cmd.forceFocus,
+            sharedBy: r.owned.userId,
+            recipientNext: bumpInteracted(recipientNext),
+          }),
+          actors([recipientUserId]),
+        ),
+      );
+    }
+    return events;
+  },
+});
+
 export const allCommands = [
   OpenPage,
   OpenPageInNewTab,
@@ -838,4 +962,5 @@ export const allCommands = [
   ToggleDrawer,
   SetDrawerKeepOpen,
   ResizeDrawer,
+  ShareTab,
 ] as const;

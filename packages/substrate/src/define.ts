@@ -57,6 +57,38 @@ export interface TraitMeta<S extends z.ZodTypeAny = z.ZodTypeAny> {
    * client needs the current presence picture as part of catchup.
    */
   readonly transient: boolean;
+  /**
+   * When true, the trait's value is safe to copy verbatim onto another
+   * entity. When false, the trait is identity-bound to the entity it lives
+   * on — copying it elsewhere would carry the wrong owner / visibility /
+   * id reference. Defaults to true; mark as `share: false` for sentinel
+   * markers (TabSentinel.tabId), ownership references (OwnedBy.userId),
+   * scoping records (EntityVisibility), and similar.
+   *
+   * Whole-entity replication paths (workbench tab sharing, future
+   * "duplicate entity" verbs) honour this flag when gathering the source's
+   * traits.
+   */
+  readonly share: boolean;
+  /**
+   * Optional sanitiser called on the trait's current value when it's
+   * about to be packaged into a share snapshot. Use it to drop or zero
+   * fields whose meaning is owner-specific even though the rest of the
+   * trait travels fine.
+   *
+   * Canonical case: `PdfReaderState.scrollTop` is a pixel offset whose
+   * meaning depends on the renderer's container width at `page-width`
+   * scale; replaying the sender's offset on a recipient with a
+   * differently-sized window lands them on a different page than the
+   * sender. The trait's `shareValue` zeroes scrollTop, so the recipient
+   * lands at the top of the shared page rather than at a stray pixel
+   * coordinate.
+   *
+   * Returning the input unchanged is a no-op. Pure read — must not
+   * dispatch commands or touch the world. The substrate falls back to
+   * the raw value when the sanitiser is absent.
+   */
+  readonly shareValue?: (value: unknown) => unknown;
 }
 
 export type TraitFactory<S extends z.ZodTypeAny> = (
@@ -325,6 +357,8 @@ export function defineTrait<S extends z.ZodTypeAny>(def: {
   name: string;
   schema: S;
   transient?: boolean;
+  share?: boolean;
+  shareValue?: (value: z.infer<S>) => z.infer<S>;
 }): TraitDef<S> {
   const name = traitName(def.name);
   const fn: TraitFactory<S> = (value) => ({
@@ -336,6 +370,8 @@ export function defineTrait<S extends z.ZodTypeAny>(def: {
     name,
     schema: def.schema,
     transient: def.transient ?? false,
+    share: def.share ?? true,
+    shareValue: def.shareValue as ((value: unknown) => unknown) | undefined,
   }) as unknown as TraitDef<S>;
 }
 

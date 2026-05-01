@@ -64,15 +64,21 @@ function HelpWithCharacterPanel(props: PendingRollContributorArgs): JSX.Element 
     return (found.values.Identity as { userId: string }).userId;
   });
 
-  // Every character the current user owns, excluding the initiator's
-  // (you can't help yourself with yourself in this flow).
+  // Every character the current user can edit (owns OR is assigned to),
+  // excluding the initiator's (you can't help yourself with yourself in
+  // this flow).
   const myCharacters = createMemo(() => {
     const uid = meUserId();
     if (!uid) return [];
     return allCharacters()
       .filter((row) => {
+        if (row.id === props.initiatorCharacterId) return false;
         const owned = row.values.OwnedBy as { userId: string };
-        return owned.userId === uid && row.id !== props.initiatorCharacterId;
+        const c = row.values.Character as {
+          name: string;
+          playerUserId?: string;
+        };
+        return owned.userId === uid || c.playerUserId === uid;
       })
       .map((row) => ({
         id: row.id,

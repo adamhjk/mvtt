@@ -183,6 +183,15 @@ export function PdfReader(props: {
       // during rapid scrolling. Coalesce to one dispatch per ~250ms,
       // flushed on cleanup.
       debounceMs: 250,
+      // Push pdfjs's current viewer state into the store before every
+      // dispatch. Without this, share-time `flushFor` reads whatever
+      // the last `pagechanging` / scroll / zoom event happened to
+      // commit — which lags the user's actual position whenever they
+      // navigate, then click share before the next persist event fires.
+      // Symptom: "shared page 95, recipient gets page 62". Defined
+      // lazily so it can reference `persist` (declared further down)
+      // at call time rather than initialisation time.
+      prepareFlush: () => persist(),
     },
   );
   const [pageNumber, setPageNumber] = createSignal(1);
@@ -890,9 +899,17 @@ function Toolbar(props: ToolbarProps): JSX.Element {
         <span class="font-mono text-fg-muted">
           <input
             ref={props.bindPageInput}
-            type="number"
-            min={1}
-            max={Math.max(1, props.pageCount)}
+            // type="text" + inputMode="numeric" instead of type="number"
+            // because Firefox's number-input spinner buttons eat ~16px of
+            // horizontal space and squeeze 3+ digit page numbers out of
+            // view. The ◀ ▶ buttons next to the field already cover
+            // increment/decrement, so the spinner is pure visual cost.
+            // The onChange/onKeyDown handlers already parseInt + clamp
+            // via onJumpPage, so dropping type="number"'s min/max
+            // validation costs nothing.
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={props.pageNumber}
             onChange={(e) => {
               const n = Number.parseInt(e.currentTarget.value, 10);
@@ -913,7 +930,10 @@ function Toolbar(props: ToolbarProps): JSX.Element {
             data-1p-ignore="true"
             data-lpignore="true"
             data-bwignore="true"
-            class="w-12 rounded-(--radius-control) border border-border bg-surface px-1.5 py-0.5 text-center font-mono text-xs text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+            // Wide enough for a 4-digit page number in monospace at
+            // text-xs. PDFs over 9999 pages are vanishingly rare; if one
+            // shows up later, bump to w-16.
+            class="w-14 rounded-(--radius-control) border border-border bg-surface px-1.5 py-0.5 text-center font-mono text-xs text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
           />
           <span class="ml-1 text-fg-subtle">/ {props.pageCount || "—"}</span>
         </span>

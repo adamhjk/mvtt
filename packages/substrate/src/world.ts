@@ -156,6 +156,23 @@ export class World {
     return () => this.listeners.delete(fn);
   }
 
+  /**
+   * Return every trait currently attached to `id`, keyed by trait name. The
+   * caller gets a fresh `Map` — mutating it does not affect world state.
+   * Returns an empty map if the entity does not exist (callers should usually
+   * `has(id)` first if "exists with no traits" is meaningfully different from
+   * "does not exist").
+   *
+   * Used for whole-entity snapshotting, e.g. workbench tab sharing reads
+   * every per-plugin UI-state trait off the sender's tab sentinel without
+   * having to know which plugins attached what.
+   */
+  traitsOn(id: EntityId): Map<TraitName, unknown> {
+    const rec = this.entities.get(id);
+    if (!rec) return new Map();
+    return new Map(rec);
+  }
+
   query(traits: ReadonlyArray<TraitMeta>): Array<{ id: EntityId; values: Record<string, unknown> }> {
     const out: Array<{ id: EntityId; values: Record<string, unknown> }> = [];
     outer: for (const [id, rec] of this.entities) {

@@ -33,6 +33,10 @@ export const OwnedBy = defineTrait({
   schema: z.object({
     userId: z.string().min(1),
   }),
+  // Identity-bound: copying it onto another entity (or another user's
+  // entity) would mis-attribute ownership. Whole-entity replication paths
+  // (workbench tab sharing, future entity-duplicate verbs) skip this.
+  share: false,
 });
 
 const VisibilityShape = z.union([
@@ -57,4 +61,8 @@ export const EntityVisibility = defineTrait({
   schema: z.object({
     visibility: VisibilityShape,
   }),
+  // Scoping is per-entity by definition; copying it elsewhere would grant
+  // visibility to the wrong recipients. Whole-entity replication paths skip
+  // this and write a freshly-scoped value on the destination.
+  share: false,
 });

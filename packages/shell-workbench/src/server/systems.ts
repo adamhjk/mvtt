@@ -30,6 +30,7 @@ import {
 } from "../shared/traits.js";
 import { tabSentinelEntityId } from "../shared/tab-sentinel.js";
 import {
+  TabShared,
   WorkspaceBootstrapped,
   WorkspaceStateChanged,
 } from "../shared/events.js";
@@ -101,6 +102,61 @@ export const WorkspaceBootstrapSystem = defineSystem({
         userId: event.userId,
       }),
     ];
+  },
+});
+
+/**
+ * Recipient-side mirror for `TabShared`. Runs on the server and on the
+ * recipient's clients (the event's `actors([recipientUserId])` visibility
+ * keeps it off other users' wires). Three steps, ordered:
+ *
+ *   1. Spawn the recipient's per-tab sentinel for the new tab id, with
+ *      fresh system traits (TabSentinel pointing at the new id, OwnedBy
+ *      naming the recipient, EntityVisibility scoped to the recipient).
+ *      `share: false` on those traits keeps them out of the snapshot, so
+ *      we always write fresh values here rather than copying the sender's.
+ *
+ *   2. Replay each `[traitName, value]` from the snapshot onto the new
+ *      sentinel via the trait registry. Unknown traits (the recipient
+ *      doesn't have the plugin loaded) are silently skipped; values that
+ *      fail their trait schema are also silently skipped — the recipient
+ *      just lands at default UI state for that plugin's slice, which is
+ *      benign and self-fixing.
+ *
+ *   3. Write the recipient's pre-computed `recipientNext` WorkspaceState.
+ *      The sender pre-computed it in `apply` so the mirror doesn't need
+ *      access to the recipient's prior state. Mirrors WorkspaceStateChanged
+ *      semantics — including the "spawn before set" ordering — so any
+ *      view that mounts in response to the new tab id finds its sentinel
+ *      already populated with the snapshot traits, no flicker.
+ */
+export const TabSharedApplySystem = defineSystem({
+  name: "TabSharedApply",
+  on: TabShared,
+  reads: [WorkspaceState],
+  writes: [WorkspaceState, TabSentinel, OwnedBy, EntityVisibility],
+  run: ({ event, world, registry }) => {
+    if (!world.has(event.recipientOwnerEntityId)) return [];
+    const sentinelId = tabSentinelEntityId(event.newTabId);
+    if (!world.has(sentinelId)) {
+      world.spawnAt(sentinelId, [
+        TabSentinel({ tabId: event.newTabId }),
+        OwnedBy({ userId: event.recipientUserId }),
+        EntityVisibility({ visibility: actors([event.recipientUserId]) }),
+      ]);
+    }
+    for (const [traitName, value] of Object.entries(event.snapshot)) {
+      const meta = registry.traits.get(traitName as never);
+      if (!meta) continue;
+      try {
+        world.set(sentinelId, meta, value);
+      } catch {
+        // Schema validation failed — recipient lands at default for this
+        // trait. Nothing actionable; don't crash the mirror.
+      }
+    }
+    world.set(event.recipientOwnerEntityId, WorkspaceState, event.recipientNext);
+    return [];
   },
 });
 

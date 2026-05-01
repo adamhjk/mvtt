@@ -44,18 +44,31 @@ import { runDerivationPass } from "./derivation.js";
  * + the runner so writes from inside `apply` (spawn calls, direct
  * `world.set` calls) feed the first derivation pass. Without `dirty`, the
  * runner is just the original system fixpoint loop.
+ *
+ * `side` filters which derivations run: "server" runs derivations marked
+ * `where: "server"` or `where: "both"`; "client" runs only `where: "both"`.
+ * This keeps server-only computations off the client (which lacks the
+ * authoritative inputs) while still letting client-side derivations
+ * recompute derived traits as input traits arrive over the wire — without
+ * that, a `*Changed` event sent from the server has no receiver on the
+ * client and the derived trait never updates locally.
  */
 export function runSystemsToFixpoint(
   registry: Registry,
   world: World,
   initial: ReadonlyArray<EventInstance>,
   dirty?: Map<EntityId, Set<TraitName>>,
+  side: "server" | "client" = "server",
 ): EventInstance[] {
   const all: EventInstance[] = [];
   const queue: EventInstance[] = [...initial];
 
-  const serverDerivations = dirty
-    ? registry.derivations.filter((d) => d.where === "server" || d.where === "both")
+  const applicableDerivations = dirty
+    ? registry.derivations.filter((d) =>
+        side === "server"
+          ? d.where === "server" || d.where === "both"
+          : d.where === "both",
+      )
     : [];
 
   while (true) {
@@ -71,11 +84,11 @@ export function runSystemsToFixpoint(
     }
 
     // Queue empty — try a derivation pass.
-    if (!dirty || serverDerivations.length === 0 || dirty.size === 0) break;
+    if (!dirty || applicableDerivations.length === 0 || dirty.size === 0) break;
     const snapshot = new Map<EntityId, Set<TraitName>>();
     for (const [id, traits] of dirty) snapshot.set(id, new Set(traits));
     dirty.clear();
-    const derived = runDerivationPass(serverDerivations, world, snapshot);
+    const derived = runDerivationPass(applicableDerivations, world, snapshot);
     if (derived.length === 0 && dirty.size === 0) break;
     for (const ev of derived) queue.push(ev);
   }

@@ -100,6 +100,9 @@ const PageProviderSchema = z.object({
   list: z.any(),
   defaultEntity: z.any().optional(),
   render: z.any(),
+  // Zod strips unknown keys by default; declare the optional callback so
+  // the registry's slot-validate pass keeps it on the parsed value.
+  summarizeTabState: z.any().optional(),
   /**
    * Higher priority wins when multiple plugins register for the same kind.
    * Mirrors view priority. Default 0.
@@ -127,6 +130,22 @@ export type PageProvider = {
   list: (ctx: PageProviderContext) => ReadonlyArray<PageEntity>;
   defaultEntity?: (ctx: PageProviderContext) => EntityId | null;
   render: (args: PageRenderArgs) => unknown;
+  /**
+   * Optional. Build a one-line description of the per-tab UI state
+   * currently attached to `sentinelId` — "page 11 · zoom 110%", "page 5",
+   * etc. — for surfaces that show *what* a share is about to carry. The
+   * Workbench's share dropdown calls this so the dispatcher can see what
+   * will travel before they hit Send. Return null to hide the line (no
+   * meaningful summary, e.g. defaults).
+   *
+   * Pure read — must not dispatch commands or mutate the world. The
+   * sentinel may not exist (the tab hasn't fully spawned yet); return
+   * null in that case.
+   */
+  summarizeTabState?: (args: {
+    sentinelId: EntityId;
+    world: import("@vtt/substrate").World;
+  }) => string | null;
   priority?: number;
 };
 

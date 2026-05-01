@@ -30,9 +30,8 @@ interface SceneRef {
 
 /**
  * Scene link kind. Resolves `[[scene:Throne Room]]` or
- * `[[scene:e10]]`. cmd-click navigates to the scene tab targeting
- * this entity; default click is a peek that the shell's link-renderer
- * mounts as a thumbnail popover.
+ * `[[scene:e10]]`. Click navigates to the scene tab targeting this
+ * entity; cmd-click opens it in a new tab (handled by the consumer).
  */
 export const sceneLinkKind = defineLinkKind<SceneRef>({
   name: "scene",
@@ -59,16 +58,11 @@ export const sceneLinkKind = defineLinkKind<SceneRef>({
     return got?.Scene.name ?? "(missing scene)";
   },
   target: (ref) => ({ entityId: ref.sceneId }),
-  activate: (ref, ctx) => {
-    if (ctx.modifiers.meta) {
-      return {
-        type: "navigate",
-        pageKind: "@vtt/scene/scenes",
-        entityId: ref.sceneId,
-      };
-    }
-    return { type: "peek", render: () => null };
-  },
+  activate: (ref) => ({
+    type: "navigate",
+    pageKind: "@vtt/scene/scenes",
+    entityId: ref.sceneId,
+  }),
   autocomplete: (query, world) => {
     const needle = query.trim().toLowerCase();
     const out: LinkSuggestion[] = [];

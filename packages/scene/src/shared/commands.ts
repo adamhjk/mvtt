@@ -27,6 +27,7 @@ import {
   requireOwnerOrGm,
   requireRole,
 } from "@vtt/permissions/shared";
+import { requireCharacterEditor } from "@vtt/characters/shared";
 import {
   CharacterTokenPlaced,
   SceneCreated,
@@ -141,8 +142,20 @@ export const MoveToken = defineCommand({
     if (!ctx.world.has(ctx.cmd.tokenId)) {
       return fail(`token ${ctx.cmd.tokenId} does not exist`);
     }
-    const owner = requireOwnerOrGm(ctx, ctx.cmd.tokenId);
-    if (!owner.ok) return owner;
+    // Character tokens follow character-editor rules so an assigned
+    // player can move "their" token even when a GM keeps OwnedBy on
+    // the character. Plain tokens (no LinkedCharacter — e.g. NPCs the
+    // GM placed) fall back to the token's own OwnedBy.
+    const linked = ctx.world.get(ctx.cmd.tokenId, [LinkedCharacter]) as
+      | { LinkedCharacter: { characterId: string } }
+      | undefined;
+    if (linked) {
+      const editor = requireCharacterEditor(ctx, linked.LinkedCharacter.characterId);
+      if (!editor.ok) return editor;
+    } else {
+      const owner = requireOwnerOrGm(ctx, ctx.cmd.tokenId);
+      if (!owner.ok) return owner;
+    }
 
     const causal = ctx.causalState as { lastSeenMovedAt?: number } | undefined;
     if (causal && typeof causal.lastSeenMovedAt === "number") {
@@ -363,10 +376,11 @@ export const PlaceCharacterToken = defineCommand({
     if (!ctx.world.has(ctx.cmd.characterId)) {
       return fail(`character ${ctx.cmd.characterId} does not exist`);
     }
-    // Owner-or-GM of the character. The character carries OwnedBy via
-    // characters' CharacterSpawningSystem, so requireOwnerOrGm works.
-    const owner = requireOwnerOrGm(ctx, ctx.cmd.characterId);
-    if (!owner.ok) return owner;
+    // Editor of the character (owner, assigned player, or GM). An
+    // assigned player should be able to place "their" character, even
+    // if a GM remains the OwnedBy.
+    const editor = requireCharacterEditor(ctx, ctx.cmd.characterId);
+    if (!editor.ok) return editor;
 
     if (
       ctx.cmd.imageUrl !== null &&

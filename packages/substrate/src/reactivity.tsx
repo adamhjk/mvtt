@@ -142,6 +142,25 @@ export interface OptimisticTraitOptions<T extends TraitMeta> {
    * on `onCleanup`. Default 0 (dispatch every setter call).
    */
   readonly debounceMs?: number;
+  /**
+   * Optional hook called *immediately before* every flush (debounce
+   * timer, cleanup, or `optimisticFlushes.flushFor`). Use it to copy any
+   * in-memory state that hasn't yet been pushed through `setStore` into
+   * the store, so the dispatch carries the genuinely-latest value.
+   *
+   * Why this matters: writers that mirror an external library's state
+   * (e.g. PdfReader watching pdfjs's viewer page) only call setStore on
+   * library-emitted events (`pagechanging`, scroll, etc.). Between
+   * events, the library's state can advance without the store hearing
+   * about it. Without `prepareFlush`, a `flushFor` triggered between
+   * events would dispatch the *previous* event's value — exactly the
+   * bug ShareTab sees as "shared page 95, recipient gets page 62".
+   *
+   * Implementation runs the hook synchronously, then re-clears the
+   * debounce timer (the hook's setStore re-arms it), so the resulting
+   * dispatch happens once and isn't followed by a redundant timed one.
+   */
+  readonly prepareFlush?: () => void;
 }
 
 /**
@@ -204,31 +223,76 @@ export function createOptimisticTrait<T extends TraitMeta>(
   });
 
   let pending: ReturnType<typeof setTimeout> | null = null;
-  const flush = () => {
+  /**
+   * Has dispatched the latest pending value (cancelling any debounce
+   * timer) and resolved when the server acks. When there's nothing to
+   * flush — no setStore has fired since the last flush — resolves
+   * immediately.
+   *
+   * Returning the ack promise (rather than fire-and-forget like the old
+   * impl) is what lets `client.optimisticFlushes.flushFor(entityId)`
+   * await pending writes before a downstream verb (`ShareTab`) reads
+   * the trait server-side. Without that, a debounced trait write can
+   * still be in-flight when `ShareTab.apply` runs, and the snapshot
+   * captured server-side would be the older value the user no longer
+   * sees on their screen.
+   */
+  const flush = (): Promise<void> => {
     if (pending !== null) {
       clearTimeout(pending);
       pending = null;
     }
+    if (options.prepareFlush) {
+      options.prepareFlush();
+      // prepareFlush typically calls setStore, which re-arms the debounce
+      // timer. Cancel it again so the dispatch we're about to do isn't
+      // followed by a redundant timed flush carrying the same value.
+      if (pending !== null) {
+        clearTimeout(pending);
+        pending = null;
+      }
+    }
+    if (!dirty) return Promise.resolve();
+    dirty = false;
     const handle = client.dispatch(options.write(unwrap(store) as TraitValue<T>));
-    handle.ack.then((ack) => {
+    return handle.ack.then((ack) => {
       if (!ack.ok) rawSet(reconcile(lastServerValue));
     });
   };
 
+  /**
+   * Tracks whether there's a pending write that hasn't been dispatched
+   * yet. Distinct from `pending !== null`: even with `debounceMs === 0`,
+   * `set` synchronously dispatches and clears `dirty`, so `flush()` can
+   * short-circuit cheaply when called from the share path.
+   */
+  let dirty = false;
+
   const debounceMs = options.debounceMs ?? 0;
   const set = ((...args: unknown[]) => {
     (rawSet as (...a: unknown[]) => void)(...args);
+    dirty = true;
     if (debounceMs <= 0) {
-      flush();
+      void flush();
       return;
     }
     if (pending !== null) clearTimeout(pending);
-    pending = setTimeout(flush, debounceMs);
+    pending = setTimeout(() => {
+      void flush();
+    }, debounceMs);
   }) as SetStoreFunction<TraitValue<T>>;
+
+  // Register with the per-client flush registry so cross-cutting verbs
+  // (`ShareTab`, future "snapshot this entity" features) can `await`
+  // pending writes before reading the trait server-side. The unregister
+  // closure is captured in onCleanup so the registry doesn't accumulate
+  // stale entries when the writer unmounts.
+  const unregister = client.optimisticFlushes.register(entityId, flush);
 
   onCleanup(() => {
     off();
-    if (pending !== null) flush();
+    unregister();
+    if (pending !== null) void flush();
   });
 
   return [store, set] as const;

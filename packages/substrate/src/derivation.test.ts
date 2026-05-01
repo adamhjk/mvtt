@@ -22,13 +22,17 @@ import {
   defineDerivation,
   defineEvent,
   definePlugin,
+  defineSystem,
   defineTrait,
   EventBus,
   ok,
+  runSystemsToFixpoint,
+  type EventInstance,
 } from "./index.js";
 import { CommandPipeline } from "./command-pipeline.js";
 import { Registry } from "./registry.js";
 import { World } from "./world.js";
+import type { EntityId, TraitName } from "./schema.js";
 
 const Abilities = defineTrait({
   name: "@test/derivation/Abilities",
@@ -487,5 +491,165 @@ describe("derivation runtime", () => {
     // mod(18)=4 + prof 2 = 6; PP = 16
     expect(pp.PassivePerception).toBe(16);
     expect(r.events.some((e) => e.type === "@test/derivation/PassivePerceptionChanged")).toBe(true);
+  });
+});
+
+/**
+ * Client-side derivation flow: when a wire event arrives at the client,
+ * the universal-mirror system writes the input trait, the client's local
+ * derivation pass picks up the dirty trait, and the derived trait is
+ * recomputed locally. Without this, server-broadcast `*Changed` events
+ * have no client-side receiver and views reading the derived trait stay
+ * stale (e.g. HP/health-tracker not updating after Stats.might changes).
+ */
+describe("derivation runs on the client side", () => {
+  const PoolSize = defineTrait({
+    name: "@test/client-deriv/PoolSize",
+    schema: z.number().int(),
+  });
+  const Doubled = defineTrait({
+    name: "@test/client-deriv/Doubled",
+    schema: z.number().int(),
+  });
+  const PoolSizeSet = defineEvent({
+    name: "@test/client-deriv/PoolSizeSet",
+    schema: z.object({ entityId: z.string(), value: z.number().int() }),
+  });
+  const DoubledChanged = defineEvent({
+    name: "@test/client-deriv/DoubledChanged",
+    schema: z.object({ entityId: z.string(), value: z.number().int() }),
+  });
+  const PoolSizeMirror = defineSystem({
+    name: "PoolSizeMirror",
+    on: PoolSizeSet,
+    reads: [],
+    writes: [PoolSize],
+    run: ({ event, world }) => {
+      if (!world.has(event.entityId)) return [];
+      world.set(event.entityId, PoolSize, event.value);
+      return [];
+    },
+  });
+  const DoubledBoth = defineDerivation({
+    name: "@test/client-deriv/doubled-both",
+    inputs: [PoolSize] as const,
+    output: Doubled,
+    compute: ([n]) => n * 2,
+    toEvent: (id, v) => DoubledChanged({ entityId: id, value: v }),
+    where: "both",
+  });
+  const DoubledServerOnly = defineDerivation({
+    name: "@test/client-deriv/doubled-server-only",
+    inputs: [PoolSize] as const,
+    output: Doubled,
+    compute: ([n]) => n * 2,
+    toEvent: (id, v) => DoubledChanged({ entityId: id, value: v }),
+    where: "server",
+  });
+
+  function makeRegistry(d: typeof DoubledBoth | typeof DoubledServerOnly): Registry {
+    const r = new Registry();
+    r.load(
+      definePlugin({
+        name: "@test/client-deriv",
+        version: "0.0.0",
+        traits: [PoolSize, Doubled],
+        events: [PoolSizeSet, DoubledChanged],
+        systems: [PoolSizeMirror],
+        derivations: [d],
+      }),
+    );
+    r.validate();
+    return r;
+  }
+
+  function makeDirtyMap(world: World): {
+    dirty: Map<EntityId, Set<TraitName>>;
+    unsub: () => void;
+  } {
+    const dirty = new Map<EntityId, Set<TraitName>>();
+    const unsub = world.subscribe((id, name) => {
+      let s = dirty.get(id);
+      if (!s) {
+        s = new Set();
+        dirty.set(id, s);
+      }
+      s.add(name);
+    });
+    return { dirty, unsub };
+  }
+
+  it("runs `where: 'both'` derivations on the client when an input trait is written by a mirror system", () => {
+    const registry = makeRegistry(DoubledBoth);
+    const world = new World();
+    const id = world.spawn([PoolSize(3)]);
+    // Initial Doubled trait is absent — only the derivation pass writes it.
+    expect(world.get(id, [Doubled])).toBeUndefined();
+
+    const { dirty, unsub } = makeDirtyMap(world);
+    let emitted: EventInstance[];
+    try {
+      emitted = runSystemsToFixpoint(
+        registry,
+        world,
+        [PoolSizeSet({ entityId: id, value: 7 })],
+        dirty,
+        "client",
+      );
+    } finally {
+      unsub();
+    }
+
+    // Mirror wrote PoolSize=7, then derivation cascaded Doubled=14.
+    expect((world.get(id, [PoolSize]) as { PoolSize: number }).PoolSize).toBe(7);
+    expect((world.get(id, [Doubled]) as { Doubled: number }).Doubled).toBe(14);
+    // The derivation's *Changed event is part of the returned set so views
+    // and other client systems can react to it locally.
+    expect(emitted.some((e) => e.type === DoubledChanged.name)).toBe(true);
+  });
+
+  it("does NOT run `where: 'server'` derivations on the client", () => {
+    const registry = makeRegistry(DoubledServerOnly);
+    const world = new World();
+    const id = world.spawn([PoolSize(3)]);
+
+    const { dirty, unsub } = makeDirtyMap(world);
+    try {
+      runSystemsToFixpoint(
+        registry,
+        world,
+        [PoolSizeSet({ entityId: id, value: 7 })],
+        dirty,
+        "client",
+      );
+    } finally {
+      unsub();
+    }
+
+    // Mirror still ran (it's a system, not a derivation), but the
+    // server-only derivation was filtered out so Doubled stays absent.
+    expect((world.get(id, [PoolSize]) as { PoolSize: number }).PoolSize).toBe(7);
+    expect(world.get(id, [Doubled])).toBeUndefined();
+  });
+
+  it("DOES run `where: 'server'` derivations on the server side", () => {
+    const registry = makeRegistry(DoubledServerOnly);
+    const world = new World();
+    const id = world.spawn([PoolSize(3)]);
+
+    const { dirty, unsub } = makeDirtyMap(world);
+    try {
+      runSystemsToFixpoint(
+        registry,
+        world,
+        [PoolSizeSet({ entityId: id, value: 7 })],
+        dirty,
+        "server",
+      );
+    } finally {
+      unsub();
+    }
+
+    expect((world.get(id, [Doubled]) as { Doubled: number }).Doubled).toBe(14);
   });
 });

@@ -312,6 +312,89 @@ describe("@vtt/characters", () => {
     });
   });
 
+  describe("requireCharacterEditor", () => {
+    it("the assigned player may rename a GM-owned character", async () => {
+      // GM creates and assigns to OTHER_PLAYER; OwnedBy stays with GM.
+      const id = await makeCharacter(pipeline, world, GM, {
+        name: "Bobo",
+        ownerUserId: GM.userId,
+        playerUserId: OTHER_PLAYER.userId,
+      });
+      const got = world.get(id, [Character, OwnedBy]) as {
+        Character: { playerUserId?: string };
+        OwnedBy: { userId: string };
+      };
+      expect(got.OwnedBy.userId).toBe(GM.userId);
+      expect(got.Character.playerUserId).toBe(OTHER_PLAYER.userId);
+
+      const res = await dispatch(
+        pipeline,
+        RenameCharacter({ characterId: id, name: "Bobo the Brave" }),
+        OTHER_PLAYER,
+      );
+      expect(res.result.ok).toBe(true);
+      const renamed = world.get(id, [Character]) as {
+        Character: { name: string };
+      };
+      expect(renamed.Character.name).toBe("Bobo the Brave");
+    });
+
+    it("the assigned player may edit fields on a GM-owned character", async () => {
+      const id = await makeCharacter(pipeline, world, GM, {
+        name: "Bobo",
+        ownerUserId: GM.userId,
+        playerUserId: OTHER_PLAYER.userId,
+      });
+      const res = await dispatch(
+        pipeline,
+        SetField({
+          characterId: id,
+          trait: TestAbilities.name,
+          path: ["str"],
+          value: 14,
+        }),
+        OTHER_PLAYER,
+      );
+      expect(res.result.ok).toBe(true);
+      const got = world.get(id, [TestAbilities]) as
+        | { Abilities: { str: number; dex: number } }
+        | undefined;
+      expect(got!.Abilities.str).toBe(14);
+    });
+
+    it("clearing the assignment revokes the player's edit rights", async () => {
+      const id = await makeCharacter(pipeline, world, GM, {
+        name: "Bobo",
+        ownerUserId: GM.userId,
+        playerUserId: OTHER_PLAYER.userId,
+      });
+      // Player can rename while assigned…
+      let res = await dispatch(
+        pipeline,
+        RenameCharacter({ characterId: id, name: "Bobo II" }),
+        OTHER_PLAYER,
+      );
+      expect(res.result.ok).toBe(true);
+
+      // GM clears the assignment.
+      await dispatch(
+        pipeline,
+        AssignCharacter({ characterId: id, playerUserId: "" }),
+        GM,
+      );
+
+      // Now the same dispatch is rejected.
+      res = await dispatch(
+        pipeline,
+        RenameCharacter({ characterId: id, name: "Bobo III" }),
+        OTHER_PLAYER,
+      );
+      expect(res.result.ok).toBe(false);
+      const got = world.get(id, [Character]) as { Character: { name: string } };
+      expect(got.Character.name).toBe("Bobo II");
+    });
+  });
+
   describe("RenameCharacter", () => {
     it("owner renames their own character", async () => {
       const id = await makeCharacter(pipeline, world);

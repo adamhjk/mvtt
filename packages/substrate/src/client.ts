@@ -20,7 +20,7 @@ import { Registry } from "./registry.js";
 import { World } from "./world.js";
 import { EventBus } from "./event-bus.js";
 import { WireMsg } from "./protocol.js";
-import type { EventName, QualifiedName } from "./schema.js";
+import type { EntityId, EventName, QualifiedName, TraitName } from "./schema.js";
 import { substrateCorePlugin } from "./core-plugin.js";
 import { runSystemsToFixpoint } from "./systems-runner.js";
 import { createContext, createSignal, useContext } from "solid-js";
@@ -81,7 +81,66 @@ export interface ClientHandle {
   onConnect(fn: () => void): () => void;
   /** Fires once when the client transitions from catchup to live mode. */
   onSynced(fn: () => void): () => void;
+  /**
+   * Per-client registry of pending optimistic-trait writes, keyed by the
+   * entity the trait lives on. `createOptimisticTrait` registers a flush
+   * callback when it mounts and unregisters on cleanup. Call sites that
+   * need the server to observe the *current* optimistic state (cross-user
+   * verbs like `ShareTab`, anything that reads-then-acts on the server)
+   * `await flushOptimisticWrites(entityId)` first; the registry runs every
+   * registered flush in parallel and resolves once the dispatched commands
+   * have been ack'd, so the next command's server-side view of the world
+   * already includes the flushed writes.
+   */
+  readonly optimisticFlushes: OptimisticFlushRegistry;
   close(): void;
+}
+
+/**
+ * Per-entity collection of pending-write flushers. `createOptimisticTrait`
+ * registers a flush function on construction and unregisters on cleanup,
+ * keyed by the entity the trait lives on. The trait's name isn't part of
+ * the key — multiple plugins can attach optimistic traits to the same
+ * sentinel and they all flush together.
+ *
+ * Implementation detail: a `Set` per entity, swapped to an array before
+ * iteration so a flush whose own ack-handler unregisters itself doesn't
+ * mutate the set mid-iteration.
+ */
+export interface OptimisticFlushRegistry {
+  /** Register a flush callback for an entity. Returns an unregister fn. */
+  register(entityId: EntityId, flush: () => Promise<void>): () => void;
+  /** Run every registered flush for `entityId` in parallel; resolve when all settle. */
+  flushFor(entityId: EntityId): Promise<void>;
+}
+
+export function createOptimisticFlushRegistry(): OptimisticFlushRegistry {
+  const byEntity = new Map<EntityId, Set<() => Promise<void>>>();
+  return {
+    register: (entityId, flush) => {
+      let set = byEntity.get(entityId);
+      if (!set) {
+        set = new Set();
+        byEntity.set(entityId, set);
+      }
+      set.add(flush);
+      return () => {
+        const cur = byEntity.get(entityId);
+        if (!cur) return;
+        cur.delete(flush);
+        if (cur.size === 0) byEntity.delete(entityId);
+      };
+    },
+    flushFor: async (entityId) => {
+      const set = byEntity.get(entityId);
+      if (!set || set.size === 0) return;
+      // Snapshot first — a flush may resolve quickly and remove itself
+      // (e.g. the writer unmounts on the same tick), and mutating the set
+      // while iterating loses subsequent entries.
+      const flushes = Array.from(set);
+      await Promise.allSettled(flushes.map((f) => f()));
+    },
+  };
 }
 
 let cmdCounter = 1;
@@ -171,8 +230,30 @@ export function startClient(opts: ClientOptions): ClientHandle {
           payload: def.schema.parse(msg.data.event.payload),
         };
         // Apply through the same fixpoint runner the server uses so the
-        // client's local World mirrors authoritative state.
-        const all = runSystemsToFixpoint(registry, world, [ev]);
+        // client's local World mirrors authoritative state. The dirty map
+        // is wired the same way the server's pipeline wires it: every
+        // (entity, trait) write that lands during this tick — whether
+        // from a universal-mirror system reacting to the wire event or
+        // from a follow-on local emission — feeds the next derivation
+        // pass. Without this, a server-side derivation's `*Changed`
+        // broadcast arrives but the derived trait never gets written
+        // into the client's world (no system listens to derivation
+        // events directly), and views reading the trait stay stale.
+        const dirty = new Map<EntityId, Set<TraitName>>();
+        const unsub = world.subscribe((id, trait) => {
+          let s = dirty.get(id);
+          if (!s) {
+            s = new Set();
+            dirty.set(id, s);
+          }
+          s.add(trait);
+        });
+        let all: EventInstance[];
+        try {
+          all = runSystemsToFixpoint(registry, world, [ev], dirty, "client");
+        } finally {
+          unsub();
+        }
         for (const e of all) bus.emit(e);
         const seq = msg.data.seq;
         if (typeof seq === "number") {
@@ -266,6 +347,7 @@ export function startClient(opts: ClientOptions): ClientHandle {
       if (synced()) fn();
       return () => syncedListeners.delete(fn);
     },
+    optimisticFlushes: createOptimisticFlushRegistry(),
     close() {
       sock.close();
     },
