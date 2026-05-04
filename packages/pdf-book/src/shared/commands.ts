@@ -19,65 +19,57 @@ import {
   defineCommand,
   EntityId,
   fail,
-  ok,
   z,
 } from "@vtt/substrate";
 import { requireWrite } from "@vtt/permissions/shared";
 import { requireSession } from "@vtt/identity/shared";
 import { Book } from "@vtt/books/shared";
+import { Asset } from "@vtt/assets/shared";
 import { PdfDocumentSet } from "./events.js";
 
 /**
- * Loose validation that the URL belongs to *this* book's pdf-book
- * plugin-data prefix. Stops a malicious client from pointing the
- * trait at an arbitrary external URL — the upload endpoint already
- * restricts writes to GMs and the .pdf extension, but this keeps the
- * trait pointing where the upload landed.
+ * GM-only: bind (or replace) the PDF asset that backs a Book. v0 has
+ * no separate "clear" command — the GM either binds a different asset
+ * or removes the whole Book. Validates that the bookId points at an
+ * actual Book and that the assetId points at an Asset whose mime is
+ * `application/pdf`.
  *
- * Cache-bust suffixes (`?v=<bytes>`) are accepted; the upload
- * endpoint stamps them on so the browser re-fetches after a
- * replacement.
- */
-function isPdfUrlForBook(
-  url: string,
-  worldId: string,
-  bookId: string,
-): boolean {
-  const expectedPrefix = `/plugin-data/${worldId}/@vtt/pdf-book/books/${bookId}/`;
-  if (!url.startsWith(expectedPrefix)) return false;
-  if (url.includes("..")) return false;
-  return true;
-}
-
-/**
- * GM-only: set (or replace) the uploaded PDF for a Book. v0 has no
- * separate "clear" command — the GM either uploads a replacement or
- * removes the whole Book. Validates that the bookId points at an
- * actual Book and that the URL lives in this plugin's data prefix.
+ * The asset bytes are stored, deduped, and visibility-resolved by
+ * `@vtt/assets`; this command only links a Book to an existing asset.
+ * Uploads happen out-of-band via the assets HTTP route.
  */
 export const SetPdfDocument = defineCommand({
   name: "@vtt/pdf-book/SetPdfDocument",
   schema: z.object({
     bookId: EntityId,
-    url: z.string().min(1),
+    assetId: EntityId,
   }),
   validate: (ctx) => {
     if (!requireSession(ctx)) return fail("not authenticated");
     if (!ctx.world.has(ctx.cmd.bookId)) {
       return fail(`book ${ctx.cmd.bookId} does not exist`);
     }
-    const got = ctx.world.get(ctx.cmd.bookId, [Book]);
-    if (!got) {
+    const bookGot = ctx.world.get(ctx.cmd.bookId, [Book]);
+    if (!bookGot) {
       return fail(`entity ${ctx.cmd.bookId} is not a Book`);
     }
-    if (!isPdfUrlForBook(ctx.cmd.url, ctx.world.worldId, ctx.cmd.bookId)) {
+    if (!ctx.world.has(ctx.cmd.assetId)) {
+      return fail(`asset ${ctx.cmd.assetId} does not exist`);
+    }
+    const assetGot = ctx.world.get(ctx.cmd.assetId, [Asset]) as
+      | { Asset: { mime: string } }
+      | undefined;
+    if (!assetGot) {
+      return fail(`entity ${ctx.cmd.assetId} is not an Asset`);
+    }
+    if (assetGot.Asset.mime !== "application/pdf") {
       return fail(
-        `url must start with /plugin-data/${ctx.world.worldId}/@vtt/pdf-book/books/${ctx.cmd.bookId}/`,
+        `asset ${ctx.cmd.assetId} has mime ${assetGot.Asset.mime}, expected application/pdf`,
       );
     }
     return requireWrite(ctx, ctx.cmd.bookId);
   },
   apply: ({ cmd }) => [
-    PdfDocumentSet({ bookId: cmd.bookId, url: cmd.url }),
+    PdfDocumentSet({ bookId: cmd.bookId, assetId: cmd.assetId }),
   ],
 });

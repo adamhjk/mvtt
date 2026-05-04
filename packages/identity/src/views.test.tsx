@@ -17,7 +17,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
-import { screen, cleanup } from "@solidjs/testing-library";
+import { screen, cleanup, fireEvent } from "@solidjs/testing-library";
 import {
   buildTestClient,
   mountWithClient,
@@ -128,5 +128,72 @@ describe("identity UserMenuView", () => {
     });
     mountWithClient(h, () => UserMenuView.render({}) as never);
     expect(screen.getByText(/connecting…/i)).toBeInTheDocument();
+  });
+
+  it("renders the theme switcher beside the logout button", () => {
+    const h = harness();
+    mountWithClient(h, () => UserMenuView.render({}) as never);
+    // Default mode is "system" since localStorage has no entry yet.
+    const btn = screen.getByRole("button", { name: /system theme/i });
+    expect(btn).toBeInTheDocument();
+    expect(btn).toHaveAttribute("data-theme-mode", "system");
+  });
+});
+
+describe("identity theme switcher", () => {
+  // Reset DOM/state between cases so theme attributes from one test
+  // don't leak into the next.
+  beforeEach(() => {
+    document.documentElement.removeAttribute("data-theme");
+    try {
+      localStorage.removeItem("vtt-theme");
+    } catch {
+      // ignore
+    }
+  });
+
+  it("cycles system → light → dark → system on each click", () => {
+    const h = harness();
+    mountWithClient(h, () => UserMenuView.render({}) as never);
+    const btn = screen.getByRole("button", { name: /system theme/i });
+
+    expect(btn).toHaveAttribute("data-theme-mode", "system");
+    expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
+
+    fireEvent.click(btn);
+    expect(btn).toHaveAttribute("data-theme-mode", "light");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+
+    fireEvent.click(btn);
+    expect(btn).toHaveAttribute("data-theme-mode", "dark");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+
+    fireEvent.click(btn);
+    expect(btn).toHaveAttribute("data-theme-mode", "system");
+    expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
+  });
+
+  it("persists the selection to localStorage and clears it on system", () => {
+    const h = harness();
+    mountWithClient(h, () => UserMenuView.render({}) as never);
+    const btn = screen.getByRole("button", { name: /system theme/i });
+
+    fireEvent.click(btn); // → light
+    expect(localStorage.getItem("vtt-theme")).toBe("light");
+
+    fireEvent.click(btn); // → dark
+    expect(localStorage.getItem("vtt-theme")).toBe("dark");
+
+    fireEvent.click(btn); // → system: localStorage entry cleared
+    expect(localStorage.getItem("vtt-theme")).toBeNull();
+  });
+
+  it("reads the persisted choice on mount so reload restores the theme", () => {
+    localStorage.setItem("vtt-theme", "dark");
+    const h = harness();
+    mountWithClient(h, () => UserMenuView.render({}) as never);
+    const btn = screen.getByRole("button", { name: /dark theme/i });
+    expect(btn).toHaveAttribute("data-theme-mode", "dark");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   });
 });

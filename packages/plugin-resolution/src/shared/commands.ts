@@ -139,6 +139,13 @@ export const RequestRoll = defineCommand({
      * trait so the roll card reads "Tarn rolled" rather than "Adam rolled."
      */
     speakingAsCharacterId: EntityId.optional(),
+    /**
+     * Optional system-specific structured payload — see `Formula.meta`.
+     * Forwarded verbatim into `RollResolved.meta` and then onto the
+     * spawned Roll entity's `Formula` trait. The resolution layer
+     * never inspects it.
+     */
+    meta: z.unknown().optional(),
   }),
   validate: (ctx) => {
     if (!requireSession(ctx)) return fail("not authenticated");
@@ -209,6 +216,7 @@ export const RequestRoll = defineCommand({
           rolledByName: auth.name,
           dice,
           speakingAsCharacterId: cmd.speakingAsCharacterId,
+          meta: cmd.meta,
         }),
         visibility,
       ),

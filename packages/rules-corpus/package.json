@@ -1,0 +1,38 @@
+{
+  "name": "@vtt/rules-corpus",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/manifest.ts",
+    "./shared": "./src/shared/index.ts",
+    "./client": "./src/client/index.ts",
+    "./server": "./src/server/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@vtt/assets": "workspace:*",
+    "@vtt/auth": "workspace:*",
+    "@vtt/books": "workspace:*",
+    "@vtt/identity": "workspace:*",
+    "@vtt/pdf-book": "workspace:*",
+    "@vtt/permissions": "workspace:*",
+    "@vtt/shell-workbench": "workspace:*",
+    "@vtt/substrate": "workspace:*",
+    "better-sqlite3": "^12.9.0",
+    "zod": "^4.3.6"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.9.0"
+  },
+  "peerDependenciesMeta": {
+    "solid-js": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^25.6.0",
+    "solid-js": "^1.9.0"
+  }
+}

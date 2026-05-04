@@ -16,14 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { useClient } from "@vtt/substrate/client";
-import {
-  createMemo,
-  createSignal,
-  For,
-  onMount,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, For, onMount, Show, type JSX } from "solid-js";
 import {
   CharacterSheetActionsSlot,
   CharacterSheetIdentitySlot,
@@ -33,136 +26,103 @@ import {
   type CharacterSheetRegion,
   type CharacterSheetTab,
 } from "../shared/slot.js";
+import { Tabs, type TabSpec } from "./kit.js";
 
 const SHEET_SHELL_STYLE_ID = "vtt-characters-sheet-shell-styles";
 
 /*
  * SheetShell stylesheet, injected once into <head> on the first mount.
- * Kept inline (not as a module-level CSS import) because the plugin
- * manifest is also evaluated by the server's tsx loader, which cannot
- * resolve `.css` files. A runtime injector sidesteps that without
- * forcing every plugin to coordinate its CSS through the client app's
- * top-level stylesheet.
  *
- * Three breakpoints:
- *   <600px      phone — sticky top, sticky bottom, single column
- *   600-1023px  tablet — single column, vitals/status flatten to strips
- *   ≥1024px     desktop — two-pane with rail
+ * Layout strategy: the shell is a flex column anchored top + bottom by
+ * sticky regions (identity, actions). The middle area (rail + tabs) is
+ * the only flexible part. The previous grid-based layout had a single
+ * 1fr row for tabs which collapsed to zero when the sum of the auto
+ * rows exceeded the viewport — clicking a tab worked but you couldn't
+ * see the body. The new flex layout:
+ *
+ *   - identity is `flex: 0 0 auto` (always its content size)
+ *   - actions  is `flex: 0 0 auto` (always its content size)
+ *   - main     is `flex: 1 1 auto; min-height: 0` (takes the rest,
+ *              shrinks below content size)
+ *   - inside main, on phone/tablet:
+ *       rail is `flex: 0 0 auto; max-height: 40%` so it scrolls
+ *       independently and never starves the tabs region
+ *       tabs is `flex: 1 1 auto; min-height: 0` (the rest, ≥60%)
+ *   - on desktop (≥1024px) main flips to `flex-direction: row` and the
+ *     rail becomes a 280px-wide left column with no max-height.
+ *
+ * The Tabs primitive (kit.tsx) owns its own flex column with sticky
+ * tab bar + scrollable body, so tab switching always works regardless
+ * of how short the viewport is.
  */
 const SHEET_SHELL_CSS = `
 .sheet-shell {
   container-type: inline-size;
   container-name: sheet;
-  display: grid;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--color-surface);
   color: var(--color-fg);
-  grid-template-columns: 1fr;
-  grid-template-areas:
-    "identity"
-    "vitals"
-    "status"
-    "tabs"
-    "actions";
-  grid-template-rows: auto auto auto 1fr auto;
 }
 .sheet-shell__region { min-width: 0; min-height: 0; }
 .sheet-shell__identity {
-  grid-area: identity;
-  position: sticky; top: 0; z-index: 5;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border-muted);
+  flex: 0 0 auto;
   padding: 0.75rem 1rem;
-  display: flex; flex-direction: column; gap: 0.5rem;
-}
-.sheet-shell__vitals {
-  grid-area: vitals;
-  padding: 0.5rem 1rem;
   border-bottom: 1px solid var(--color-border-muted);
-  display: flex; flex-direction: row; flex-wrap: nowrap;
-  gap: 0.75rem; overflow-x: auto; scrollbar-width: thin;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--color-surface);
 }
-.sheet-shell__status {
-  grid-area: status;
-  padding: 0.5rem 1rem;
+.sheet-shell__main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sheet-shell__rail {
+  flex: 0 0 auto;
+  max-height: 40%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 0.6rem 1rem;
   border-bottom: 1px solid var(--color-border-muted);
-  display: flex; flex-direction: row; flex-wrap: wrap; gap: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  background: var(--color-surface);
 }
-.sheet-shell__tabs {
-  grid-area: tabs;
-  display: flex; flex-direction: column; min-height: 0; overflow: hidden;
-}
-.sheet-shell__tabbar {
-  display: flex; flex-direction: row; flex-wrap: nowrap;
-  overflow-x: auto; scrollbar-width: thin;
-  border-bottom: 1px solid var(--color-border-muted);
-  background: var(--color-surface-elevated);
-}
-.sheet-shell__tabbutton {
+.sheet-shell__rail-region { display: flex; flex-direction: column; gap: 0.5rem; }
+.sheet-shell__actions {
   flex: 0 0 auto;
   padding: 0.5rem 1rem;
-  font-family: var(--font-display);
-  font-size: 0.7rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--color-fg-subtle);
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease;
-}
-.sheet-shell__tabbutton:hover { color: var(--color-fg-muted); }
-.sheet-shell__tabbutton[aria-selected="true"] {
-  color: var(--color-fg);
-  border-bottom-color: var(--color-accent);
-}
-.sheet-shell__tabbody {
-  flex: 1 1 auto; overflow-y: auto; padding: 1rem;
-}
-.sheet-shell__actions {
-  grid-area: actions;
-  position: sticky; bottom: 0; z-index: 5;
-  background: var(--color-surface);
   border-top: 1px solid var(--color-border-muted);
-  padding: 0.5rem 1rem;
-  display: flex; flex-direction: row; flex-wrap: wrap; gap: 0.5rem;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  background: var(--color-surface);
 }
-@container sheet (min-width: 600px) {
-  .sheet-shell__vitals { flex-wrap: wrap; overflow-x: visible; }
+
+/* When all rail fills are empty, drop the rail entirely so tabs has
+   the full main area. Same trick for actions. */
+.sheet-shell__main:not(:has(.sheet-shell__rail-region > *)) .sheet-shell__rail {
+  display: none;
 }
-@container sheet (min-width: 1024px) {
-  .sheet-shell {
-    grid-template-columns: 240px 1fr;
-    grid-template-areas:
-      "identity identity"
-      "vitals   tabs"
-      "status   tabs"
-      "actions  actions";
-    grid-template-rows: auto auto 1fr auto;
-  }
-  .sheet-shell__vitals {
-    border-bottom: 0; border-right: 1px solid var(--color-border-muted);
-    flex-direction: column; flex-wrap: nowrap;
-    overflow-x: visible; overflow-y: auto;
-  }
-  .sheet-shell__status {
-    border-right: 1px solid var(--color-border-muted);
-  }
-}
-.sheet-shell:not(:has(.sheet-shell__vitals > *)) .sheet-shell__vitals,
-.sheet-shell:not(:has(.sheet-shell__status > *)) .sheet-shell__status,
 .sheet-shell:not(:has(.sheet-shell__actions > *)) .sheet-shell__actions {
   display: none;
 }
+
 @container sheet (min-width: 1024px) {
-  .sheet-shell:not(:has(.sheet-shell__vitals > *)):not(:has(.sheet-shell__status > *)) {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "identity"
-      "tabs"
-      "actions";
-    grid-template-rows: auto 1fr auto;
+  .sheet-shell__main { flex-direction: row; }
+  .sheet-shell__rail {
+    flex: 0 0 280px;
+    max-height: none;
+    border-bottom: 0;
+    border-right: 1px solid var(--color-border-muted);
   }
 }
 `;
@@ -177,9 +137,11 @@ function injectSheetShellStyles(): void {
 }
 
 /**
- * SheetShell is the responsive grid that hosts every character sheet.
- * The shell owns spatial layout (CSS grid + container queries collapse
- * across desktop/tablet/phone) and delegates contents to five slots:
+ * SheetShell is the responsive flex container that hosts every
+ * character sheet. The shell owns spatial layout (sticky top/bottom +
+ * a rail-or-tabs middle that flips between stacked-column on phone/
+ * tablet and side-by-side on desktop) and delegates contents to five
+ * slots:
  *
  *   Identity (sticky top)   ── name, portrait, system sub-line
  *   Vitals (rail / strip)   ── HP, AC, init — anything always-watched
@@ -187,12 +149,13 @@ function injectSheetShellStyles(): void {
  *   Tabs (body)             ── the bulk of the sheet, tabbed by system
  *   Actions (sticky bottom) ── quick rolls + pre-roll triggers
  *
- * Empty slots collapse via the CSS — a system that fills only Tabs
- * gets a single-column sheet with no empty rail or action bar.
+ * Empty slots collapse via the `:not(:has(...))` CSS rules — a system
+ * that fills only Tabs gets a single-column sheet with no empty rail
+ * or action bar.
  *
  * Game-system plugins fill these slots via the manifest's `fills`. The
- * default characters plugin fills Identity itself (the name + player
- * dropdown that lived on the old sheet); systems extend it with their
+ * default characters plugin fills Identity itself (the name + token
+ * portrait that lived on the old sheet); systems extend it with their
  * own sub-lines (level/class) and contribute to the other four slots.
  */
 export function SheetShell(props: { characterId: string }): JSX.Element {
@@ -211,21 +174,22 @@ export function SheetShell(props: { characterId: string }): JSX.Element {
   const actions = createMemo(() =>
     sortRegion(client.registry.fillsForSlot(CharacterSheetActionsSlot)),
   );
-  const tabs = createMemo(() =>
+  const tabFills = createMemo(() =>
     sortTabs(client.registry.fillsForSlot(CharacterSheetTabsSlot)),
   );
 
-  // Active tab id is local state — no need to persist across remounts.
-  // Defaults to the first tab in the sorted list; updates if the
-  // active tab disappears (system unloaded or tab list re-ordered).
-  const [activeId, setActiveId] = createSignal<string | null>(null);
-  const resolvedActive = createMemo<CharacterSheetTab | null>(() => {
-    const list = tabs();
-    if (list.length === 0) return null;
-    const wanted = activeId();
-    const found = wanted ? list.find((t) => t.id === wanted) : null;
-    return found ?? list[0]!;
-  });
+  // Adapt CharacterSheetTab fills to the kit.Tabs `TabSpec` shape. The
+  // characterId is captured here so the tab's render closure doesn't
+  // need to thread it through props.
+  const tabSpecs = createMemo<TabSpec[]>(() =>
+    tabFills().map((fill) => ({
+      id: fill.id,
+      label: fill.label,
+      priority: fill.priority,
+      render: () =>
+        fill.render({ characterId: props.characterId }) as JSX.Element,
+    })),
+  );
 
   return (
     <div class="sheet-shell">
@@ -240,62 +204,55 @@ export function SheetShell(props: { characterId: string }): JSX.Element {
         </For>
       </div>
 
-      <div class="sheet-shell__region sheet-shell__vitals" data-region="vitals">
-        <For each={vitals()}>
-          {(fill) => (
-            <>{fill.render({ characterId: props.characterId }) as JSX.Element}</>
-          )}
-        </For>
-      </div>
+      <div class="sheet-shell__main">
+        <div class="sheet-shell__rail" data-region="rail">
+          <Show when={vitals().length > 0}>
+            <div class="sheet-shell__rail-region" data-region="vitals">
+              <For each={vitals()}>
+                {(fill) => (
+                  <>
+                    {
+                      fill.render({
+                        characterId: props.characterId,
+                      }) as JSX.Element
+                    }
+                  </>
+                )}
+              </For>
+            </div>
+          </Show>
+          <Show when={status().length > 0}>
+            <div class="sheet-shell__rail-region" data-region="status">
+              <For each={status()}>
+                {(fill) => (
+                  <>
+                    {
+                      fill.render({
+                        characterId: props.characterId,
+                      }) as JSX.Element
+                    }
+                  </>
+                )}
+              </For>
+            </div>
+          </Show>
+        </div>
 
-      <div class="sheet-shell__region sheet-shell__status" data-region="status">
-        <For each={status()}>
-          {(fill) => (
-            <>{fill.render({ characterId: props.characterId }) as JSX.Element}</>
-          )}
-        </For>
-      </div>
-
-      <div class="sheet-shell__region sheet-shell__tabs" data-region="tabs">
-        <Show
-          when={tabs().length > 0}
-          fallback={
-            <div class="sheet-shell__tabbody">
-              <p class="text-xs text-fg-subtle">
-                no game system has projected tabs onto this character yet
-              </p>
+        <Tabs
+          tabs={tabSpecs()}
+          ariaLabel="Character sheet tabs"
+          emptyState={
+            <div
+              style={{
+                padding: "1rem",
+                color: "var(--color-fg-muted)",
+                "font-size": "0.85rem",
+              }}
+            >
+              no game system has projected tabs onto this character yet
             </div>
           }
-        >
-          <div
-            class="sheet-shell__tabbar"
-            role="tablist"
-            aria-label="Character sheet tabs"
-          >
-            <For each={tabs()}>
-              {(tab) => (
-                <button
-                  type="button"
-                  class="sheet-shell__tabbutton"
-                  role="tab"
-                  aria-selected={resolvedActive()?.id === tab.id}
-                  onClick={() => setActiveId(tab.id)}
-                >
-                  {tab.label}
-                </button>
-              )}
-            </For>
-          </div>
-          <div class="sheet-shell__tabbody" role="tabpanel">
-            <Show when={resolvedActive()}>
-              {(active) =>
-                active().render({
-                  characterId: props.characterId,
-                }) as JSX.Element
-              }
-            </Show>
-          </div>
-        </Show>
+        />
       </div>
 
       <div

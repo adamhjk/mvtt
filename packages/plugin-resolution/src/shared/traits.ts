@@ -22,6 +22,17 @@ export const Formula = defineTrait({
   schema: z.object({
     notation: z.string().min(1),
     reason: z.string().optional(),
+    /**
+     * Optional system-specific structured payload attached at roll time.
+     * Conventionally `{ system: "<plugin-name>", spec: <system-spec> }`
+     * — the resolution layer never inspects it, but downstream chat rows
+     * can decode their own roll-spec data here (modifier breakdowns,
+     * obstacles, success thresholds, advantage flags) so per-system
+     * rendering stays lossless. The chat-timeline contributor uses
+     * `meta.system` as a discriminator: when present, the generic
+     * resolution row defers to whichever system claims that tag.
+     */
+    meta: z.unknown().optional(),
   }),
 });
 
@@ -47,11 +58,30 @@ export const RolledBy = defineTrait({
   }),
 });
 
+/**
+ * Structured per-die outcome attached to a roll. Mirror of the
+ * `RollResolved.dice` event field — denormalised onto the trait so
+ * downstream consumers (system-aware chat rows, automation, replay
+ * inspectors) can read individual die faces without subscribing to
+ * the event itself or string-parsing rpg-dice-roller's output.
+ */
+const DieOutcome = z.object({
+  sides: z.union([z.number().int().positive(), z.literal("F")]),
+  value: z.number().int(),
+});
+
 export const RollResult = defineTrait({
   name: "@vtt/resolution/RollResult",
   schema: z.object({
     total: z.number(),
     output: z.string(),
     rolledAt: z.number(),
+    /**
+     * Flat list of every die rolled, in display order. Empty for
+     * notations without dice (`/r 4` is a degenerate but legal case).
+     * Defaulted so older snapshots that lacked the field continue to
+     * decode cleanly.
+     */
+    dice: z.array(DieOutcome).default([]),
   }),
 });

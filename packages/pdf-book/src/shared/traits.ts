@@ -15,25 +15,24 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { defineTrait, z } from "@vtt/substrate";
+import { defineTrait, EntityId, z } from "@vtt/substrate";
 
 /**
  * The uploaded PDF for one Book. Attached to the Book entity directly
  * (same trait-composition pattern that puts OwnedBy on Token entities
  * across plugin boundaries). Lazily attached: the trait only exists
- * once a PDF has been uploaded for that Book; no trait means "no PDF
+ * once a PDF has been bound for that Book; no trait means "no PDF
  * yet" (the canvas view falls back to an upload-prompt state).
  *
- * `url` must be a path under `/plugin-data/@vtt/pdf-book/books/<bookId>/`
- * — the upload endpoint stamps a `?v=<bytes>` cache-bust suffix so the
- * browser re-fetches when the GM replaces the file. Server-side
- * validation in SetPdfDocument enforces the prefix to keep the trait
- * pointing at this plugin's own storage.
+ * `assetId` references an Asset entity from `@vtt/assets`. The viewer
+ * derives the fetch URL via `/plugin-data/<worldId>/assets/<assetId>`,
+ * which is content-addressed and immutable post-upload — no cache-bust
+ * suffix needed; replacing the PDF means binding a different assetId.
  */
 export const PdfDocument = defineTrait({
   name: "@vtt/pdf-book/PdfDocument",
   schema: z.object({
-    /** Public URL of the uploaded PDF (under /plugin-data/...). */
-    url: z.string().min(1),
+    /** Asset entity carrying the PDF bytes. */
+    assetId: EntityId,
   }),
 });

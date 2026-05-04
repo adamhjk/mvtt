@@ -1,0 +1,24 @@
+{
+  "name": "@vtt/rules-extract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/extract.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "extract": "node --experimental-strip-types src/cli.ts"
+  },
+  "dependencies": {
+    "@vtt/rules-corpus": "workspace:*",
+    "@vtt/substrate": "workspace:*",
+    "pdfjs-dist": "^5.4.149",
+    "unpdf": "^1.3.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0"
+  }
+}

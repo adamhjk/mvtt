@@ -34,6 +34,7 @@ import {
   PendingRollCancelled,
   PendingRollCommitted,
   PendingRollContributed,
+  PendingRollContributionRemoved,
   PendingRollOpened,
 } from "./events.js";
 import { setAtPath } from "./path.js";
@@ -329,6 +330,45 @@ export const ContributeToPendingRoll = defineCommand({
     PendingRollContributed({
       pendingRollId: cmd.pendingRollId,
       contribution: cmd.contribution,
+    }),
+  ],
+});
+
+/**
+ * Remove a previously-posted contribution from a PendingRoll. The
+ * `modifierId` matches the inner `payload.id` of the contribution
+ * being removed — anything in the contributions list with that
+ * payload id is filtered out by the receiving system. Used by the
+ * pending-roll panel's chip × affordance so a player who clicks
+ * "+1D" twice can undo one of them.
+ *
+ * Permissions: same shape as ContributeToPendingRoll — anyone
+ * authenticated can remove their own (or anyone's) contribution.
+ * No `replaces` keys are honoured here; this is the explicit-undo
+ * verb. Auto-modifiers (those without a corresponding contribution)
+ * are unaffected — they're not in the contributions list to begin
+ * with.
+ */
+export const RemoveContribution = defineCommand({
+  name: "@vtt/characters/RemoveContribution",
+  schema: z.object({
+    pendingRollId: EntityId,
+    modifierId: z.string().min(1).max(80),
+  }),
+  validate: (ctx) => {
+    if (!requireSession(ctx)) return fail("not authenticated");
+    if (!ctx.world.has(ctx.cmd.pendingRollId)) {
+      return fail(`pending roll ${ctx.cmd.pendingRollId} does not exist`);
+    }
+    if (!ctx.world.get(ctx.cmd.pendingRollId, [PendingRoll])) {
+      return fail(`entity ${ctx.cmd.pendingRollId} is not a pending roll`);
+    }
+    return ok();
+  },
+  apply: ({ cmd }) => [
+    PendingRollContributionRemoved({
+      pendingRollId: cmd.pendingRollId,
+      modifierId: cmd.modifierId,
     }),
   ],
 });

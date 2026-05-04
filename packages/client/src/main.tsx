@@ -32,9 +32,11 @@ import { resolution } from "@vtt/resolution";
 import { scene } from "@vtt/scene";
 import { books } from "@vtt/books";
 import { pdfBook } from "@vtt/pdf-book";
+import { rulesCorpus } from "@vtt/rules-corpus";
 import { characters } from "@vtt/characters";
 import { diceTray } from "@vtt/dice-tray";
 import { systemSimple } from "@vtt/system-simple";
+import { systemTorchbearer } from "@vtt/system-torchbearer";
 import { App } from "./App";
 import { AuthGate } from "./AuthGate";
 import { WorldGate } from "./WorldGate";
@@ -63,9 +65,11 @@ const ALL_PLUGINS: ReadonlyArray<PluginDef> = [
   scene,
   books,
   pdfBook,
+  rulesCorpus,
   characters,
   diceTray,
   systemSimple,
+  systemTorchbearer,
 ];
 
 function Root() {

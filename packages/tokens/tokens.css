@@ -23,16 +23,25 @@
  */
 
 @theme {
-  --color-surface: light-dark(#ffffff, #0e1116);
-  --color-surface-elevated: light-dark(#f6f8fa, #161b22);
-  --color-surface-sunken: light-dark(#eef1f4, #010409);
+  /*
+   * Dark-mode surfaces are graded so each level reads as a distinct
+   * material (page → elevated card → input field). Earlier values ran
+   * #0e1116 / #161b22 / #010409 — too compressed at the black end,
+   * which made input boxes (vk-input bg = surface) invisible against
+   * the page background. The lift below opens up ~6 lightness points
+   * between surface and elevated, and pushes sunken away from pure
+   * black so it still reads as a recess rather than a void.
+   */
+  --color-surface: light-dark(#ffffff, #15191f);
+  --color-surface-elevated: light-dark(#f6f8fa, #20262e);
+  --color-surface-sunken: light-dark(#eef1f4, #0c1015);
 
   --color-fg: light-dark(#1f2328, #e6edf3);
-  --color-fg-muted: light-dark(#656d76, #8b949e);
-  --color-fg-subtle: light-dark(#8b949e, #6e7681);
+  --color-fg-muted: light-dark(#656d76, #9aa3ad);
+  --color-fg-subtle: light-dark(#8b949e, #7d8590);
 
-  --color-border: light-dark(#d0d7de, #30363d);
-  --color-border-muted: light-dark(#e6e8eb, #21262d);
+  --color-border: light-dark(#d0d7de, #3d4450);
+  --color-border-muted: light-dark(#e6e8eb, #2c323b);
 
   --color-accent: light-dark(#1f883d, #2ea043);
   --color-accent-fg: light-dark(#ffffff, #ffffff);
@@ -46,10 +55,10 @@
    * a theme override can retune the chrome alongside the base palette.
    */
   --color-pane-edge: light-dark(#1f883d, #2ea043);
-  --color-pane-edge-idle: light-dark(#d0d7de, #30363d);
-  --color-pane-bg-active: light-dark(#fbfbfc, #11161d);
+  --color-pane-edge-idle: light-dark(#d0d7de, #3d4450);
+  --color-pane-bg-active: light-dark(#fbfbfc, #181d24);
   --color-scrim: light-dark(rgba(15, 18, 24, 0.32), rgba(0, 0, 0, 0.72));
-  --color-tab-active-bg: light-dark(#ffffff, #0b0f14);
+  --color-tab-active-bg: light-dark(#ffffff, #11161c);
 
   --radius-card: 0.5rem;
   --radius-control: 0.375rem;

@@ -28,7 +28,7 @@ import {
 } from "@vtt/substrate";
 import { Identity, Online } from "@vtt/identity/shared";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
-import { Character } from "./shared/index.js";
+import { Character, Team } from "./shared/index.js";
 import { PendingRoll } from "./shared/pending.js";
 import {
   CancelPendingRoll,
@@ -37,6 +37,7 @@ import {
   CreateCharacter,
   OpenPendingRoll,
   RemoveCharacter,
+  RemoveContribution,
   RenameCharacter,
   SetField,
 } from "./shared/commands.js";
@@ -48,6 +49,7 @@ import {
   PendingRollCancelled,
   PendingRollCommitted,
   PendingRollContributed,
+  PendingRollContributionRemoved,
   PendingRollOpened,
 } from "./shared/events.js";
 import {
@@ -57,6 +59,7 @@ import {
   CharacterSpawningSystem,
   PendingRollCancelSystem,
   PendingRollCommitSystem,
+  PendingRollContributionRemoveSystem,
   PendingRollContributionSystem,
   PendingRollSpawnSystem,
 } from "./server/systems.js";
@@ -128,7 +131,7 @@ const DEFAULT_CLIENT_ID = "test-client-1";
 const charactersTestInfra = definePlugin({
   name: "@vtt/characters-testing",
   version: "0.0.0",
-  traits: [Character, Permissions, Identity, Online, PendingRoll],
+  traits: [Character, Permissions, Identity, Online, PendingRoll, Team],
   events: [
     CharacterCreated,
     CharacterRenamed,
@@ -136,6 +139,7 @@ const charactersTestInfra = definePlugin({
     CharacterFieldSet,
     PendingRollOpened,
     PendingRollContributed,
+    PendingRollContributionRemoved,
     PendingRollCommitted,
     PendingRollCancelled,
   ],
@@ -146,6 +150,7 @@ const charactersTestInfra = definePlugin({
     SetField,
     OpenPendingRoll,
     ContributeToPendingRoll,
+    RemoveContribution,
     CommitPendingRoll,
     CancelPendingRoll,
   ],
@@ -156,6 +161,7 @@ const charactersTestInfra = definePlugin({
     CharacterFieldSetSystem,
     PendingRollSpawnSystem,
     PendingRollContributionSystem,
+    PendingRollContributionRemoveSystem,
     PendingRollCommitSystem,
     PendingRollCancelSystem,
   ],
@@ -201,6 +207,7 @@ export function buildCharacterHarness(
           read: { kind: "everyone" },
           write: { kind: "users", userIds: writers },
         }),
+        Team({ kind: "party" }),
       ]);
       // Owner-not-also-writer reverts to default ownedBy(). The
       // explicit-writers branch above keeps single-owner harnesses

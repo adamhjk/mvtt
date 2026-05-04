@@ -44,6 +44,12 @@ import {
 } from "@vtt/notes/server";
 import { assets } from "@vtt/assets";
 import { handleAssetFetch, handleAssetUpload } from "@vtt/assets/server";
+import { rulesCorpus } from "@vtt/rules-corpus";
+import {
+  handleRulesSearch,
+  RulesExtractRunner,
+  RulesSearchIndex,
+} from "@vtt/rules-corpus/server";
 import { resolution } from "@vtt/resolution";
 import { scene } from "@vtt/scene";
 import { books } from "@vtt/books";
@@ -53,6 +59,7 @@ import { characters } from "@vtt/characters";
 import { diceTray } from "@vtt/dice-tray";
 import { diceTrayAssetRoots } from "@vtt/dice-tray/server";
 import { systemSimple } from "@vtt/system-simple";
+import { systemTorchbearer } from "@vtt/system-torchbearer";
 import { createAuth } from "@vtt/auth/server";
 import { parseAuthSession, type AuthSession } from "@vtt/auth";
 import { SqlitePersistence, SqliteWorldsRepository } from "@vtt/persistence-sqlite";
@@ -130,6 +137,27 @@ const ALLOWED_PLUGIN_DATA_EXTS = new Set([
 ]);
 const MAX_PLUGIN_DATA_BYTES = 250 * 1024 * 1024; // 250 MB
 
+// ---- assets upload policy ----
+// `ASSETS_MAX_BYTES` is the global drain cap (security ceiling). Any single
+// upload streaming past this many bytes is killed regardless of mime.
+// `ASSETS_MAX_BYTES_BY_MIME` is the per-mime policy cap, ≤ ASSETS_MAX_BYTES.
+// Images stay tight; PDFs (rulebooks) need room.
+const ASSETS_MAX_BYTES = 250 * 1024 * 1024; // 250 MB drain cap
+const ASSETS_ALLOWED_MIMES: ReadonlySet<string> = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+]);
+const ASSETS_MAX_BYTES_BY_MIME: Readonly<Record<string, number>> = {
+  "image/png": 5 * 1024 * 1024,
+  "image/jpeg": 5 * 1024 * 1024,
+  "image/webp": 5 * 1024 * 1024,
+  "image/gif": 5 * 1024 * 1024,
+  "application/pdf": 250 * 1024 * 1024,
+};
+
 // Plugin set, split into infrastructure (always-on) and optional
 // (game-system-and-shared-mechanics; loaded per world based on its
 // chosen game system's transitive dependsOn).
@@ -140,6 +168,7 @@ const infrastructurePlugins = [
   comms,
   notes,
   assets,
+  rulesCorpus,
 ];
 const optionalPlugins = [
   resolution,
@@ -149,6 +178,7 @@ const optionalPlugins = [
   characters,
   diceTray,
   systemSimple,
+  systemTorchbearer,
 ];
 
 const authHandler = toNodeHandler(auth.auth.handler);
@@ -164,6 +194,35 @@ let assetWorldsRegistry: WorldsRegistry | null = null;
 // `onRuntimeCreated`.
 const notesSearchIndex = new NotesSearchIndex(auth.db);
 notesSearchIndex.migrate();
+
+// FTS5 search index for rules-corpus chunks, same shape, same db.
+// The ExtractRunner spawns child processes per IndexRules dispatch;
+// once they finish, the runner ingests chunks.jsonl into this index
+// and dispatches MarkRulesIndexingCompleted to flip status traits.
+const rulesSearchIndex = new RulesSearchIndex(auth.db);
+rulesSearchIndex.migrate();
+
+const rulesExtractCliEntry = resolve(
+  here,
+  "..",
+  "..",
+  "rules-extract",
+  "src",
+  "cli.ts",
+);
+const rulesProfilesDir = resolve(
+  here,
+  "..",
+  "..",
+  "rules-corpus",
+  "profiles",
+);
+const rulesExtractRunner = new RulesExtractRunner({
+  index: rulesSearchIndex,
+  pluginDataDir,
+  cliEntry: rulesExtractCliEntry,
+  profilesDir: rulesProfilesDir,
+});
 
 /**
  * Per-world member auth shared by the asset upload + fetch routes.
@@ -266,6 +325,9 @@ const httpHandler = async (req: IncomingMessage, res: ServerResponse): Promise<b
       registry: assetWorldsRegistry,
       pluginDataDir,
       authenticate: authenticateForWorld,
+      maxBytes: ASSETS_MAX_BYTES,
+      allowedMimes: ASSETS_ALLOWED_MIMES,
+      maxBytesByMime: ASSETS_MAX_BYTES_BY_MIME,
     });
     return true;
   }
@@ -312,6 +374,41 @@ const httpHandler = async (req: IncomingMessage, res: ServerResponse): Promise<b
       {
         registry: assetWorldsRegistry,
         index: notesSearchIndex,
+        authenticate: authenticateForWorld,
+      },
+    );
+    return true;
+  }
+
+  // ---- rules search (per-world, per-corpus) ----
+  // GET /api/worlds/<worldId>/rules/search?q=...&corpusId=...&limit=25
+  const rulesSearchMatch = /^\/api\/worlds\/([^/]+)\/rules\/search$/.exec(path);
+  if (rulesSearchMatch && req.method === "GET") {
+    if (!assetWorldsRegistry) {
+      sendJson(res, 503, { error: "server still warming up" });
+      return true;
+    }
+    const worldId = decodeURIComponent(rulesSearchMatch[1]!) as WorldId;
+    const u = new URL(url, "http://placeholder");
+    const q = u.searchParams.get("q") ?? "";
+    const corpusIdParam = u.searchParams.get("corpusId") ?? "";
+    // corpusId is optional — omitted means "cross-corpus search across
+    // every visible corpus in the world", used by the Rules page's
+    // top-level search box. Single-corpus admin views still pass it.
+    const corpusId =
+      corpusIdParam.length === 0 ? null : (corpusIdParam as EntityId);
+    const limitRaw = u.searchParams.get("limit");
+    const limit = limitRaw ? Number(limitRaw) : 25;
+    await handleRulesSearch(
+      req,
+      res,
+      worldId,
+      q,
+      corpusId,
+      Number.isFinite(limit) ? limit : 25,
+      {
+        registry: assetWorldsRegistry,
+        index: rulesSearchIndex,
         authenticate: authenticateForWorld,
       },
     );
@@ -538,6 +635,12 @@ async function handleHardDeleteWorld(
     return true;
   }
   await worldsService.hardDelete(worldId);
+  // Drop FTS5 rows for both indexes alongside the on-disk wipe. The
+  // notes index has had `removeWorld` defined since launch but it was
+  // never called from this route; we fix that here, and add the
+  // matching rules-corpus call.
+  notesSearchIndex.removeWorld(worldId);
+  rulesSearchIndex.removeWorld(worldId);
   sendJson(res, 200, { ok: true });
   return true;
 }
@@ -861,6 +964,9 @@ const handle = await startServer({
     // bus broadcasts. Bootstrap re-indexes everything on cold-boot;
     // subsequent events stream in.
     attachNotesSearchBridge(runtime, notesSearchIndex);
+    // Same lifecycle for the rules-corpus extraction runner — it
+    // listens for IndexRules events and spawns the CLI subprocess.
+    rulesExtractRunner.attachToWorldRuntime(runtime);
   },
 });
 

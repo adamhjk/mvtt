@@ -67,5 +67,13 @@ export const RollResolved = defineEvent({
      * RolledBy trait is written.
      */
     speakingAsCharacterId: EntityId.optional(),
+    /**
+     * Optional system-specific structured payload propagated from the
+     * `RequestRoll` command — see `Formula.meta` for the convention.
+     * Allows a game-system rollable to round-trip its own spec
+     * (obstacle, breakdown, success rules) through the wire without
+     * fighting the generic notation/reason fields.
+     */
+    meta: z.unknown().optional(),
   }),
 });

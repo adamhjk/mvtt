@@ -42,6 +42,8 @@ export function definePageProvider(def: {
   defaultEntity?: PageProvider["defaultEntity"];
   render: PageProvider["render"];
   summarizeTabState?: PageProvider["summarizeTabState"];
+  palettePrefix?: PageProvider["palettePrefix"];
+  publishPaletteQuery?: PageProvider["publishPaletteQuery"];
   priority?: number;
 }): PageProvider {
   return {
@@ -53,6 +55,8 @@ export function definePageProvider(def: {
     defaultEntity: def.defaultEntity,
     render: def.render,
     summarizeTabState: def.summarizeTabState,
+    palettePrefix: def.palettePrefix,
+    publishPaletteQuery: def.publishPaletteQuery,
     priority: def.priority,
   };
 }

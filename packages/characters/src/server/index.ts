@@ -16,8 +16,13 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 export {
+  CharacterFieldSetSystem,
   CharacterSpawningSystem,
   CharacterRenameSystem,
   CharacterRemovalSystem,
   CharacterTokenImageSetSystem,
+  PendingRollContributionSystem,
+  PendingRollContributionRemoveSystem,
+  PendingRollSpawnSystem,
+  PendingRollCommitSystem,
 } from "./systems.js";

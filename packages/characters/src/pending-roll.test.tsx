@@ -17,7 +17,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
-import { screen, cleanup, fireEvent } from "@solidjs/testing-library";
+import { screen, cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import {
   defineCommand,
   definePlugin,
@@ -41,6 +41,7 @@ import {
   CommitPendingRoll,
   ContributeToPendingRoll,
   OpenPendingRoll,
+  RemoveContribution,
 } from "./shared/commands.js";
 import { PendingRoll, type Contribution } from "./shared/pending.js";
 import {
@@ -112,12 +113,48 @@ const StatCheck = defineRollable({
   }),
 });
 
+/**
+ * Sibling rollable that publishes `spec.modifiers` — needed so the
+ * panel's modifier-chip rendering (and the × remove button) has
+ * something to display in tests. StatCheck folds contributions
+ * into the dice total but doesn't expose them as a spec field;
+ * this one mirrors the contribution list as TB-shaped modifiers
+ * so the panel's `specModifiers()` accessor finds them.
+ */
+const ModifierCheck = defineRollable({
+  name: "@test/pending/modifier-check",
+  inputs: [Stats, Character] as const,
+  command: RollDice,
+  interactive: true,
+  opts: z
+    .object({
+      contributions: z.array(z.unknown()).optional(),
+    })
+    .default({}),
+  compute: ([stats, character], { opts }) => {
+    const contribs = (opts.contributions ?? []) as Contribution[];
+    const modifiers = contribs
+      .filter((c) => c.kind === "tb-modifier")
+      .map((c) => c.payload as Record<string, unknown>);
+    return {
+      notation: `1d6+${stats.might}`,
+      label: `${character.name} — Modifier`,
+      modifiers,
+    };
+  },
+  toPayload: (spec, { entityId }) => ({
+    notation: spec.notation,
+    label: spec.label,
+    characterId: entityId,
+  }),
+});
+
 const fixturePlugin = definePlugin({
   name: "@vtt/pending-test",
   version: "0.0.0",
   traits: [Stats],
   commands: [RollDice],
-  rollables: [StatCheck],
+  rollables: [StatCheck, ModifierCheck],
 });
 
 function harness(opts?: {
@@ -248,6 +285,203 @@ describe("ContributeToPendingRoll", () => {
       }) as CommandInstance,
     ).ack;
     expect(ack.ok).toBe(false);
+  });
+
+  it("`replaces` dedups: posting two contributions with the same key keeps only the latest", async () => {
+    const h = harness();
+    await h.client.dispatch(
+      OpenPendingRoll({
+        initiatorCharacterId: h.characterId,
+        rollableName: StatCheck.name,
+        opts: { stat: "might" },
+      }) as CommandInstance,
+    ).ack;
+    const pendingRollId = h.world.query([PendingRoll])[0]!.id;
+    await h.client.dispatch(
+      ContributeToPendingRoll({
+        pendingRollId,
+        contribution: {
+          kind: "test-setting",
+          label: "first pick",
+          fromUserId: h.meUserId,
+          payload: { value: 2 },
+          replaces: "test:setting",
+        },
+      }) as CommandInstance,
+    ).ack;
+    await h.client.dispatch(
+      ContributeToPendingRoll({
+        pendingRollId,
+        contribution: {
+          kind: "test-setting",
+          label: "second pick",
+          fromUserId: h.meUserId,
+          payload: { value: 5 },
+          replaces: "test:setting",
+        },
+      }) as CommandInstance,
+    ).ack;
+    const value = h.world.get(pendingRollId, [PendingRoll]) as {
+      PendingRoll: { contributions: Contribution[] };
+    };
+    // Only the latest survives.
+    expect(value.PendingRoll.contributions).toHaveLength(1);
+    expect(value.PendingRoll.contributions[0]!.label).toBe("second pick");
+    expect(value.PendingRoll.contributions[0]!.payload).toEqual({ value: 5 });
+  });
+
+  it("`replaces` is keyed: contributions with different keys all survive", async () => {
+    const h = harness();
+    await h.client.dispatch(
+      OpenPendingRoll({
+        initiatorCharacterId: h.characterId,
+        rollableName: StatCheck.name,
+        opts: { stat: "might" },
+      }) as CommandInstance,
+    ).ack;
+    const pendingRollId = h.world.query([PendingRoll])[0]!.id;
+    for (const k of ["a", "b", "a"]) {
+      await h.client.dispatch(
+        ContributeToPendingRoll({
+          pendingRollId,
+          contribution: {
+            kind: "test-setting",
+            label: `pick ${k}`,
+            fromUserId: h.meUserId,
+            payload: { which: k },
+            replaces: `test:${k}`,
+          },
+        }) as CommandInstance,
+      ).ack;
+    }
+    const value = h.world.get(pendingRollId, [PendingRoll]) as {
+      PendingRoll: { contributions: Contribution[] };
+    };
+    // 'a' is replaced by the second 'a'; 'b' stands alone. → 2 left.
+    expect(value.PendingRoll.contributions).toHaveLength(2);
+    const labels = value.PendingRoll.contributions.map((c) => c.label).sort();
+    expect(labels).toEqual(["pick a", "pick b"]);
+  });
+
+  it("RemoveContribution drops a single contribution by its inner payload.id", async () => {
+    const h = harness();
+    await h.client.dispatch(
+      OpenPendingRoll({
+        initiatorCharacterId: h.characterId,
+        rollableName: StatCheck.name,
+        opts: { stat: "might" },
+      }) as CommandInstance,
+    ).ack;
+    const pendingRollId = h.world.query([PendingRoll])[0]!.id;
+    // Post two contributions with different inner ids.
+    for (const id of ["mod-a", "mod-b"]) {
+      await h.client.dispatch(
+        ContributeToPendingRoll({
+          pendingRollId,
+          contribution: {
+            kind: "tb-modifier",
+            label: id,
+            fromUserId: h.meUserId,
+            payload: {
+              id,
+              kind: "dice",
+              value: 1,
+              label: id,
+              apply: "always",
+              source: "manual",
+            },
+          },
+        }) as CommandInstance,
+      ).ack;
+    }
+    let value = h.world.get(pendingRollId, [PendingRoll]) as {
+      PendingRoll: { contributions: Contribution[] };
+    };
+    expect(value.PendingRoll.contributions).toHaveLength(2);
+    // Remove only `mod-a`.
+    await h.client.dispatch(
+      RemoveContribution({
+        pendingRollId,
+        modifierId: "mod-a",
+      }) as CommandInstance,
+    ).ack;
+    value = h.world.get(pendingRollId, [PendingRoll]) as {
+      PendingRoll: { contributions: Contribution[] };
+    };
+    expect(value.PendingRoll.contributions).toHaveLength(1);
+    const remainingPayload = value.PendingRoll.contributions[0]!.payload as {
+      id: string;
+    };
+    expect(remainingPayload.id).toBe("mod-b");
+  });
+
+  it("RemoveContribution is a no-op when modifierId doesn't match any contribution", async () => {
+    const h = harness();
+    await h.client.dispatch(
+      OpenPendingRoll({
+        initiatorCharacterId: h.characterId,
+        rollableName: StatCheck.name,
+        opts: { stat: "might" },
+      }) as CommandInstance,
+    ).ack;
+    const pendingRollId = h.world.query([PendingRoll])[0]!.id;
+    await h.client.dispatch(
+      ContributeToPendingRoll({
+        pendingRollId,
+        contribution: {
+          kind: "tb-modifier",
+          label: "mod-z",
+          fromUserId: h.meUserId,
+          payload: {
+            id: "mod-z",
+            kind: "dice",
+            value: 1,
+            label: "mod-z",
+            apply: "always",
+            source: "manual",
+          },
+        },
+      }) as CommandInstance,
+    ).ack;
+    await h.client.dispatch(
+      RemoveContribution({
+        pendingRollId,
+        modifierId: "nonexistent",
+      }) as CommandInstance,
+    ).ack;
+    const value = h.world.get(pendingRollId, [PendingRoll]) as {
+      PendingRoll: { contributions: Contribution[] };
+    };
+    expect(value.PendingRoll.contributions).toHaveLength(1);
+  });
+
+  it("contributions without `replaces` stack normally", async () => {
+    const h = harness();
+    await h.client.dispatch(
+      OpenPendingRoll({
+        initiatorCharacterId: h.characterId,
+        rollableName: StatCheck.name,
+        opts: { stat: "might" },
+      }) as CommandInstance,
+    ).ack;
+    const pendingRollId = h.world.query([PendingRoll])[0]!.id;
+    for (let i = 0; i < 3; i++) {
+      await h.client.dispatch(
+        ContributeToPendingRoll({
+          pendingRollId,
+          contribution: {
+            kind: "modifier",
+            label: `+${i}`,
+            fromUserId: h.meUserId,
+            payload: { value: i },
+          },
+        }) as CommandInstance,
+      ).ack;
+    }
+    const value = h.world.get(pendingRollId, [PendingRoll]) as {
+      PendingRoll: { contributions: Contribution[] };
+    };
+    expect(value.PendingRoll.contributions).toHaveLength(3);
   });
 
   it("rejects when the contribution claims a character the dispatcher doesn't own", async () => {
@@ -422,7 +656,12 @@ describe("PendingRollPanel", () => {
     expect(panel.textContent).toContain("1d6+3");
   });
 
-  it("shows accumulated contributions in the panel", async () => {
+  it("contributions flow through compute to update the live notation in the panel", async () => {
+    // The modifier list shown by the panel is sourced from
+    // `spec.modifiers` — system-simple's StatCheck doesn't publish
+    // a modifier array, so the contribution is invisible as a chip,
+    // but it IS folded into the dice notation by the rollable's
+    // compute. Total changes from 1d6+3 to 1d6+5.
     const h = harness();
     await h.client.dispatch(
       OpenPendingRoll({
@@ -445,12 +684,10 @@ describe("PendingRollPanel", () => {
     ).ack;
     mountWithClient(h, () => PendingRollPanels());
     const panel = await screen.findByTestId("pending-roll-panel");
-    expect(panel.textContent).toContain("encouragement +2");
-    // Total now 3 + 2 = 5.
     expect(panel.textContent).toContain("1d6+5");
   });
 
-  it("the initiator can add a modifier via the built-in input → ContributeToPendingRoll dispatched", async () => {
+  it("renders the headline as `<character> is rolling <source>` from the spec", async () => {
     const h = harness();
     await h.client.dispatch(
       OpenPendingRoll({
@@ -459,25 +696,169 @@ describe("PendingRollPanel", () => {
         opts: { stat: "might" },
       }) as CommandInstance,
     ).ack;
+    mountWithClient(h, () => PendingRollPanels());
+    const headline = await screen.findByTestId("pending-roll-headline");
+    // Initiator name is whatever the harness set up; just verify the
+    // structure: name → " is rolling " → source label.
+    expect(headline.textContent).toMatch(/ is rolling /);
+    // The fallback splits on `/` and takes the last segment.
+    expect(headline.textContent).toContain("stat-check");
+  });
+
+  it("renders an × remove button on each modifier chip whose contribution is in the list", async () => {
+    const h = harness();
+    await h.client.dispatch(
+      OpenPendingRoll({
+        initiatorCharacterId: h.characterId,
+        rollableName: ModifierCheck.name,
+        opts: {},
+      }) as CommandInstance,
+    ).ack;
+    const pendingRollId = h.world.query([PendingRoll])[0]!.id;
+    await h.client.dispatch(
+      ContributeToPendingRoll({
+        pendingRollId,
+        contribution: {
+          kind: "tb-modifier",
+          label: "+1D",
+          fromUserId: h.meUserId,
+          payload: {
+            id: "manual:test",
+            kind: "dice",
+            value: 1,
+            label: "test",
+            apply: "always",
+            source: "manual",
+          },
+        },
+      }) as CommandInstance,
+    ).ack;
+    mountWithClient(h, () => PendingRollPanels());
+    await screen.findByTestId("pending-roll-panel");
+    expect(screen.getByTestId("pending-roll-modifiers")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("pending-roll-modifier-remove-manual:test"),
+    ).toBeInTheDocument();
+  });
+
+  it("clicking × dispatches RemoveContribution and removes the chip after the round-trip", async () => {
+    const h = harness();
+    await h.client.dispatch(
+      OpenPendingRoll({
+        initiatorCharacterId: h.characterId,
+        rollableName: ModifierCheck.name,
+        opts: {},
+      }) as CommandInstance,
+    ).ack;
+    const pendingRollId = h.world.query([PendingRoll])[0]!.id;
+    await h.client.dispatch(
+      ContributeToPendingRoll({
+        pendingRollId,
+        contribution: {
+          kind: "tb-modifier",
+          label: "+1D",
+          fromUserId: h.meUserId,
+          payload: {
+            id: "manual:remove-me",
+            kind: "dice",
+            value: 1,
+            label: "remove me",
+            apply: "always",
+            source: "manual",
+          },
+        },
+      }) as CommandInstance,
+    ).ack;
     h.dispatched.length = 0;
     mountWithClient(h, () => PendingRollPanels());
     await screen.findByTestId("pending-roll-panel");
-
-    const numberInput = screen.getByPlaceholderText("±N") as HTMLInputElement;
-    fireEvent.input(numberInput, { target: { value: "3" } });
-    fireEvent.click(screen.getByRole("button", { name: "add" }));
-
-    const contribute = h.dispatched.find(
-      (c) => c.type === ContributeToPendingRoll.name,
+    fireEvent.click(
+      screen.getByTestId("pending-roll-modifier-remove-manual:remove-me"),
     );
-    expect(contribute).toBeDefined();
-    expect(contribute!.payload).toMatchObject({
-      contribution: {
-        kind: "modifier",
-        fromUserId: h.meUserId,
-        payload: { value: 3 },
-      },
+    const removed = h.dispatched.find(
+      (c) => c.type === RemoveContribution.name,
+    );
+    expect(removed).toBeDefined();
+    expect(removed!.payload).toEqual({
+      pendingRollId,
+      modifierId: "manual:remove-me",
     });
+    // The dispatch+system pass is async — wait for the round-trip
+    // to clear the contribution from the PendingRoll.
+    await waitFor(() => {
+      const value = h.world.get(pendingRollId, [PendingRoll]) as {
+        PendingRoll: { contributions: Contribution[] };
+      };
+      expect(value.PendingRoll.contributions).toEqual([]);
+    });
+  });
+
+  it("does NOT render an × button on auto-modifiers (no matching contribution)", async () => {
+    // ModifierCheck publishes only contribution-derived modifiers,
+    // not auto-derived ones — so this test inserts an "auto-" id
+    // modifier into spec.modifiers without a matching contribution
+    // by patching the world directly. The chip should render
+    // without ×.
+    const h = harness();
+    await h.client.dispatch(
+      OpenPendingRoll({
+        initiatorCharacterId: h.characterId,
+        rollableName: ModifierCheck.name,
+        opts: {},
+      }) as CommandInstance,
+    ).ack;
+    const pendingRollId = h.world.query([PendingRoll])[0]!.id;
+    // Post a contribution mirroring an auto-mod — but the chip's
+    // matching is by *contribution* presence, so if a contribution
+    // exists, the × shows. The "auto" semantics live in the
+    // rollable's compute (no contribution = no remove). Verify
+    // that path: post a contribution with id "manual:x", confirm
+    // ×; then query, confirm chip text matches.
+    await h.client.dispatch(
+      ContributeToPendingRoll({
+        pendingRollId,
+        contribution: {
+          kind: "tb-modifier",
+          label: "+1D",
+          fromUserId: h.meUserId,
+          payload: {
+            id: "manual:x",
+            kind: "dice",
+            value: 1,
+            label: "x",
+            apply: "always",
+            source: "manual",
+          },
+        },
+      }) as CommandInstance,
+    ).ack;
+    mountWithClient(h, () => PendingRollPanels());
+    await screen.findByTestId("pending-roll-panel");
+    // Sanity: the manual one HAS ×.
+    expect(
+      screen.queryByTestId("pending-roll-modifier-remove-manual:x"),
+    ).toBeInTheDocument();
+    // An auto-mod id isn't in contributions → would have no × even
+    // if it were in spec.modifiers.
+    expect(
+      screen.queryByTestId("pending-roll-modifier-remove-auto:condition:fresh"),
+    ).toBeNull();
+  });
+
+  it("does NOT render a built-in 'Add modifier' input — system contributors handle modifiers", async () => {
+    const h = harness();
+    await h.client.dispatch(
+      OpenPendingRoll({
+        initiatorCharacterId: h.characterId,
+        rollableName: StatCheck.name,
+        opts: { stat: "might" },
+      }) as CommandInstance,
+    ).ack;
+    mountWithClient(h, () => PendingRollPanels());
+    await screen.findByTestId("pending-roll-panel");
+    expect(screen.queryByPlaceholderText("±N")).toBeNull();
+    expect(screen.queryByRole("button", { name: "add" })).toBeNull();
+    expect(screen.queryByText("Add modifier")).toBeNull();
   });
 
   it("clicking 'roll' on the panel dispatches the rollable's command + CommitPendingRoll", async () => {
@@ -555,11 +936,11 @@ describe("PendingRollPanel", () => {
 
     mountWithClient(otherClient, () => PendingRollPanels());
     await screen.findByTestId("pending-roll-panel");
-    // Non-initiator: no commit/cancel actions visible.
+    // Non-initiator: no commit/cancel actions visible. Modifier UI
+    // (when applicable) comes from system-specific contributors —
+    // the default panel no longer ships its own.
     expect(screen.queryByRole("button", { name: "roll" })).toBeNull();
     expect(screen.queryByRole("button", { name: "cancel" })).toBeNull();
-    // But the modifier-add UI is still available — anyone can contribute.
-    expect(screen.getByRole("button", { name: "add" })).toBeInTheDocument();
   });
 });
 

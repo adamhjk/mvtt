@@ -19,8 +19,8 @@ import {
   defineView,
   clientOnly,
 } from "@vtt/substrate";
-import { useTrait } from "@vtt/substrate/client";
-import { lazy, Show, Suspense, type JSX } from "solid-js";
+import { useClient, useTrait } from "@vtt/substrate/client";
+import { lazy, Show, Suspense, createMemo, type JSX } from "solid-js";
 import { BookCanvasSurface } from "@vtt/books/shared";
 import { PdfDocument } from "../shared/traits.js";
 
@@ -47,22 +47,31 @@ const LazyPdfReader = lazy(async () => {
 
 /**
  * Fills BookCanvasSurface at priority 0 (above @vtt/books's -100
- * fallback). Empty state when no PDF is uploaded yet — the upload
- * tab in the bottom dock is the way in.
+ * fallback). Empty state when no PDF is bound yet — the upload section
+ * inside the Book's Config tab is the way in.
  *
- * The reader subscribes to `pendingBookNav` from `@vtt/books/shared`
- * for `[[book:Name#42]]` wiki-link navigation; `bookId` is forwarded
- * so it can filter requests for the book it's currently rendering.
+ * The asset URL is derived from the bound assetId via the assets
+ * plugin's content-addressed fetch path; the URL is permanently
+ * stable (immutable post-upload) so the browser can cache it forever.
+ * Replacing the PDF means rebinding the Book to a different assetId,
+ * which produces a different URL and a clean re-load.
  */
 export const PdfCanvasView = defineView<{ bookId: string; tabId: string }>({
   name: "PdfCanvas",
   surface: BookCanvasSurface,
   priority: 0,
   render: clientOnly((ctx: { bookId: string; tabId: string }): JSX.Element => {
+    const client = useClient();
     const doc = useTrait(ctx.bookId, PdfDocument);
+    const url = createMemo(() => {
+      const d = doc();
+      const worldId = client.worldId();
+      if (!d || !worldId) return null;
+      return `/plugin-data/${encodeURIComponent(worldId)}/assets/${encodeURIComponent(d.assetId)}`;
+    });
     return (
       <Show
-        when={doc()?.url}
+        when={url()}
         fallback={
           <div class="flex h-full items-center justify-center bg-surface-sunken px-6 text-center">
             <p class="font-display text-sm text-fg-subtle">
@@ -71,7 +80,7 @@ export const PdfCanvasView = defineView<{ bookId: string; tabId: string }>({
           </div>
         }
       >
-        {(url) => (
+        {(u) => (
           <Suspense
             fallback={
               <div class="flex h-full items-center justify-center bg-surface-sunken">
@@ -81,7 +90,7 @@ export const PdfCanvasView = defineView<{ bookId: string; tabId: string }>({
               </div>
             }
           >
-            <LazyPdfReader url={url()} bookId={ctx.bookId} tabId={ctx.tabId} />
+            <LazyPdfReader url={u()} bookId={ctx.bookId} tabId={ctx.tabId} />
           </Suspense>
         )}
       </Show>

@@ -6,6 +6,21 @@
     <title>mvtt — ping demo</title>
   </head>
   <body>
+    <!--
+      Apply persisted theme before the app mounts so the page renders
+      in the correct mode on first paint (no flash). The ThemeSwitcher
+      view in @vtt/identity reads the same key and writes it back.
+    -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("vtt-theme");
+          if (t === "light" || t === "dark") {
+            document.documentElement.setAttribute("data-theme", t);
+          }
+        } catch (e) {}
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

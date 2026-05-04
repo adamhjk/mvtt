@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-export { Character, CharacterToken } from "./traits.js";
+export { Character, CharacterToken, Team } from "./traits.js";
 export {
   CharacterCreated,
   CharacterFieldSet,
@@ -25,6 +25,7 @@ export {
   PendingRollCancelled,
   PendingRollCommitted,
   PendingRollContributed,
+  PendingRollContributionRemoved,
   PendingRollOpened,
 } from "./events.js";
 export {
@@ -33,8 +34,9 @@ export {
   ContributeToPendingRoll,
   CreateCharacter,
   OpenPendingRoll,
-  RenameCharacter,
   RemoveCharacter,
+  RemoveContribution,
+  RenameCharacter,
   SetCharacterTokenImage,
   SetField,
 } from "./commands.js";

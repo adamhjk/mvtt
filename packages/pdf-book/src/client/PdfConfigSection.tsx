@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { qualifiedName, type CommandInstance } from "@vtt/substrate";
+import { qualifiedName, type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useTrait } from "@vtt/substrate/client";
 import { createSignal, Show, type JSX } from "solid-js";
 import {
@@ -32,15 +32,13 @@ import { useMe } from "./use-me.js";
  * alongside name/grid/colors — all per-book settings live in one
  * tab, regardless of which plugin owns each one.
  *
- * Plumbing: the upload POSTs the raw bytes to
- * `/api/plugin-data/@vtt/pdf-book/books/<bookId>/document.pdf`, and
- * on success dispatches SetPdfDocument with the returned URL. GM-only
- * (the endpoint enforces this server-side; the button is also
- * disabled here so non-GMs see current state without attempting a
- * doomed write).
+ * Plumbing: the upload POSTs raw bytes to the centralized assets
+ * endpoint (`/api/worlds/<worldId>/assets/upload`); on success it
+ * dispatches SetPdfDocument with the returned assetId, binding this
+ * Book to that asset. GM-only.
  *
- * v0 has no "remove" button — to clear the PDF the GM either
- * replaces it or removes the whole Book.
+ * v0 has no "remove" button — to clear the PDF the GM either binds a
+ * different asset or removes the whole Book.
  */
 export const PdfConfigSection: BookConfigSection = {
   id: qualifiedName("@vtt/pdf-book/config-pdf"),
@@ -51,6 +49,12 @@ export const PdfConfigSection: BookConfigSection = {
     return <PdfConfigBody bookId={args.bookId} />;
   },
 };
+
+interface UploadResponse {
+  assetId: string;
+  url: string;
+  deduped?: boolean;
+}
 
 function PdfConfigBody(props: { bookId: string }): JSX.Element {
   const client = useClient();
@@ -69,28 +73,27 @@ function PdfConfigBody(props: { bookId: string }): JSX.Element {
       setError("not connected to a world");
       return;
     }
-    const url = `/api/plugin-data/${encodeURIComponent(
-      worldId,
-    )}/@vtt/pdf-book/books/${encodeURIComponent(
-      props.bookId,
-    )}/document.pdf`;
+    const url = `/api/worlds/${encodeURIComponent(worldId)}/assets/upload`;
     setBusy(true);
     try {
       const res = await fetch(url, {
         method: "POST",
         body: file,
         credentials: "same-origin",
-        headers: { "content-type": "application/pdf" },
+        headers: {
+          "content-type": "application/pdf",
+          "x-filename": file.name,
+        },
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `upload failed (${res.status})`);
       }
-      const body = (await res.json()) as { path: string };
+      const body = (await res.json()) as UploadResponse;
       client.dispatch(
         SetPdfDocument({
           bookId: props.bookId,
-          url: body.path,
+          assetId: body.assetId as EntityId,
         }) as CommandInstance,
       );
     } catch (e) {
@@ -112,7 +115,7 @@ function PdfConfigBody(props: { bookId: string }): JSX.Element {
           aria-label="current pdf state"
         >
           <Show
-            when={doc()?.url}
+            when={doc()?.assetId}
             fallback={
               <span class="font-display text-[0.55rem] uppercase tracking-[0.18em] text-fg-subtle">
                 no PDF
@@ -133,7 +136,7 @@ function PdfConfigBody(props: { bookId: string }): JSX.Element {
               onClick={() => fileInput?.click()}
               class="rounded-(--radius-control) bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:bg-accent-hover transition disabled:opacity-50"
             >
-              {busy() ? "Uploading…" : doc()?.url ? "Replace…" : "Upload PDF…"}
+              {busy() ? "Uploading…" : doc()?.assetId ? "Replace…" : "Upload PDF…"}
             </button>
           </div>
           <p class="text-[0.7rem] text-fg-subtle">
@@ -145,9 +148,9 @@ function PdfConfigBody(props: { bookId: string }): JSX.Element {
               {error()}
             </p>
           </Show>
-          <Show when={doc()?.url}>
+          <Show when={doc()?.assetId}>
             <p class="break-all rounded-(--radius-control) bg-surface-sunken px-2 py-1 font-mono text-[0.65rem] text-fg-muted">
-              {doc()!.url}
+              asset {doc()!.assetId}
             </p>
           </Show>
         </div>

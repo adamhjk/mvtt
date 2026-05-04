@@ -23,7 +23,7 @@ import {
 } from "@vtt/shell-workbench/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { characterLinkKind } from "./shared/character-link-kind.js";
-import { Character, CharacterToken } from "./shared/traits.js";
+import { Character, CharacterToken, Team } from "./shared/traits.js";
 import { PendingRoll } from "./shared/pending.js";
 import {
   CharacterCreated,
@@ -34,6 +34,7 @@ import {
   PendingRollCancelled,
   PendingRollCommitted,
   PendingRollContributed,
+  PendingRollContributionRemoved,
   PendingRollOpened,
 } from "./shared/events.js";
 import {
@@ -43,6 +44,7 @@ import {
   CreateCharacter,
   OpenPendingRoll,
   RemoveCharacter,
+  RemoveContribution,
   RenameCharacter,
   SetCharacterTokenImage,
   SetField,
@@ -64,6 +66,7 @@ import {
   CharacterTokenImageSetSystem,
   PendingRollCancelSystem,
   PendingRollCommitSystem,
+  PendingRollContributionRemoveSystem,
   PendingRollContributionSystem,
   PendingRollSpawnSystem,
 } from "./server/systems.js";
@@ -107,7 +110,7 @@ export const characters = definePlugin({
     "@vtt/shell-workbench@^0",
     "@vtt/notes@^0",
   ],
-  traits: [Character, CharacterToken, PendingRoll],
+  traits: [Character, CharacterToken, PendingRoll, Team],
   events: [
     CharacterCreated,
     CharacterRenamed,
@@ -116,6 +119,7 @@ export const characters = definePlugin({
     CharacterTokenImageSet,
     PendingRollOpened,
     PendingRollContributed,
+    PendingRollContributionRemoved,
     PendingRollCommitted,
     PendingRollCancelled,
   ],
@@ -127,6 +131,7 @@ export const characters = definePlugin({
     SetField,
     OpenPendingRoll,
     ContributeToPendingRoll,
+    RemoveContribution,
     CommitPendingRoll,
     CancelPendingRoll,
   ],
@@ -138,6 +143,7 @@ export const characters = definePlugin({
     CharacterTokenImageSetSystem,
     PendingRollSpawnSystem,
     PendingRollContributionSystem,
+    PendingRollContributionRemoveSystem,
     PendingRollCommitSystem,
     PendingRollCancelSystem,
   ],

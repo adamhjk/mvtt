@@ -27,7 +27,9 @@ import { Formula, RollResult, RolledBy } from "../shared/traits.js";
 /**
  * Card body for a single resolved-roll entity. Identical visual shape
  * to the previous RollEntryView; rendered inline by the chat timeline
- * (no Surface fan-out anymore).
+ * (no Surface fan-out anymore). System-claimed rolls (those with
+ * `Formula.meta.system` set) are filtered out by the contributor
+ * upstream so this default row is never asked to render them.
  */
 function RollRow(props: { entityId: string }) {
   const formula = useTrait(props.entityId, Formula);
@@ -83,14 +85,23 @@ export const RollTimelineContributor: ChatTimelineContributor = {
   useEntries: () => {
     const rolls = useQuery([Formula, RollResult, RolledBy]);
     const accessor: Accessor<ChatTimelineEntry[]> = createMemo(() =>
-      rolls().map((row) => {
-        const r = row.values.RollResult as { rolledAt: number };
-        return {
-          id: row.id,
-          sortKey: r.rolledAt,
-          render: () => <RollRow entityId={row.id} />,
-        };
-      }),
+      rolls()
+        .filter((row) => {
+          // Game-system-claimed rolls (Formula.meta.system set) are
+          // rendered by that system's contributor; skip them here so
+          // chat doesn't show two rows for one roll.
+          const meta = (row.values.Formula as { meta?: unknown } | undefined)
+            ?.meta as { system?: unknown } | undefined;
+          return !meta || typeof meta !== "object" || typeof meta.system !== "string";
+        })
+        .map((row) => {
+          const r = row.values.RollResult as { rolledAt: number };
+          return {
+            id: row.id,
+            sortKey: r.rolledAt,
+            render: () => <RollRow entityId={row.id} />,
+          };
+        }),
     );
     // Cast through unknown to satisfy the loose `() => () => Entry[]`
     // shape declared in shared/ (shared/ doesn't import solid-js so it

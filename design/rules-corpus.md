@@ -40,6 +40,37 @@ The chunker derives `printedPage` per page, in priority order:
 
 Page-spanning chunks carry `pdfPageRange: [first, last]` and `printedPageRange: [first, last] | null` correspondingly. Citations everywhere lead with printed and parenthesize PDF: `"Combat → Flanking" (printed p.142, PDF p.148)`. The runtime UI binds the deep-link button to `pdfPage` and shows `printedPage` in the label. Code comments cite printed pages because they're stable across PDF reprints — a re-export with a different intro can shift `pdfPage` without touching `printedPage`.
 
+## Per-system chunker profiles
+
+Game-system rulebooks differ enough in layout that one set of chunker heuristics doesn't generalise. Torchbearer's two-column with corner page numbers, a d20-style book's three-column with chapter-banner headers, and a rules-light zine's single-column-with-footer-numbering each need different defaults. Rather than bury this in code branches, the chunker accepts a **profile**:
+
+```ts
+// packages/rules-corpus/src/shared/profile.ts
+export const RulesProfile = z.object({
+  columns: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(2),
+  headingFontSizes: z.object({
+    h1: z.number().optional(),  // explicit thresholds; if absent, the chunker auto-detects
+    h2: z.number().optional(),
+    h3: z.number().optional(),
+    body: z.number().optional(),
+  }).default({}),
+  pageNumber: z.object({
+    strategy: z.enum(["outline", "headerScan", "footerScan", "explicit"]).default("footerScan"),
+    band: z.enum(["top", "bottom", "either"]).default("bottom"),
+    frontMatterPdfPages: z.number().int().nonnegative().default(0),  // pages before printed numbering
+    explicitMap: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
+  }).default({}),
+  dehyphenate: z.boolean().default(true),
+  chunkSizeTokens: z.number().int().positive().default(2000),
+  imageMinPixels: z.object({ width: z.number().int(), height: z.number().int() })
+    .default({ width: 64, height: 64 }),  // drop tiny inline icons
+});
+```
+
+Profiles live next to the game-system plugin that consumes them — `packages/system-torchbearer/src/rules-profile.ts` will export the Torchbearer profile when that plugin lands. Until then, profiles ship in `packages/rules-corpus/profiles/<system>.json` as a holding pen.
+
+Resolution: when `IndexRules` runs, the server reads the world's `gameSystemPlugin` field, looks for an exported `rulesProfile` on that plugin (or `profiles/<system>.json` as a fallback), serialises it to JSON, and passes `--profile <tmpfile>` to the CLI subprocess. If neither exists, the CLI falls back to schema defaults. Profile choice is captured in the manifest (`manifest.profileSourceSha`) so corpora are invalidated when the profile changes — same `chunkerVersion` invalidation mechanism, extended to cover the layout heuristics too.
+
 ## Centralizing PDF storage on `@vtt/assets`
 
 This is a precondition, not a side quest. Concretely:
@@ -83,18 +114,21 @@ packages/rules-corpus/src/
   shared/
     traits.ts        # RulesLibrary (sentinel), RulesCorpus, RulesCorpusStatus
     events.ts        # RulesIndexingStarted, RulesIndexingCompleted, RulesIndexingFailed,
-                     # RulesCorpusRemoved, RulesQueryResult
-    commands.ts      # IndexRules, RemoveRulesCorpus, QueryRules
+                     # RulesCorpusRemoved
+    commands.ts      # IndexRules, RemoveRulesCorpus
+    profile.ts       # RulesProfile zod schema (see "Per-system chunker profiles")
   server/
     systems.ts       # spawn corpus entity on Started; update status traits; cleanup on Removed
     extract-runner.ts# spawns child process to run tools/rules-extract; on success, INSERTs chunks
                      # into rules_chunks_fts; emits RulesIndexingCompleted
-    query.ts         # SELECT … FROM rules_chunks_fts MATCH ? for QueryRules; emits RulesQueryResult
-    schema.ts        # FTS5 virtual-table definition; idempotent CREATE
+    search-index.ts  # RulesSearchIndex class (mirrors NotesSearchIndex shape): migrate(), insert(),
+                     # query(), removeCorpus(), removeWorld()
+    routes.ts        # GET /api/worlds/:id/rules/search?q=…&corpusId=…  (HTTP, mirrors notes pattern)
     index.ts
   client/
     RulesLibraryView.tsx  # GM-only library: list of indexed corpora, status badges, reindex/remove
-    RulesQueryPanel.tsx   # search box → dispatches QueryRules → renders results with page deep-links
+    RulesQueryPanel.tsx   # search box → fetch /api/worlds/:id/rules/search → render snippets with
+                          # printed-page citation and "open at p.N" deep-link into pdf-book viewer
   manifest.ts
 ```
 
@@ -113,15 +147,29 @@ The sentinel pattern follows the same shape as other plugins' singletons (initia
 |---|---|---|
 | `IndexRules { assetId, tags?: string[] }` | caller is GM; asset exists; mime is `application/pdf`; corpus for this asset doesn't already exist | `RulesIndexingStarted { corpusId, assetId, tags }` (corpusId = `world.allocateId()`) |
 | `RemoveRulesCorpus { corpusId }` | caller is GM; corpus exists | `RulesCorpusRemoved { corpusId, assetId }` |
-| `QueryRules { corpusId, query, k? }` | caller has read visibility on the corpus; corpus is `ready` | `RulesQueryResult { corpusId, results, queryEcho }` (sender-targeted, not broadcast) |
 
-`QueryRules` follows the request/response-via-event pattern used elsewhere — server reads the on-disk index, emits a sender-only event with the top-k chunks. The handler doesn't write any traits.
+Search is **not** a command. Following the precedent set by the notes plugin (`GET /api/worlds/:id/notes/search`), search runs as an HTTP route — see "Search HTTP route" below. Search is read-only, returns potentially large snippet payloads, doesn't mutate the world, and doesn't benefit from event-log replay; HTTP is the right shape for it. The trust-boundary rule ("only commands cross client→server") is about the live world bus; HTTP query routes are the established pattern for read-only server-side queries.
+
+### Search HTTP route
+
+```
+GET /api/worlds/:worldId/rules/search?q=<query>&corpusId=<id>&limit=25
+```
+
+- Auth: world member.
+- SQL: `SELECT chunkId, corpusId, headingPath, pdfPage, pdfPageRange, printedPage, printedPageRange, snippet(rules_chunks_fts, <bodyCol>, '<mark>', '</mark>', '…', 16) AS snippet, bm25(rules_chunks_fts) AS score FROM rules_chunks_fts WHERE worldId = ? AND corpusId = ? AND rules_chunks_fts MATCH ? ORDER BY score LIMIT ?`.
+- Post-filter visibility per recipient against the `corpusId`'s `Permissions` trait, exactly as the notes route does for pages.
+- Returns JSON: `{ results: SearchHit[], queryEcho }`.
+
+The dev-time `rules-lookup` skill bypasses HTTP and opens `mvtt.db` read-only directly; that's a separate access path with no auth boundary because it runs on the developer's own machine reading their own data dir.
 
 ### Systems
 
 - **CorpusMirror** (universal): `RulesIndexingStarted` → `world.spawnAt(corpusId, [RulesCorpus({ status: "pending", ... }), Permissions(...)])`. `RulesIndexingCompleted` / `RulesIndexingFailed` → updates the trait. `RulesCorpusRemoved` → despawns.
 - **ExtractRunner** (server-only): subscribes to `RulesIndexingStarted`. Spawns a child process: `node tools/rules-extract/dist/cli.js --asset-path <…> --out-dir <…> --tags <…>`. On clean exit, streams `chunks.jsonl` into `rules_chunks_fts` (one transaction, `worldId` + `corpusId` + `chunkId` + page numbers + `headingPath` + `text`), then emits `RulesIndexingCompleted { corpusId, manifest }`. On non-zero exit, emits `RulesIndexingFailed { corpusId, error }`. Status transitions via the universal mirror.
 - **CorpusCleanup** (server-only): subscribes to `RulesCorpusRemoved`. `DELETE FROM rules_chunks_fts WHERE corpusId = ?` followed by `rm -rf data/plugin-data/<worldId>/@vtt/rules-corpus/<assetId>/`. Does not touch the underlying asset (the user may keep the PDF for reading even after un-indexing it).
+
+Additionally, `WorldsService.hardDelete` gains a hook (or the route handler in `packages/server/src/main.ts` calls it directly) to run `rulesSearchIndex.removeWorld(worldId)`. This is the same hook the notes plugin needs but doesn't currently get — the existing `notesSearchIndex.removeWorld()` method is defined but never called. We fix that as part of this work.
 
 Following the rules in `CLAUDE.md`: no system dispatches commands; all writes happen by emitting events; ids come from `world.allocateId()` in `apply`; the mirror calls `world.spawnAt`.
 

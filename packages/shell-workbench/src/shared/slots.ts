@@ -103,6 +103,10 @@ const PageProviderSchema = z.object({
   // Zod strips unknown keys by default; declare the optional callback so
   // the registry's slot-validate pass keeps it on the parsed value.
   summarizeTabState: z.any().optional(),
+  /** See PageProvider['palettePrefix']. Required here so Zod doesn't strip it. */
+  palettePrefix: z.string().optional(),
+  /** See PageProvider['publishPaletteQuery']. */
+  publishPaletteQuery: z.any().optional(),
   /**
    * Higher priority wins when multiple plugins register for the same kind.
    * Mirrors view priority. Default 0.
@@ -146,6 +150,26 @@ export type PageProvider = {
     sentinelId: EntityId;
     world: import("@vtt/substrate").World;
   }) => string | null;
+  /**
+   * Optional command-palette prefix that lets users invoke this page
+   * with a payload — e.g. `palettePrefix: "rules"` enables typing
+   * `rules: weaver` to open the Rules page and pre-run a search for
+   * "weaver". The palette parses the leading `<prefix>:` and calls
+   * `publishPaletteQuery(rest)` before dispatching `OpenPage` with
+   * `entityId: null`. Providers without a prefix are still openable
+   * via their page-root entry by name; they just don't accept a
+   * trailing payload.
+   *
+   * Lowercase, no colon. Match is case-insensitive.
+   */
+  palettePrefix?: string;
+  /**
+   * Companion to `palettePrefix`: invoked before the palette dispatches
+   * `OpenPage` so the page-root view can pick up the query through a
+   * session-local signal (see `@vtt/rules-corpus/shared/pending-search`
+   * for the reference). Pure side-effect; no return value.
+   */
+  publishPaletteQuery?: (query: string) => void;
   priority?: number;
 };
 

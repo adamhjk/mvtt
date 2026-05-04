@@ -65,11 +65,16 @@ export const RollRecordingSystem = defineSystem({
       if (got) displayName = got.Character.name;
     }
     world.spawnAt(event.rollId, [
-      Formula({ notation: event.notation, reason: event.reason }),
+      Formula({
+        notation: event.notation,
+        reason: event.reason,
+        meta: event.meta,
+      }),
       RollResult({
         total: event.total,
         output: event.output,
         rolledAt: event.rolledAt,
+        dice: event.dice,
       }),
       RolledBy({
         userId: event.rolledByUserId,

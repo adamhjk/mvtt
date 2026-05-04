@@ -89,20 +89,20 @@ describe("pdf-book PdfConfigSection", () => {
     expect(document.body.textContent ?? "").toMatch(/pdf|upload|no/i);
   });
 
-  it("shows the URL of an attached PDF when one exists", () => {
+  it("shows the bound assetId when a PDF is attached", () => {
     const h = harness({ asGm: true });
     const bookId = h.world.spawn([]);
     h.world.set(bookId, PdfDocument, {
-      url: "/plugin-data/test-world/@vtt/pdf-book/books/x/document.pdf",
+      assetId: "asset-abc-123" as never,
     });
     render(() => (
       <ClientProvider value={h.client}>
         {PdfConfigSection.render({ bookId }) as never}
       </ClientProvider>
     ));
-    // The PDF url surfaces somewhere in the visible text (either as a
-    // current-PDF link or a status indicator).
-    expect(document.body.textContent ?? "").toContain("document.pdf");
+    // The assetId surfaces somewhere in the visible text (current-PDF
+    // status indicator).
+    expect(document.body.textContent ?? "").toContain("asset-abc-123");
   });
 
   it("PdfConfigSection has a stable id and priority", () => {

@@ -158,6 +158,14 @@ export interface PendingRollContributorArgs {
     fromUserId: string;
     fromCharacterId?: EntityId;
     payload: unknown;
+    /**
+     * Optional dedup key — see `ContributionSchema.replaces`. When
+     * set, the contribution-recording system removes earlier
+     * contributions sharing the same key before appending this one.
+     * Use for "single live value" settings (TB obstacle picker,
+     * heroic toggle); leave unset for stackable mods.
+     */
+    replaces?: string;
   }) => void;
 }
 

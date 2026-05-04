@@ -46,6 +46,20 @@ type ValuesOf<I extends ReadonlyArray<TraitMeta>> = {
 export interface RollableContext<Opts = unknown> {
   readonly entityId: EntityId;
   readonly opts: Opts;
+  /**
+   * Live World handle — same instance the kit / chat slash-command /
+   * automation / preview tooltip is reading from. Lets a rollable's
+   * compute query other entities (e.g., a TB disposition roll
+   * inspecting party members' Conditions for per-team penalties).
+   *
+   * The compute must stay deterministic vs. the snapshot it reads —
+   * both server and universal-mirror clients invoke the rollable
+   * against the same World values during a single dispatch pass, so
+   * cross-entity reads round-trip cleanly. Don't `world.set` from
+   * inside compute — emitting events stays the rollable's
+   * `command` responsibility.
+   */
+  readonly world: World;
 }
 
 export interface RollableDef<
@@ -57,6 +71,21 @@ export interface RollableDef<
   readonly __kind: "rollable";
   readonly name: string;
   readonly inputs: Inputs;
+  /**
+   * Optional list of traits the compute reads from **other**
+   * entities than the one rolling — typically because the rollable
+   * computes per-team / per-party / per-world state. The pending-roll
+   * panel uses this list to set up reactive subscriptions: when any
+   * entity's matching trait changes, the panel re-runs its
+   * preview so chip labels and the live notation stay in sync.
+   *
+   * Per-entity reads belong in `inputs` (which already triggers
+   * preview re-runs via the kit's per-entity subscription). Use
+   * `ambientInputs` for cross-entity queries — `world.query`
+   * style — like TB's disposition path that scans every party-
+   * tagged character's `Conditions`.
+   */
+  readonly ambientInputs: ReadonlyArray<TraitMeta>;
   readonly command: CommandDef<CmdSchema>;
   readonly compute: (
     args: ValuesOf<Inputs>,
@@ -92,9 +121,10 @@ export interface RollableDef<
 
 export type AnyRollableDef = Omit<
   RollableDef,
-  "inputs" | "compute" | "toPayload" | "opts" | "command"
+  "inputs" | "compute" | "toPayload" | "opts" | "command" | "ambientInputs"
 > & {
   readonly inputs: ReadonlyArray<TraitMeta>;
+  readonly ambientInputs: ReadonlyArray<TraitMeta>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly command: CommandDef<any>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -112,6 +142,7 @@ export function defineRollable<
 >(def: {
   name: string;
   inputs: Inputs;
+  ambientInputs?: ReadonlyArray<TraitMeta>;
   command: CommandDef<CmdSchema>;
   compute: (args: ValuesOf<Inputs>, ctx: RollableContext<z.infer<OptsSchema>>) => Spec;
   toPayload: (spec: Spec, ctx: RollableContext<z.infer<OptsSchema>>) => z.input<CmdSchema>;
@@ -123,6 +154,7 @@ export function defineRollable<
     __kind: "rollable",
     name: def.name,
     inputs: def.inputs,
+    ambientInputs: def.ambientInputs ?? [],
     command: def.command,
     compute: def.compute,
     toPayload: def.toPayload,
@@ -177,7 +209,7 @@ export function invokeRollable<R extends AnyRollableDef>(
     args.push(v);
   }
 
-  const ctx: RollableContext<unknown> = { entityId, opts: parsedOpts };
+  const ctx: RollableContext<unknown> = { entityId, opts: parsedOpts, world };
   const spec = rollable.compute(args, ctx);
   const payload = rollable.toPayload(spec, ctx);
   const command = rollable.command(payload as never);
@@ -209,7 +241,7 @@ export function previewRollable<R extends AnyRollableDef>(
     if (v === undefined) return null;
     args.push(v);
   }
-  return rollable.compute(args, { entityId, opts: parsedOpts });
+  return rollable.compute(args, { entityId, opts: parsedOpts, world });
 }
 
 /**

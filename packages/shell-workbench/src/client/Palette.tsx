@@ -46,9 +46,26 @@ type Hit =
       providerKind: string;
       providerLabel: string;
       providerIcon?: string;
-      entityId: string;
+      /** null = open the page-root tab with no entity selected. */
+      entityId: string | null;
       label: string;
       hint?: string;
+    }
+  | {
+      /**
+       * Synthetic "open the page and run this query" entry, surfaced
+       * when the input matches `<prefix>:<query>` for a provider that
+       * declared `palettePrefix`. Always shown at the top of results
+       * so a fast-typed `rules: weaver` resolves with a single Enter.
+       */
+      kind: "prefixSearch";
+      providerKind: string;
+      providerLabel: string;
+      providerIcon?: string;
+      query: string;
+      label: string;
+      hint?: string;
+      publish: (q: string) => void;
     }
   | {
       kind: "command";
@@ -88,6 +105,20 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
     worldVersion();
     const out: Hit[] = [];
     for (const p of providers().values()) {
+      // Page-root entry: opens the page with no entity selected, so
+      // typing "rules" / "books" / "notes" lands on the page's
+      // entity-less view (Rules cross-corpus search, Books library
+      // hub, Notes index, …). Each provider's own entity-bound
+      // entries follow.
+      out.push({
+        kind: "page",
+        providerKind: p.kind,
+        providerLabel: p.label,
+        providerIcon: p.icon,
+        entityId: null,
+        label: p.label,
+        hint: "page",
+      });
       const entries = p.list(ctx());
       for (const e of entries) {
         out.push({
@@ -112,6 +143,44 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
     return out;
   });
 
+  /**
+   * Recognise `<prefix>:<query>` input shapes (e.g. `rules: weaver`)
+   * and return a synthetic top-result that, when chosen, publishes
+   * the query through the matching provider's `publishPaletteQuery`
+   * hook before opening the page-root tab. Whitespace after the
+   * colon is permitted; case-insensitive prefix match.
+   */
+  const prefixHit = createMemo<Hit | null>(() => {
+    const raw = query();
+    const m = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/.exec(raw);
+    if (!m) return null;
+    const prefix = m[1]!.toLowerCase();
+    const rest = m[2] ?? "";
+    for (const p of providers().values()) {
+      if (
+        p.palettePrefix &&
+        p.palettePrefix.toLowerCase() === prefix &&
+        p.publishPaletteQuery
+      ) {
+        const trimmed = rest.trim();
+        return {
+          kind: "prefixSearch",
+          providerKind: p.kind,
+          providerLabel: p.label,
+          providerIcon: p.icon,
+          query: trimmed,
+          label:
+            trimmed.length > 0
+              ? `Search ${p.label} for “${trimmed}”`
+              : `Open ${p.label}`,
+          hint: trimmed.length > 0 ? "↩ search" : "↩ open",
+          publish: p.publishPaletteQuery,
+        };
+      }
+    }
+    return null;
+  });
+
   const fuse = createMemo(() => {
     return new Fuse<Hit>(corpus(), {
       includeScore: false,
@@ -127,11 +196,18 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
 
   const results = createMemo<Hit[]>(() => {
     const q = query().trim();
-    if (q.length === 0) return corpus().slice(0, 50);
-    return fuse()
-      .search(q)
-      .slice(0, 50)
-      .map((r) => r.item);
+    const synthetic = prefixHit();
+    const base =
+      q.length === 0
+        ? corpus().slice(0, 50)
+        : fuse()
+            .search(q)
+            .slice(0, 50)
+            .map((r) => r.item);
+    // Synthetic prefix-search hit always pinned to the top so the
+    // intent ("rules: weaver" → run a rules search) is one Enter
+    // away even if Fuse also surfaces partial matches for "weaver".
+    return synthetic ? [synthetic, ...base] : base;
   });
 
   // Keep the cursor in range.
@@ -161,34 +237,43 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
   // touches `open` and whose fn we don't care about returning.
   createMemo(onTick);
 
+  const dispatchOpen = (
+    mode: "open" | "newTab" | "splitRight" | "splitBelow",
+    pageKind: string,
+    entityId: string | null,
+  ): void => {
+    // OpenPage's payload accepts `entityId: EntityId | null` — null
+    // is the page-root case (Rules cross-corpus search, Books hub,
+    // etc.). The substrate's command-pipeline schema treats the
+    // field as nullable; we just pass it through.
+    const payload = { pageKind, entityId } as {
+      pageKind: string;
+      entityId: string | null;
+    };
+    const cmd =
+      mode === "newTab"
+        ? OpenPageInNewTab(payload as never)
+        : mode === "splitRight"
+          ? OpenPageAsSplit({ ...payload, direction: "right" } as never)
+          : mode === "splitBelow"
+            ? OpenPageAsSplit({ ...payload, direction: "bottom" } as never)
+            : OpenPage(payload as never);
+    client.dispatch(cmd as never);
+  };
+
   const choose = (mode: "open" | "newTab" | "splitRight" | "splitBelow") => {
     const list = results();
     const hit = list[safeCursor()];
     if (!hit) return;
     if (hit.kind === "page") {
-      const cmd =
-        mode === "newTab"
-          ? OpenPageInNewTab({
-              pageKind: hit.providerKind,
-              entityId: hit.entityId,
-            })
-          : mode === "splitRight"
-            ? OpenPageAsSplit({
-                pageKind: hit.providerKind,
-                entityId: hit.entityId,
-                direction: "right",
-              })
-            : mode === "splitBelow"
-              ? OpenPageAsSplit({
-                  pageKind: hit.providerKind,
-                  entityId: hit.entityId,
-                  direction: "bottom",
-                })
-              : OpenPage({
-                  pageKind: hit.providerKind,
-                  entityId: hit.entityId,
-                });
-      client.dispatch(cmd as never);
+      dispatchOpen(mode, hit.providerKind, hit.entityId);
+    } else if (hit.kind === "prefixSearch") {
+      // Publish first so the page-root view's `createEffect`
+      // sees the pending query the moment it mounts (or, for an
+      // already-open tab, on the next tick after focus). Then
+      // dispatch OpenPage to focus / create the tab.
+      if (hit.query.length > 0) hit.publish(hit.query);
+      dispatchOpen(mode, hit.providerKind, null);
     } else {
       // command
       const c = commands().find((x) => x.id === hit.id);
@@ -309,18 +394,19 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
                             style={{ "background-color": "var(--color-pane-edge)" }}
                           />
                         </Show>
-                        <Show
-                          when={hit.kind === "page"}
-                          fallback={
-                            <span class="font-display text-[0.65rem] uppercase tracking-[0.16em] text-warning min-w-[5.5rem]">
-                              command
-                            </span>
-                          }
+                        <span
+                          class="font-display text-[0.65rem] uppercase tracking-[0.16em] min-w-[5.5rem]"
+                          classList={{
+                            "text-fg-muted": hit.kind === "page",
+                            "text-accent":
+                              hit.kind === "prefixSearch",
+                            "text-warning": hit.kind === "command",
+                          }}
                         >
-                          <span class="font-display text-[0.65rem] uppercase tracking-[0.16em] text-fg-muted min-w-[5.5rem]">
-                            {hit.kind === "page" ? hit.providerLabel : ""}
-                          </span>
-                        </Show>
+                          {hit.kind === "page" || hit.kind === "prefixSearch"
+                            ? hit.providerLabel
+                            : "command"}
+                        </span>
                         <span class="flex-1 truncate text-sm text-fg">{hit.label}</span>
                         <Show when={hit.hint}>
                           <span class="hidden truncate text-[0.7rem] text-fg-subtle md:inline">

@@ -295,6 +295,20 @@ describe("assets HTTP smoke", () => {
     expect(res.status).toBe(404);
   });
 
+  it("accepts small PDFs under the default cap", async () => {
+    // application/pdf is in the default mime allowlist; a tiny fake
+    // PDF body should upload like any image asset.
+    const bytes = new TextEncoder().encode("%PDF-1.4 fake pdf bytes");
+    const res = await upload("alice", bytes, "application/pdf", "rules.pdf");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { assetId: string; url: string };
+    expect(body.assetId).toBeTruthy();
+    expect(body.url).toBe(`/plugin-data/${worldId}/assets/${body.assetId}`);
+    const fetchRes = await fetchAsset("alice", body.assetId);
+    expect(fetchRes.status).toBe(200);
+    expect(fetchRes.headers.get("content-type")).toBe("application/pdf");
+  });
+
   it("dispatched RegisterAsset directly creates an entity (sanity check)", async () => {
     const runtime = handle.worldsRegistry.get(worldId)!;
     const result = await runtime.pipeline.dispatch({

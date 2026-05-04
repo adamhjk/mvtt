@@ -27,8 +27,93 @@ const WorkbenchHeaderSurfaceName = surfaceName("@vtt/shell-workbench/header");
 const WorkbenchChatRailSurfaceName = surfaceName(
   "@vtt/shell-workbench/chat-rail",
 );
-import { createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, onMount, Show, type JSX } from "solid-js";
 import { Identity, Name, Online } from "../shared/traits.js";
+
+/* -------------------------------------------------------------------------
+ * Theme switcher — three-state cycle: system → light → dark → system
+ * ----------------------------------------------------------------------- */
+
+type ThemeMode = "system" | "light" | "dark";
+
+const THEME_STORAGE_KEY = "vtt-theme";
+
+function readStoredTheme(): ThemeMode {
+  if (typeof localStorage === "undefined") return "system";
+  try {
+    const v = localStorage.getItem(THEME_STORAGE_KEY);
+    return v === "light" || v === "dark" ? v : "system";
+  } catch {
+    return "system";
+  }
+}
+
+function applyTheme(mode: ThemeMode): void {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  if (mode === "system") {
+    root.removeAttribute("data-theme");
+  } else {
+    root.setAttribute("data-theme", mode);
+  }
+}
+
+function persistTheme(mode: ThemeMode): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    if (mode === "system") localStorage.removeItem(THEME_STORAGE_KEY);
+    else localStorage.setItem(THEME_STORAGE_KEY, mode);
+  } catch {
+    // localStorage disabled (private mode, quota): theme still applies
+    // for the session — just won't survive a reload.
+  }
+}
+
+/**
+ * Cycle button in the header that toggles light / dark / system. Glyph
+ * reflects the currently-selected mode (☀ light, ☾ dark, ◐ system). The
+ * boot script in index.html applies the persisted choice before any
+ * JS-driven render so reload doesn't flash the wrong theme.
+ */
+function ThemeSwitcher(): JSX.Element {
+  const [mode, setMode] = createSignal<ThemeMode>(readStoredTheme());
+
+  // Re-apply on mount in case the document was already mounted with a
+  // different state (HMR, late hydration). Idempotent — no flicker.
+  onMount(() => applyTheme(mode()));
+
+  const cycle = () => {
+    const next: ThemeMode =
+      mode() === "system" ? "light" : mode() === "light" ? "dark" : "system";
+    setMode(next);
+    applyTheme(next);
+    persistTheme(next);
+  };
+
+  const glyph = createMemo(() =>
+    mode() === "light" ? "☀" : mode() === "dark" ? "☾" : "◐",
+  );
+  const label = createMemo(() =>
+    mode() === "light"
+      ? "light theme"
+      : mode() === "dark"
+        ? "dark theme"
+        : "follow system theme",
+  );
+
+  return (
+    <button
+      type="button"
+      onClick={cycle}
+      title={`${label()} — click to cycle`}
+      aria-label={label()}
+      data-theme-mode={mode()}
+      class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-sm text-fg hover:border-accent hover:bg-surface-elevated transition"
+    >
+      <span aria-hidden="true">{glyph()}</span>
+    </button>
+  );
+}
 
 interface PlayerRow {
   userId: string;
@@ -170,6 +255,7 @@ export const UserMenuView = defineView({
             </>
           )}
         </Show>
+        <ThemeSwitcher />
         <button
           type="button"
           onClick={logout}

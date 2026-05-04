@@ -26,6 +26,8 @@ import {
   type EntityId,
 } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
+import { Permissions, ownedBy } from "@vtt/permissions/shared";
+import { Asset } from "@vtt/assets/shared";
 import {
   Book,
   BookCreated,
@@ -44,11 +46,12 @@ import { PdfDocumentSetSystem } from "./server/systems.js";
 // Bundle a stripped server plugin combining books + pdf-book so the
 // pipeline can run end-to-end without pulling in the whole client/UI
 // surface area. Mirrors the `sceneServerPlugin` approach in
-// scene.test.ts.
+// scene.test.ts. Asset trait is registered (no spawning system needed
+// — tests seed Asset entities directly via world.spawnAt).
 const serverPlugin = definePlugin({
   name: "@vtt/pdf-book-test",
   version: "0.1.0",
-  traits: [Book, PdfDocument],
+  traits: [Book, PdfDocument, Asset, Permissions],
   events: [BookCreated, PdfDocumentSet],
   commands: [CreateBook, SetPdfDocument],
   systems: [BookSpawningSystem, PdfDocumentSetSystem],
@@ -100,6 +103,26 @@ async function makeBook(
   return world.query([Book])[0]!.id;
 }
 
+function seedAsset(
+  world: World,
+  opts: { mime: string; ownerUserId?: string } = { mime: "application/pdf" },
+): EntityId {
+  const id = world.allocateId();
+  world.spawnAt(id, [
+    Asset({
+      mime: opts.mime,
+      sizeBytes: 1024,
+      sha256: "f".repeat(64),
+      filename: "rules.pdf",
+      width: null,
+      height: null,
+      uploadedAt: Date.now(),
+    }),
+    Permissions(ownedBy(opts.ownerUserId ?? GM.userId)),
+  ]);
+  return id;
+}
+
 describe("@vtt/pdf-book", () => {
   let pipeline: CommandPipeline;
   let world: World;
@@ -116,104 +139,85 @@ describe("@vtt/pdf-book", () => {
   });
 
   describe("SetPdfDocument", () => {
-    it("GM sets a PDF; recording system attaches PdfDocument trait to the Book entity", async () => {
+    it("GM binds a PDF asset; mirror attaches PdfDocument trait to the Book entity", async () => {
       const bookId = await makeBook(pipeline, world);
-      const url = `/plugin-data/default/@vtt/pdf-book/books/${bookId}/document.pdf?v=12345`;
+      const assetId = seedAsset(world);
       const res = await dispatch(
         pipeline,
-        SetPdfDocument({ bookId, url }),
+        SetPdfDocument({ bookId, assetId }),
         GM,
       );
       expect(res.result.ok).toBe(true);
       expect(res.events.map((e) => e.type)).toEqual([PdfDocumentSet.name]);
       const got = world.get(bookId, [Book, PdfDocument]) as {
         Book: { name: string };
-        PdfDocument: { url: string };
+        PdfDocument: { assetId: EntityId };
       };
-      expect(got.PdfDocument.url).toBe(url);
+      expect(got.PdfDocument.assetId).toBe(assetId);
     });
 
-    it("replacing an existing PDF overwrites the URL", async () => {
+    it("rebinding to a different asset overwrites the bound assetId", async () => {
       const bookId = await makeBook(pipeline, world);
-      const u1 = `/plugin-data/default/@vtt/pdf-book/books/${bookId}/document.pdf?v=1`;
-      const u2 = `/plugin-data/default/@vtt/pdf-book/books/${bookId}/document.pdf?v=2`;
-      await dispatch(pipeline, SetPdfDocument({ bookId, url: u1 }), GM);
-      await dispatch(pipeline, SetPdfDocument({ bookId, url: u2 }), GM);
+      const a1 = seedAsset(world);
+      const a2 = seedAsset(world);
+      await dispatch(pipeline, SetPdfDocument({ bookId, assetId: a1 }), GM);
+      await dispatch(pipeline, SetPdfDocument({ bookId, assetId: a2 }), GM);
       const got = world.get(bookId, [PdfDocument]) as {
-        PdfDocument: { url: string };
+        PdfDocument: { assetId: EntityId };
       };
-      expect(got.PdfDocument.url).toBe(u2);
+      expect(got.PdfDocument.assetId).toBe(a2);
     });
 
-    it("rejects a player dispatch", async () => {
+    it("rejects a player dispatch (write requires GM or book owner)", async () => {
       const bookId = await makeBook(pipeline, world);
+      const assetId = seedAsset(world);
       const res = await dispatch(
         pipeline,
-        SetPdfDocument({
-          bookId,
-          url: `/plugin-data/default/@vtt/pdf-book/books/${bookId}/document.pdf`,
-        }),
+        SetPdfDocument({ bookId, assetId }),
         PLAYER,
       );
       expect(res.result.ok).toBe(false);
     });
 
     it("rejects when the bookId does not exist", async () => {
+      const assetId = seedAsset(world);
       const res = await dispatch(
         pipeline,
-        SetPdfDocument({
-          bookId: "ghost-book" as EntityId,
-          url: "/plugin-data/default/@vtt/pdf-book/books/ghost-book/document.pdf",
-        }),
+        SetPdfDocument({ bookId: "ghost-book" as EntityId, assetId }),
         GM,
       );
       expect(res.result.ok).toBe(false);
     });
 
-    it("rejects a URL pointing at a different book", async () => {
+    it("rejects when the assetId does not exist", async () => {
       const bookId = await makeBook(pipeline, world);
       const res = await dispatch(
         pipeline,
-        SetPdfDocument({
-          bookId,
-          url: "/plugin-data/default/@vtt/pdf-book/books/some-other-book/document.pdf",
-        }),
+        SetPdfDocument({ bookId, assetId: "ghost-asset" as EntityId }),
         GM,
       );
       expect(res.result.ok).toBe(false);
     });
 
-    it("rejects a URL outside the plugin-data prefix", async () => {
+    it("rejects an asset whose mime is not application/pdf", async () => {
       const bookId = await makeBook(pipeline, world);
+      const imageAsset = seedAsset(world, { mime: "image/png" });
       const res = await dispatch(
         pipeline,
-        SetPdfDocument({
-          bookId,
-          url: "https://evil.example/payload.pdf",
-        }),
+        SetPdfDocument({ bookId, assetId: imageAsset }),
         GM,
       );
       expect(res.result.ok).toBe(false);
+      if (!res.result.ok) {
+        expect(res.result.reason).toContain("application/pdf");
+      }
     });
 
-    it("rejects a URL containing path traversal", async () => {
-      const bookId = await makeBook(pipeline, world);
-      const res = await dispatch(
-        pipeline,
-        SetPdfDocument({
-          bookId,
-          url: `/plugin-data/default/@vtt/pdf-book/books/${bookId}/../../../etc/passwd.pdf`,
-        }),
-        GM,
-      );
-      expect(res.result.ok).toBe(false);
-    });
-
-    it("rejects an empty url at the schema layer", () => {
+    it("rejects an empty assetId at the schema layer", () => {
       expect(() =>
         SetPdfDocument({
           bookId: "book-x" as EntityId,
-          url: "",
+          assetId: "" as EntityId,
         }),
       ).toThrow();
     });
@@ -231,7 +235,7 @@ describe("@vtt/pdf-book", () => {
       const events = PdfDocumentSetSystem.run({
         event: {
           bookId: "ghost" as EntityId,
-          url: "/plugin-data/default/@vtt/pdf-book/books/ghost/document.pdf",
+          assetId: "asset-1" as EntityId,
         } as never,
         world,
         registry,

@@ -78,8 +78,22 @@ export function runSystemsToFixpoint(
       all.push(ev);
       for (const sys of registry.systems) {
         if (sys.on.name !== ev.type) continue;
-        const out = sys.run({ event: ev.payload, world, registry });
-        for (const next of out) queue.push(next);
+        // Trap thrown systems so the dispatch pipeline finishes the
+        // tick instead of taking down the process — crashes here
+        // ruin the live multiplayer session and lose every
+        // in-flight event for everyone connected. Log enough to
+        // diagnose and move on; the remaining systems for the same
+        // event still run, and subsequent events still drain.
+        try {
+          const out = sys.run({ event: ev.payload, world, registry });
+          for (const next of out) queue.push(next);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          const stack = err instanceof Error ? err.stack : undefined;
+          console.error(
+            `[mvtt] system ${JSON.stringify(sys.name)} threw on event ${JSON.stringify(ev.type)} (${side}); event swallowed, dispatch continues:\n  ${msg}${stack ? `\n${stack}` : ""}`,
+          );
+        }
       }
     }
 
@@ -88,7 +102,16 @@ export function runSystemsToFixpoint(
     const snapshot = new Map<EntityId, Set<TraitName>>();
     for (const [id, traits] of dirty) snapshot.set(id, new Set(traits));
     dirty.clear();
-    const derived = runDerivationPass(applicableDerivations, world, snapshot);
+    let derived: EventInstance[] = [];
+    try {
+      derived = runDerivationPass(applicableDerivations, world, snapshot);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      console.error(
+        `[mvtt] derivation pass threw (${side}); pass dropped, dispatch continues:\n  ${msg}${stack ? `\n${stack}` : ""}`,
+      );
+    }
     if (derived.length === 0 && dirty.size === 0) break;
     for (const ev of derived) queue.push(ev);
   }

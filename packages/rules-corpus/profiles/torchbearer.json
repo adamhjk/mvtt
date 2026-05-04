@@ -1,0 +1,12 @@
+{
+  "_comment": "Torchbearer 2nd Edition extraction profile. Two-column body, page numbers in the bottom corner. The books ship with a usable PDF outline (chapter/section bookmarks) so the chunker is outline-driven — header/footer scan is the printed-page-number source of truth, not the section boundary source. Front matter is small (cover + credits + ToC) and printed numbering aligns 1:1 with PDF page index from page 4 onwards.",
+  "columns": 2,
+  "pageNumber": {
+    "strategy": "footerScan",
+    "band": "either",
+    "frontMatterPdfPages": 0
+  },
+  "dehyphenate": true,
+  "chunkSizeTokens": 2000,
+  "imageMinPixels": { "width": 64, "height": 64 }
+}

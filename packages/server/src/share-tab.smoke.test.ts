@@ -42,6 +42,7 @@ import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { notes } from "@vtt/notes";
 import { books } from "@vtt/books";
+import { assets } from "@vtt/assets";
 import { pdfBook } from "@vtt/pdf-book";
 import {
   PdfReaderState,
@@ -158,7 +159,7 @@ describe("ShareTab wire smoke", () => {
     worldId = world.id;
     handle = await startServer({
       port: 0,
-      infrastructure: [shellWorkbench, identity, permissions, notes],
+      infrastructure: [shellWorkbench, identity, permissions, notes, assets],
       optional: [shareTabTestPlugin, books, pdfBook],
       worldsRepo,
       // Pull the user out of the upgrade URL so two simultaneous WS

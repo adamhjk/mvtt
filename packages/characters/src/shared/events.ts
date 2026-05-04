@@ -16,6 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineEvent, EntityId, z } from "@vtt/substrate";
+import { ContributionSchema } from "./pending.js";
 
 /**
  * A new character was created. `characterId` is allocated by the
@@ -84,13 +85,29 @@ export const PendingRollContributed = defineEvent({
   name: "@vtt/characters/PendingRollContributed",
   schema: z.object({
     pendingRollId: EntityId,
-    contribution: z.object({
-      kind: z.string(),
-      label: z.string(),
-      fromUserId: z.string(),
-      fromCharacterId: EntityId.optional(),
-      payload: z.unknown(),
-    }),
+    /**
+     * The full contribution payload — uses the canonical
+     * ContributionSchema so the optional `replaces` dedup key is
+     * preserved end-to-end (panel → command → event → system).
+     * Earlier this event inlined a stripped-down shape that silently
+     * dropped `replaces`, defeating the dedup system.
+     */
+    contribution: ContributionSchema,
+  }),
+});
+
+/**
+ * A previously-posted contribution was removed from a PendingRoll.
+ * `modifierId` matches the inner `payload.id` of the contribution
+ * being removed — anything in the contributions list with a payload
+ * carrying that id is filtered out. Used by the panel's chip ×
+ * affordance to undo accidental quick-button presses.
+ */
+export const PendingRollContributionRemoved = defineEvent({
+  name: "@vtt/characters/PendingRollContributionRemoved",
+  schema: z.object({
+    pendingRollId: EntityId,
+    modifierId: z.string().min(1).max(80),
   }),
 });
 

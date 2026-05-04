@@ -653,3 +653,82 @@ describe("derivation runs on the client side", () => {
     expect((world.get(id, [Doubled]) as { Doubled: number }).Doubled).toBe(14);
   });
 });
+
+/* -------------------------------------------------------------------------
+ * runSystemsToFixpoint — error containment
+ * ----------------------------------------------------------------------- */
+
+const PingEvent = defineEvent({
+  name: "@test/runner/Ping",
+  schema: z.object({ note: z.string() }),
+});
+
+const PongEvent = defineEvent({
+  name: "@test/runner/Pong",
+  schema: z.object({ note: z.string() }),
+});
+
+describe("runSystemsToFixpoint error containment", () => {
+  it("logs and continues when a system throws — the dispatch tick is not aborted", () => {
+    // Two systems on the same event: the first throws, the second
+    // succeeds. The runner should swallow the first error, run the
+    // second, and not propagate the throw to the caller.
+    const ThrowingSystem = defineSystem({
+      name: "Throwing",
+      on: PingEvent,
+      reads: [],
+      writes: [],
+      run: () => {
+        throw new Error("boom");
+      },
+    });
+    const SurvivingSystem = defineSystem({
+      name: "Surviving",
+      on: PingEvent,
+      reads: [],
+      writes: [],
+      run: ({ event }) => [PongEvent({ note: `echo:${event.note}` })],
+    });
+
+    const registry = new Registry();
+    registry.load(
+      definePlugin({
+        name: "@test/runner-throws",
+        version: "0.0.0",
+        events: [PingEvent, PongEvent],
+        systems: [ThrowingSystem, SurvivingSystem],
+      }),
+    );
+    registry.validate();
+    const world = new World();
+
+    // Suppress the structured error log under test so the suite stays
+    // tidy, but assert it was called so we know the runner logged.
+    const errors: unknown[][] = [];
+    const original = console.error;
+    console.error = ((...args: unknown[]) => errors.push(args)) as typeof console.error;
+    let emitted: EventInstance[] = [];
+    try {
+      // Throws here would fail the test — the point is that the
+      // runner traps them. No try/catch around this call on purpose.
+      emitted = runSystemsToFixpoint(
+        registry,
+        world,
+        [PingEvent({ note: "hello" })],
+        undefined,
+        "server",
+      );
+    } finally {
+      console.error = original;
+    }
+
+    expect(emitted.some((e) => e.type === PingEvent.name)).toBe(true);
+    expect(emitted.some((e) => e.type === PongEvent.name)).toBe(true);
+    const pong = emitted.find((e) => e.type === PongEvent.name);
+    expect((pong!.payload as { note: string }).note).toBe("echo:hello");
+    expect(errors.length).toBeGreaterThanOrEqual(1);
+    const logged = errors.flat().join(" ");
+    expect(logged).toContain('"Throwing"');
+    expect(logged).toContain("boom");
+  });
+});

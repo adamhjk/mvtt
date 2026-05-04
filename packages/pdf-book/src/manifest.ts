@@ -37,6 +37,7 @@ export const pdfBook = definePlugin({
     "@vtt/identity@^0",
     "@vtt/permissions@^0",
     "@vtt/books@^0",
+    "@vtt/assets@^0",
     "@vtt/shell-workbench@^0",
   ],
   traits: [PdfDocument, PdfReaderState],

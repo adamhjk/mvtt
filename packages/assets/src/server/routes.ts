@@ -49,6 +49,7 @@ const DEFAULT_ALLOWED_MIMES = new Set([
   "image/jpeg",
   "image/webp",
   "image/gif",
+  "application/pdf",
 ]);
 
 export interface AssetRoutesDeps {
@@ -56,8 +57,18 @@ export interface AssetRoutesDeps {
   /** Root of `data/plugin-data`. Asset files live at `<root>/<worldId>/assets/<assetId>`. */
   pluginDataDir: string;
   authenticate: AuthenticateForWorld;
+  /**
+   * Global drain cap — never read more than this many bytes off the wire,
+   * regardless of policy. This is the security ceiling.
+   */
   maxBytes?: number;
   allowedMimes?: ReadonlySet<string>;
+  /**
+   * Optional per-mime policy cap. Effective cap for an upload is
+   * `min(maxBytes, maxBytesByMime[mime] ?? maxBytes)`. Use this to keep
+   * images small (e.g. 5 MB) while permitting larger PDFs (e.g. 250 MB).
+   */
+  maxBytesByMime?: Readonly<Record<string, number>>;
 }
 
 function sendJson(res: ServerResponse, status: number, body: object): void {
@@ -133,6 +144,7 @@ export async function handleAssetUpload(
 ): Promise<void> {
   const maxBytes = deps.maxBytes ?? DEFAULT_MAX_BYTES;
   const allowedMimes = deps.allowedMimes ?? DEFAULT_ALLOWED_MIMES;
+  const maxBytesByMime = deps.maxBytesByMime;
 
   const session = await deps.authenticate(req, worldId);
   if (!session) {
@@ -144,8 +156,11 @@ export async function handleAssetUpload(
     return drainAndJson(req, res, 415, { error: `mime ${mime || "(none)"} not allowed` }, maxBytes);
   }
 
+  // Per-mime policy cap, bounded by the global drain cap.
+  const policyCap = Math.min(maxBytes, maxBytesByMime?.[mime] ?? maxBytes);
+
   const declaredLen = Number(req.headers["content-length"] ?? "");
-  if (Number.isFinite(declaredLen) && declaredLen > maxBytes) {
+  if (Number.isFinite(declaredLen) && declaredLen > policyCap) {
     return drainAndJson(req, res, 413, { error: "payload too large" }, maxBytes);
   }
 
@@ -179,7 +194,7 @@ export async function handleAssetUpload(
 
   req.on("data", (chunk: Buffer) => {
     received += chunk.length;
-    if (received > maxBytes) {
+    if (received > policyCap) {
       oversized = true;
       req.destroy();
     }

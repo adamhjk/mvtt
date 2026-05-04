@@ -24,6 +24,7 @@ import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { books } from "@vtt/books";
 import { notes } from "@vtt/notes";
+import { assets } from "@vtt/assets";
 import { pdfBook } from "@vtt/pdf-book";
 import {
   Book,
@@ -37,7 +38,10 @@ import {
   PdfDocumentSet,
   SetPdfDocument,
 } from "@vtt/pdf-book/shared";
+import { Asset } from "@vtt/assets/shared";
+import { Permissions, ownedBy } from "@vtt/permissions/shared";
 import type { AuthSession } from "@vtt/auth";
+import type { EntityId } from "@vtt/substrate";
 
 /**
  * Wire-protocol smoke for the books + pdf-book plugins: create a book,
@@ -54,7 +58,7 @@ const GM: AuthSession = {
 const booksTestSystem = definePlugin({
   name: "@vtt/books-test-system",
   version: "0",
-  dependsOn: ["@vtt/books@^0", "@vtt/pdf-book@^0"],
+  dependsOn: ["@vtt/books@^0", "@vtt/pdf-book@^0", "@vtt/assets@^0"],
   gameSystem: true,
 });
 
@@ -89,7 +93,7 @@ describe("books wire smoke", () => {
     worldId = world.id;
     handle = await startServer({
       port: 0,
-      infrastructure: [shellWorkbench, notes, identity, permissions],
+      infrastructure: [shellWorkbench, notes, identity, permissions, assets],
       optional: [books, pdfBook, booksTestSystem],
       worldsRepo,
       authenticateUpgrade: async () => GM,
@@ -145,7 +149,23 @@ describe("books wire smoke", () => {
     };
     expect(renamed.Book.name).toBe("Player's Handbook");
 
-    const pdfUrl = `/plugin-data/${worldId}/@vtt/pdf-book/books/${bookEntity!.id}/document.pdf`;
+    // Seed an Asset entity directly (the upload route would do this in
+    // production via RegisterAsset; tests bypass the HTTP layer).
+    const runtime = handle.worldsRegistry.get(worldId)!;
+    const assetId = runtime.world.allocateId();
+    runtime.world.spawnAt(assetId, [
+      Asset({
+        mime: "application/pdf",
+        sizeBytes: 1024,
+        sha256: "f".repeat(64),
+        filename: "phb.pdf",
+        width: null,
+        height: null,
+        uploadedAt: Date.now(),
+      }),
+      Permissions(ownedBy(GM.userId)),
+    ]);
+
     send({
       kind: "command",
       id: "set-pdf",
@@ -154,17 +174,17 @@ describe("books wire smoke", () => {
         type: SetPdfDocument.name,
         payload: SetPdfDocument({
           bookId: bookEntity!.id,
-          url: pdfUrl,
+          assetId,
         }).payload,
       },
     });
     await new Promise((r) => setTimeout(r, 80));
 
-    const withPdf = handle.worldsRegistry.get(worldId)!.world.get(bookEntity!.id, [Book, PdfDocument]) as {
+    const withPdf = runtime.world.get(bookEntity!.id, [Book, PdfDocument]) as {
       Book: { name: string };
-      PdfDocument: { url: string };
+      PdfDocument: { assetId: EntityId };
     };
-    expect(withPdf.PdfDocument.url).toBe(pdfUrl);
+    expect(withPdf.PdfDocument.assetId).toBe(assetId);
 
     const eventTypes = messages
       .filter((m): m is EventMsg => m.kind === "event")

@@ -62,3 +62,25 @@ export const CharacterToken = defineTrait({
     imageUrl: z.string().nullable(),
   }),
 });
+
+/**
+ * Team affiliation — `"party"` for player-side characters,
+ * `"gm"` for NPCs / antagonists / GM-controlled entities. Used by
+ * mechanics that need to query "who else is on my team" — most
+ * directly, TB's disposition rolls, where per-team conditions like
+ * Hungry & Thirsty / Exhausted apply once if any team member has
+ * the condition (SG p.47 — "this penalty counts once, no matter
+ * how many in a group are hungry and thirsty").
+ *
+ * Defaults to `"party"`. NPCs / monsters get switched to `"gm"`
+ * via SetField (or future creation-flow tooling). Conflicts —
+ * when they land — also use this to partition combatants.
+ */
+export const Team = defineTrait({
+  name: "@vtt/characters/Team",
+  schema: z
+    .object({
+      kind: z.enum(["party", "gm"]).default("party"),
+    })
+    .default({ kind: "party" }),
+});

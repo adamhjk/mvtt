@@ -26,10 +26,11 @@ import {
   PendingRollCancelled,
   PendingRollCommitted,
   PendingRollContributed,
+  PendingRollContributionRemoved,
   PendingRollOpened,
 } from "../shared/events.js";
 import { setAtPath } from "../shared/path.js";
-import { Character, CharacterToken } from "../shared/traits.js";
+import { Character, CharacterToken, Team } from "../shared/traits.js";
 import { PendingRoll, type Contribution } from "../shared/pending.js";
 
 /**
@@ -47,11 +48,14 @@ export const CharacterSpawningSystem = defineSystem({
   name: "CharacterSpawning",
   on: CharacterCreated,
   reads: [],
-  writes: [Character, Permissions],
+  writes: [Character, Permissions, Team],
   run: ({ event, world }) => {
     world.spawnAt(event.characterId, [
       Character({ name: event.name }),
       Permissions(ownedBy(event.ownerUserId)),
+      // Default every new character to the party. NPCs get switched
+      // to "gm" later via SetField (or future GM-side tooling).
+      Team({ kind: "party" }),
     ]);
     return [];
   },
@@ -159,11 +163,53 @@ export const PendingRollContributionSystem = defineSystem({
       | { PendingRoll: { contributions: Contribution[] } & Record<string, unknown> }
       | undefined;
     if (!got) return [];
+    const incoming = event.contribution as Contribution;
+    // Last-wins dedup by `replaces` key: a "setting" contribution
+    // (TB obstacle picker, heroic toggle) carries `replaces: "tb:..."`
+    // and the system drops earlier contributions sharing that key
+    // before appending the new one. Stackable contributions (modifiers,
+    // help) leave `replaces` unset and accumulate normally.
+    const filtered = incoming.replaces
+      ? got.PendingRoll.contributions.filter(
+          (c) => c.replaces !== incoming.replaces,
+        )
+      : got.PendingRoll.contributions;
     const next = {
       ...got.PendingRoll,
-      contributions: [...got.PendingRoll.contributions, event.contribution as Contribution],
+      contributions: [...filtered, incoming],
     };
     world.set(event.pendingRollId, PendingRoll, next);
+    return [];
+  },
+});
+
+/**
+ * Universal mirror: drop any contribution whose `payload.id`
+ * matches the incoming `modifierId`. Used by the chip × affordance
+ * to undo accidental contributions. Multiple matches are all
+ * removed at once — a defensive choice if a system somehow posted
+ * the same id twice (we'd rather wipe both than leave a stub).
+ */
+export const PendingRollContributionRemoveSystem = defineSystem({
+  name: "PendingRollContributionRemove",
+  on: PendingRollContributionRemoved,
+  reads: [PendingRoll],
+  writes: [PendingRoll],
+  run: ({ event, world }) => {
+    if (!world.has(event.pendingRollId)) return [];
+    const got = world.get(event.pendingRollId, [PendingRoll]) as
+      | { PendingRoll: { contributions: Contribution[] } & Record<string, unknown> }
+      | undefined;
+    if (!got) return [];
+    const filtered = got.PendingRoll.contributions.filter((c) => {
+      const inner = c.payload as { id?: unknown } | undefined;
+      return inner?.id !== event.modifierId;
+    });
+    if (filtered.length === got.PendingRoll.contributions.length) return [];
+    world.set(event.pendingRollId, PendingRoll, {
+      ...got.PendingRoll,
+      contributions: filtered,
+    });
     return [];
   },
 });

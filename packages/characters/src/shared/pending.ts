@@ -33,6 +33,23 @@ export const ContributionSchema = z.object({
   fromUserId: z.string().min(1),
   fromCharacterId: EntityId.optional(),
   payload: z.unknown(),
+  /**
+   * Optional dedup key. When set, the contribution-recording system
+   * removes any earlier contribution carrying the same `replaces`
+   * value before appending this one — last-wins on a per-key basis.
+   *
+   * Used by "settings"-style contributions that semantically have a
+   * single live value (TB's base obstacle, the heroic toggle): the
+   * panel posts a fresh contribution, and the prior value evaporates
+   * from `contributions` instead of piling up. Stackable
+   * contributions (modifiers, help dice) omit this and accumulate
+   * normally.
+   *
+   * Convention: `<plugin>:<setting>` — e.g. `tb:base-obstacle`,
+   * `tb:heroic`. The system doesn't interpret the string; it just
+   * compares.
+   */
+  replaces: z.string().min(1).max(80).optional(),
 });
 
 export type Contribution = z.infer<typeof ContributionSchema>;
