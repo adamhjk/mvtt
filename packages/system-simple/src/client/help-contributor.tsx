@@ -23,7 +23,7 @@ import {
   type PendingRollContributorArgs,
 } from "@vtt/characters/shared";
 import { Identity, Online } from "@vtt/identity/shared";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { canWrite, Permissions } from "@vtt/permissions/shared";
 import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import { Stats } from "../shared/index.js";
 
@@ -46,39 +46,37 @@ type StatKey = (typeof STATS)[number];
  */
 function HelpWithCharacterPanel(props: PendingRollContributorArgs): JSX.Element {
   const client = useClient();
-  const allCharacters = useQuery([Character, OwnedBy]);
+  const allCharacters = useQuery([Character, Permissions]);
   const onlinePresence = useQuery([Identity, Online]);
   const initiatorChar = useTrait(props.initiatorCharacterId, Character);
 
-  // "Who am I?" — match this connection's clientId against the Online
-  // trait carried by the Identity entities. Mirrors the characters
-  // package's useMe hook; copied here to avoid a cross-plugin import
-  // of internals.
-  const meUserId = createMemo<string | null>(() => {
+  // "Who am I?" — match this connection's clientId against the Online +
+  // Identity rows. Resolves to the universal `{userId, role}` shape so
+  // canWrite() can do its GM-bypass thing.
+  const me = createMemo<{ userId: string; role: string } | null>(() => {
     const cid = client.clientId();
     if (!cid) return null;
     const found = onlinePresence().find(
       (row) => (row.values.Online as { clientId: string }).clientId === cid,
     );
     if (!found) return null;
-    return (found.values.Identity as { userId: string }).userId;
+    const id = found.values.Identity as { userId: string; role: string };
+    return { userId: id.userId, role: id.role };
   });
 
-  // Every character the current user can edit (owns OR is assigned to),
+  // Every character the current user can write to (per Permissions),
   // excluding the initiator's (you can't help yourself with yourself in
   // this flow).
   const myCharacters = createMemo(() => {
-    const uid = meUserId();
-    if (!uid) return [];
+    const m = me();
+    if (!m) return [];
     return allCharacters()
       .filter((row) => {
         if (row.id === props.initiatorCharacterId) return false;
-        const owned = row.values.OwnedBy as { userId: string };
-        const c = row.values.Character as {
-          name: string;
-          playerUserId?: string;
-        };
-        return owned.userId === uid || c.playerUserId === uid;
+        const perm = row.values.Permissions as
+          | Parameters<typeof canWrite>[1]
+          | undefined;
+        return canWrite(m, perm);
       })
       .map((row) => ({
         id: row.id,
@@ -94,8 +92,8 @@ function HelpWithCharacterPanel(props: PendingRollContributorArgs): JSX.Element 
   };
 
   const offerHelp = (helper: { id: string; name: string }) => {
-    const uid = meUserId();
-    if (!uid) return;
+    const m = me();
+    if (!m) return;
     const stat = pick(helper.id);
     // Helper character may never have had Stats edited yet — the kit
     // only materialises the trait on first SetField. Use the substrate's
@@ -110,7 +108,7 @@ function HelpWithCharacterPanel(props: PendingRollContributorArgs): JSX.Element 
     props.contribute({
       kind: "help",
       label: `${helper.name} helps with ${capitalize(stat)} ${dice}`,
-      fromUserId: uid,
+      fromUserId: m.userId,
       fromCharacterId: helper.id,
       payload: { dice, stat },
     });

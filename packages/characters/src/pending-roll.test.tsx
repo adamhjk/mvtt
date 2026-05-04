@@ -28,7 +28,7 @@ import {
   type CommandInstance,
 } from "@vtt/substrate";
 import { Identity, Name, Online } from "@vtt/identity/shared";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 
 import {
   buildCharacterHarness,
@@ -255,7 +255,7 @@ describe("ContributeToPendingRoll", () => {
     // Spawn a foreign character that the test user doesn't own.
     const foreignChar = h.world.spawn([
       Character({ name: "Stranger" }),
-      OwnedBy({ userId: "stranger-user" }),
+      Permissions(ownedBy("stranger-user")),
     ]);
     await h.client.dispatch(
       OpenPendingRoll({

@@ -15,16 +15,4 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-export {
-  AssetDespawnSystem,
-  AssetRenameSystem,
-  AssetSpawningSystem,
-} from "./systems.js";
-export {
-  handleAssetFetch,
-  handleAssetUpload,
-} from "./routes.js";
-export type {
-  AssetRoutesDeps,
-  AuthenticateForWorld,
-} from "./routes.js";
+export { PermissionsChangeSystem } from "./systems.js";

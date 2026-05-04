@@ -22,8 +22,11 @@ import {
   type Visibility,
 } from "@vtt/substrate";
 import { ConnectionClosed } from "@vtt/substrate";
-import { everyone } from "@vtt/permissions/shared";
-import { EntityVisibility, OwnedBy } from "@vtt/permissions/shared";
+import {
+  Permissions,
+  PermissionsChanged,
+  ownedBy,
+} from "@vtt/permissions/shared";
 import {
   EditBegun,
   EditEnded,
@@ -31,13 +34,11 @@ import {
   NoteCreated,
   NoteDeleted,
   NoteRenamed,
-  NoteVisibilityChanged,
   PageAdded,
   PageBodyDraft,
   PageBodySet,
   PageRemoved,
   PageRenamed,
-  PageVisibilityChanged,
   PagesReordered,
 } from "../shared/events.js";
 import { EndEdit } from "../shared/commands.js";
@@ -61,19 +62,17 @@ export const NoteSpawnSystem = defineSystem({
   name: "NoteSpawn",
   on: NoteCreated,
   reads: [],
-  writes: [Note, NoteOrdering, OwnedBy, EntityVisibility],
+  writes: [Note, NoteOrdering, Permissions],
   run: ({ event, world }) => {
     world.spawnAt(event.noteId, [
       Note({ title: event.title, createdAt: event.createdAt }),
       NoteOrdering({ ordinal: event.ordinal }),
-      OwnedBy({ userId: event.createdByUserId }),
-      EntityVisibility({ visibility: everyone() }),
+      Permissions(ownedBy(event.createdByUserId)),
     ]);
     // The first page is created via a separate `PageAdded` event also
     // emitted by `CreateNote.apply`. The fixpoint runner processes that
     // immediately after this one — so by the time `PageSpawnSystem`
-    // looks up the parent note's EntityVisibility, it's been written
-    // here.
+    // looks up the parent note's Permissions, it's been written here.
     return [];
   },
 });
@@ -96,25 +95,34 @@ export const NoteRenameSystem = defineSystem({
   },
 });
 
-export const NoteVisibilityChangeSystem = defineSystem({
-  name: "NoteVisibilityChange",
-  on: NoteVisibilityChanged,
-  reads: [BelongsToNote],
-  writes: [EntityVisibility],
+/**
+ * When a note's `Permissions` changes, propagate the new value to every
+ * child page so the snapshot filter agrees across note + pages.
+ *
+ * Listens to `PermissionsChanged` (the universal event from
+ * `@vtt/permissions`) but no-ops unless the target carries the `Note`
+ * trait — pages and other entities don't cascade.
+ *
+ * Runs *after* `PermissionsChangeSystem` (which writes the trait on
+ * the note itself); we read the now-current value and copy it to
+ * every child page.
+ */
+export const NotePermissionsCascadeSystem = defineSystem({
+  name: "NotePermissionsCascade",
+  on: PermissionsChanged,
+  reads: [Note, Permissions, BelongsToNote],
+  writes: [Permissions],
   run: ({ event, world }) => {
-    if (!world.has(event.noteId)) return [];
-    world.set(event.noteId, EntityVisibility, {
-      visibility: event.visibility as Visibility,
-    });
-    // v1: propagate to every child page wholesale. v2 will preserve
-    // page-level narrowing via a separate `PageOwnVisibility` trait
-    // and intersect.
+    if (!world.has(event.entityId)) return [];
+    if (!world.get(event.entityId, [Note])) return [];
+    const noteRow = world.get(event.entityId, [Permissions]) as
+      | { Permissions: { read: Visibility; write: Visibility } }
+      | undefined;
+    if (!noteRow) return [];
     for (const row of world.query([BelongsToNote])) {
       const b = row.values.BelongsToNote as { noteId: EntityId };
-      if (b.noteId !== event.noteId) continue;
-      world.set(row.id, EntityVisibility, {
-        visibility: event.visibility as Visibility,
-      });
+      if (b.noteId !== event.entityId) continue;
+      world.set(row.id, Permissions, noteRow.Permissions);
     }
     return [];
   },
@@ -142,30 +150,26 @@ export const NoteDeleteSystem = defineSystem({
 export const PageSpawnSystem = defineSystem({
   name: "PageSpawn",
   on: PageAdded,
-  reads: [EntityVisibility],
-  writes: [
-    Page,
-    BelongsToNote,
-    PageOrdering,
-    Headings,
-    PageHistory,
-    EntityVisibility,
-  ],
+  reads: [Permissions],
+  writes: [Page, BelongsToNote, PageOrdering, Headings, PageHistory, Permissions],
   run: ({ event, world }) => {
-    // Inherit visibility from the parent note. If the note doesn't
-    // exist for some reason, default to everyone.
-    const noteVis = world.get(event.noteId, [EntityVisibility]) as
-      | { EntityVisibility: { visibility: Visibility } }
+    // Inherit Permissions from the parent note. If the note doesn't
+    // exist for some reason, default to the spawn-time creator (we
+    // can't know the user here, so fall back to public).
+    const noteRow = world.get(event.noteId, [Permissions]) as
+      | { Permissions: { read: Visibility; write: Visibility } }
       | undefined;
+    const inherited = noteRow?.Permissions ?? {
+      read: { kind: "everyone" } as Visibility,
+      write: { kind: "everyone" } as Visibility,
+    };
     world.spawnAt(event.pageId, [
       BelongsToNote({ noteId: event.noteId }),
       Page({ title: event.title, body: "", bodyRev: 0 }),
       PageOrdering({ ordinal: event.ordinal }),
       Headings({ items: [] }),
       PageHistory({ entries: [] }),
-      EntityVisibility({
-        visibility: noteVis?.EntityVisibility.visibility ?? everyone(),
-      }),
+      Permissions(inherited),
     ]);
     return [];
   },
@@ -211,40 +215,6 @@ export const PageReorderSystem = defineSystem({
         world.set(pid, PageOrdering, { ordinal: idx });
       }
     });
-    return [];
-  },
-});
-
-/**
- * v1 note: writes the page's EntityVisibility directly. v2 will split
- * `PageOwnVisibility` (user intent) from `EntityVisibility` (computed
- * effective) and intersect on every change. For now, narrowing a page
- * is preserved until the next `NoteVisibilityChanged`, which clobbers it.
- */
-export const PageVisibilityChangeSystem = defineSystem({
-  name: "PageVisibilityChange",
-  on: PageVisibilityChanged,
-  reads: [BelongsToNote, EntityVisibility],
-  writes: [EntityVisibility],
-  run: ({ event, world }) => {
-    if (!world.has(event.pageId)) return [];
-    if (event.visibility === null) {
-      // "inherit" — restore from parent note.
-      const got = world.get(event.pageId, [BelongsToNote]) as
-        | { BelongsToNote: { noteId: EntityId } }
-        | undefined;
-      if (!got) return [];
-      const noteVis = world.get(got.BelongsToNote.noteId, [EntityVisibility]) as
-        | { EntityVisibility: { visibility: Visibility } }
-        | undefined;
-      world.set(event.pageId, EntityVisibility, {
-        visibility: noteVis?.EntityVisibility.visibility ?? everyone(),
-      });
-    } else {
-      world.set(event.pageId, EntityVisibility, {
-        visibility: event.visibility as Visibility,
-      });
-    }
     return [];
   },
 });

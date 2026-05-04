@@ -20,7 +20,7 @@ import {
   type EntityId,
   type TraitName,
 } from "@vtt/substrate";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import {
   CharacterTokenPlaced,
   SceneCreated,
@@ -44,12 +44,16 @@ import {
  * (server and every client). All sides spawn in lockstep on the same
  * event order, so the resulting EntityId matches across worlds — that's
  * what lets `TokenCreated.sceneId` reference an id everyone agrees on.
+ *
+ * Default Permissions: `read: everyone, write: users:[creator]`. The GM
+ * who created the scene can edit/remove it; players see it but can't
+ * mutate it. The chrome PermissionsMenu can flip this later.
  */
 export const SceneSpawningSystem = defineSystem({
   name: "SceneSpawning",
   on: SceneCreated,
   reads: [],
-  writes: [Scene],
+  writes: [Scene, Permissions],
   run: ({ event, world }) => {
     world.spawnAt(event.sceneId, [
       Scene({
@@ -60,6 +64,7 @@ export const SceneSpawningSystem = defineSystem({
         backgroundColor: event.backgroundColor,
         gridColor: event.gridColor,
       }),
+      Permissions(ownedBy(event.createdByUserId)),
     ]);
     return [];
   },
@@ -67,14 +72,15 @@ export const SceneSpawningSystem = defineSystem({
 
 /**
  * Universal mirror: spawns a Token entity carrying Token + Sprite +
- * Position + OwnedBy. The OwnedBy trait lets requireOwnerOrGm gate
- * future MoveToken/RemoveToken without scene-specific permission code.
+ * Position + Permissions. `requireWrite` against the token's
+ * Permissions gates MoveToken / RemoveToken with no scene-specific
+ * permission code.
  */
 export const TokenSpawningSystem = defineSystem({
   name: "TokenSpawning",
   on: TokenCreated,
   reads: [],
-  writes: [Token, Sprite, Position, OwnedBy],
+  writes: [Token, Sprite, Position, Permissions],
   run: ({ event, world }) => {
     world.spawnAt(event.tokenId, [
       Token({ label: event.label, kind: event.kind }),
@@ -90,7 +96,7 @@ export const TokenSpawningSystem = defineSystem({
         rotation: 0,
         movedAt: 0,
       }),
-      OwnedBy({ userId: event.ownerUserId }),
+      Permissions(ownedBy(event.ownerUserId)),
     ]);
     return [];
   },
@@ -125,17 +131,35 @@ export const TokenMovementSystem = defineSystem({
 
 /**
  * Universal mirror: spawn a token that's linked to a Character. Carries
- * the standard Token + Sprite + Position + OwnedBy plus LinkedCharacter
- * (back-link to the character entity) and, when an image was uploaded,
- * a TokenImage trait the canvas reads in preference to iconSlug. The
- * place-once invariant is enforced by `PlaceCharacterToken`'s validator.
+ * the standard Token + Sprite + Position + Permissions plus
+ * LinkedCharacter (back-link to the character entity) and, when an
+ * image was uploaded, a TokenImage trait the canvas reads in
+ * preference to iconSlug. The place-once invariant is enforced by
+ * `PlaceCharacterToken`'s validator.
+ *
+ * The token's Permissions are *copied* from the character at place
+ * time — every user who can write the character can write the token.
+ * The values diverge after placement (workbench's PermissionsMenu
+ * flips them independently); v1 doesn't auto-resync if the character's
+ * permissions change later.
  */
 export const CharacterTokenPlacementSystem = defineSystem({
   name: "CharacterTokenPlacement",
   on: CharacterTokenPlaced,
-  reads: [],
-  writes: [Token, Sprite, Position, OwnedBy, LinkedCharacter, TokenImage],
+  reads: [Permissions],
+  writes: [Token, Sprite, Position, Permissions, LinkedCharacter, TokenImage],
   run: ({ event, world }) => {
+    const charPerm = world.get(event.characterId, [Permissions]) as
+      | { Permissions: Parameters<typeof Permissions>[0] }
+      | undefined;
+    // Fall back to "everyone reads, no one writes" if the character
+    // somehow lacks Permissions — a safe deny for write that lets the
+    // token still render. In practice every character carries it.
+    const perm =
+      charPerm?.Permissions ?? {
+        read: { kind: "everyone" as const },
+        write: { kind: "users" as const, userIds: [] },
+      };
     const traits: Array<{ name: TraitName; value: unknown }> = [
       Token({ label: event.label, kind: "creature" }),
       Sprite({
@@ -150,7 +174,7 @@ export const CharacterTokenPlacementSystem = defineSystem({
         rotation: 0,
         movedAt: 0,
       }),
-      OwnedBy({ userId: event.ownerUserId }),
+      Permissions(perm),
       LinkedCharacter({ characterId: event.characterId }),
     ];
     if (event.imageUrl !== null) {

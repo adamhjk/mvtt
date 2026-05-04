@@ -16,9 +16,8 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineSystem, readTraitWithDefault } from "@vtt/substrate";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { Permissions, ownedBy } from "@vtt/permissions/shared";
 import {
-  CharacterAssigned,
   CharacterCreated,
   CharacterFieldSet,
   CharacterRemoved,
@@ -38,31 +37,28 @@ import { PendingRoll, type Contribution } from "../shared/pending.js";
  * id carried by the event. Both server and clients call `spawnAt` so
  * the resulting EntityId is identical everywhere — no per-side counter
  * prediction.
+ *
+ * The default Permissions are `read: everyone, write: users:[ownerUserId]`:
+ * the world sees the character, only the owner can edit. Subsequent
+ * grants ("assign to a player", "GM-only NPC") flow through the
+ * universal `SetPermissions` command.
  */
 export const CharacterSpawningSystem = defineSystem({
   name: "CharacterSpawning",
   on: CharacterCreated,
   reads: [],
-  writes: [Character, OwnedBy],
+  writes: [Character, Permissions],
   run: ({ event, world }) => {
-    const playerUserId =
-      event.playerUserId === undefined
-        ? event.ownerUserId
-        : event.playerUserId.length > 0
-          ? event.playerUserId
-          : undefined;
     world.spawnAt(event.characterId, [
-      Character({ name: event.name, playerUserId }),
-      OwnedBy({ userId: event.ownerUserId }),
+      Character({ name: event.name }),
+      Permissions(ownedBy(event.ownerUserId)),
     ]);
     return [];
   },
 });
 
 /**
- * Universal mirror: replace the Character trait's name. Preserves any
- * existing `playerUserId` so a rename doesn't accidentally unassign
- * the character.
+ * Universal mirror: replace the Character trait's name.
  */
 export const CharacterRenameSystem = defineSystem({
   name: "CharacterRename",
@@ -72,37 +68,11 @@ export const CharacterRenameSystem = defineSystem({
   run: ({ event, world }) => {
     if (!world.has(event.characterId)) return [];
     const existing = world.get(event.characterId, [Character]) as
-      | { Character: { name: string; playerUserId?: string } }
+      | { Character: { name: string } }
       | undefined;
     if (!existing) return [];
     world.set(event.characterId, Character, {
       name: event.name,
-      playerUserId: existing.Character.playerUserId,
-    });
-    return [];
-  },
-});
-
-/**
- * Universal mirror: replace the Character trait's `playerUserId`.
- * An empty string clears the assignment.
- */
-export const CharacterAssignmentSystem = defineSystem({
-  name: "CharacterAssignment",
-  on: CharacterAssigned,
-  reads: [Character],
-  writes: [Character],
-  run: ({ event, world }) => {
-    if (!world.has(event.characterId)) return [];
-    const existing = world.get(event.characterId, [Character]) as
-      | { Character: { name: string; playerUserId?: string } }
-      | undefined;
-    if (!existing) return [];
-    const next =
-      event.playerUserId.length > 0 ? event.playerUserId : undefined;
-    world.set(event.characterId, Character, {
-      name: existing.Character.name,
-      playerUserId: next,
     });
     return [];
   },
@@ -154,7 +124,7 @@ export const PendingRollSpawnSystem = defineSystem({
   name: "PendingRollSpawn",
   on: PendingRollOpened,
   reads: [],
-  writes: [PendingRoll],
+  writes: [PendingRoll, Permissions],
   run: ({ event, world }) => {
     world.spawnAt(event.pendingRollId, [
       PendingRoll({
@@ -165,6 +135,9 @@ export const PendingRollSpawnSystem = defineSystem({
         contributions: [],
         openedAt: event.openedAt,
       }),
+      // Initiator owns the pending roll; commit/cancel gate on
+      // `requireWrite`. GM bypass keeps GMs in charge as always.
+      Permissions(ownedBy(event.initiatorUserId)),
     ]);
     return [];
   },

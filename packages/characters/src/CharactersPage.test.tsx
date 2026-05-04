@@ -23,7 +23,7 @@ import {
   mountWithClient,
 } from "@vtt/substrate/client-testing";
 import { Identity, Name, Online } from "@vtt/identity/shared";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { shellWorkbench } from "@vtt/shell-workbench";
@@ -74,11 +74,11 @@ describe("CharactersPageProvider", () => {
     const h = harness();
     h.world.spawn([
       Character({ name: "Aelric" }),
-      OwnedBy({ userId: ME }),
+      Permissions(ownedBy(ME)),
     ]);
     h.world.spawn([
       Character({ name: "Tarn" }),
-      OwnedBy({ userId: ME }),
+      Permissions(ownedBy(ME)),
     ]);
     mountWithClient(h, () =>
       CharactersPageProvider.render({
@@ -123,7 +123,7 @@ describe("CharactersPageProvider", () => {
     const h = harness();
     const id = h.world.spawn([
       Character({ name: "Tarn" }),
-      OwnedBy({ userId: ME }),
+      Permissions(ownedBy(ME)),
     ]);
     mountWithClient(h, () =>
       CharactersPageProvider.render({
@@ -138,8 +138,8 @@ describe("CharactersPageProvider", () => {
 
   it("list() returns one entry per Character entity", () => {
     const h = harness();
-    const a = h.world.spawn([Character({ name: "A" }), OwnedBy({ userId: ME })]);
-    const b = h.world.spawn([Character({ name: "B" }), OwnedBy({ userId: ME })]);
+    const a = h.world.spawn([Character({ name: "A" }), Permissions(ownedBy(ME))]);
+    const b = h.world.spawn([Character({ name: "B" }), Permissions(ownedBy(ME))]);
     const list = CharactersPageProvider.list({
       world: h.world,
       userId: ME,

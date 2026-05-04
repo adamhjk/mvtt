@@ -17,7 +17,7 @@
 
 import { type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useQuery } from "@vtt/substrate/client";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { canWrite, Permissions } from "@vtt/permissions/shared";
 import {
   definePageProvider,
   RetargetTab,
@@ -104,7 +104,7 @@ function NotesPage(props: {
 function NotesHub(props: { tabId: string }): JSX.Element {
   const client = useClient();
   const me = useMe();
-  const noteRows = useQuery([Note, OwnedBy]);
+  const noteRows = useQuery([Note, Permissions]);
   const [searchQuery, setSearchQuery] = createSignal("");
 
   const notes = createMemo(() =>
@@ -112,7 +112,9 @@ function NotesHub(props: { tabId: string }): JSX.Element {
       .map((row) => ({
         id: row.id,
         title: (row.values.Note as { title: string }).title,
-        ownerUserId: (row.values.OwnedBy as { userId: string }).userId,
+        permissions: row.values.Permissions as
+          | Parameters<typeof canWrite>[1]
+          | undefined,
       }))
       .sort((a, b) => a.title.localeCompare(b.title)),
   );
@@ -150,11 +152,8 @@ function NotesHub(props: { tabId: string }): JSX.Element {
     },
   );
 
-  const canRemove = (ownerUserId: string) => {
-    const m = me();
-    if (!m) return false;
-    return m.role === "gm" || m.userId === ownerUserId;
-  };
+  const canRemove = (n: { permissions?: Parameters<typeof canWrite>[1] }) =>
+    canWrite(me(), n.permissions);
 
   const open = (noteId: string) => {
     client.dispatch(
@@ -277,7 +276,7 @@ function NotesHub(props: { tabId: string }): JSX.Element {
                   >
                     Open
                   </button>
-                  <Show when={canRemove(n.ownerUserId)}>
+                  <Show when={canRemove(n)}>
                     <button
                       type="button"
                       onClick={() => remove(n.id, n.title)}

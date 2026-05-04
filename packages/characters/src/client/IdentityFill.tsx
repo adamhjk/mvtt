@@ -16,67 +16,49 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { type CommandInstance } from "@vtt/substrate";
-import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
-import { OwnedBy } from "@vtt/permissions/shared";
-import { Identity, Online } from "@vtt/identity/shared";
+import { useClient, useTrait } from "@vtt/substrate/client";
+import { canWrite, Permissions } from "@vtt/permissions/shared";
 import {
   createEffect,
   createMemo,
   createSignal,
-  For,
   Show,
   type JSX,
 } from "solid-js";
 import { Character, CharacterToken } from "../shared/traits.js";
 import {
-  AssignCharacter,
   RenameCharacter,
   SetCharacterTokenImage,
 } from "../shared/commands.js";
 import { useMe } from "./use-me.js";
-import { useWorldMembers, type WorldMember } from "./world-members.js";
 
 /**
  * Default fill for `CharacterSheetIdentitySlot`. Renders the editable
- * name and the player-assignment dropdown that used to be at the top
- * of the legacy CharacterSheet. Game-system plugins fill the same slot
- * to add a sub-line ("Lvl 4 Ranger · Neutral Good") below.
+ * name + token portrait. Player-assignment is no longer a sheet field —
+ * it lives on the workbench tab's `PermissionsMenu`, since "who can
+ * write this character" is the universal permissions concern across
+ * every plugin.
  *
- * Owner-or-GM gating mirrors the server-side validators on
- * RenameCharacter / AssignCharacter — players who don't own this
- * character see read-only fields.
+ * Edit gating delegates to `canWrite(me, Permissions)`: GMs always edit,
+ * users in `Permissions.write` always edit, everyone else gets
+ * read-only.
  */
 export function IdentityFill(props: { characterId: string }): JSX.Element {
   const client = useClient();
   const me = useMe();
   const character = useTrait(props.characterId, Character);
-  const ownership = useTrait(props.characterId, OwnedBy);
+  const permissions = useTrait(props.characterId, Permissions);
   const tokenImage = useTrait(props.characterId, CharacterToken);
 
-  const canEdit = createMemo(() => {
-    const m = me();
-    if (!m) return false;
-    if (m.role === "gm") return true;
-    const c = character();
-    if (c && c.playerUserId === m.userId) return true;
-    const o = ownership();
-    return !!o && o.userId === m.userId;
-  });
+  const canEdit = createMemo(() =>
+    canWrite(me(), permissions() as Parameters<typeof canWrite>[1]),
+  );
 
   const rename = (next: string) => {
     client.dispatch(
       RenameCharacter({
         characterId: props.characterId,
         name: next,
-      }) as CommandInstance,
-    );
-  };
-
-  const assign = (playerUserId: string) => {
-    client.dispatch(
-      AssignCharacter({
-        characterId: props.characterId,
-        playerUserId,
       }) as CommandInstance,
     );
   };
@@ -113,16 +95,6 @@ export function IdentityFill(props: { characterId: string }): JSX.Element {
           value={character()?.name ?? ""}
           disabled={!canEdit() || !character()}
           onCommit={rename}
-        />
-      </div>
-      <div class="flex flex-col gap-1">
-        <span class="font-display text-[0.6rem] uppercase tracking-[0.2em] text-fg-subtle">
-          Player
-        </span>
-        <PlayerField
-          value={character()?.playerUserId ?? ""}
-          disabled={!canEdit() || !character()}
-          onCommit={assign}
         />
       </div>
     </div>
@@ -287,78 +259,6 @@ function extensionFromMime(mime: string): string | null {
     default:
       return null;
   }
-}
-
-function PlayerField(props: {
-  value: string;
-  disabled: boolean;
-  onCommit: (next: string) => void;
-}): JSX.Element {
-  const [members] = useWorldMembers();
-  const onlineRows = useQuery([Identity, Online]);
-  const onlineUserIds = createMemo(() => {
-    const set = new Set<string>();
-    for (const row of onlineRows()) {
-      set.add((row.values.Identity as { userId: string }).userId);
-    }
-    return set;
-  });
-
-  const options = createMemo<WorldMember[]>(() => {
-    const m = members();
-    if (!m) return [];
-    const all = [m.owner, ...m.members];
-    const seen = new Set<string>();
-    const deduped = all.filter((x) => {
-      if (seen.has(x.userId)) return false;
-      seen.add(x.userId);
-      return true;
-    });
-    deduped.sort((a, b) => a.name.localeCompare(b.name));
-    if (props.value.length > 0 && !seen.has(props.value)) {
-      deduped.push({
-        userId: props.value,
-        name: `${props.value} (no longer a member)`,
-        email: "",
-        role: "player",
-      });
-    }
-    return deduped;
-  });
-
-  let selectEl!: HTMLSelectElement;
-
-  // Membership list arrives via a separate async HTTP fetch, so on a
-  // hard refresh the snapshot's `playerUserId` lands before the matching
-  // <option>. Setting <select value> at that moment falls through to the
-  // first option and Solid won't re-sync when the option later renders.
-  // createEffect runs post-mount (so the ref is bound) and re-runs
-  // whenever options() or props.value changes — re-syncing the property
-  // every time the membership list arrives or the assignment moves.
-  createEffect(() => {
-    options();
-    const want = props.value;
-    if (selectEl.value !== want) selectEl.value = want;
-  });
-
-  return (
-    <select
-      ref={selectEl}
-      disabled={props.disabled || members.loading}
-      onChange={(e) => props.onCommit(e.currentTarget.value)}
-      class="rounded-(--radius-control) border border-border bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
-    >
-      <option value="">Unassigned</option>
-      <For each={options()}>
-        {(o) => (
-          <option value={o.userId}>
-            {onlineUserIds().has(o.userId) ? "• " : ""}
-            {o.name}
-          </option>
-        )}
-      </For>
-    </select>
-  );
 }
 
 function NameField(props: {

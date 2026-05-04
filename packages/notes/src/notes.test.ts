@@ -30,7 +30,11 @@ import {
 import type { AuthSession } from "@vtt/auth";
 import { permissions } from "@vtt/permissions";
 import { shellWorkbench } from "@vtt/shell-workbench";
-import { EntityVisibility, OwnedBy } from "@vtt/permissions/shared";
+import {
+  Permissions,
+  PermissionsChanged,
+  SetPermissions,
+} from "@vtt/permissions/shared";
 import {
   AddPage,
   BeginEdit,
@@ -62,9 +66,7 @@ import {
   RenamePage,
   ReorderPages,
   SetDraftBody,
-  SetNoteVisibility,
   SetPageBody,
-  SetPageVisibility,
   BelongsToNote,
 } from "./shared/index.js";
 import { notes } from "./manifest.js";
@@ -158,29 +160,28 @@ describe("@vtt/notes", () => {
   });
 
   describe("CreateNote", () => {
-    it("spawns a note + a first page; both visible to everyone by default", async () => {
+    it("spawns a note + a first page; both have Permissions(ownedBy(creator))", async () => {
       const seen: string[] = [];
       bus.onAny((e) => seen.push(e.type));
       const res = await makeNote(pipeline, "Goblin Cave", GM);
       expect(res.events.map((e) => e.type)).toContain(NoteCreated.name);
       const noteRow = world.query([Note])[0]!;
       expect((noteRow.values.Note as { title: string }).title).toBe("Goblin Cave");
-      const owned = world.get(noteRow.id, [OwnedBy]) as
-        | { OwnedBy: { userId: string } }
+      const notePerm = world.get(noteRow.id, [Permissions]) as
+        | { Permissions: { read: { kind: string }; write: { kind: string; userIds?: string[] } } }
         | undefined;
-      expect(owned?.OwnedBy.userId).toBe(GM.userId);
-      const noteVis = world.get(noteRow.id, [EntityVisibility]) as
-        | { EntityVisibility: { visibility: { kind: string } } }
-        | undefined;
-      expect(noteVis?.EntityVisibility.visibility.kind).toBe("everyone");
+      expect(notePerm?.Permissions.read.kind).toBe("everyone");
+      expect(notePerm?.Permissions.write.kind).toBe("users");
+      expect(notePerm?.Permissions.write.userIds).toEqual([GM.userId]);
       // First page exists with the right BelongsToNote
       const pageRow = world.query([Page, BelongsToNote])[0]!;
       const back = pageRow.values.BelongsToNote as { noteId: EntityId };
       expect(back.noteId).toBe(noteRow.id);
-      const pageVis = world.get(pageRow.id, [EntityVisibility]) as
-        | { EntityVisibility: { visibility: { kind: string } } }
+      const pagePerm = world.get(pageRow.id, [Permissions]) as
+        | { Permissions: { read: { kind: string }; write: { kind: string; userIds?: string[] } } }
         | undefined;
-      expect(pageVis?.EntityVisibility.visibility.kind).toBe("everyone");
+      expect(pagePerm?.Permissions.read.kind).toBe("everyone");
+      expect(pagePerm?.Permissions.write.userIds).toEqual([GM.userId]);
     });
 
     it("requires a session", async () => {
@@ -245,30 +246,29 @@ describe("@vtt/notes", () => {
     });
   });
 
-  describe("SetNoteVisibility", () => {
-    it("propagates to all child pages", async () => {
+  describe("SetPermissions cascade", () => {
+    it("flipping a note's read propagates to every child page", async () => {
       await makeNote(pipeline, "Secret", GM);
       const noteId = world.query([Note])[0]!.id;
       await dispatch(pipeline, AddPage({ noteId, title: "Page 2" }), GM);
       const res = await dispatch(
         pipeline,
-        SetNoteVisibility({
-          noteId,
-          visibility: { kind: "role", role: "gm" },
+        SetPermissions({
+          entityId: noteId,
+          read: { kind: "role", role: "gm" },
         }),
         GM,
       );
       expect(res.result.ok).toBe(true);
-      const noteVis = world.get(noteId, [EntityVisibility]) as
-        | { EntityVisibility: { visibility: { kind: string } } }
+      const notePerm = world.get(noteId, [Permissions]) as
+        | { Permissions: { read: { kind: string } } }
         | undefined;
-      expect(noteVis?.EntityVisibility.visibility.kind).toBe("role");
-      // Both pages should now be gmOnly too
+      expect(notePerm?.Permissions.read.kind).toBe("role");
       for (const row of world.query([Page, BelongsToNote])) {
-        const v = world.get(row.id, [EntityVisibility]) as
-          | { EntityVisibility: { visibility: { kind: string } } }
+        const v = world.get(row.id, [Permissions]) as
+          | { Permissions: { read: { kind: string } } }
           | undefined;
-        expect(v?.EntityVisibility.visibility.kind).toBe("role");
+        expect(v?.Permissions.read.kind).toBe("role");
       }
     });
   });

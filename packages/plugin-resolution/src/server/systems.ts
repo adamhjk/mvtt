@@ -16,7 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineSystem, type Visibility } from "@vtt/substrate";
-import { EntityVisibility, actors, everyone, gmOnly } from "@vtt/permissions/shared";
+import { actors, everyone, gmOnly, Permissions } from "@vtt/permissions/shared";
 import { Character } from "@vtt/characters/shared";
 import { Formula, RollResult, RolledBy } from "../shared/traits.js";
 import { RollResolved } from "../shared/events.js";
@@ -28,7 +28,7 @@ import { RollResolved } from "../shared/events.js";
  * so the system has a single source for entity-level visibility, sourced
  * from data on the event (not a closed-over auth context).
  */
-function entityVisibilityFor(
+function readVisibilityFor(
   mode: "public" | "gm-only" | "private",
   rolledByUserId: string,
 ): Visibility {
@@ -42,15 +42,17 @@ function entityVisibilityFor(
  * receives the event. (The live broadcast filter ensures non-GMs never
  * see a `gm-only` RollResolved at all, so this only fires on their side
  * for events they're allowed to see — which means their local World
- * never gets the secret entity. The same EntityVisibility trait makes
+ * never gets the secret entity. The same `Permissions.read` makes
  * the *server's* World filter properly when a fresh player connects:
  * permissions' resolver picks the trait up at snapshot time.)
+ *
+ * `write` is GM-only — roll records are immutable.
  */
 export const RollRecordingSystem = defineSystem({
   name: "RollRecording",
   on: RollResolved,
   reads: [Character],
-  writes: [Formula, RollResult, RolledBy, EntityVisibility],
+  writes: [Formula, RollResult, RolledBy, Permissions],
   run: ({ event, world }) => {
     let displayName = event.rolledByName;
     if (
@@ -74,8 +76,9 @@ export const RollRecordingSystem = defineSystem({
         displayName,
         speakingAsCharacterId: event.speakingAsCharacterId,
       }),
-      EntityVisibility({
-        visibility: entityVisibilityFor(event.visibility, event.rolledByUserId),
+      Permissions({
+        read: readVisibilityFor(event.visibility, event.rolledByUserId),
+        write: gmOnly(),
       }),
     ]);
     return [];

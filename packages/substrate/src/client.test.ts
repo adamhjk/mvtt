@@ -17,7 +17,13 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { startClient } from "./client.js";
-import { defineCommand, ok, z } from "./index.js";
+import {
+  defineCommand,
+  definePlugin,
+  defineTrait,
+  ok,
+  z,
+} from "./index.js";
 
 /**
  * Minimal MessageEvent-shaped object for the message handler. The
@@ -169,5 +175,138 @@ describe("startClient dispatch ack routing", () => {
       ok: false,
       reason: "disconnected",
     });
+  });
+});
+
+/**
+ * Live visibility deltas: when the server pushes an `entity-revealed`
+ * frame the client spawns the entity locally; when it pushes
+ * `entity-hidden` the client despawns. The substrate client treats
+ * both as substrate-level wire frames — no plugin involvement, no
+ * resolver invocation. Per-recipient visibility computation lives on
+ * the server (which has the connection registry); the client just
+ * applies the deltas to its local world.
+ */
+describe("startClient applies entity-revealed / entity-hidden wire frames", () => {
+  afterEach(() => {
+    FakeSocket.instances = [];
+    vi.unstubAllGlobals();
+  });
+
+  const SomeTrait = defineTrait({
+    name: "@test/vis/Some",
+    schema: z.object({ value: z.string() }),
+  });
+  const visPlugin = definePlugin({
+    name: "@test/vis",
+    version: "0",
+    traits: [SomeTrait],
+  });
+
+  it("entity-revealed spawns an entity not previously in the local world", async () => {
+    vi.stubGlobal("WebSocket", FakeSocket as unknown);
+    const client = startClient({
+      url: "ws://test/ws",
+      plugins: [visPlugin],
+    });
+    const sock = FakeSocket.instances[0]!;
+    sock.open();
+    sock.receive({
+      kind: "hello",
+      clientId: "test",
+      worldId: "w",
+      plugins: [],
+    });
+    sock.receive({
+      kind: "snapshot",
+      worldId: "w",
+      atSeq: 0,
+      state: { nextId: 2, entities: {} },
+    });
+    expect(client.world.has("e1")).toBe(false);
+
+    sock.receive({
+      kind: "entity-revealed",
+      worldId: "w",
+      seq: 1,
+      entityId: "e1",
+      traits: { [SomeTrait.name]: { value: "hello" } },
+    });
+    expect(client.world.has("e1")).toBe(true);
+    const got = client.world.get("e1", [SomeTrait]) as
+      | { Some: { value: string } }
+      | undefined;
+    expect(got?.Some.value).toBe("hello");
+  });
+
+  it("entity-revealed updates traits on an entity that's already present (idempotent)", async () => {
+    vi.stubGlobal("WebSocket", FakeSocket as unknown);
+    const client = startClient({
+      url: "ws://test/ws",
+      plugins: [visPlugin],
+    });
+    const sock = FakeSocket.instances[0]!;
+    sock.open();
+    sock.receive({
+      kind: "hello",
+      clientId: "test",
+      worldId: "w",
+      plugins: [],
+    });
+    sock.receive({
+      kind: "snapshot",
+      worldId: "w",
+      atSeq: 0,
+      state: {
+        nextId: 2,
+        entities: { e1: { [SomeTrait.name]: { value: "old" } } },
+      },
+    });
+
+    sock.receive({
+      kind: "entity-revealed",
+      worldId: "w",
+      seq: 1,
+      entityId: "e1",
+      traits: { [SomeTrait.name]: { value: "new" } },
+    });
+    const got = client.world.get("e1", [SomeTrait]) as
+      | { Some: { value: string } }
+      | undefined;
+    expect(got?.Some.value).toBe("new");
+  });
+
+  it("entity-hidden despawns the entity locally", async () => {
+    vi.stubGlobal("WebSocket", FakeSocket as unknown);
+    const client = startClient({
+      url: "ws://test/ws",
+      plugins: [visPlugin],
+    });
+    const sock = FakeSocket.instances[0]!;
+    sock.open();
+    sock.receive({
+      kind: "hello",
+      clientId: "test",
+      worldId: "w",
+      plugins: [],
+    });
+    sock.receive({
+      kind: "snapshot",
+      worldId: "w",
+      atSeq: 0,
+      state: {
+        nextId: 2,
+        entities: { e1: { [SomeTrait.name]: { value: "x" } } },
+      },
+    });
+    expect(client.world.has("e1")).toBe(true);
+
+    sock.receive({
+      kind: "entity-hidden",
+      worldId: "w",
+      seq: 1,
+      entityId: "e1",
+    });
+    expect(client.world.has("e1")).toBe(false);
   });
 });

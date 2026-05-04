@@ -17,7 +17,7 @@
 
 import { qualifiedName, type CommandInstance } from "@vtt/substrate";
 import { useClient, useQuery } from "@vtt/substrate/client";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { canWrite, Permissions } from "@vtt/permissions/shared";
 import { Character, CharacterToken } from "@vtt/characters/shared";
 import { createMemo, For, Show, type JSX } from "solid-js";
 import { LinkedCharacter, Position, Scene } from "../shared/traits.js";
@@ -70,7 +70,7 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
   const client = useClient();
   const me = useMe();
 
-  const characters = useQuery([Character, OwnedBy]);
+  const characters = useQuery([Character, Permissions]);
   const tokenImages = useQuery([CharacterToken]);
   const sceneRow = createMemo(() => {
     return client.world.get(props.sceneId, [Scene]) as
@@ -103,27 +103,20 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
       .map((row) => ({
         id: row.id,
         name: (row.values.Character as { name: string }).name,
-        ownerUserId: (row.values.OwnedBy as { userId: string }).userId,
-        playerUserId: (row.values.Character as {
-          playerUserId?: string;
-        }).playerUserId,
+        permissions: row.values.Permissions as
+          | Parameters<typeof canWrite>[1]
+          | undefined,
         imageUrl: tokenImageByCharacter().get(row.id) ?? null,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
-  const canPlace = (c: { ownerUserId: string; playerUserId?: string }) => {
-    const m = me();
-    if (!m) return false;
-    if (m.role === "gm") return true;
-    if (m.userId === c.ownerUserId) return true;
-    return c.playerUserId === m.userId;
-  };
+  const canPlace = (c: { permissions?: Parameters<typeof canWrite>[1] }) =>
+    canWrite(me(), c.permissions);
 
   const place = (c: {
     id: string;
     name: string;
-    ownerUserId: string;
     imageUrl: string | null;
   }) => {
     const sc = sceneRow();
@@ -165,7 +158,6 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
         label: c.name,
         x,
         y,
-        ownerUserId: c.ownerUserId,
       }) as CommandInstance,
     );
   };
@@ -236,7 +228,6 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
                       encodeCharacterDnd({
                         characterId: c.id,
                         label: c.name,
-                        ownerUserId: c.ownerUserId,
                         iconSlug: DEFAULT_CHARACTER_ICON_SLUG,
                         imageUrl: c.imageUrl,
                       }),

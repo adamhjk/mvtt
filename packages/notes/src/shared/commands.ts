@@ -25,7 +25,7 @@ import {
   type Result,
 } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
-import { requireOwnerOrGm } from "@vtt/permissions/shared";
+import { requireWrite } from "@vtt/permissions/shared";
 import {
   EditBegun,
   EditEnded,
@@ -33,13 +33,11 @@ import {
   NoteCreated,
   NoteDeleted,
   NoteRenamed,
-  NoteVisibilityChanged,
   PageAdded,
   PageBodyDraft,
   PageBodySet,
   PageRemoved,
   PageRenamed,
-  PageVisibilityChanged,
   PagesReordered,
 } from "./events.js";
 import {
@@ -50,12 +48,6 @@ import {
   Page,
   PageOrdering,
 } from "./traits.js";
-
-const VisibilityShape = z.union([
-  z.object({ kind: z.literal("everyone") }),
-  z.object({ kind: z.literal("role"), role: z.string() }),
-  z.object({ kind: z.literal("users"), userIds: z.array(z.string()) }),
-]);
 
 /** 30 second auto-expiry for an editor lock; the client refreshes via heartbeat. */
 export const EDITOR_LOCK_TTL_MS = 30_000;
@@ -147,7 +139,7 @@ export const RenameNote = defineCommand({
   }),
   validate: (ctx) => {
     if (!ctx.world.has(ctx.cmd.noteId)) return fail(`note ${ctx.cmd.noteId} not found`);
-    return requireOwnerOrGm(ctx, ctx.cmd.noteId);
+    return requireWrite(ctx, ctx.cmd.noteId);
   },
   apply: ({ cmd }) => [NoteRenamed({ noteId: cmd.noteId, title: cmd.title })],
 });
@@ -159,24 +151,9 @@ export const DeleteNote = defineCommand({
   }),
   validate: (ctx) => {
     if (!ctx.world.has(ctx.cmd.noteId)) return fail(`note ${ctx.cmd.noteId} not found`);
-    return requireOwnerOrGm(ctx, ctx.cmd.noteId);
+    return requireWrite(ctx, ctx.cmd.noteId);
   },
   apply: ({ cmd }) => [NoteDeleted({ noteId: cmd.noteId })],
-});
-
-export const SetNoteVisibility = defineCommand({
-  name: "@vtt/notes/SetNoteVisibility",
-  schema: z.object({
-    noteId: EntityId,
-    visibility: VisibilityShape,
-  }),
-  validate: (ctx) => {
-    if (!ctx.world.has(ctx.cmd.noteId)) return fail(`note ${ctx.cmd.noteId} not found`);
-    return requireOwnerOrGm(ctx, ctx.cmd.noteId);
-  },
-  apply: ({ cmd }) => [
-    NoteVisibilityChanged({ noteId: cmd.noteId, visibility: cmd.visibility }),
-  ],
 });
 
 // Page commands ---------------------------------------------------------
@@ -192,7 +169,7 @@ export const AddPage = defineCommand({
     if (!ctx.world.has(ctx.cmd.noteId)) {
       return fail(`note ${ctx.cmd.noteId} not found`);
     }
-    return requireOwnerOrGm(ctx, ctx.cmd.noteId);
+    return requireWrite(ctx, ctx.cmd.noteId);
   },
   apply: ({ cmd, world }) => {
     const pageId = world.allocateId();
@@ -225,7 +202,7 @@ export const RenamePage = defineCommand({
   validate: (ctx) => {
     const noteId = pageBelongsTo(ctx.world, ctx.cmd.pageId);
     if (!noteId) return fail(`page ${ctx.cmd.pageId} not found`);
-    return requireOwnerOrGm(ctx, noteId);
+    return requireWrite(ctx, noteId);
   },
   apply: ({ cmd }) => [PageRenamed({ pageId: cmd.pageId, title: cmd.title })],
 });
@@ -238,7 +215,7 @@ export const RemovePage = defineCommand({
   validate: (ctx) => {
     const noteId = pageBelongsTo(ctx.world, ctx.cmd.pageId);
     if (!noteId) return fail(`page ${ctx.cmd.pageId} not found`);
-    return requireOwnerOrGm(ctx, noteId);
+    return requireWrite(ctx, noteId);
   },
   apply: ({ cmd }) => [PageRemoved({ pageId: cmd.pageId })],
 });
@@ -261,27 +238,10 @@ export const ReorderPages = defineCommand({
         return fail(`page ${pid} does not belong to note ${ctx.cmd.noteId}`);
       }
     }
-    return requireOwnerOrGm(ctx, ctx.cmd.noteId);
+    return requireWrite(ctx, ctx.cmd.noteId);
   },
   apply: ({ cmd }) => [
     PagesReordered({ noteId: cmd.noteId, pageIds: [...cmd.pageIds] }),
-  ],
-});
-
-export const SetPageVisibility = defineCommand({
-  name: "@vtt/notes/SetPageVisibility",
-  schema: z.object({
-    pageId: EntityId,
-    /** null clears the page-level override (inherit from note). */
-    visibility: VisibilityShape.nullable(),
-  }),
-  validate: (ctx) => {
-    const noteId = pageBelongsTo(ctx.world, ctx.cmd.pageId);
-    if (!noteId) return fail(`page ${ctx.cmd.pageId} not found`);
-    return requireOwnerOrGm(ctx, noteId);
-  },
-  apply: ({ cmd }) => [
-    PageVisibilityChanged({ pageId: cmd.pageId, visibility: cmd.visibility }),
   ],
 });
 
@@ -299,7 +259,7 @@ export const BeginEdit = defineCommand({
   validate: (ctx) => {
     const noteId = pageBelongsTo(ctx.world, ctx.cmd.pageId);
     if (!noteId) return fail(`page ${ctx.cmd.pageId} not found`);
-    const owns = requireOwnerOrGm(ctx, noteId);
+    const owns = requireWrite(ctx, noteId);
     if (!owns.ok) return owns;
     const now = Date.now();
     const holder = lockHolder(ctx.world, ctx.cmd.pageId, now);

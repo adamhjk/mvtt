@@ -16,25 +16,36 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { definePlugin, type Visibility } from "@vtt/substrate";
-import { EntityVisibility, OwnedBy } from "./shared/traits.js";
+import { Permissions } from "./shared/traits.js";
+import { PermissionsChanged } from "./shared/events.js";
+import { SetPermissions } from "./shared/commands.js";
+import { PermissionsChangeSystem } from "./server/systems.js";
 
 /**
- * Permissions is the *contract* plugin — visibility builders, ownership
- * traits, and the entity-visibility resolver that the substrate uses for
- * per-recipient snapshot filtering. The substrate stays trait-agnostic:
- * it just runs the resolver permissions registers below to translate
- * `EntityVisibility{visibility}` into the substrate's union shape.
+ * Permissions is the *contract* plugin — the one `Permissions` trait,
+ * the universal `SetPermissions` command, and the entity-visibility
+ * resolver that the substrate uses for per-recipient snapshot
+ * filtering.
+ *
+ * The substrate stays trait-agnostic: it just runs the resolver
+ * registered below to translate `Permissions.read` into the substrate's
+ * `Visibility` union. GM bypass is applied by the substrate's snapshot
+ * filter (in `dumpForRecipient`), not by this resolver — so the
+ * resolver remains a pure mapping from traits to Visibility.
  */
 export const permissions = definePlugin({
   name: "@vtt/permissions",
   version: "0.1.0",
   dependsOn: ["@vtt/substrate@^0", "@vtt/auth@^0", "@vtt/identity@^0"],
-  traits: [OwnedBy, EntityVisibility],
+  traits: [Permissions],
+  events: [PermissionsChanged],
+  commands: [SetPermissions],
+  systems: [PermissionsChangeSystem],
   entityVisibility: (traits) => {
-    const ev = traits[EntityVisibility.name] as
-      | { visibility: Visibility }
+    const p = traits[Permissions.name] as
+      | { read: Visibility; write: Visibility }
       | undefined;
-    return ev?.visibility ?? null;
+    return p?.read ?? null;
   },
 });
 

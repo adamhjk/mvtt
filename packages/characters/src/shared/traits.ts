@@ -18,35 +18,24 @@
 import { defineTrait, z } from "@vtt/substrate";
 
 /**
- * A player- or GM-managed character. v0 carries the display name and
- * an optional `playerUserId` — the userId of the player currently
- * playing this character. Game-system plugins (D&D 5e, PbtA, FATE,
- * etc.) project additional state onto a character by registering
+ * A player- or GM-managed character. The display name is the only
+ * field the substrate cares about; game-system plugins (D&D 5e, PbtA,
+ * FATE, etc.) project additional state onto a character by registering
  * their own traits and filling the `CharacterSheetSectionsSlot`. With
- * nothing projected, the sheet is just an editable name + assignment.
+ * nothing projected, the sheet is just an editable name.
  *
- * `playerUserId` is the field the chat composer reads to populate its
- * "speak as" dropdown: a player sees every Character whose
- * `playerUserId` is their own userId, plus their plain self.
- *
- * Editing rights (rename / remove / reassign / set fields / roll)
- * are granted to three actors: the GM, the `OwnedBy.userId` (creator),
- * and the `playerUserId` (currently-assigned player). Use
- * `requireCharacterEditor` to gate writes — a GM may keep ownership
- * while delegating play to a player, and assignment is the act that
- * grants edit rights without transferring ownership.
+ * Editing rights (rename / remove / set fields / roll) flow through
+ * the standard `Permissions` trait: anyone listed in
+ * `Permissions.write` (plus GMs by universal bypass) is the editor.
+ * "Assigning a character to a player" is just adding their userId to
+ * the write list — no separate `playerUserId` field. The chat
+ * composer's "speak as" dropdown lists every character the user can
+ * write to.
  */
 export const Character = defineTrait({
   name: "@vtt/characters/Character",
   schema: z.object({
     name: z.string().min(1).max(120),
-    /**
-     * userId of the player currently playing this character. Distinct
-     * from `OwnedBy.userId` (the editor): a GM may own a character but
-     * assign it to a player. Empty/undefined means "unassigned" — the
-     * character exists but no player speaks as it yet.
-     */
-    playerUserId: z.string().min(1).optional(),
   }),
 });
 

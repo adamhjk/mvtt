@@ -43,9 +43,9 @@ import {
   Note,
   Page,
   SetPageBody,
-  SetNoteVisibility,
   BelongsToNote,
 } from "@vtt/notes/shared";
+import { SetPermissions } from "@vtt/permissions/shared";
 import type { AuthSession } from "@vtt/auth";
 import type { IncomingMessage } from "node:http";
 
@@ -250,9 +250,9 @@ describe("notes FTS search smoke", () => {
       id: "c-lock-secret",
       issuedBy: "tester" as never,
       issuedAt: Date.now(),
-      cmd: SetNoteVisibility({
-        noteId: noteRow.id,
-        visibility: { kind: "role", role: "gm" },
+      cmd: SetPermissions({
+        entityId: noteRow.id,
+        read: { kind: "role", role: "gm" },
       }),
       session: GM,
     });

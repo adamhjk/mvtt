@@ -29,7 +29,7 @@ import {
   useTrait,
   useTraitPath,
 } from "@vtt/substrate/client";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { canWrite, Permissions } from "@vtt/permissions/shared";
 import {
   createEffect,
   createMemo,
@@ -75,7 +75,7 @@ export interface FieldBinding {
     characterId: string;
   }) => unknown;
   /**
-   * "owner" — only the OwnedBy user (or a GM) may edit. Default.
+   * "owner" — only users in `Permissions.write` (or a GM) may edit. Default.
    * "gm"    — only a GM may edit.
    * "any"   — any authenticated user may edit.
    */
@@ -84,30 +84,27 @@ export interface FieldBinding {
 
 /**
  * Returns a Solid accessor of "may the current user edit this field?"
- * "owner" mode passes when the user is the OwnedBy.userId, the
- * Character.playerUserId (the assigned player — assignment grants
- * edit rights without transferring ownership), or a GM. Reactive on
- * all three traits so flipping assignment or transferring ownership
- * re-enables every bound input live.
+ * "owner" mode delegates to `canWrite(me, Permissions)` — the universal
+ * write check (GMs always pass, otherwise the user must satisfy the
+ * Permissions.write Visibility on the character entity). Reactive on
+ * the Permissions trait so flipping write access re-enables every
+ * bound input live.
  */
 function useCanEdit(
   characterId: string,
   requires: "owner" | "gm" | "any" = "owner",
 ): () => boolean {
   const me = useMe();
-  const ownership = useTrait(characterId, OwnedBy);
+  const permissions = useTrait(characterId, Permissions);
   const character = useTrait(characterId, Character);
   return createMemo(() => {
-    const c = character();
-    if (!c) return false;
+    if (!character()) return false;
     const m = me();
     if (!m) return false;
     if (m.role === "gm") return true;
     if (requires === "gm") return false;
     if (requires === "any") return true;
-    if (c.playerUserId === m.userId) return true;
-    const o = ownership();
-    return !!o && o.userId === m.userId;
+    return canWrite(m, permissions() as Parameters<typeof canWrite>[1]);
   });
 }
 

@@ -23,19 +23,12 @@ import {
   z,
 } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
-import { requireOwnerOrGm } from "@vtt/permissions/shared";
+import { requireWrite } from "@vtt/permissions/shared";
 import {
   AssetDeleted,
   AssetRegistered,
   AssetRenamed,
-  AssetVisibilityChanged,
 } from "./events.js";
-
-const VisibilityShape = z.union([
-  z.object({ kind: z.literal("everyone") }),
-  z.object({ kind: z.literal("role"), role: z.string() }),
-  z.object({ kind: z.literal("users"), userIds: z.array(z.string()) }),
-]);
 
 /**
  * Register a freshly-uploaded asset against the world.
@@ -92,40 +85,12 @@ export const RenameAsset = defineCommand({
     if (!ctx.world.has(ctx.cmd.assetId)) {
       return fail(`asset ${ctx.cmd.assetId} does not exist`);
     }
-    return requireOwnerOrGm(ctx, ctx.cmd.assetId);
+    return requireWrite(ctx, ctx.cmd.assetId);
   },
   apply: ({ cmd }) => [
     AssetRenamed({
       assetId: cmd.assetId,
       filename: cmd.filename,
-    }),
-  ],
-});
-
-/**
- * Change which recipients can see (and fetch) the asset. Owner or GM.
- * The mirror system writes a new `EntityVisibility` trait; the fetch
- * route consults it on every request, so the new setting takes effect
- * immediately. Pre-cached image URLs in already-loaded clients keep
- * working as long as the substrate's snapshot already showed them the
- * asset entity — but that's expected.
- */
-export const SetAssetVisibility = defineCommand({
-  name: "@vtt/assets/SetAssetVisibility",
-  schema: z.object({
-    assetId: EntityId,
-    visibility: VisibilityShape,
-  }),
-  validate: (ctx) => {
-    if (!ctx.world.has(ctx.cmd.assetId)) {
-      return fail(`asset ${ctx.cmd.assetId} does not exist`);
-    }
-    return requireOwnerOrGm(ctx, ctx.cmd.assetId);
-  },
-  apply: ({ cmd }) => [
-    AssetVisibilityChanged({
-      assetId: cmd.assetId,
-      visibility: cmd.visibility,
     }),
   ],
 });
@@ -145,7 +110,7 @@ export const DeleteAsset = defineCommand({
     if (!ctx.world.has(ctx.cmd.assetId)) {
       return fail(`asset ${ctx.cmd.assetId} does not exist`);
     }
-    return requireOwnerOrGm(ctx, ctx.cmd.assetId);
+    return requireWrite(ctx, ctx.cmd.assetId);
   },
   apply: ({ cmd }) => [AssetDeleted({ assetId: cmd.assetId })],
 });

@@ -25,7 +25,7 @@ import {
 } from "@vtt/substrate";
 import { DiceRoll } from "@dice-roller/rpg-dice-roller";
 import { requireSession } from "@vtt/identity/shared";
-import { actors, everyone, gmOnly } from "@vtt/permissions/shared";
+import { actors, everyone, gmOnly, requireWrite } from "@vtt/permissions/shared";
 import { Character } from "@vtt/characters/shared";
 import { RollResolved, type DieOutcome } from "./events.js";
 
@@ -141,8 +141,7 @@ export const RequestRoll = defineCommand({
     speakingAsCharacterId: EntityId.optional(),
   }),
   validate: (ctx) => {
-    const auth = requireSession(ctx);
-    if (!auth) return fail("not authenticated");
+    if (!requireSession(ctx)) return fail("not authenticated");
     try {
       // Construct without rolling-side-effects: this throws on syntax errors,
       // which is the only thing we can validate before performing the roll.
@@ -159,19 +158,13 @@ export const RequestRoll = defineCommand({
         return fail(`character ${speakerId} does not exist`);
       }
       const got = ctx.world.get(speakerId, [Character]) as
-        | { Character: { name: string; playerUserId?: string } }
+        | { Character: { name: string } }
         | undefined;
       if (!got) {
         return fail(`entity ${speakerId} is not a character`);
       }
-      if (
-        auth.role !== "gm" &&
-        got.Character.playerUserId !== auth.userId
-      ) {
-        return fail(
-          `character ${speakerId} is not assigned to you — cannot roll as it`,
-        );
-      }
+      const editor = requireWrite(ctx, speakerId);
+      if (!editor.ok) return editor;
     }
     return ok();
   },

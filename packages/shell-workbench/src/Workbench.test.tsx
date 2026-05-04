@@ -22,7 +22,7 @@ import { buildTestClient } from "@vtt/substrate/client-testing";
 import { ClientProvider } from "@vtt/substrate/client";
 import { definePlugin, defineTrait, z } from "@vtt/substrate";
 import { Identity, Name, Online } from "@vtt/identity/shared";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { actors, Permissions } from "@vtt/permissions/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { shellWorkbench } from "./manifest.js";
@@ -107,7 +107,7 @@ function harness(opts?: { withWorkspaceState?: boolean }) {
       if (opts?.withWorkspaceState !== false) {
         world.spawn([
           WorkspaceOwner({ userId: ME }),
-          OwnedBy({ userId: ME }),
+          Permissions({ read: actors([ME]), write: actors([ME]) }),
           WorkspaceState({
             tabs: {},
             panes: { p1: { paneId: "p1", tabIds: [], activeTabId: null } },

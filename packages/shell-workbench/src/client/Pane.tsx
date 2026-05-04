@@ -27,6 +27,7 @@ import {
 import { Portal } from "solid-js/web";
 import { useClient, useQuery } from "@vtt/substrate/client";
 import { TabPicker } from "./TabPicker.js";
+import { PermissionsMenu } from "./PermissionsMenu.js";
 import { useWorkspace } from "./use-workspace.js";
 import { useMe } from "./use-me.js";
 import { useProviderContext, type ProviderRunContext } from "./provider-context.js";
@@ -366,6 +367,7 @@ function TabChip(props: {
         />
       </Show>
       <TabPicker tab={props.tab} ctx={props.ctx} compact />
+      <PermissionsMenu tab={props.tab} />
       <ShareMenu tab={props.tab} />
       <button
         type="button"

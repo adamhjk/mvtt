@@ -48,16 +48,111 @@ export type { WorldsServiceOptions } from "./worlds-service.js";
 /**
  * Filter a serialised WorldState down to entities visible to a specific
  * recipient. Entities without a registered visibility resolver claim are
- * treated as public. Identical to the v1 single-world variant; the only
- * change is that the registry argument is now per-world.
+ * treated as public.
+ *
+ * **GM read bypass:** GMs see every entity regardless of its
+ * `Permissions.read` (or any other entity-visibility resolver claim).
+ * That's the universal escape hatch — GMs run the world and need to
+ * see everything in it. Event-level visibility (whispers, GM-only
+ * rolls) intentionally does NOT apply this bypass, because event
+ * visibility is the per-message broadcast policy, not an
+ * "is this thing visible to you" question.
  */
+/**
+ * Pluck every attached trait off an entity, keyed by full qualified
+ * name — the shape `entityVisibility` resolvers and the wire-frame
+ * `entity-revealed.traits` field expect. Returns an empty object if
+ * the entity has been despawned.
+ */
+function collectAllTraits(
+  runtime: WorldRuntime,
+  entityId: string,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (!runtime.world.has(entityId)) return out;
+  for (const [name, def] of runtime.registry.traits) {
+    const got = runtime.world.get(entityId, [def]);
+    if (got === undefined) continue;
+    const short = name.split("/").pop() ?? name;
+    const v = (got as Record<string, unknown>)[short];
+    if (v !== undefined) out[name] = v;
+  }
+  return out;
+}
+
+/**
+ * Per-connection visibility delta: for a single entity whose
+ * visibility just changed, decide for each connection whether the
+ * recipient gained or lost access and push the matching wire frame.
+ * Updates `conn.visibleEntities` so the next delta sees the right
+ * starting state.
+ *
+ * GMs always pass (universal bypass) — they never lose access. The
+ * resolver returning `null` means the entity is public; everyone keeps
+ * it.
+ */
+function emitVisibilityDeltas(
+  runtime: WorldRuntime,
+  conns: Set<Conn>,
+  entityId: string,
+  seq: number,
+): void {
+  const exists = runtime.world.has(entityId);
+  const traits = exists ? collectAllTraits(runtime, entityId) : {};
+  const vis = exists
+    ? runtime.registry.resolveEntityVisibility(traits)
+    : null;
+  for (const conn of conns) {
+    if (conn.worldId !== runtime.worldId) continue;
+    if (conn.sock.readyState !== conn.sock.OPEN) continue;
+    const had = conn.visibleEntities.has(entityId);
+    const isGm = conn.recipient?.role === "gm";
+    const should =
+      exists && (isGm || vis === null || matchesVisibility(vis, conn.recipient));
+    if (should && !had) {
+      conn.sock.send(
+        JSON.stringify({
+          kind: "entity-revealed",
+          worldId: runtime.worldId,
+          seq,
+          entityId,
+          traits,
+        }),
+      );
+      conn.visibleEntities.add(entityId);
+    } else if (!should) {
+      // Always hide on revoke — even when `visibleEntities` says the
+      // recipient never had it, the client may have spawned the entity
+      // locally from a public-broadcast spawn event (the substrate
+      // doesn't currently filter universal-mirror events by per-entity
+      // visibility). Sending `entity-hidden` is idempotent on clients
+      // that don't have the entity, so the cost of "extra" frames is
+      // a no-op despawn rather than incorrect visibility.
+      conn.sock.send(
+        JSON.stringify({
+          kind: "entity-hidden",
+          worldId: runtime.worldId,
+          seq,
+          entityId,
+        }),
+      );
+      conn.visibleEntities.delete(entityId);
+    }
+  }
+}
+
 function dumpForRecipient(
   state: WorldState,
   registry: Registry,
   recipient: Recipient | null,
 ): WorldState {
   const entities: Record<string, Record<string, unknown>> = {};
+  const isGm = recipient?.role === "gm";
   for (const [id, traits] of Object.entries(state.entities)) {
+    if (isGm) {
+      entities[id] = traits;
+      continue;
+    }
     const vis = registry.resolveEntityVisibility(traits);
     if (matchesVisibility(vis ?? undefined, recipient)) {
       entities[id] = traits;
@@ -298,6 +393,16 @@ interface Conn {
   recipient: Recipient | null;
   /** Heartbeat liveness flag, see HEARTBEAT_INTERVAL_MS comment. */
   isAlive: boolean;
+  /**
+   * Entities currently visible to this recipient — the source of truth
+   * for live visibility deltas. Initialised at snapshot send time from
+   * the dump's filtered entity set, then maintained by the broadcast
+   * hook when visibility-affecting traits change. Used to decide
+   * whether a `PermissionsChanged` event should fire an
+   * `entity-revealed` (gain access) or `entity-hidden` (lose access)
+   * wire frame on this connection.
+   */
+  visibleEntities: Set<string>;
 }
 
 /**
@@ -354,6 +459,22 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
         if (conn.sock.readyState !== conn.sock.OPEN) continue;
         if (!matchesVisibility(event.visibility, conn.recipient)) continue;
         conn.sock.send(msg);
+      }
+      // Live read-permission deltas: when an entity's `Permissions.read`
+      // changes such that some recipient now should/shouldn't see it,
+      // fan out per-recipient `entity-revealed` (gain access) or
+      // `entity-hidden` (lose access) wire frames so the affected
+      // clients spawn or despawn the entity locally without waiting
+      // for a reconnect. The substrate stays trait-agnostic about
+      // which trait signals visibility — it relies on the registry's
+      // resolver to derive the entity's current visibility post-event.
+      // The hook is keyed on the (always-on) `@vtt/permissions/PermissionsChanged`
+      // event because that's the only thing that flips visibility today;
+      // a future "any visibility-affecting event" mechanism would
+      // generalise this off the dirty map exposed by the pipeline.
+      if (event.type === "@vtt/permissions/PermissionsChanged") {
+        const entityId = (event.payload as { entityId: string }).entityId;
+        emitVisibilityDeltas(runtime, conns, entityId, seq);
       }
       runtime.observeBroadcast(event);
     });
@@ -520,6 +641,7 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
         session: ctx.session,
         recipient,
         isAlive: true,
+        visibleEntities: new Set<string>(),
       };
       conns.add(conn);
       sock.on("pong", () => {
@@ -592,16 +714,22 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
         }),
       );
 
+      const filteredState = dumpForRecipient(
+        runtime.world.dump(),
+        runtime.registry,
+        recipient,
+      );
+      // Seed the connection's visible-entities set from the snapshot
+      // we're about to send. Subsequent visibility deltas (driven by
+      // `PermissionsChanged`) are computed against this set, so what
+      // the recipient initially sees defines the starting point.
+      conn.visibleEntities = new Set(Object.keys(filteredState.entities));
       sock.send(
         JSON.stringify({
           kind: "snapshot",
           worldId: ctx.worldId,
           atSeq: runtime.pipeline.currentSeq,
-          state: dumpForRecipient(
-            runtime.world.dump(),
-            runtime.registry,
-            recipient,
-          ),
+          state: filteredState,
         }),
       );
       sock.send(

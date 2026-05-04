@@ -27,7 +27,7 @@ import {
   qualifiedName,
   type World,
 } from "@vtt/substrate";
-import { EntityVisibility, OwnedBy, everyone } from "@vtt/permissions/shared";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { TabSentinel, tabSentinelEntityId } from "@vtt/shell-workbench/shared";
 import { notes } from "@vtt/notes";
@@ -59,8 +59,7 @@ function seedSentinel(
 ): void {
   world.spawnAt(tabSentinelEntityId(TAB_ID), [
     TabSentinel({ tabId: TAB_ID }),
-    OwnedBy({ userId: ME }),
-    EntityVisibility({ visibility: everyone() }),
+    Permissions(ownedBy(ME)),
     SceneUiState(initial),
   ]);
 }

@@ -17,7 +17,6 @@
 
 export { Character, CharacterToken } from "./traits.js";
 export {
-  CharacterAssigned,
   CharacterCreated,
   CharacterFieldSet,
   CharacterRenamed,
@@ -29,7 +28,6 @@ export {
   PendingRollOpened,
 } from "./events.js";
 export {
-  AssignCharacter,
   CancelPendingRoll,
   CommitPendingRoll,
   ContributeToPendingRoll,
@@ -65,4 +63,3 @@ export {
   type Contribution,
   type PendingRollValue,
 } from "./pending.js";
-export { requireCharacterEditor } from "./checks.js";

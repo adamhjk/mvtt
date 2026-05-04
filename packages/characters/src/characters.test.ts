@@ -28,11 +28,14 @@ import {
   type EntityId,
 } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
-import { OwnedBy } from "@vtt/permissions/shared";
 import {
-  AssignCharacter,
+  Permissions,
+  PermissionsChanged,
+  SetPermissions,
+} from "@vtt/permissions/shared";
+import { PermissionsChangeSystem } from "@vtt/permissions/server";
+import {
   Character,
-  CharacterAssigned,
   CharacterCreated,
   CharacterFieldSet,
   CharacterRemoved,
@@ -51,7 +54,6 @@ import {
   SetField,
 } from "./shared/index.js";
 import {
-  CharacterAssignmentSystem,
   CharacterFieldSetSystem,
   CharacterRemovalSystem,
   CharacterRenameSystem,
@@ -75,30 +77,30 @@ const TestAbilities = defineTrait({
 const charactersServerPlugin = definePlugin({
   name: "@vtt/characters",
   version: "0.1.0",
-  traits: [Character, CharacterToken, OwnedBy, TestAbilities],
+  traits: [Character, CharacterToken, Permissions, TestAbilities],
   events: [
     CharacterCreated,
     CharacterRenamed,
     CharacterRemoved,
-    CharacterAssigned,
     CharacterFieldSet,
     CharacterTokenImageSet,
+    PermissionsChanged,
   ],
   commands: [
     CreateCharacter,
     RemoveCharacter,
     RenameCharacter,
-    AssignCharacter,
     SetCharacterTokenImage,
     SetField,
+    SetPermissions,
   ],
   systems: [
     CharacterSpawningSystem,
     CharacterRenameSystem,
     CharacterRemovalSystem,
-    CharacterAssignmentSystem,
     CharacterFieldSetSystem,
     CharacterTokenImageSetSystem,
+    PermissionsChangeSystem,
   ],
   slots: [
     CharacterSheetIdentitySlot,
@@ -158,7 +160,7 @@ async function makeCharacter(
   pipeline: CommandPipeline,
   world: World,
   session: AuthSession = PLAYER,
-  payload: { name: string; ownerUserId?: string; playerUserId?: string } = {
+  payload: { name: string; ownerUserId?: string } = {
     name: "Tarn",
   },
 ): Promise<EntityId> {
@@ -169,9 +171,25 @@ async function makeCharacter(
     session,
   );
   expect(res.result.ok).toBe(true);
-  const rows = world.query([Character, OwnedBy]);
+  const rows = world.query([Character, Permissions]);
   expect(rows).toHaveLength(before + 1);
   return rows.at(-1)!.id;
+}
+
+function readPerm(world: World, id: EntityId): {
+  read: { kind: string; userIds?: string[] };
+  write: { kind: string; userIds?: string[] };
+} {
+  const got = world.get(id, [Permissions]) as
+    | {
+        Permissions: {
+          read: { kind: string; userIds?: string[] };
+          write: { kind: string; userIds?: string[] };
+        };
+      }
+    | undefined;
+  if (!got) throw new Error(`no Permissions on ${id}`);
+  return got.Permissions;
 }
 
 describe("@vtt/characters", () => {
@@ -188,11 +206,9 @@ describe("@vtt/characters", () => {
     expect(CreateCharacter.name).toBe("@vtt/characters/CreateCharacter");
     expect(RenameCharacter.name).toBe("@vtt/characters/RenameCharacter");
     expect(RemoveCharacter.name).toBe("@vtt/characters/RemoveCharacter");
-    expect(AssignCharacter.name).toBe("@vtt/characters/AssignCharacter");
     expect(CharacterCreated.name).toBe("@vtt/characters/CharacterCreated");
     expect(CharacterRenamed.name).toBe("@vtt/characters/CharacterRenamed");
     expect(CharacterRemoved.name).toBe("@vtt/characters/CharacterRemoved");
-    expect(CharacterAssigned.name).toBe("@vtt/characters/CharacterAssigned");
     expect(Character.name).toBe("@vtt/characters/Character");
     expect(CharacterSheetIdentitySlot.name).toBe(
       "@vtt/characters/sheet-identity",
@@ -210,56 +226,19 @@ describe("@vtt/characters", () => {
   });
 
   describe("CreateCharacter", () => {
-    it("player dispatch spawns Character + OwnedBy on the dispatcher and self-assigns", async () => {
+    it("player dispatch spawns Character + Permissions(ownedBy(creator))", async () => {
       const seen: string[] = [];
       bus.onAny((e) => seen.push(e.type));
       const id = await makeCharacter(pipeline, world);
       expect(seen).toEqual([CharacterCreated.name]);
-      const got = world.get(id, [Character, OwnedBy]) as {
-        Character: { name: string; playerUserId?: string };
-        OwnedBy: { userId: string };
+      const got = world.get(id, [Character]) as {
+        Character: { name: string };
       };
       expect(got.Character.name).toBe("Tarn");
-      expect(got.Character.playerUserId).toBe(PLAYER.userId);
-      expect(got.OwnedBy.userId).toBe(PLAYER.userId);
-    });
-
-    it("GM creating an unassigned character (playerUserId='') leaves it without an assignee", async () => {
-      const id = await makeCharacter(pipeline, world, GM, {
-        name: "NPC",
-        playerUserId: "",
-      });
-      const got = world.get(id, [Character]) as {
-        Character: { name: string; playerUserId?: string };
-      };
-      expect(got.Character.playerUserId).toBeUndefined();
-    });
-
-    it("GM may create a character assigned to a specific player", async () => {
-      const id = await makeCharacter(pipeline, world, GM, {
-        name: "Assigned",
-        ownerUserId: PLAYER.userId,
-        playerUserId: OTHER_PLAYER.userId,
-      });
-      const got = world.get(id, [Character, OwnedBy]) as {
-        Character: { playerUserId?: string };
-        OwnedBy: { userId: string };
-      };
-      expect(got.OwnedBy.userId).toBe(PLAYER.userId);
-      expect(got.Character.playerUserId).toBe(OTHER_PLAYER.userId);
-    });
-
-    it("rejects a player trying to create a character assigned to someone else", async () => {
-      const res = await dispatch(
-        pipeline,
-        CreateCharacter({
-          name: "Spoof",
-          playerUserId: OTHER_PLAYER.userId,
-        }),
-        PLAYER,
-      );
-      expect(res.result.ok).toBe(false);
-      expect(world.query([Character])).toHaveLength(0);
+      const perm = readPerm(world, id);
+      expect(perm.read.kind).toBe("everyone");
+      expect(perm.write.kind).toBe("users");
+      expect(perm.write.userIds).toEqual([PLAYER.userId]);
     });
 
     it("GM may create a character on behalf of another user", async () => {
@@ -267,8 +246,8 @@ describe("@vtt/characters", () => {
         name: "GM-made",
         ownerUserId: PLAYER.userId,
       });
-      const got = world.get(id, [OwnedBy]) as { OwnedBy: { userId: string } };
-      expect(got.OwnedBy.userId).toBe(PLAYER.userId);
+      const perm = readPerm(world, id);
+      expect(perm.write.userIds).toEqual([PLAYER.userId]);
     });
 
     it("rejects a player trying to create a character for someone else", async () => {
@@ -289,8 +268,8 @@ describe("@vtt/characters", () => {
         name: "Tarn",
         ownerUserId: PLAYER.userId,
       });
-      const got = world.get(id, [OwnedBy]) as { OwnedBy: { userId: string } };
-      expect(got.OwnedBy.userId).toBe(PLAYER.userId);
+      const perm = readPerm(world, id);
+      expect(perm.write.userIds).toEqual([PLAYER.userId]);
     });
 
     it("rejects an unauthenticated dispatch", async () => {
@@ -312,40 +291,30 @@ describe("@vtt/characters", () => {
     });
   });
 
-  describe("requireCharacterEditor", () => {
-    it("the assigned player may rename a GM-owned character", async () => {
-      // GM creates and assigns to OTHER_PLAYER; OwnedBy stays with GM.
+  describe("permissions ⇄ characters", () => {
+    it("a user added to Permissions.write may rename / edit fields", async () => {
+      // GM creates a character owned by themself, then grants OTHER_PLAYER write access.
       const id = await makeCharacter(pipeline, world, GM, {
         name: "Bobo",
         ownerUserId: GM.userId,
-        playerUserId: OTHER_PLAYER.userId,
       });
-      const got = world.get(id, [Character, OwnedBy]) as {
-        Character: { playerUserId?: string };
-        OwnedBy: { userId: string };
-      };
-      expect(got.OwnedBy.userId).toBe(GM.userId);
-      expect(got.Character.playerUserId).toBe(OTHER_PLAYER.userId);
+      await dispatch(
+        pipeline,
+        SetPermissions({
+          entityId: id,
+          write: { kind: "users", userIds: [GM.userId, OTHER_PLAYER.userId] },
+        }),
+        GM,
+      );
 
-      const res = await dispatch(
+      // OTHER_PLAYER can now rename and SetField.
+      const renameRes = await dispatch(
         pipeline,
         RenameCharacter({ characterId: id, name: "Bobo the Brave" }),
         OTHER_PLAYER,
       );
-      expect(res.result.ok).toBe(true);
-      const renamed = world.get(id, [Character]) as {
-        Character: { name: string };
-      };
-      expect(renamed.Character.name).toBe("Bobo the Brave");
-    });
-
-    it("the assigned player may edit fields on a GM-owned character", async () => {
-      const id = await makeCharacter(pipeline, world, GM, {
-        name: "Bobo",
-        ownerUserId: GM.userId,
-        playerUserId: OTHER_PLAYER.userId,
-      });
-      const res = await dispatch(
+      expect(renameRes.result.ok).toBe(true);
+      const setRes = await dispatch(
         pipeline,
         SetField({
           characterId: id,
@@ -355,20 +324,23 @@ describe("@vtt/characters", () => {
         }),
         OTHER_PLAYER,
       );
-      expect(res.result.ok).toBe(true);
-      const got = world.get(id, [TestAbilities]) as
-        | { Abilities: { str: number; dex: number } }
-        | undefined;
-      expect(got!.Abilities.str).toBe(14);
+      expect(setRes.result.ok).toBe(true);
     });
 
-    it("clearing the assignment revokes the player's edit rights", async () => {
+    it("revoking write access via SetPermissions takes effect immediately", async () => {
       const id = await makeCharacter(pipeline, world, GM, {
         name: "Bobo",
         ownerUserId: GM.userId,
-        playerUserId: OTHER_PLAYER.userId,
       });
-      // Player can rename while assigned…
+      await dispatch(
+        pipeline,
+        SetPermissions({
+          entityId: id,
+          write: { kind: "users", userIds: [GM.userId, OTHER_PLAYER.userId] },
+        }),
+        GM,
+      );
+      // Player can rename while granted…
       let res = await dispatch(
         pipeline,
         RenameCharacter({ characterId: id, name: "Bobo II" }),
@@ -376,10 +348,13 @@ describe("@vtt/characters", () => {
       );
       expect(res.result.ok).toBe(true);
 
-      // GM clears the assignment.
+      // GM revokes.
       await dispatch(
         pipeline,
-        AssignCharacter({ characterId: id, playerUserId: "" }),
+        SetPermissions({
+          entityId: id,
+          write: { kind: "users", userIds: [GM.userId] },
+        }),
         GM,
       );
 
@@ -452,8 +427,13 @@ describe("@vtt/characters", () => {
     });
 
     it("rejects rename of an entity that isn't a character", async () => {
-      // Spawn a bare entity with only OwnedBy — no Character trait.
-      const stranger = world.spawn([OwnedBy({ userId: PLAYER.userId })]);
+      // Spawn a bare entity with only Permissions — no Character trait.
+      const stranger = world.spawn([
+        Permissions({
+          read: { kind: "everyone" },
+          write: { kind: "users", userIds: [PLAYER.userId] },
+        }),
+      ]);
       const res = await dispatch(
         pipeline,
         RenameCharacter({ characterId: stranger, name: "Nope" }),
@@ -515,117 +495,13 @@ describe("@vtt/characters", () => {
     });
   });
 
-  describe("AssignCharacter", () => {
-    it("owner reassigns their own character to another player", async () => {
-      const id = await makeCharacter(pipeline, world);
-      const res = await dispatch(
-        pipeline,
-        AssignCharacter({
-          characterId: id,
-          playerUserId: OTHER_PLAYER.userId,
-        }),
-        PLAYER,
-      );
-      expect(res.result.ok).toBe(true);
-      expect(res.events.map((e) => e.type)).toEqual([
-        CharacterAssigned.name,
-      ]);
-      const got = world.get(id, [Character]) as {
-        Character: { name: string; playerUserId?: string };
-      };
-      expect(got.Character.playerUserId).toBe(OTHER_PLAYER.userId);
-    });
-
-    it("clearing assignment with empty string leaves playerUserId undefined", async () => {
-      const id = await makeCharacter(pipeline, world);
-      const res = await dispatch(
-        pipeline,
-        AssignCharacter({ characterId: id, playerUserId: "" }),
-        PLAYER,
-      );
-      expect(res.result.ok).toBe(true);
-      const got = world.get(id, [Character]) as {
-        Character: { playerUserId?: string };
-      };
-      expect(got.Character.playerUserId).toBeUndefined();
-    });
-
-    it("GM reassigns any character", async () => {
-      const id = await makeCharacter(pipeline, world);
-      const res = await dispatch(
-        pipeline,
-        AssignCharacter({
-          characterId: id,
-          playerUserId: OTHER_PLAYER.userId,
-        }),
-        GM,
-      );
-      expect(res.result.ok).toBe(true);
-      const got = world.get(id, [Character]) as {
-        Character: { playerUserId?: string };
-      };
-      expect(got.Character.playerUserId).toBe(OTHER_PLAYER.userId);
-    });
-
-    it("non-owner non-GM is rejected", async () => {
-      const id = await makeCharacter(pipeline, world);
-      const res = await dispatch(
-        pipeline,
-        AssignCharacter({
-          characterId: id,
-          playerUserId: OTHER_PLAYER.userId,
-        }),
-        OTHER_PLAYER,
-      );
-      expect(res.result.ok).toBe(false);
-      const got = world.get(id, [Character]) as {
-        Character: { playerUserId?: string };
-      };
-      expect(got.Character.playerUserId).toBe(PLAYER.userId);
-    });
-
-    it("rename preserves the assignment", async () => {
-      const id = await makeCharacter(pipeline, world);
-      await dispatch(
-        pipeline,
-        AssignCharacter({
-          characterId: id,
-          playerUserId: OTHER_PLAYER.userId,
-        }),
-        GM,
-      );
-      await dispatch(
-        pipeline,
-        RenameCharacter({ characterId: id, name: "Tarn II" }),
-        GM,
-      );
-      const got = world.get(id, [Character]) as {
-        Character: { name: string; playerUserId?: string };
-      };
-      expect(got.Character.name).toBe("Tarn II");
-      expect(got.Character.playerUserId).toBe(OTHER_PLAYER.userId);
-    });
-
-    it("rejects assignment of a non-existent character", async () => {
-      const res = await dispatch(
-        pipeline,
-        AssignCharacter({
-          characterId: "ghost" as EntityId,
-          playerUserId: PLAYER.userId,
-        }),
-        GM,
-      );
-      expect(res.result.ok).toBe(false);
-    });
-  });
-
   describe("systems", () => {
-    it("CharacterSpawningSystem is wired to CharacterCreated and writes Character + OwnedBy", () => {
+    it("CharacterSpawningSystem is wired to CharacterCreated and writes Character + Permissions", () => {
       expect(CharacterSpawningSystem.name).toBe("CharacterSpawning");
       expect(CharacterSpawningSystem.on.name).toBe(CharacterCreated.name);
       const writes = CharacterSpawningSystem.writes.map((t) => t.name);
       expect(writes).toEqual(
-        expect.arrayContaining([Character.name, OwnedBy.name]),
+        expect.arrayContaining([Character.name, Permissions.name]),
       );
     });
 
@@ -657,27 +533,6 @@ describe("@vtt/characters", () => {
       expect(events).toEqual([]);
     });
 
-    it("CharacterAssignmentSystem is wired to CharacterAssigned and writes Character", () => {
-      expect(CharacterAssignmentSystem.name).toBe("CharacterAssignment");
-      expect(CharacterAssignmentSystem.on.name).toBe(
-        CharacterAssigned.name,
-      );
-      expect(CharacterAssignmentSystem.writes.map((t) => t.name)).toContain(
-        Character.name,
-      );
-    });
-
-    it("CharacterAssignmentSystem is a no-op for a despawned character id", () => {
-      const events = CharacterAssignmentSystem.run({
-        event: {
-          characterId: "ghost" as EntityId,
-          playerUserId: "x",
-        } as never,
-        world,
-        registry,
-      });
-      expect(events).toEqual([]);
-    });
   });
 
   describe("SetField", () => {
@@ -957,7 +812,12 @@ describe("@vtt/characters", () => {
     });
 
     it("rejects setting on an entity that isn't a character", async () => {
-      const stranger = world.spawn([OwnedBy({ userId: PLAYER.userId })]);
+      const stranger = world.spawn([
+        Permissions({
+          read: { kind: "everyone" },
+          write: { kind: "users", userIds: [PLAYER.userId] },
+        }),
+      ]);
       const res = await dispatch(
         pipeline,
         SetCharacterTokenImage({ characterId: stranger, imageUrl: null }),

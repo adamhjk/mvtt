@@ -16,8 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { createMemo, type Accessor } from "solid-js";
-import { useClient, useQuery } from "@vtt/substrate/client";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { useQuery } from "@vtt/substrate/client";
 import { WorkspaceOwner, WorkspaceState } from "../shared/traits.js";
 import type { z } from "zod";
 import { useMe } from "./use-me.js";
@@ -41,13 +40,15 @@ export interface WorkspaceHandle {
  */
 export function useWorkspace(): WorkspaceHandle {
   const me = useMe();
-  const owners = useQuery([WorkspaceOwner, OwnedBy, WorkspaceState]);
+  const owners = useQuery([WorkspaceOwner, WorkspaceState]);
   const found = createMemo(() => {
     const m = me();
     if (!m) return null;
     return (
-      owners().find((row) => (row.values.OwnedBy as { userId: string }).userId === m.userId) ??
-      null
+      owners().find(
+        (row) =>
+          (row.values.WorkspaceOwner as { userId: string }).userId === m.userId,
+      ) ?? null
     );
   });
   const ownerEntityId = createMemo(() => found()?.id ?? null);

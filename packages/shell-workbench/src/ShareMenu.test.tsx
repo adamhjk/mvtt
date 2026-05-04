@@ -33,7 +33,7 @@ import {
   definePageProvider,
   tabSentinelEntityId,
 } from "./shared/index.js";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { actors, Permissions } from "@vtt/permissions/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { shellWorkbench } from "./manifest.js";
@@ -87,7 +87,7 @@ function harness(opts: {
       // but matches every real workbench mount.
       world.spawn([
         WorkspaceOwner({ userId: ME }),
-        OwnedBy({ userId: ME }),
+        Permissions({ read: actors([ME]), write: actors([ME]) }),
         WorkspaceState({
           tabs: { [TAB.id]: TAB },
           panes: {
@@ -334,7 +334,7 @@ describe("ShareMenu", () => {
         // produce when the tab opened in real life.
         world.spawn([
           WorkspaceOwner({ userId: ME }),
-          OwnedBy({ userId: ME }),
+          Permissions({ read: actors([ME]), write: actors([ME]) }),
           WorkspaceState({
             tabs: { [TAB.id]: TAB },
             panes: {

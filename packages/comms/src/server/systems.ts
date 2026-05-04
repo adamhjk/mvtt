@@ -17,10 +17,10 @@
 
 import { defineSystem, type Visibility } from "@vtt/substrate";
 import {
-  EntityVisibility,
   actors,
   everyone,
   gmOnly,
+  Permissions,
 } from "@vtt/permissions/shared";
 import { Character } from "@vtt/characters/shared";
 import { ChatMessage } from "../shared/traits.js";
@@ -30,9 +30,11 @@ import { MessageSent } from "../shared/events.js";
  * Universal mirror system: runs on the server and on every recipient
  * client (the broadcast filter ensures only allowed clients see whisper
  * MessageSent events). Spawns one entity per message, carrying the
- * ChatMessage trait + an EntityVisibility trait that mirrors the event's
- * visibility so the per-recipient snapshot filter keeps the message out
- * of late-joiner snapshots when it's a whisper.
+ * ChatMessage trait + a Permissions trait whose `read` mirrors the
+ * event's effective visibility so the per-recipient snapshot filter
+ * keeps the message out of late-joiner snapshots when it's a whisper.
+ * `write` is GM-only — messages are immutable once sent; only GMs
+ * could ever moderate (future).
  *
  * When the message was sent with `speakingAsCharacterId`, the system
  * resolves the current Character name and overrides `authorName` with
@@ -45,12 +47,12 @@ export const MessageRecordingSystem = defineSystem({
   name: "MessageRecording",
   on: MessageSent,
   reads: [Character],
-  writes: [ChatMessage, EntityVisibility],
+  writes: [ChatMessage, Permissions],
   run: ({ event, world }) => {
     // Whisper visibility wins over `gm-only` (whispers are strictly
     // narrower); that mirrors the rule SendMessage.apply applies to the
     // event-level visibility.
-    const visibility: Visibility =
+    const read: Visibility =
       event.whisperTo && event.whisperTo.length > 0
         ? actors(event.whisperTo)
         : event.visibility === "gm-only"
@@ -73,7 +75,7 @@ export const MessageRecordingSystem = defineSystem({
         speakingAsCharacterId: event.speakingAsCharacterId,
         visibility: event.visibility,
       }),
-      EntityVisibility({ visibility }),
+      Permissions({ read, write: gmOnly() }),
     ]);
     return [];
   },

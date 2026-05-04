@@ -15,9 +15,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { fail, ok, type Result, type World } from "@vtt/substrate";
+import {
+  fail,
+  matches,
+  ok,
+  type Result,
+  type Visibility,
+  type World,
+} from "@vtt/substrate";
 import { type Role, parseAuthSession } from "@vtt/auth";
-import { OwnedBy } from "./traits.js";
+import { Permissions } from "./traits.js";
 
 /**
  * Compose with `validate` in commands:
@@ -38,25 +45,69 @@ export function requireRole(
 }
 
 /**
- * Pass when the actor is the entity's owner OR a GM. The "or GM" branch
- * is the universal escape hatch — Game Masters can manipulate anything
- * regardless of OwnedBy. Returns fail when there's no session, the entity
- * doesn't exist, the entity has no `OwnedBy` trait (no one owns it; only
- * GMs can act on it), or the actor is neither owner nor GM.
+ * Pass when the actor may write the entity:
+ *   - GMs always pass (universal bypass — gm is the escape hatch).
+ *   - Otherwise the actor's `{userId, role}` must match the entity's
+ *     `Permissions.write` Visibility (everyone / role / users).
+ *
+ * Fails when no session, the entity has no `Permissions` trait (no
+ * one owns it, only GMs may act), or none of the above match.
+ *
+ * This is the canonical write-gate for every plugin. `requireOwnerOrGm`
+ * and `requireCharacterEditor` are gone — assignment IS write access
+ * (a player listed in `Permissions.write.userIds` has full edit
+ * rights), and ownership is just "I am in the users list."
  */
-export function requireOwnerOrGm(
+export function requireWrite(
   ctx: { session?: unknown; world: World },
   entityId: string,
 ): Result {
   const s = parseAuthSession(ctx.session);
   if (!s) return fail("not authenticated");
   if (s.role === "gm") return ok();
-  const got = ctx.world.get(entityId, [OwnedBy]) as
-    | { OwnedBy: { userId: string } }
+  const got = ctx.world.get(entityId, [Permissions]) as
+    | { Permissions: { read: Visibility; write: Visibility } }
     | undefined;
-  if (!got) return fail(`entity ${entityId} has no OwnedBy trait — GM only`);
-  if (got.OwnedBy.userId !== s.userId) {
-    return fail(`entity ${entityId} is owned by another user`);
+  if (!got) {
+    return fail(`entity ${entityId} has no Permissions trait — GM only`);
   }
-  return ok();
+  if (matches(got.Permissions.write, { userId: s.userId, role: s.role })) {
+    return ok();
+  }
+  return fail(`you don't have write access to ${entityId}`);
+}
+
+/**
+ * Boolean form of the read check, for client-side UI predicates like
+ * "is this row clickable?" Always returns true for GMs. Without a
+ * `Permissions` trait the entity is treated as public (matches the
+ * snapshot filter's default).
+ *
+ * Accepts the client's `{userId, role}` shape directly (typically the
+ * value of `useMe()`), not a raw session — clients don't have the
+ * opaque session object on hand.
+ */
+export function canRead(
+  me: { userId: string; role: string } | null,
+  permissions: { read: Visibility; write: Visibility } | undefined,
+): boolean {
+  if (!me) return false;
+  if (me.role === "gm") return true;
+  if (!permissions) return true;
+  return matches(permissions.read, me);
+}
+
+/**
+ * Boolean form of `requireWrite`, for client-side UI predicates like
+ * "should this input be enabled?" GMs always return true. Accepts the
+ * client's `{userId, role}` shape directly.
+ */
+export function canWrite(
+  me: { userId: string; role: string } | null,
+  permissions: { read: Visibility; write: Visibility } | undefined,
+): boolean {
+  if (!me) return false;
+  if (me.role === "gm") return true;
+  if (!permissions) return false;
+  return matches(permissions.write, me);
 }

@@ -159,7 +159,7 @@ export const WorkspaceOwner = defineTrait({
  * sentinel's id is deterministic from `tabId` (see `tabSentinelEntityId`)
  * so server and clients converge without id allocation. Spawned/despawned
  * by the workbench's WorkspaceStateApply system as the user's `tabs`
- * record gains/loses entries; OwnedBy + EntityVisibility{actors:[userId]}
+ * record gains/loses entries; Permissions{actors:[userId]}
  * keep the sentinel scoped to the owning user's connections, just like
  * WorkspaceOwner.
  */

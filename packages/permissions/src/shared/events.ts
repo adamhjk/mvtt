@@ -15,16 +15,19 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-export {
-  AssetDespawnSystem,
-  AssetRenameSystem,
-  AssetSpawningSystem,
-} from "./systems.js";
-export {
-  handleAssetFetch,
-  handleAssetUpload,
-} from "./routes.js";
-export type {
-  AssetRoutesDeps,
-  AuthenticateForWorld,
-} from "./routes.js";
+import { defineEvent, EntityId, z } from "@vtt/substrate";
+import { VisibilityShape } from "./visibility.js";
+
+/**
+ * Emitted by `SetPermissions.apply`. Either or both of `read` / `write`
+ * may be present — the partial form lets the workbench UI flip just one
+ * axis without restating the other.
+ */
+export const PermissionsChanged = defineEvent({
+  name: "@vtt/permissions/PermissionsChanged",
+  schema: z.object({
+    entityId: EntityId,
+    read: VisibilityShape.optional(),
+    write: VisibilityShape.optional(),
+  }),
+});

@@ -16,6 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineSystem } from "@vtt/substrate";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import {
   BookCreated,
   BookRemoved,
@@ -28,15 +29,19 @@ import { Book } from "../shared/traits.js";
  * (server and every client) on BookCreated. All sides spawn in
  * lockstep on the same event order, so the resulting EntityId matches
  * across worlds.
+ *
+ * Default Permissions: `read: everyone, write: users:[creator]`. The
+ * chrome PermissionsMenu can flip read to gmOnly() / users:[…] later.
  */
 export const BookSpawningSystem = defineSystem({
   name: "BookSpawning",
   on: BookCreated,
   reads: [],
-  writes: [Book],
+  writes: [Book, Permissions],
   run: ({ event, world }) => {
     world.spawnAt(event.bookId, [
       Book({ name: event.name }),
+      Permissions(ownedBy(event.createdByUserId)),
     ]);
     return [];
   },

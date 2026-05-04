@@ -52,7 +52,7 @@ export const TokenCreated = defineEvent({
     kind: z.enum(["creature", "object"]),
     x: z.number(),
     y: z.number(),
-    /** userId of the player who owns the token. */
+    /** userId who initially owns the token (Permissions.write). */
     ownerUserId: z.string(),
   }),
 });
@@ -78,9 +78,13 @@ export const TokenRemoved = defineEvent({
 /**
  * A character was placed on the scene as a linked token. The recording
  * system spawns the token entity carrying Token + Sprite + Position +
- * OwnedBy + LinkedCharacter (and TokenImage when `imageUrl` is set).
+ * Permissions + LinkedCharacter (and TokenImage when `imageUrl` is set).
  * Carries the server-allocated tokenId so every recipient spawns at
  * the same id via `spawnAt`.
+ *
+ * The token's `Permissions` is copied from the character's at place
+ * time — see CharacterTokenPlacementSystem. There's no `ownerUserId`
+ * on the event because the character entity is the source of truth.
  *
  * Distinct from `TokenCreated` (raw icon-picker drop) because the
  * spawn shape is different (extra LinkedCharacter trait, optional
@@ -100,7 +104,6 @@ export const CharacterTokenPlaced = defineEvent({
     label: z.string(),
     x: z.number(),
     y: z.number(),
-    ownerUserId: z.string(),
   }),
 });
 

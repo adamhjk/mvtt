@@ -25,19 +25,16 @@ import {
   AssetDeleted,
   AssetRegistered,
   AssetRenamed,
-  AssetVisibilityChanged,
 } from "./shared/events.js";
 import {
   DeleteAsset,
   RegisterAsset,
   RenameAsset,
-  SetAssetVisibility,
 } from "./shared/commands.js";
 import {
   AssetDespawnSystem,
   AssetRenameSystem,
   AssetSpawningSystem,
-  AssetVisibilityChangeSystem,
 } from "./server/systems.js";
 
 /**
@@ -65,19 +62,16 @@ export const assets = definePlugin({
   events: [
     AssetRegistered,
     AssetRenamed,
-    AssetVisibilityChanged,
     AssetDeleted,
   ],
   commands: [
     RegisterAsset,
     RenameAsset,
-    SetAssetVisibility,
     DeleteAsset,
   ],
   systems: [
     AssetSpawningSystem,
     AssetRenameSystem,
-    AssetVisibilityChangeSystem,
     AssetDespawnSystem,
   ],
   fills: {

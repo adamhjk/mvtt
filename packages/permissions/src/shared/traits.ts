@@ -16,53 +16,38 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineTrait, z } from "@vtt/substrate";
+import { VisibilityShape } from "./visibility.js";
 
 /**
- * Generic ownership reference: this entity belongs to that user (by
- * userId, not by Player entityId — the Player entity is ephemeral but the
- * userId is stable across reconnects). Other plugins use it for "you can
- * only move tokens you own," "this character sheet is yours to edit," etc.
+ * The single permission record carried on every gate-able entity.
  *
- * Lives in `@vtt/permissions` rather than `@vtt/identity` because it's
- * fundamentally a *permissions* concept (who can act on what) — identity
- * just provides the userId. Persistent (not transient): a token's owner
- * survives a server restart.
- */
-export const OwnedBy = defineTrait({
-  name: "@vtt/permissions/OwnedBy",
-  schema: z.object({
-    userId: z.string().min(1),
-  }),
-  // Identity-bound: copying it onto another entity (or another user's
-  // entity) would mis-attribute ownership. Whole-entity replication paths
-  // (workbench tab sharing, future entity-duplicate verbs) skip this.
-  share: false,
-});
-
-const VisibilityShape = z.union([
-  z.object({ kind: z.literal("everyone") }),
-  z.object({ kind: z.literal("role"), role: z.string() }),
-  z.object({ kind: z.literal("users"), userIds: z.array(z.string()) }),
-]);
-
-/**
- * Entity-level visibility — "who's allowed to know this entity exists."
- * Carried by entities whose existence should be filtered out of certain
- * recipients' snapshots (GM-only rolls, hidden tokens, secret notes).
- * The permissions plugin registers a resolver on this trait so the
- * substrate's per-recipient snapshot filtering works without the
- * substrate hardcoding any specific trait names.
+ *   read  — who sees the entity at all (drives the per-recipient
+ *           snapshot filter; entities whose `read` doesn't match a
+ *           recipient are stripped from their snapshot).
+ *   write — who may mutate the entity (commands gate via `requireWrite`).
  *
- * Stores the substrate's `Visibility` union directly (not a domain-specific
- * mode field) so the resolver is a one-line passthrough.
+ * Both fields are the substrate's `Visibility` union — `everyone`,
+ * `role`, or an explicit list of `userIds`. **GM is universal:** the
+ * substrate's snapshot filter and `requireWrite` both bypass the
+ * structural check when the actor's role is `gm`. So a player's
+ * `users:[me]` note is *also* visible to the GM, and a GM can write
+ * any entity regardless of who's named.
+ *
+ * Replaces the older `OwnedBy` / `EntityVisibility` pair: ownership is
+ * just `write: { kind: "users", userIds: [creator] }`, and a GM-only
+ * note is `read: gmOnly(), write: gmOnly()`.
+ *
+ * `share: false` because the value is identity-bound — copying it onto
+ * another entity (or another user's entity) misattributes access.
+ * Whole-entity replication paths (workbench tab sharing, future
+ * entity-duplicate verbs) skip this and write a fresh value on the
+ * destination.
  */
-export const EntityVisibility = defineTrait({
-  name: "@vtt/permissions/EntityVisibility",
+export const Permissions = defineTrait({
+  name: "@vtt/permissions/Permissions",
   schema: z.object({
-    visibility: VisibilityShape,
+    read: VisibilityShape,
+    write: VisibilityShape,
   }),
-  // Scoping is per-entity by definition; copying it elsewhere would grant
-  // visibility to the wrong recipients. Whole-entity replication paths skip
-  // this and write a freshly-scoped value on the destination.
   share: false,
 });

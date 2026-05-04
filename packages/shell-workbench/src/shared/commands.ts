@@ -27,10 +27,8 @@ import {
   type Result,
   type World,
 } from "@vtt/substrate";
-import { actors } from "@vtt/permissions/shared";
-import { requireRole } from "@vtt/permissions/shared";
+import { actors, Permissions, requireRole } from "@vtt/permissions/shared";
 import { requireSession } from "@vtt/identity/shared";
-import { OwnedBy } from "@vtt/permissions/shared";
 import {
   WorkspaceState,
   WorkspaceOwner,
@@ -54,9 +52,9 @@ export function findOwnerFor(
   world: World,
   userId: string,
 ): { entityId: EntityId; state: z.infer<typeof WorkspaceState.schema> } | null {
-  for (const row of world.query([WorkspaceOwner, OwnedBy, WorkspaceState])) {
-    const own = row.values.OwnedBy as { userId: string };
-    if (own.userId !== userId) continue;
+  for (const row of world.query([WorkspaceOwner, WorkspaceState])) {
+    const wo = row.values.WorkspaceOwner as { userId: string };
+    if (wo.userId !== userId) continue;
     return {
       entityId: row.id,
       state: row.values.WorkspaceState as z.infer<typeof WorkspaceState.schema>,

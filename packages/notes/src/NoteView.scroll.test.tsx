@@ -31,9 +31,7 @@ import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import {
-  EntityVisibility,
-  OwnedBy,
-  everyone,
+  ownedBy, Permissions,
 } from "@vtt/permissions/shared";
 import { type EntityId } from "@vtt/substrate";
 import { notes } from "./manifest.js";
@@ -64,8 +62,7 @@ function seedTabSentinel(
   const sentinelId = tabSentinelEntityId(TAB_ID);
   world.spawnAt(sentinelId, [
     TabSentinel({ tabId: TAB_ID }),
-    OwnedBy({ userId: ME_USER_ID }),
-    EntityVisibility({ visibility: everyone() }),
+    Permissions(ownedBy(ME_USER_ID)),
     NotesUiState(uiState),
   ]);
 }
@@ -112,8 +109,7 @@ function harness(): {
       const pageB = world.allocateId();
       world.spawnAt(noteId, [
         Note({ title: "TestNote", createdAt: 0 }),
-        OwnedBy({ userId: ME_USER_ID }),
-        EntityVisibility({ visibility: everyone() }),
+        Permissions(ownedBy(ME_USER_ID)),
       ]);
       world.spawnAt(pageA, [
         BelongsToNote({ noteId }),
@@ -136,7 +132,6 @@ function harness(): {
             },
           ],
         }),
-        EntityVisibility({ visibility: everyone() }),
       ]);
       world.spawnAt(pageB, [
         BelongsToNote({ noteId }),
@@ -155,7 +150,6 @@ function harness(): {
             },
           ],
         }),
-        EntityVisibility({ visibility: everyone() }),
       ]);
 
       setup = {

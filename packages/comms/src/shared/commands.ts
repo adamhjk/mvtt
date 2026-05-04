@@ -24,7 +24,7 @@ import {
   z,
 } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
-import { actors, everyone, gmOnly } from "@vtt/permissions/shared";
+import { actors, everyone, gmOnly, requireWrite } from "@vtt/permissions/shared";
 import { Character } from "@vtt/characters/shared";
 import { MessageSent } from "./events.js";
 
@@ -69,19 +69,13 @@ export const SendMessage = defineCommand({
         return fail(`character ${speakerId} does not exist`);
       }
       const got = ctx.world.get(speakerId, [Character]) as
-        | { Character: { name: string; playerUserId?: string } }
+        | { Character: { name: string } }
         | undefined;
       if (!got) {
         return fail(`entity ${speakerId} is not a character`);
       }
-      if (
-        auth.role !== "gm" &&
-        got.Character.playerUserId !== auth.userId
-      ) {
-        return fail(
-          `character ${speakerId} is not assigned to you — cannot speak as it`,
-        );
-      }
+      const editor = requireWrite(ctx, speakerId);
+      if (!editor.ok) return editor;
     }
     return ok();
   },

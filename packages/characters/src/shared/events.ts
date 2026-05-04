@@ -21,23 +21,21 @@ import { defineEvent, EntityId, z } from "@vtt/substrate";
  * A new character was created. `characterId` is allocated by the
  * server's command `apply` and embedded in the event so every recipient
  * spawns at the same id — no per-side counter prediction.
+ *
+ * The recording system spawns Character + a default Permissions trait
+ * with `read: everyone, write: users:[ownerUserId]`. Subsequent
+ * "assignment" / "transfer" / "GM-only NPC" decisions are handled by
+ * the universal `SetPermissions` command — there's no character-specific
+ * assignment verb.
  */
 export const CharacterCreated = defineEvent({
   name: "@vtt/characters/CharacterCreated",
   schema: z.object({
     characterId: EntityId,
     name: z.string().min(1).max(120),
-    /** userId of the player who owns the character. */
+    /** userId who initially owns the character (Permissions.write). */
     ownerUserId: z.string().min(1),
     createdByUserId: z.string().min(1),
-    /**
-     * Optional initial player assignment — the userId of the player
-     * who plays this character. Defaults to the owner when absent so
-     * the common case (player creates their own character) is also
-     * the player who plays it; a GM creating an NPC sheet can leave
-     * it unassigned by passing the empty string.
-     */
-    playerUserId: z.string().optional(),
   }),
 });
 
@@ -58,19 +56,6 @@ export const CharacterRemoved = defineEvent({
   name: "@vtt/characters/CharacterRemoved",
   schema: z.object({
     characterId: EntityId,
-  }),
-});
-
-/**
- * The player assignment for a character changed — `playerUserId` is the
- * userId of the new player, or the empty string to clear the assignment.
- * Owner-or-GM gated by the AssignCharacter command.
- */
-export const CharacterAssigned = defineEvent({
-  name: "@vtt/characters/CharacterAssigned",
-  schema: z.object({
-    characterId: EntityId,
-    playerUserId: z.string(),
   }),
 });
 

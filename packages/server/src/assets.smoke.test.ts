@@ -39,12 +39,8 @@ import {
   handleAssetFetch,
   handleAssetUpload,
 } from "@vtt/assets/server";
-import {
-  Asset,
-  RegisterAsset,
-  SetAssetVisibility,
-  DeleteAsset,
-} from "@vtt/assets/shared";
+import { Asset, RegisterAsset, DeleteAsset } from "@vtt/assets/shared";
+import { SetPermissions } from "@vtt/permissions/shared";
 import type { AuthSession } from "@vtt/auth";
 import type { IncomingMessage } from "node:http";
 
@@ -258,9 +254,9 @@ describe("assets HTTP smoke", () => {
       id: "lock-1",
       issuedBy: "tester" as never,
       issuedAt: Date.now(),
-      cmd: SetAssetVisibility({
-        assetId: body1.assetId as EntityId,
-        visibility: { kind: "role", role: "gm" },
+      cmd: SetPermissions({
+        entityId: body1.assetId as EntityId,
+        read: { kind: "role", role: "gm" },
       }),
       session: ALICE,
     });

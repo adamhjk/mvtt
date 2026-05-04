@@ -21,6 +21,12 @@ export {
   gmOnly,
   actors,
   whisper,
+  ownedBy,
+  gmOnlyPermissions,
+  publicPermissions,
+  VisibilityShape,
 } from "./visibility.js";
-export { OwnedBy, EntityVisibility } from "./traits.js";
-export { requireRole, requireOwnerOrGm } from "./checks.js";
+export { Permissions } from "./traits.js";
+export { requireRole, requireWrite, canRead, canWrite } from "./checks.js";
+export { SetPermissions } from "./commands.js";
+export { PermissionsChanged } from "./events.js";

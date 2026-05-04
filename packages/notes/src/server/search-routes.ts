@@ -110,6 +110,8 @@ function entityVisible(
       if (v !== undefined) out[name] = v;
     }
   }
+  // GM bypass mirrors the snapshot filter — GMs see every entity.
+  if (recipient.role === "gm") return true;
   const vis = runtime.registry.resolveEntityVisibility(out);
   if (vis === null) return true;
   return matches(vis, recipient);

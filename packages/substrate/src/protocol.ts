@@ -94,5 +94,46 @@ export const AckMsg = z.object({
   reason: z.string().optional(),
 });
 
-export const WireMsg = z.union([HelloMsg, SnapshotMsg, SyncedMsg, CommandMsg, EventMsg, AckMsg, PresenceMsg]);
+/**
+ * Per-recipient visibility delta: an entity the recipient previously
+ * couldn't see is now readable to them. The server pushes the entity's
+ * full trait map so the client can spawn it locally, identical to how
+ * the snapshot path materialises entities at connection time.
+ *
+ * Sent only to the affected connection; not visible to other peers.
+ * Only fires when the visibility direction CHANGES — if the recipient
+ * already had the entity, the server doesn't re-send it (the per-conn
+ * `visibleEntities` set is the source of truth).
+ */
+export const EntityRevealedMsg = z.object({
+  kind: z.literal("entity-revealed"),
+  worldId: z.string(),
+  seq: z.number().int().nonnegative(),
+  entityId: z.string(),
+  traits: z.record(z.string(), z.unknown()),
+});
+
+/**
+ * Per-recipient visibility delta in the opposite direction: an entity
+ * the recipient previously could see is no longer readable. The client
+ * despawns it locally so views, lists, and tab bindings react.
+ */
+export const EntityHiddenMsg = z.object({
+  kind: z.literal("entity-hidden"),
+  worldId: z.string(),
+  seq: z.number().int().nonnegative(),
+  entityId: z.string(),
+});
+
+export const WireMsg = z.union([
+  HelloMsg,
+  SnapshotMsg,
+  SyncedMsg,
+  CommandMsg,
+  EventMsg,
+  AckMsg,
+  PresenceMsg,
+  EntityRevealedMsg,
+  EntityHiddenMsg,
+]);
 export type WireMsg = z.infer<typeof WireMsg>;

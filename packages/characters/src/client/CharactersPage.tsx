@@ -17,7 +17,7 @@
 
 import { type CommandInstance } from "@vtt/substrate";
 import { useClient, useQuery } from "@vtt/substrate/client";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { canWrite, Permissions } from "@vtt/permissions/shared";
 import {
   definePageProvider,
   RetargetTab,
@@ -92,28 +92,22 @@ function CharactersPage(props: {
 function CharactersHub(props: { tabId: string }): JSX.Element {
   const client = useClient();
   const me = useMe();
-  const characterRows = useQuery([Character, OwnedBy]);
+  const characterRows = useQuery([Character, Permissions]);
 
   const characters = createMemo(() =>
     characterRows()
       .map((row) => ({
         id: row.id,
         name: (row.values.Character as { name: string }).name,
-        ownerUserId: (row.values.OwnedBy as { userId: string }).userId,
-        playerUserId: (row.values.Character as {
-          playerUserId?: string;
-        }).playerUserId,
+        permissions: row.values.Permissions as
+          | Parameters<typeof canWrite>[1]
+          | undefined,
       }))
       .sort((a, b) => a.name.localeCompare(b.name)),
   );
 
-  const canRemove = (c: { ownerUserId: string; playerUserId?: string }) => {
-    const m = me();
-    if (!m) return false;
-    if (m.role === "gm") return true;
-    if (m.userId === c.ownerUserId) return true;
-    return c.playerUserId === m.userId;
-  };
+  const canRemove = (c: { permissions?: Parameters<typeof canWrite>[1] }) =>
+    canWrite(me(), c.permissions);
 
   const open = (characterId: string) => {
     client.dispatch(

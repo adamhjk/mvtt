@@ -29,7 +29,7 @@ import {
   z,
 } from "@vtt/substrate";
 import { Identity, Name, Online } from "@vtt/identity/shared";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { actors, Permissions } from "@vtt/permissions/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { shellWorkbench } from "./manifest.js";
@@ -113,7 +113,7 @@ function harness() {
       ]);
       world.spawn([
         WorkspaceOwner({ userId: ME }),
-        OwnedBy({ userId: ME }),
+        Permissions({ read: actors([ME]), write: actors([ME]) }),
         WorkspaceState({
           tabs: {},
           panes: { p1: { paneId: "p1", tabIds: [], activeTabId: null } },

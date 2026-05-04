@@ -26,7 +26,6 @@ import { characterLinkKind } from "./shared/character-link-kind.js";
 import { Character, CharacterToken } from "./shared/traits.js";
 import { PendingRoll } from "./shared/pending.js";
 import {
-  CharacterAssigned,
   CharacterCreated,
   CharacterFieldSet,
   CharacterRenamed,
@@ -38,7 +37,6 @@ import {
   PendingRollOpened,
 } from "./shared/events.js";
 import {
-  AssignCharacter,
   CancelPendingRoll,
   CommitPendingRoll,
   ContributeToPendingRoll,
@@ -59,7 +57,6 @@ import {
   type CharacterSheetRegion,
 } from "./shared/slot.js";
 import {
-  CharacterAssignmentSystem,
   CharacterFieldSetSystem,
   CharacterSpawningSystem,
   CharacterRenameSystem,
@@ -115,7 +112,6 @@ export const characters = definePlugin({
     CharacterCreated,
     CharacterRenamed,
     CharacterRemoved,
-    CharacterAssigned,
     CharacterFieldSet,
     CharacterTokenImageSet,
     PendingRollOpened,
@@ -127,7 +123,6 @@ export const characters = definePlugin({
     CreateCharacter,
     RemoveCharacter,
     RenameCharacter,
-    AssignCharacter,
     SetCharacterTokenImage,
     SetField,
     OpenPendingRoll,
@@ -139,7 +134,6 @@ export const characters = definePlugin({
     CharacterSpawningSystem,
     CharacterRenameSystem,
     CharacterRemovalSystem,
-    CharacterAssignmentSystem,
     CharacterFieldSetSystem,
     CharacterTokenImageSetSystem,
     PendingRollSpawnSystem,

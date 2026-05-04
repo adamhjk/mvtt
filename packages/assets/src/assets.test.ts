@@ -27,7 +27,7 @@ import {
 } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
 import { permissions } from "@vtt/permissions";
-import { EntityVisibility, OwnedBy } from "@vtt/permissions/shared";
+import { Permissions } from "@vtt/permissions/shared";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { notes } from "@vtt/notes";
 import {
@@ -35,18 +35,15 @@ import {
   AssetDeleted,
   AssetRegistered,
   AssetRenamed,
-  AssetVisibilityChanged,
   DeleteAsset,
   RegisterAsset,
   RenameAsset,
-  SetAssetVisibility,
 } from "./shared/index.js";
 import { assets as assetsPlugin } from "./manifest.js";
 import {
   AssetDespawnSystem,
   AssetRenameSystem,
   AssetSpawningSystem,
-  AssetVisibilityChangeSystem,
 } from "./server/systems.js";
 
 const GM: AuthSession = {
@@ -142,18 +139,14 @@ describe("@vtt/assets", () => {
     expect(Asset.name).toBe("@vtt/assets/Asset");
     expect(RegisterAsset.name).toBe("@vtt/assets/RegisterAsset");
     expect(RenameAsset.name).toBe("@vtt/assets/RenameAsset");
-    expect(SetAssetVisibility.name).toBe("@vtt/assets/SetAssetVisibility");
     expect(DeleteAsset.name).toBe("@vtt/assets/DeleteAsset");
     expect(AssetRegistered.name).toBe("@vtt/assets/AssetRegistered");
     expect(AssetRenamed.name).toBe("@vtt/assets/AssetRenamed");
-    expect(AssetVisibilityChanged.name).toBe(
-      "@vtt/assets/AssetVisibilityChanged",
-    );
     expect(AssetDeleted.name).toBe("@vtt/assets/AssetDeleted");
   });
 
   describe("RegisterAsset", () => {
-    it("authenticated dispatch spawns Asset + OwnedBy + EntityVisibility", async () => {
+    it("authenticated dispatch spawns Asset + Permissions(ownedBy(uploader))", async () => {
       const seen: string[] = [];
       bus.onAny((e) => seen.push(e.type));
       const res = await register(pipeline, ALICE);
@@ -167,12 +160,12 @@ describe("@vtt/assets", () => {
       expect(asset.mime).toBe("image/webp");
       expect(asset.sha256).toBe(SHA.one);
       expect(asset.filename).toBe("cave.webp");
-      const owned = world.get(id, [OwnedBy]) as { OwnedBy: { userId: string } };
-      expect(owned.OwnedBy.userId).toBe("alice");
-      const vis = world.get(id, [EntityVisibility]) as
-        | { EntityVisibility: { visibility: { kind: string } } }
+      const got = world.get(id, [Permissions]) as
+        | { Permissions: { read: { kind: string }; write: { kind: string; userIds?: string[] } } }
         | undefined;
-      expect(vis?.EntityVisibility.visibility.kind).toBe("everyone");
+      expect(got?.Permissions.read.kind).toBe("everyone");
+      expect(got?.Permissions.write.kind).toBe("users");
+      expect(got?.Permissions.write.userIds).toEqual(["alice"]);
     });
 
     it("rejects unauthenticated dispatch", async () => {
@@ -238,65 +231,9 @@ describe("@vtt/assets", () => {
     });
   });
 
-  describe("SetAssetVisibility", () => {
-    it("owner can change to gmOnly", async () => {
-      await register(pipeline, ALICE);
-      const id = world.query([Asset])[0]!.id;
-      const res = await dispatch(
-        pipeline,
-        SetAssetVisibility({
-          assetId: id,
-          visibility: { kind: "role", role: "gm" },
-        }),
-        ALICE,
-      );
-      expect(res.result.ok).toBe(true);
-      const v = world.get(id, [EntityVisibility]) as {
-        EntityVisibility: { visibility: { kind: string; role?: string } };
-      };
-      expect(v.EntityVisibility.visibility).toEqual({ kind: "role", role: "gm" });
-    });
-
-    it("GM can change visibility on any asset", async () => {
-      await register(pipeline, ALICE);
-      const id = world.query([Asset])[0]!.id;
-      const res = await dispatch(
-        pipeline,
-        SetAssetVisibility({
-          assetId: id,
-          visibility: { kind: "users", userIds: ["alice", "bob"] },
-        }),
-        GM,
-      );
-      expect(res.result.ok).toBe(true);
-    });
-
-    it("non-owner non-GM is rejected", async () => {
-      await register(pipeline, ALICE);
-      const id = world.query([Asset])[0]!.id;
-      const res = await dispatch(
-        pipeline,
-        SetAssetVisibility({
-          assetId: id,
-          visibility: { kind: "role", role: "gm" },
-        }),
-        BOB,
-      );
-      expect(res.result.ok).toBe(false);
-    });
-
-    it("ghost id is rejected", async () => {
-      const res = await dispatch(
-        pipeline,
-        SetAssetVisibility({
-          assetId: "ghost" as EntityId,
-          visibility: { kind: "everyone" },
-        }),
-        GM,
-      );
-      expect(res.result.ok).toBe(false);
-    });
-  });
+  // Visibility / write-access changes go through `SetPermissions` (the
+  // universal verb) — the asset plugin no longer ships its own variant.
+  // See packages/permissions/* for those tests.
 
   describe("DeleteAsset", () => {
     it("owner deletes; entity is despawned", async () => {
@@ -381,21 +318,13 @@ describe("@vtt/assets", () => {
       ).toThrow();
     });
 
-    it("rejects unknown visibility kind", () => {
-      expect(() =>
-        SetAssetVisibility({
-          assetId: "x" as EntityId,
-          visibility: { kind: "weird" } as never,
-        }),
-      ).toThrow();
-    });
   });
 
   describe("systems wiring", () => {
     it("AssetSpawningSystem listens to AssetRegistered", () => {
       expect(AssetSpawningSystem.on.name).toBe(AssetRegistered.name);
       expect(AssetSpawningSystem.writes.map((t) => t.name)).toEqual(
-        expect.arrayContaining([Asset.name, OwnedBy.name, EntityVisibility.name]),
+        expect.arrayContaining([Asset.name, Permissions.name]),
       );
     });
 
@@ -405,15 +334,6 @@ describe("@vtt/assets", () => {
       expect(AssetRenameSystem.writes.map((t) => t.name)).toContain(Asset.name);
     });
 
-    it("AssetVisibilityChangeSystem writes EntityVisibility", () => {
-      expect(AssetVisibilityChangeSystem.on.name).toBe(
-        AssetVisibilityChanged.name,
-      );
-      expect(AssetVisibilityChangeSystem.writes.map((t) => t.name)).toContain(
-        EntityVisibility.name,
-      );
-    });
-
     it("AssetDespawnSystem listens to AssetDeleted", () => {
       expect(AssetDespawnSystem.on.name).toBe(AssetDeleted.name);
     });
@@ -421,18 +341,6 @@ describe("@vtt/assets", () => {
     it("AssetRenameSystem is a no-op on a despawned id", () => {
       const events = AssetRenameSystem.run({
         event: { assetId: "ghost" as EntityId, filename: "x" } as never,
-        world,
-        registry,
-      });
-      expect(events).toEqual([]);
-    });
-
-    it("AssetVisibilityChangeSystem is a no-op on a despawned id", () => {
-      const events = AssetVisibilityChangeSystem.run({
-        event: {
-          assetId: "ghost" as EntityId,
-          visibility: { kind: "everyone" },
-        } as never,
         world,
         registry,
       });

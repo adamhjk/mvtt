@@ -27,7 +27,6 @@ import {
   type EntityId,
 } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
-import { OwnedBy } from "@vtt/permissions/shared";
 import {
   definePageProvider,
   RetargetTab,
@@ -80,10 +79,7 @@ function AssetsPage(props: {
 function AssetsHub(props: { tabId: string }): JSX.Element {
   const client = useClient();
   const [filter, setFilter] = createSignal("");
-  const assetRows = useQuery([Asset, OwnedBy]);
-
-  const meUserId = createMemo(() => null as string | null);
-  void meUserId;
+  const assetRows = useQuery([Asset]);
 
   const items = createMemo(() => {
     const needle = filter().trim().toLowerCase();
@@ -95,14 +91,12 @@ function AssetsHub(props: { tabId: string }): JSX.Element {
           sizeBytes: number;
           uploadedAt: number;
         };
-        const o = row.values.OwnedBy as { userId: string };
         return {
           id: row.id,
           filename: a.filename ?? `${a.mime} asset`,
           mime: a.mime,
           sizeBytes: a.sizeBytes,
           uploadedAt: a.uploadedAt,
-          uploadedByUserId: o.userId,
         };
       })
       .filter(
@@ -167,7 +161,6 @@ function AssetsHub(props: { tabId: string }): JSX.Element {
                 filename={a.filename}
                 mime={a.mime}
                 sizeBytes={a.sizeBytes}
-                uploadedByUserId={a.uploadedByUserId}
                 onOpen={() => open(a.id)}
                 onRemove={() => remove(a.id, a.filename)}
               />
@@ -184,7 +177,6 @@ function AssetCard(props: {
   filename: string;
   mime: string;
   sizeBytes: number;
-  uploadedByUserId: string;
   onOpen: () => void;
   onRemove: () => void;
 }): JSX.Element {

@@ -61,13 +61,11 @@ export {
   NoteCreated,
   NoteDeleted,
   NoteRenamed,
-  NoteVisibilityChanged,
   PageAdded,
   PageBodyDraft,
   PageBodySet,
   PageRemoved,
   PageRenamed,
-  PageVisibilityChanged,
   PagesReordered,
 } from "./events.js";
 export {
@@ -83,7 +81,5 @@ export {
   RenamePage,
   ReorderPages,
   SetDraftBody,
-  SetNoteVisibility,
   SetPageBody,
-  SetPageVisibility,
 } from "./commands.js";

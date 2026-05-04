@@ -24,9 +24,8 @@ import {
   z,
 } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
-import { requireCharacterEditor } from "./checks.js";
+import { requireWrite } from "@vtt/permissions/shared";
 import {
-  CharacterAssigned,
   CharacterCreated,
   CharacterFieldSet,
   CharacterRemoved,
@@ -65,7 +64,9 @@ function isCharacterTokenUrl(
 /**
  * Anyone authenticated may create their own character; a GM may create
  * one on behalf of another player by passing `ownerUserId`. The
- * recording system spawns Character + OwnedBy from the resulting event.
+ * recording system spawns Character + a default Permissions trait
+ * (`read: everyone, write: users:[ownerUserId]`) from the resulting
+ * event.
  */
 export const CreateCharacter = defineCommand({
   name: "@vtt/characters/CreateCharacter",
@@ -77,12 +78,6 @@ export const CreateCharacter = defineCommand({
      * dispatcher's own userId regardless of what was sent.
      */
     ownerUserId: z.string().min(1).optional(),
-    /**
-     * Optional initial assignment — the userId of the player who will
-     * play this character. Empty string explicitly creates an
-     * unassigned character; omit to default to the owner.
-     */
-    playerUserId: z.string().optional(),
   }),
   validate: (ctx) => {
     const auth = requireSession(ctx);
@@ -93,14 +88,6 @@ export const CreateCharacter = defineCommand({
       auth.role !== "gm"
     ) {
       return fail("only a GM can create a character for another user");
-    }
-    if (
-      ctx.cmd.playerUserId !== undefined &&
-      ctx.cmd.playerUserId.length > 0 &&
-      ctx.cmd.playerUserId !== auth.userId &&
-      auth.role !== "gm"
-    ) {
-      return fail("only a GM can assign a character to another player");
     }
     return ok();
   },
@@ -113,17 +100,14 @@ export const CreateCharacter = defineCommand({
         name: cmd.name,
         ownerUserId,
         createdByUserId: auth.userId,
-        playerUserId:
-          cmd.playerUserId !== undefined ? cmd.playerUserId : ownerUserId,
       }),
     ];
   },
 });
 
 /**
- * Editor-gated (owner, assigned player, or GM): change a character's
- * display name. Game-system plugins dispatch their own commands for
- * sheet-specific state.
+ * Editor-gated: change a character's display name. Game-system plugins
+ * dispatch their own commands for sheet-specific state.
  */
 export const RenameCharacter = defineCommand({
   name: "@vtt/characters/RenameCharacter",
@@ -142,7 +126,7 @@ export const RenameCharacter = defineCommand({
     if (!got) {
       return fail(`entity ${ctx.cmd.characterId} is not a character`);
     }
-    return requireCharacterEditor(ctx, ctx.cmd.characterId);
+    return requireWrite(ctx, ctx.cmd.characterId);
   },
   apply: ({ cmd }) => [
     CharacterRenamed({
@@ -173,7 +157,7 @@ export const RemoveCharacter = defineCommand({
     if (!got) {
       return fail(`entity ${ctx.cmd.characterId} is not a character`);
     }
-    return requireCharacterEditor(ctx, ctx.cmd.characterId);
+    return requireWrite(ctx, ctx.cmd.characterId);
   },
   apply: ({ cmd }) => [CharacterRemoved({ characterId: cmd.characterId })],
 });
@@ -186,7 +170,7 @@ export const RemoveCharacter = defineCommand({
  *   - entity must have the trait OR the trait's Zod schema must define
  *     a default (so a write to a defaulted trait materialises it)
  *   - the path-edited result must satisfy the trait's full schema
- *   - editor-gated: owner, assigned player, or GM (reads always allowed)
+ *   - editor-gated via `requireWrite` (reads always allowed)
  *
  * Plugins that need richer per-field semantics (e.g., HP clamping
  * against MaxHp) define their own command and the kit field opts in
@@ -240,7 +224,7 @@ export const SetField = defineCommand({
       );
     }
 
-    return requireCharacterEditor(ctx, ctx.cmd.characterId);
+    return requireWrite(ctx, ctx.cmd.characterId);
   },
   apply: ({ cmd }) => [
     CharacterFieldSet({
@@ -256,7 +240,7 @@ export const SetField = defineCommand({
  * Open a PendingRoll: spawn a sentinel entity carrying the rollable
  * name + the initiator's per-call opts. Visible to everyone in the
  * world so other players can offer help / modifiers via
- * ContributeToPendingRoll. Editor-gated: owner, assigned player, or GM.
+ * ContributeToPendingRoll. Editor-gated on the initiator's character.
  *
  * The kit's `<RollableLabel>` dispatches this instead of the
  * rollable's command directly when `rollable.interactive === true`.
@@ -282,7 +266,7 @@ export const OpenPendingRoll = defineCommand({
     if (!ctx.registry.rollables.get(ctx.cmd.rollableName)) {
       return fail(`unknown rollable: ${ctx.cmd.rollableName}`);
     }
-    return requireCharacterEditor(ctx, ctx.cmd.initiatorCharacterId);
+    return requireWrite(ctx, ctx.cmd.initiatorCharacterId);
   },
   apply: ({ cmd, session, world }) => {
     const auth = requireSession({ session });
@@ -306,9 +290,9 @@ export const OpenPendingRoll = defineCommand({
  * (BW Help, FATE invocations, "spend a benny on someone else's roll").
  *
  * If the contribution carries `fromCharacterId`, the dispatcher must
- * own that character (or be a GM). Server validates ownership but
- * NOT payload semantics — each game system's rollable.compute decides
- * how to incorporate the payload at commit time.
+ * be its editor (or a GM). Server validates ownership but NOT payload
+ * semantics — each game system's rollable.compute decides how to
+ * incorporate the payload at commit time.
  */
 export const ContributeToPendingRoll = defineCommand({
   name: "@vtt/characters/ContributeToPendingRoll",
@@ -331,14 +315,12 @@ export const ContributeToPendingRoll = defineCommand({
         `contribution.fromUserId must match the dispatcher; got ${ctx.cmd.contribution.fromUserId} but session is ${auth.userId}`,
       );
     }
-    // If the contribution names a character, the dispatcher must be
-    // its editor (owner, assigned player, or GM).
     const fromChar = ctx.cmd.contribution.fromCharacterId;
     if (fromChar) {
       if (!ctx.world.has(fromChar)) {
         return fail(`character ${fromChar} does not exist`);
       }
-      const editor = requireCharacterEditor(ctx, fromChar);
+      const editor = requireWrite(ctx, fromChar);
       if (!editor.ok) return editor;
     }
     return ok();
@@ -352,11 +334,15 @@ export const ContributeToPendingRoll = defineCommand({
 });
 
 /**
- * Initiator-only (or GM): commit the pending roll. The server-side
- * effect is just despawning the entity — the actual roll is dispatched
- * separately by the committing client (via the rollable's command), so
- * this command never crosses into "system dispatches commands"
- * territory and the rollable flows through its normal apply path.
+ * Initiator (or GM, by universal write bypass): commit the pending
+ * roll. The server-side effect is just despawning the entity — the
+ * actual roll is dispatched separately by the committing client (via
+ * the rollable's command), so this command never crosses into "system
+ * dispatches commands" territory and the rollable flows through its
+ * normal apply path.
+ *
+ * Gated by `requireWrite` against the PendingRoll entity's Permissions,
+ * which is `users:[initiator]` from the spawn system.
  */
 export const CommitPendingRoll = defineCommand({
   name: "@vtt/characters/CommitPendingRoll",
@@ -364,26 +350,21 @@ export const CommitPendingRoll = defineCommand({
     pendingRollId: EntityId,
   }),
   validate: (ctx) => {
-    const auth = requireSession(ctx);
-    if (!auth) return fail("not authenticated");
+    if (!requireSession(ctx)) return fail("not authenticated");
     if (!ctx.world.has(ctx.cmd.pendingRollId)) {
       return fail(`pending roll ${ctx.cmd.pendingRollId} does not exist`);
     }
-    const got = ctx.world.get(ctx.cmd.pendingRollId, [PendingRoll]) as
-      | { PendingRoll: { initiatorUserId: string } }
-      | undefined;
-    if (!got) return fail(`entity ${ctx.cmd.pendingRollId} is not a pending roll`);
-    if (auth.role !== "gm" && got.PendingRoll.initiatorUserId !== auth.userId) {
-      return fail("only the initiator (or a GM) can commit a pending roll");
+    if (!ctx.world.get(ctx.cmd.pendingRollId, [PendingRoll])) {
+      return fail(`entity ${ctx.cmd.pendingRollId} is not a pending roll`);
     }
-    return ok();
+    return requireWrite(ctx, ctx.cmd.pendingRollId);
   },
   apply: ({ cmd }) => [PendingRollCommitted({ pendingRollId: cmd.pendingRollId })],
 });
 
 /**
- * Initiator-only (or GM): cancel a pending roll without rolling.
- * Despawns the entity.
+ * Initiator (or GM): cancel a pending roll without rolling. Despawns
+ * the entity. Same `requireWrite` gate as commit.
  */
 export const CancelPendingRoll = defineCommand({
   name: "@vtt/characters/CancelPendingRoll",
@@ -391,55 +372,16 @@ export const CancelPendingRoll = defineCommand({
     pendingRollId: EntityId,
   }),
   validate: (ctx) => {
-    const auth = requireSession(ctx);
-    if (!auth) return fail("not authenticated");
+    if (!requireSession(ctx)) return fail("not authenticated");
     if (!ctx.world.has(ctx.cmd.pendingRollId)) {
       return fail(`pending roll ${ctx.cmd.pendingRollId} does not exist`);
     }
-    const got = ctx.world.get(ctx.cmd.pendingRollId, [PendingRoll]) as
-      | { PendingRoll: { initiatorUserId: string } }
-      | undefined;
-    if (!got) return fail(`entity ${ctx.cmd.pendingRollId} is not a pending roll`);
-    if (auth.role !== "gm" && got.PendingRoll.initiatorUserId !== auth.userId) {
-      return fail("only the initiator (or a GM) can cancel a pending roll");
+    if (!ctx.world.get(ctx.cmd.pendingRollId, [PendingRoll])) {
+      return fail(`entity ${ctx.cmd.pendingRollId} is not a pending roll`);
     }
-    return ok();
+    return requireWrite(ctx, ctx.cmd.pendingRollId);
   },
   apply: ({ cmd }) => [PendingRollCancelled({ pendingRollId: cmd.pendingRollId })],
-});
-
-/**
- * Editor-gated: change which player a character is assigned to. Pass
- * an empty string to clear the assignment ("unassigned"). The chat
- * composer's "speak as" dropdown reads `Character.playerUserId` to
- * decide which characters a given player can speak as.
- */
-export const AssignCharacter = defineCommand({
-  name: "@vtt/characters/AssignCharacter",
-  schema: z.object({
-    characterId: EntityId,
-    /** userId of the new player, or `""` to unassign. */
-    playerUserId: z.string(),
-  }),
-  validate: (ctx) => {
-    if (!requireSession(ctx)) return fail("not authenticated");
-    if (!ctx.world.has(ctx.cmd.characterId)) {
-      return fail(`character ${ctx.cmd.characterId} does not exist`);
-    }
-    const got = ctx.world.get(ctx.cmd.characterId, [Character]) as
-      | { Character: { name: string } }
-      | undefined;
-    if (!got) {
-      return fail(`entity ${ctx.cmd.characterId} is not a character`);
-    }
-    return requireCharacterEditor(ctx, ctx.cmd.characterId);
-  },
-  apply: ({ cmd }) => [
-    CharacterAssigned({
-      characterId: cmd.characterId,
-      playerUserId: cmd.playerUserId,
-    }),
-  ],
 });
 
 /**
@@ -475,7 +417,7 @@ export const SetCharacterTokenImage = defineCommand({
         `imageUrl must start with /plugin-data/${ctx.world.worldId}/@vtt/characters/characters/${ctx.cmd.characterId}/`,
       );
     }
-    return requireCharacterEditor(ctx, ctx.cmd.characterId);
+    return requireWrite(ctx, ctx.cmd.characterId);
   },
   apply: ({ cmd }) => [
     CharacterTokenImageSet({

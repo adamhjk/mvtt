@@ -113,11 +113,12 @@ function Authenticated(props: {
   // chrome and reactivity layer read from.
   const active = new Set(props.activePlugins);
   const plugins = ALL_PLUGINS.filter((p) => active.has(p.name));
-  // Only spin up the WebSocket once we know we have a session AND a worldId.
-  const client = startClient({
-    url: wsURL,
-    plugins,
-  });
+  // The substrate's wire protocol carries `entity-revealed` and
+  // `entity-hidden` frames so live `Permissions.read` changes
+  // materialise / retract entities on the client without a reconnect.
+  // The server holds the per-connection visibility state; the client
+  // just applies the deltas to its local world.
+  const client = startClient({ url: wsURL, plugins });
   return (
     <ClientProvider value={client}>
       <App />

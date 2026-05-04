@@ -16,11 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineSystem, type EntityId } from "@vtt/substrate";
-import {
-  EntityVisibility,
-  OwnedBy,
-  actors,
-} from "@vtt/permissions/shared";
+import { actors, Permissions } from "@vtt/permissions/shared";
 import { PlayerJoined } from "@vtt/identity/shared";
 import {
   TabSentinel,
@@ -85,15 +81,17 @@ function workspaceOwnerEntityId(userId: string): EntityId {
 export const WorkspaceBootstrapSystem = defineSystem({
   name: "WorkspaceBootstrap",
   on: PlayerJoined,
-  reads: [WorkspaceOwner, OwnedBy],
-  writes: [WorkspaceOwner, OwnedBy, EntityVisibility, WorkspaceState],
+  reads: [WorkspaceOwner, Permissions],
+  writes: [WorkspaceOwner, Permissions, WorkspaceState],
   run: ({ event, world }) => {
     const ownerId = workspaceOwnerEntityId(event.userId);
     if (world.has(ownerId)) return [];
     world.spawnAt(ownerId, [
       WorkspaceOwner({ userId: event.userId }),
-      OwnedBy({ userId: event.userId }),
-      EntityVisibility({ visibility: actors([event.userId]) }),
+      Permissions({
+        read: actors([event.userId]),
+        write: actors([event.userId]),
+      }),
       WorkspaceState(defaultWorkspaceState()),
     ]);
     return [
@@ -134,15 +132,17 @@ export const TabSharedApplySystem = defineSystem({
   name: "TabSharedApply",
   on: TabShared,
   reads: [WorkspaceState],
-  writes: [WorkspaceState, TabSentinel, OwnedBy, EntityVisibility],
+  writes: [WorkspaceState, TabSentinel, Permissions],
   run: ({ event, world, registry }) => {
     if (!world.has(event.recipientOwnerEntityId)) return [];
     const sentinelId = tabSentinelEntityId(event.newTabId);
     if (!world.has(sentinelId)) {
       world.spawnAt(sentinelId, [
         TabSentinel({ tabId: event.newTabId }),
-        OwnedBy({ userId: event.recipientUserId }),
-        EntityVisibility({ visibility: actors([event.recipientUserId]) }),
+        Permissions({
+          read: actors([event.recipientUserId]),
+          write: actors([event.recipientUserId]),
+        }),
       ]);
     }
     for (const [traitName, value] of Object.entries(event.snapshot)) {
@@ -175,7 +175,7 @@ export const WorkspaceStateApplySystem = defineSystem({
   name: "WorkspaceStateApply",
   on: WorkspaceStateChanged,
   reads: [WorkspaceState],
-  writes: [WorkspaceState, TabSentinel, OwnedBy, EntityVisibility],
+  writes: [WorkspaceState, TabSentinel, Permissions],
   run: ({ event, world }) => {
     if (!world.has(event.ownerEntityId)) return [];
     const prev = world.get(event.ownerEntityId, [WorkspaceState]) as
@@ -203,8 +203,10 @@ export const WorkspaceStateApplySystem = defineSystem({
       if (world.has(id)) continue;
       world.spawnAt(id, [
         TabSentinel({ tabId }),
-        OwnedBy({ userId: event.userId }),
-        EntityVisibility({ visibility: actors([event.userId]) }),
+        Permissions({
+          read: actors([event.userId]),
+          write: actors([event.userId]),
+        }),
       ]);
     }
     world.set(event.ownerEntityId, WorkspaceState, event.next);

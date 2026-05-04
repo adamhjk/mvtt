@@ -36,7 +36,7 @@ import {
   type CommandInstance,
   type EntityId,
 } from "@vtt/substrate";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { canWrite, Permissions } from "@vtt/permissions/shared";
 import {
   AddPage,
   BelongsToNote,
@@ -86,7 +86,7 @@ export function NoteView(props: {
   const me = useMe();
   const note = useTrait(props.noteId, Note);
   const allPagesRows = useQuery([Page, BelongsToNote, PageOrdering]);
-  const owner = useTrait(props.noteId, OwnedBy);
+  const permissions = useTrait(props.noteId, Permissions);
 
   // Per-tab UI state lives on the tab sentinel as `NotesUiState`, written
   // optimistically through `createOptimisticTrait`. The store survives
@@ -196,13 +196,9 @@ export function NoteView(props: {
     });
   });
 
-  const canEdit = createMemo(() => {
-    const m = me();
-    if (!m) return false;
-    if (m.role === "gm") return true;
-    const o = owner() as { userId: string } | undefined;
-    return o?.userId === m.userId;
-  });
+  const canEdit = createMemo(() =>
+    canWrite(me(), permissions() as Parameters<typeof canWrite>[1]),
+  );
 
   const dispatch = (cmd: CommandInstance) => client.dispatch(cmd as CommandInstance);
 

@@ -42,10 +42,12 @@ import {
   BookUpdateSystem,
 } from "./server/systems.js";
 
+import { Permissions } from "@vtt/permissions/shared";
+
 const booksServerPlugin = definePlugin({
   name: "@vtt/books",
   version: "0.1.0",
-  traits: [Book],
+  traits: [Book, Permissions],
   events: [BookCreated, BookRemoved, BookUpdated],
   commands: [CreateBook, RemoveBook, UpdateBook],
   systems: [BookSpawningSystem, BookRemovalSystem, BookUpdateSystem],
@@ -134,14 +136,14 @@ describe("@vtt/books", () => {
       expect(v).toMatchObject({ name: "Tomb of Annihilation" });
     });
 
-    it("rejects a player dispatch", async () => {
+    it("any authenticated user may create a book; spawned with Permissions(ownedBy(creator))", async () => {
       const res = await dispatch(
         pipeline,
         CreateBook({ name: "Tomb" }),
         PLAYER,
       );
-      expect(res.result.ok).toBe(false);
-      expect(world.query([Book])).toHaveLength(0);
+      expect(res.result.ok).toBe(true);
+      expect(world.query([Book])).toHaveLength(1);
     });
 
     it("rejects an unauthenticated dispatch", async () => {

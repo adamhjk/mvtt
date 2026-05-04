@@ -50,7 +50,7 @@ import {
   CreateCharacter,
   SetCharacterTokenImage,
 } from "@vtt/characters/shared";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { Permissions } from "@vtt/permissions/shared";
 import type { AuthSession } from "@vtt/auth";
 
 /**
@@ -264,7 +264,7 @@ describe("scene wire smoke", () => {
     });
     await new Promise((r) => setTimeout(r, 80));
 
-    const charEntity = runtime.world.query([Character, OwnedBy])[0];
+    const charEntity = runtime.world.query([Character, Permissions])[0];
     expect(charEntity).toBeDefined();
     const charId = charEntity!.id;
 
@@ -304,7 +304,7 @@ describe("scene wire smoke", () => {
           label: "Tarn",
           x: 105,
           y: 105,
-          ownerUserId: GM.userId,
+
         }).payload,
       },
     });
@@ -340,7 +340,7 @@ describe("scene wire smoke", () => {
           label: "Tarn II",
           x: 245,
           y: 245,
-          ownerUserId: GM.userId,
+
         }).payload,
       },
     });

@@ -25,7 +25,7 @@ import {
   type EntityId,
 } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
-import { EntityVisibility, OwnedBy } from "@vtt/permissions/shared";
+import { Permissions } from "@vtt/permissions/shared";
 import { Character } from "@vtt/characters/shared";
 import {
   ChatMessage,
@@ -37,7 +37,7 @@ import { MessageRecordingSystem } from "./server/systems.js";
 const serverPlugin = definePlugin({
   name: "@vtt/comms",
   version: "0.1.0",
-  traits: [ChatMessage, EntityVisibility, Character, OwnedBy],
+  traits: [ChatMessage, Permissions, Character],
   events: [MessageSent],
   commands: [SendMessage],
   systems: [MessageRecordingSystem],
@@ -101,7 +101,7 @@ describe("@vtt/comms", () => {
     expect(world.query([ChatMessage])).toHaveLength(0);
   });
 
-  it("public message → MessageSent → entity carrying ChatMessage + everyone-visible EntityVisibility", async () => {
+  it("public message → MessageSent → entity carrying ChatMessage with read=everyone Permissions", async () => {
     const seen: string[] = [];
     bus.onAny((e) => seen.push(e.type));
 
@@ -109,32 +109,32 @@ describe("@vtt/comms", () => {
 
     expect(res.result.ok).toBe(true);
     expect(seen).toEqual([MessageSent.name]);
-    const rows = world.query([ChatMessage, EntityVisibility]);
+    const rows = world.query([ChatMessage, Permissions]);
     expect(rows).toHaveLength(1);
     const v = rows[0]!.values as {
       ChatMessage: { authorUserId: string; authorName: string; body: string; whisperTo?: string[] };
-      EntityVisibility: { visibility: { kind: string } };
+      Permissions: { read: { kind: string } };
     };
     expect(v.ChatMessage.authorUserId).toBe(SESSION.userId);
     expect(v.ChatMessage.authorName).toBe(SESSION.name);
     expect(v.ChatMessage.body).toBe("hello world");
     expect(v.ChatMessage.whisperTo).toBeUndefined();
-    expect(v.EntityVisibility.visibility.kind).toBe("everyone");
+    expect(v.Permissions.read.kind).toBe("everyone");
   });
 
-  it("whisper attaches users-only EntityVisibility containing both sender and recipient", async () => {
+  it("whisper attaches users-only Permissions containing both sender and recipient", async () => {
     await dispatch(
       pipeline,
       "m1",
       SendMessage({ body: "psst", whisperTo: ["user-2"] }),
     );
-    const row = world.query([ChatMessage, EntityVisibility])[0]!;
+    const row = world.query([ChatMessage, Permissions])[0]!;
     const v = row.values as {
       ChatMessage: { whisperTo?: string[] };
-      EntityVisibility: { visibility: { kind: string; userIds?: string[] } };
+      Permissions: { read: { kind: string; userIds?: string[] } };
     };
-    expect(v.EntityVisibility.visibility.kind).toBe("users");
-    expect(v.EntityVisibility.visibility.userIds).toEqual(
+    expect(v.Permissions.read.kind).toBe("users");
+    expect(v.Permissions.read.userIds).toEqual(
       expect.arrayContaining([SESSION.userId, "user-2"]),
     );
     expect(v.ChatMessage.whisperTo).toEqual(
@@ -181,13 +181,13 @@ describe("@vtt/comms", () => {
         SendMessage({ body: "secret", visibility: "gm-only" }),
       );
       expect(res.result.ok).toBe(true);
-      const row = world.query([ChatMessage, EntityVisibility])[0]!;
+      const row = world.query([ChatMessage, Permissions])[0]!;
       const v = row.values as {
         ChatMessage: { visibility?: string };
-        EntityVisibility: { visibility: { kind: string; role?: string } };
+        Permissions: { read: { kind: string; role?: string } };
       };
       expect(v.ChatMessage.visibility).toBe("gm-only");
-      expect(v.EntityVisibility.visibility).toEqual({
+      expect(v.Permissions.read).toEqual({
         kind: "role",
         role: "gm",
       });
@@ -206,13 +206,13 @@ describe("@vtt/comms", () => {
 
     it("default visibility is 'public' (everyone)", async () => {
       await dispatch(pipeline, "m1", SendMessage({ body: "hi" }));
-      const row = world.query([ChatMessage, EntityVisibility])[0]!;
+      const row = world.query([ChatMessage, Permissions])[0]!;
       const v = row.values as {
         ChatMessage: { visibility?: string };
-        EntityVisibility: { visibility: { kind: string } };
+        Permissions: { read: { kind: string } };
       };
       expect(v.ChatMessage.visibility).toBe("public");
-      expect(v.EntityVisibility.visibility.kind).toBe("everyone");
+      expect(v.Permissions.read.kind).toBe("everyone");
     });
 
     it("whisper wins over gm-only — entity restricted to listed users", async () => {
@@ -225,12 +225,12 @@ describe("@vtt/comms", () => {
           visibility: "gm-only",
         }),
       );
-      const row = world.query([ChatMessage, EntityVisibility])[0]!;
-      const v = row.values.EntityVisibility as {
-        visibility: { kind: string; userIds?: string[] };
+      const row = world.query([ChatMessage, Permissions])[0]!;
+      const v = row.values.Permissions as {
+        read: { kind: string; userIds?: string[] };
       };
-      expect(v.visibility.kind).toBe("users");
-      expect(v.visibility.userIds).toEqual(
+      expect(v.read.kind).toBe("users");
+      expect(v.read.userIds).toEqual(
         expect.arrayContaining([SESSION.userId, "user-2"]),
       );
     });
@@ -239,19 +239,21 @@ describe("@vtt/comms", () => {
   describe("speakingAsCharacterId", () => {
     function spawnCharacter(
       world: World,
-      args: { name: string; ownerUserId: string; playerUserId?: string },
+      args: { name: string; writers: string[] },
     ): EntityId {
       return world.spawn([
-        Character({ name: args.name, playerUserId: args.playerUserId }),
-        OwnedBy({ userId: args.ownerUserId }),
+        Character({ name: args.name }),
+        Permissions({
+          read: { kind: "everyone" },
+          write: { kind: "users", userIds: args.writers },
+        }),
       ]);
     }
 
-    it("uses the character's name as authorName when speaking as an assigned character", async () => {
+    it("uses the character's name as authorName when the user can write the character", async () => {
       const charId = spawnCharacter(world, {
         name: "Tarn",
-        ownerUserId: SESSION.userId,
-        playerUserId: SESSION.userId,
+        writers: [SESSION.userId],
       });
       const res = await dispatch(
         pipeline,
@@ -270,11 +272,10 @@ describe("@vtt/comms", () => {
       expect(v.speakingAsCharacterId).toBe(charId);
     });
 
-    it("rejects speak-as when the character is assigned to another player", async () => {
+    it("rejects speak-as when the dispatcher isn't in Permissions.write", async () => {
       const charId = spawnCharacter(world, {
         name: "Other's PC",
-        ownerUserId: "user-2",
-        playerUserId: "user-2",
+        writers: ["user-2"],
       });
       const player: AuthSession = {
         userId: "player-1",
@@ -292,10 +293,10 @@ describe("@vtt/comms", () => {
       expect(world.query([ChatMessage])).toHaveLength(0);
     });
 
-    it("GM may speak as any character even without an assignment", async () => {
+    it("GM may speak as any character (universal write bypass)", async () => {
       const charId = spawnCharacter(world, {
         name: "NPC",
-        ownerUserId: "someone-else",
+        writers: ["someone-else"],
       });
       const res = await dispatch(
         pipeline,
@@ -322,7 +323,12 @@ describe("@vtt/comms", () => {
     });
 
     it("rejects speak-as on an entity that lacks the Character trait", async () => {
-      const stranger = world.spawn([OwnedBy({ userId: SESSION.userId })]);
+      const stranger = world.spawn([
+        Permissions({
+          read: { kind: "everyone" },
+          write: { kind: "users", userIds: [SESSION.userId] },
+        }),
+      ]);
       const res = await dispatch(
         pipeline,
         "m1",

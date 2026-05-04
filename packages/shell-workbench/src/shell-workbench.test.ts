@@ -29,10 +29,7 @@ import {
   type EntityId,
 } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
-import {
-  EntityVisibility,
-  OwnedBy,
-} from "@vtt/permissions/shared";
+import { actors, Permissions } from "@vtt/permissions/shared";
 import { PlayerJoined } from "@vtt/identity/shared";
 import {
   TabSentinel,
@@ -106,7 +103,7 @@ const TestTabUiState = defineTrait({
 /**
  * Stand-in for a trait that opts out of sharing. ShareTab must not copy
  * this onto the recipient's sentinel even though it's attached to the
- * sender's. Mirrors the role of TabSentinel/OwnedBy/EntityVisibility but
+ * sender's. Mirrors the role of TabSentinel/Permissions but
  * keeps the workbench tests free of cross-plugin imports.
  */
 const TestPrivateState = defineTrait({
@@ -129,8 +126,7 @@ function setup() {
       WorkspaceState,
       WorkspaceOwner,
       TabSentinel,
-      OwnedBy,
-      EntityVisibility,
+      Permissions,
       TestTabUiState,
       TestPrivateState,
     ],
@@ -142,10 +138,10 @@ function setup() {
       TabSharedApplySystem,
     ],
     entityVisibility: (traits) => {
-      const ev = traits[EntityVisibility.name] as
-        | { visibility: import("@vtt/substrate").Visibility }
+      const p = traits[Permissions.name] as
+        | { read: import("@vtt/substrate").Visibility }
         | undefined;
-      return ev?.visibility ?? null;
+      return p?.read ?? null;
     },
   });
   const registry = new Registry();
@@ -174,8 +170,8 @@ function bootstrap(
   ]);
   // Locate the freshly-spawned WorkspaceOwner.
   const found = world
-    .query([WorkspaceOwner, OwnedBy])
-    .find((row) => (row.values.OwnedBy as { userId: string }).userId === userId);
+    .query([WorkspaceOwner])
+    .find((row) => (row.values.WorkspaceOwner as { userId: string }).userId === userId);
   if (!found) throw new Error("bootstrap should have spawned an owner");
   return found.id;
 }
@@ -336,19 +332,21 @@ describe("WorkspaceBootstrapSystem", () => {
     const ownerId = bootstrap(registry, world);
     const got = world.get(ownerId, [
       WorkspaceOwner,
-      OwnedBy,
-      EntityVisibility,
+      Permissions,
       WorkspaceState,
     ]) as {
       WorkspaceOwner: { userId: string };
-      OwnedBy: { userId: string };
-      EntityVisibility: { visibility: { kind: string; userIds?: string[] } };
+      Permissions: {
+        read: { kind: string; userIds?: string[] };
+        write: { kind: string; userIds?: string[] };
+      };
       WorkspaceState: import("zod").z.infer<typeof WorkspaceState.schema>;
     };
     expect(got.WorkspaceOwner.userId).toBe(PLAYER.userId);
-    expect(got.OwnedBy.userId).toBe(PLAYER.userId);
-    expect(got.EntityVisibility.visibility.kind).toBe("users");
-    expect(got.EntityVisibility.visibility.userIds).toEqual([PLAYER.userId]);
+    expect(got.Permissions.read.kind).toBe("users");
+    expect(got.Permissions.read.userIds).toEqual([PLAYER.userId]);
+    expect(got.Permissions.write.kind).toBe("users");
+    expect(got.Permissions.write.userIds).toEqual([PLAYER.userId]);
     // Default workspace: one pane, no tabs, that pane is active, no zen.
     expect(Object.keys(got.WorkspaceState.panes)).toHaveLength(1);
     expect(got.WorkspaceState.tabs).toEqual({});
@@ -367,8 +365,8 @@ describe("WorkspaceBootstrapSystem", () => {
         clientId: "c2",
       }),
     ]);
-    const owners = world.query([WorkspaceOwner, OwnedBy]).filter(
-      (r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId,
+    const owners = world.query([WorkspaceOwner]).filter(
+      (r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER.userId,
     );
     expect(owners).toHaveLength(1);
   });
@@ -431,15 +429,18 @@ describe("WorkspaceStateApplySystem", () => {
     const tabId = Object.keys(getState(world, ownerId).tabs)[0]!;
     const sentinelId = tabSentinelEntityId(tabId);
     expect(world.has(sentinelId)).toBe(true);
-    const got = world.get(sentinelId, [TabSentinel, OwnedBy, EntityVisibility]) as {
+    const got = world.get(sentinelId, [TabSentinel, Permissions]) as {
       TabSentinel: { tabId: string };
-      OwnedBy: { userId: string };
-      EntityVisibility: { visibility: { kind: string; userIds?: string[] } };
+      Permissions: {
+        read: { kind: string; userIds?: string[] };
+        write: { kind: string; userIds?: string[] };
+      };
     };
     expect(got.TabSentinel.tabId).toBe(tabId);
-    expect(got.OwnedBy.userId).toBe(PLAYER.userId);
-    expect(got.EntityVisibility.visibility.kind).toBe("users");
-    expect(got.EntityVisibility.visibility.userIds).toEqual([PLAYER.userId]);
+    expect(got.Permissions.read.kind).toBe("users");
+    expect(got.Permissions.read.userIds).toEqual([PLAYER.userId]);
+    expect(got.Permissions.write.kind).toBe("users");
+    expect(got.Permissions.write.userIds).toEqual([PLAYER.userId]);
   });
 
   it("despawns a TabSentinel when its tab is closed", async () => {
@@ -1219,8 +1220,8 @@ describe("ShareTab", () => {
     bootstrap(registry, world, PLAYER.userId);
     const recipientOwnerId = bootstrap(registry, world, PLAYER_2.userId);
     const senderOwnerId = world
-      .query([WorkspaceOwner, OwnedBy])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+      .query([WorkspaceOwner])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER.userId)!.id;
 
     const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
     await dispatch(
@@ -1242,8 +1243,8 @@ describe("ShareTab", () => {
     bootstrap(registry, world, PLAYER.userId);
     bootstrap(registry, world, PLAYER_2.userId);
     const senderOwnerId = world
-      .query([WorkspaceOwner, OwnedBy])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+      .query([WorkspaceOwner])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER.userId)!.id;
     const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
 
     // The sender's per-tab UI state — the "page 11" of the rulebook.
@@ -1260,8 +1261,8 @@ describe("ShareTab", () => {
     );
 
     const recipientOwnerId = world
-      .query([WorkspaceOwner, OwnedBy])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER_2.userId)!.id;
+      .query([WorkspaceOwner])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER_2.userId)!.id;
     const recipientTabId = Object.keys(getState(world, recipientOwnerId).tabs)[0]!;
     const recipientSentinelId = tabSentinelEntityId(recipientTabId);
     const got = world.get(recipientSentinelId, [TestTabUiState]) as
@@ -1275,8 +1276,8 @@ describe("ShareTab", () => {
     bootstrap(registry, world, PLAYER.userId);
     bootstrap(registry, world, PLAYER_2.userId);
     const senderOwnerId = world
-      .query([WorkspaceOwner, OwnedBy])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+      .query([WorkspaceOwner])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER.userId)!.id;
     const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
 
     // A trait that opts out of sharing — must not land on the recipient.
@@ -1293,20 +1294,20 @@ describe("ShareTab", () => {
     );
 
     const recipientOwnerId = world
-      .query([WorkspaceOwner, OwnedBy])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER_2.userId)!.id;
+      .query([WorkspaceOwner])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER_2.userId)!.id;
     const recipientTabId = Object.keys(getState(world, recipientOwnerId).tabs)[0]!;
     const traits = world.traitsOn(tabSentinelEntityId(recipientTabId));
     expect(traits.has("@test/share/Private" as never)).toBe(false);
   });
 
-  it("recipient's sentinel is freshly scoped — TabSentinel/OwnedBy/EntityVisibility name the recipient, not the sender", async () => {
+  it("recipient's sentinel is freshly scoped — TabSentinel/Permissions name the recipient, not the sender", async () => {
     const { registry, world, pipeline } = setup();
     bootstrap(registry, world, PLAYER.userId);
     const recipientOwnerId = bootstrap(registry, world, PLAYER_2.userId);
     const senderOwnerId = world
-      .query([WorkspaceOwner, OwnedBy])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+      .query([WorkspaceOwner])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER.userId)!.id;
     const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
 
     await dispatch(
@@ -1318,17 +1319,19 @@ describe("ShareTab", () => {
     const recipientTabId = Object.keys(getState(world, recipientOwnerId).tabs)[0]!;
     const got = world.get(tabSentinelEntityId(recipientTabId), [
       TabSentinel,
-      OwnedBy,
-      EntityVisibility,
+      Permissions,
     ]) as {
       TabSentinel: { tabId: string };
-      OwnedBy: { userId: string };
-      EntityVisibility: { visibility: { kind: string; userIds?: string[] } };
+      Permissions: {
+        read: { kind: string; userIds?: string[] };
+        write: { kind: string; userIds?: string[] };
+      };
     };
     expect(got.TabSentinel.tabId).toBe(recipientTabId);
-    expect(got.OwnedBy.userId).toBe(PLAYER_2.userId);
-    expect(got.EntityVisibility.visibility.kind).toBe("users");
-    expect(got.EntityVisibility.visibility.userIds).toEqual([PLAYER_2.userId]);
+    expect(got.Permissions.read.kind).toBe("users");
+    expect(got.Permissions.read.userIds).toEqual([PLAYER_2.userId]);
+    expect(got.Permissions.write.kind).toBe("users");
+    expect(got.Permissions.write.userIds).toEqual([PLAYER_2.userId]);
   });
 
   it("forceFocus: false leaves the recipient's activeTabId untouched", async () => {
@@ -1336,8 +1339,8 @@ describe("ShareTab", () => {
     bootstrap(registry, world, PLAYER.userId);
     const recipientOwnerId = bootstrap(registry, world, PLAYER_2.userId);
     const senderOwnerId = world
-      .query([WorkspaceOwner, OwnedBy])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+      .query([WorkspaceOwner])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER.userId)!.id;
     const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
 
     const beforeActive = getState(world, recipientOwnerId)
@@ -1367,8 +1370,8 @@ describe("ShareTab", () => {
     bootstrap(registry, world, GM.userId);
     const recipientOwnerId = bootstrap(registry, world, PLAYER_2.userId);
     const gmOwnerId = world
-      .query([WorkspaceOwner, OwnedBy])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === GM.userId)!.id;
+      .query([WorkspaceOwner])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === GM.userId)!.id;
     const senderTabId = await openSenderTab(pipeline, gmOwnerId, world, GM);
 
     await dispatch(
@@ -1392,8 +1395,8 @@ describe("ShareTab", () => {
     bootstrap(registry, world, PLAYER.userId);
     bootstrap(registry, world, PLAYER_2.userId);
     const senderOwnerId = world
-      .query([WorkspaceOwner, OwnedBy])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+      .query([WorkspaceOwner])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER.userId)!.id;
     const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
 
     const ack = await dispatch(
@@ -1414,8 +1417,8 @@ describe("ShareTab", () => {
     const r1Owner = bootstrap(registry, world, PLAYER_2.userId);
     const r2Owner = bootstrap(registry, world, "player-3");
     const senderOwnerId = world
-      .query([WorkspaceOwner, OwnedBy])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER.userId)!.id;
+      .query([WorkspaceOwner])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER.userId)!.id;
     const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
 
     await dispatch(

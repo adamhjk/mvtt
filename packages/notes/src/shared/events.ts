@@ -17,12 +17,6 @@
 
 import { defineEvent, EntityId, z } from "@vtt/substrate";
 
-const VisibilityShape = z.union([
-  z.object({ kind: z.literal("everyone") }),
-  z.object({ kind: z.literal("role"), role: z.string() }),
-  z.object({ kind: z.literal("users"), userIds: z.array(z.string()) }),
-]);
-
 // Notes -----------------------------------------------------------------
 
 export const NoteCreated = defineEvent({
@@ -48,14 +42,6 @@ export const NoteDeleted = defineEvent({
   name: "@vtt/notes/NoteDeleted",
   schema: z.object({
     noteId: EntityId,
-  }),
-});
-
-export const NoteVisibilityChanged = defineEvent({
-  name: "@vtt/notes/NoteVisibilityChanged",
-  schema: z.object({
-    noteId: EntityId,
-    visibility: VisibilityShape,
   }),
 });
 
@@ -91,14 +77,6 @@ export const PagesReordered = defineEvent({
   schema: z.object({
     noteId: EntityId,
     pageIds: z.array(EntityId),
-  }),
-});
-
-export const PageVisibilityChanged = defineEvent({
-  name: "@vtt/notes/PageVisibilityChanged",
-  schema: z.object({
-    pageId: EntityId,
-    visibility: VisibilityShape.nullable(),
   }),
 });
 

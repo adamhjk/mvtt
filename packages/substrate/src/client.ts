@@ -261,6 +261,49 @@ export function startClient(opts: ClientOptions): ClientHandle {
         }
         break;
       }
+      case "entity-revealed": {
+        // Server granted us read access to an entity that wasn't in our
+        // local world (or updates one we already had with the latest
+        // trait values). Spawn-or-update; the bus stays quiet because
+        // there's no plugin event for "entity appeared" — every
+        // reactive view re-evaluates via `world.subscribe` once the
+        // traits land.
+        const { entityId, traits } = msg.data;
+        const arr: Array<{ name: TraitName; value: unknown }> = [];
+        for (const [name, val] of Object.entries(traits)) {
+          const meta = registry.traits.get(name as never);
+          if (!meta) continue;
+          arr.push({ name: meta.name, value: val });
+        }
+        if (world.has(entityId as EntityId)) {
+          for (const { name, value } of arr) {
+            const meta = registry.traits.get(name as never);
+            if (meta) world.set(entityId as EntityId, meta, value);
+          }
+        } else {
+          world.spawnAt(entityId as EntityId, arr);
+        }
+        const revealedSeq = msg.data.seq;
+        if (typeof revealedSeq === "number") {
+          setLastAppliedSeq((prev) => Math.max(prev, revealedSeq));
+        }
+        break;
+      }
+      case "entity-hidden": {
+        // Server revoked our read access. Despawn locally; existing
+        // `useTrait` / `useQuery` subscriptions react via
+        // `world.subscribe`. Any tab bound to the entity falls back to
+        // the empty-state UI naturally.
+        const { entityId } = msg.data;
+        if (world.has(entityId as EntityId)) {
+          world.despawn(entityId as EntityId);
+        }
+        const hiddenSeq = msg.data.seq;
+        if (typeof hiddenSeq === "number") {
+          setLastAppliedSeq((prev) => Math.max(prev, hiddenSeq));
+        }
+        break;
+      }
       case "ack": {
         const pending = pendingAcks.get(msg.data.commandId);
         if (pending) {

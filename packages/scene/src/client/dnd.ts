@@ -55,7 +55,6 @@ export const CHARACTER_DND_MIME = "application/x-vtt-character";
 export interface CharacterDndPayload {
   characterId: string;
   label: string;
-  ownerUserId: string;
   /** Default fallback icon when no portrait was uploaded. */
   iconSlug: string;
   /**
@@ -75,7 +74,6 @@ export function decodeCharacterDnd(raw: string): CharacterDndPayload | null {
     if (
       typeof parsed.characterId !== "string" ||
       typeof parsed.label !== "string" ||
-      typeof parsed.ownerUserId !== "string" ||
       typeof parsed.iconSlug !== "string"
     ) {
       return null;
@@ -87,7 +85,6 @@ export function decodeCharacterDnd(raw: string): CharacterDndPayload | null {
     return {
       characterId: parsed.characterId,
       label: parsed.label,
-      ownerUserId: parsed.ownerUserId,
       iconSlug: parsed.iconSlug,
       imageUrl: imageUrl ?? null,
     };

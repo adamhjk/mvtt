@@ -29,7 +29,7 @@ import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { Identity, Name, Online } from "@vtt/identity/shared";
-import { EntityVisibility, OwnedBy, everyone } from "@vtt/permissions/shared";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { notes } from "@vtt/notes";
 import {
   Note,
@@ -87,22 +87,19 @@ function harness(noteBody: string): {
       const bookId = world.allocateId();
       world.spawnAt(bookId, [
         Book({ name: "Player's Handbook" }),
-        OwnedBy({ userId: ME }),
-        EntityVisibility({ visibility: everyone() }),
+        Permissions(ownedBy(ME)),
       ]);
 
       const noteId = world.allocateId();
       const pageId = world.allocateId();
       world.spawnAt(noteId, [
         Note({ title: "Field Notes", createdAt: 0 }),
-        OwnedBy({ userId: ME }),
-        EntityVisibility({ visibility: everyone() }),
+        Permissions(ownedBy(ME)),
       ]);
       world.spawnAt(pageId, [
         BelongsToNote({ noteId }),
         Page({ title: "Page", body: noteBody, bodyRev: 1 }),
         PageOrdering({ ordinal: 0 }),
-        EntityVisibility({ visibility: everyone() }),
       ]);
 
       // Tab sentinel for the rendered NotesPage tab — the workbench's
@@ -110,8 +107,7 @@ function harness(noteBody: string): {
       // OpenPage, but tests skip workbench commands.
       world.spawnAt(tabSentinelEntityId("tab-1"), [
         TabSentinel({ tabId: "tab-1" }),
-        OwnedBy({ userId: ME }),
-        EntityVisibility({ visibility: everyone() }),
+        Permissions(ownedBy(ME)),
         NotesUiState({ activePageId: null, pendingHeadingId: null }),
       ]);
 

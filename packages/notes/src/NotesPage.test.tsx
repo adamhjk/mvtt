@@ -33,8 +33,7 @@ import {
   Name,
 } from "@vtt/identity/shared";
 import {
-  EntityVisibility,
-  OwnedBy,
+  ownedBy, Permissions,
 } from "@vtt/permissions/shared";
 import { everyone } from "@vtt/permissions/shared";
 import { notes } from "./manifest.js";
@@ -61,8 +60,7 @@ function seedTabSentinel(
 ): void {
   world.spawnAt(tabSentinelEntityId(tabId), [
     TabSentinel({ tabId }),
-    OwnedBy({ userId: ME_USER_ID }),
-    EntityVisibility({ visibility: everyone() }),
+    Permissions(ownedBy(ME_USER_ID)),
     NotesUiState({ activePageId: null, pendingHeadingId: null }),
   ]);
 }
@@ -93,14 +91,12 @@ function harness({ withNote = false }: { withNote?: boolean } = {}) {
         const pageId = world.allocateId();
         world.spawnAt(noteId, [
           Note({ title: "Goblin Cave", createdAt: 0 }),
-          OwnedBy({ userId: ME_USER_ID }),
-          EntityVisibility({ visibility: everyone() }),
+          Permissions(ownedBy(ME_USER_ID)),
         ]);
         world.spawnAt(pageId, [
           BelongsToNote({ noteId }),
           Page({ title: "Map", body: "# The Goblin Cave\n\nIt is damp.", bodyRev: 0 }),
           PageOrdering({ ordinal: 0 }),
-          EntityVisibility({ visibility: everyone() }),
         ]);
       }
     },

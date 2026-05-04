@@ -22,7 +22,8 @@ import {
   ok,
   z,
 } from "@vtt/substrate";
-import { requireRole } from "@vtt/permissions/shared";
+import { requireWrite } from "@vtt/permissions/shared";
+import { requireSession } from "@vtt/identity/shared";
 import { Book } from "@vtt/books/shared";
 import { PdfDocumentSet } from "./events.js";
 
@@ -61,8 +62,7 @@ export const SetPdfDocument = defineCommand({
     url: z.string().min(1),
   }),
   validate: (ctx) => {
-    const role = requireRole(ctx, "gm");
-    if (!role.ok) return role;
+    if (!requireSession(ctx)) return fail("not authenticated");
     if (!ctx.world.has(ctx.cmd.bookId)) {
       return fail(`book ${ctx.cmd.bookId} does not exist`);
     }
@@ -75,7 +75,7 @@ export const SetPdfDocument = defineCommand({
         `url must start with /plugin-data/${ctx.world.worldId}/@vtt/pdf-book/books/${ctx.cmd.bookId}/`,
       );
     }
-    return ok();
+    return requireWrite(ctx, ctx.cmd.bookId);
   },
   apply: ({ cmd }) => [
     PdfDocumentSet({ bookId: cmd.bookId, url: cmd.url }),

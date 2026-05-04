@@ -40,7 +40,6 @@ import {
 } from "@vtt/shell-workbench/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
-import { OwnedBy } from "@vtt/permissions/shared";
 import { notes } from "@vtt/notes";
 import { books } from "@vtt/books";
 import { pdfBook } from "@vtt/pdf-book";
@@ -215,8 +214,8 @@ describe("ShareTab wire smoke", () => {
     // Look up the sender's tab id from the server's world.
     const rt = handle.worldsRegistry.get(worldId)!;
     const aOwnerRow = rt.world
-      .query([WorkspaceOwner, OwnedBy, WorkspaceState])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER_A.userId);
+      .query([WorkspaceOwner, WorkspaceState])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER_A.userId);
     expect(aOwnerRow).toBeDefined();
     const aState = aOwnerRow!.values.WorkspaceState as { tabs: Record<string, unknown> };
     const senderTabId = Object.keys(aState.tabs)[0]!;
@@ -254,8 +253,8 @@ describe("ShareTab wire smoke", () => {
 
     // Server-side: B's workspace now has a fresh tab.
     const bOwnerRow = rt.world
-      .query([WorkspaceOwner, OwnedBy, WorkspaceState])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER_B.userId);
+      .query([WorkspaceOwner, WorkspaceState])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER_B.userId);
     expect(bOwnerRow).toBeDefined();
     const bState = bOwnerRow!.values.WorkspaceState as {
       tabs: Record<string, { id: string; pageKind: string }>;
@@ -324,8 +323,8 @@ describe("ShareTab wire smoke", () => {
 
     const rt = handle.worldsRegistry.get(worldId)!;
     const aOwnerRow = rt.world
-      .query([WorkspaceOwner, OwnedBy, WorkspaceState])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER_A.userId);
+      .query([WorkspaceOwner, WorkspaceState])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER_A.userId);
     const aTabs = (aOwnerRow!.values.WorkspaceState as {
       tabs: Record<string, { id: string; pageKind: string }>;
     }).tabs;
@@ -383,8 +382,8 @@ describe("ShareTab wire smoke", () => {
 
     // Recipient's new tab.
     const bOwnerRow = rt.world
-      .query([WorkspaceOwner, OwnedBy, WorkspaceState])
-      .find((r) => (r.values.OwnedBy as { userId: string }).userId === PLAYER_B.userId);
+      .query([WorkspaceOwner, WorkspaceState])
+      .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER_B.userId);
     const bState = bOwnerRow!.values.WorkspaceState as {
       tabs: Record<string, { id: string; pageKind: string }>;
     };

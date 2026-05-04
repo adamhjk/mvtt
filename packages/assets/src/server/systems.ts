@@ -15,27 +15,28 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { defineSystem, type Visibility } from "@vtt/substrate";
-import { everyone } from "@vtt/permissions/shared";
-import { EntityVisibility, OwnedBy } from "@vtt/permissions/shared";
+import { defineSystem } from "@vtt/substrate";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import {
   AssetDeleted,
   AssetRegistered,
   AssetRenamed,
-  AssetVisibilityChanged,
 } from "../shared/events.js";
 import { Asset } from "../shared/traits.js";
 
 /**
  * Universal mirror system: spawns the Asset entity carrying Asset +
- * OwnedBy + EntityVisibility on every side. Default visibility is
- * `everyone()`; the uploader can narrow it via `SetAssetVisibility`.
+ * Permissions on every side. Default Permissions is
+ * `read: everyone, write: users:[uploader]` — anyone can see the
+ * asset (so embedded references render), only the uploader can edit
+ * or delete it (plus GMs by universal write bypass). Workbench's
+ * PermissionsMenu can flip read to gmOnly() / users:[…] later.
  */
 export const AssetSpawningSystem = defineSystem({
   name: "AssetSpawning",
   on: AssetRegistered,
   reads: [],
-  writes: [Asset, OwnedBy, EntityVisibility],
+  writes: [Asset, Permissions],
   run: ({ event, world }) => {
     world.spawnAt(event.assetId, [
       Asset({
@@ -47,8 +48,7 @@ export const AssetSpawningSystem = defineSystem({
         height: event.height,
         uploadedAt: event.uploadedAt,
       }),
-      OwnedBy({ userId: event.uploadedByUserId }),
-      EntityVisibility({ visibility: everyone() }),
+      Permissions(ownedBy(event.uploadedByUserId)),
     ]);
     return [];
   },
@@ -82,24 +82,6 @@ export const AssetRenameSystem = defineSystem({
     world.set(event.assetId, Asset, {
       ...got.Asset,
       filename: event.filename,
-    });
-    return [];
-  },
-});
-
-/**
- * Universal mirror: writes the new EntityVisibility trait. Permissions
- * plugin's resolver picks it up on the next snapshot/broadcast.
- */
-export const AssetVisibilityChangeSystem = defineSystem({
-  name: "AssetVisibilityChange",
-  on: AssetVisibilityChanged,
-  reads: [],
-  writes: [EntityVisibility],
-  run: ({ event, world }) => {
-    if (!world.has(event.assetId)) return [];
-    world.set(event.assetId, EntityVisibility, {
-      visibility: event.visibility as Visibility,
     });
     return [];
   },

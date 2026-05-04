@@ -26,7 +26,7 @@ import {
   type EntityId,
 } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import {
   CharacterTokenPlaced,
   CreateScene,
@@ -71,7 +71,7 @@ const sceneServerPlugin = definePlugin({
     Token,
     TokenImage,
     LinkedCharacter,
-    OwnedBy,
+    Permissions,
     Character,
   ],
   events: [
@@ -189,7 +189,7 @@ async function makeToken(
     }),
     GM,
   );
-  const rows = world.query([Token, Position, Sprite, OwnedBy]);
+  const rows = world.query([Token, Position, Sprite, Permissions]);
   expect(rows).toHaveLength(before + 1);
   return rows.at(-1)!.id;
 }
@@ -244,7 +244,7 @@ describe("@vtt/scene", () => {
       });
     });
 
-    it("rejects a player dispatch", async () => {
+    it("any authenticated user may create a scene; spawned with Permissions(ownedBy(creator))", async () => {
       const res = await dispatch(
         pipeline,
         CreateScene({
@@ -256,8 +256,12 @@ describe("@vtt/scene", () => {
         }),
         PLAYER,
       );
-      expect(res.result.ok).toBe(false);
-      expect(world.query([Scene])).toHaveLength(0);
+      expect(res.result.ok).toBe(true);
+      const sceneId = world.query([Scene])[0]!.id;
+      const perm = world.get(sceneId, [Permissions]) as
+        | { Permissions: { write: { kind: string; userIds?: string[] } } }
+        | undefined;
+      expect(perm?.Permissions.write.userIds).toEqual([PLAYER.userId]);
     });
 
     it("rejects an unauthenticated dispatch", async () => {
@@ -290,7 +294,7 @@ describe("@vtt/scene", () => {
   });
 
   describe("CreateToken", () => {
-    it("GM creates a token; recording system spawns Token+Sprite+Position+OwnedBy", async () => {
+    it("GM creates a token; recording system spawns Token+Sprite+Position+Permissions", async () => {
       await makeScene(pipeline);
       // SceneCreated carries no sceneId — the recording system spawns the
       // entity in lockstep on every side. Pull the freshly-spawned Scene
@@ -300,20 +304,22 @@ describe("@vtt/scene", () => {
 
       const tokenId = await makeToken(pipeline, world, sceneId);
 
-      const got = world.get(tokenId, [Token, Sprite, Position, OwnedBy]) as {
+      const got = world.get(tokenId, [Token, Sprite, Position, Permissions]) as {
         Token: { label: string; kind: string };
         Sprite: { iconSlug: string; tint: number; size: number };
         Position: { sceneId: EntityId; x: number; y: number; movedAt: number };
-        OwnedBy: { userId: string };
+        Permissions: { write: { kind: string; userIds?: string[] } };
       };
       expect(got.Token).toMatchObject({ label: "goblin", kind: "creature" });
       expect(got.Sprite).toMatchObject({ iconSlug: "lorc/sword", size: 70 });
       expect(got.Position.sceneId).toBe(sceneId);
       expect(got.Position.movedAt).toBe(0);
-      expect(got.OwnedBy.userId).toBe(PLAYER.userId);
+      expect(got.Permissions.write.kind).toBe("users");
+      expect(got.Permissions.write.userIds).toEqual([PLAYER.userId]);
     });
 
-    it("rejects a player dispatch even with a valid scene", async () => {
+    it("rejects a player who can't write the scene's Permissions", async () => {
+      // Scene was created by GM (makeScene) → scene's write list is just GM.
       await makeScene(pipeline);
       const sceneId = world.query([Scene])[0]!.id;
       const res = await dispatch(
@@ -369,10 +375,13 @@ describe("@vtt/scene", () => {
         }),
         GM,
       );
-      const own = world.query([OwnedBy])[0]!.values.OwnedBy as {
-        userId: string;
+      // Token spawn writes Permissions with the dispatching user in
+      // the write list when ownerUserId isn't explicitly supplied.
+      const tokenRows = world.query([Token, Permissions]);
+      const tokenPerm = tokenRows.at(-1)!.values.Permissions as {
+        write: { kind: string; userIds?: string[] };
       };
-      expect(own.userId).toBe(GM.userId);
+      expect(tokenPerm.write.userIds).toEqual([GM.userId]);
     });
   });
 
@@ -507,14 +516,27 @@ describe("@vtt/scene", () => {
       expect(world.has(tokenId)).toBe(false);
     });
 
-    it("rejects a player dispatch", async () => {
+    it("the token's owner may remove it (requireWrite)", async () => {
       await makeScene(pipeline);
       const sceneId = world.query([Scene])[0]!.id;
-      const tokenId = await makeToken(pipeline, world, sceneId);
+      const tokenId = await makeToken(pipeline, world, sceneId, PLAYER.userId);
       const res = await dispatch(
         pipeline,
         RemoveToken({ tokenId }),
         PLAYER,
+      );
+      expect(res.result.ok).toBe(true);
+      expect(world.has(tokenId)).toBe(false);
+    });
+
+    it("rejects a non-owner non-GM dispatch", async () => {
+      await makeScene(pipeline);
+      const sceneId = world.query([Scene])[0]!.id;
+      const tokenId = await makeToken(pipeline, world, sceneId, PLAYER.userId);
+      const res = await dispatch(
+        pipeline,
+        RemoveToken({ tokenId }),
+        OTHER_PLAYER,
       );
       expect(res.result.ok).toBe(false);
       expect(world.has(tokenId)).toBe(true);
@@ -613,7 +635,7 @@ describe("@vtt/scene", () => {
     it("TokenSpawningSystem writes the four token-related traits", () => {
       const writes = TokenSpawningSystem.writes.map((t) => t.name);
       expect(writes).toEqual(
-        expect.arrayContaining([Token.name, Sprite.name, Position.name, OwnedBy.name]),
+        expect.arrayContaining([Token.name, Sprite.name, Position.name, Permissions.name]),
       );
     });
 
@@ -927,12 +949,12 @@ describe("@vtt/scene", () => {
     /**
      * Spawn a Character entity directly — the scene tests don't load
      * the characters plugin, so we register the Character trait + a
-     * matching OwnedBy and skip the normal CharacterCreated flow.
+     * matching Permissions and skip the normal CharacterCreated flow.
      */
     function spawnCharacter(ownerUserId: string): EntityId {
       return world.spawn([
         Character({ name: "Tarn" }),
-        OwnedBy({ userId: ownerUserId }),
+        Permissions(ownedBy(ownerUserId)),
       ]);
     }
 

@@ -37,7 +37,7 @@ export const AssetRegistered = defineEvent({
     width: z.number().int().positive().nullable(),
     height: z.number().int().positive().nullable(),
     uploadedAt: z.number().int().nonnegative(),
-    /** Who uploaded — becomes the OwnedBy on the asset entity. */
+    /** Who uploaded — seeds the asset's Permissions.write list. */
     uploadedByUserId: z.string().min(1),
   }),
 });
@@ -51,24 +51,6 @@ export const AssetRenamed = defineEvent({
   schema: z.object({
     assetId: EntityId,
     filename: z.string().min(1).max(255),
-  }),
-});
-
-/**
- * The owner or GM changed the asset's visibility. Mirror system writes
- * the new `EntityVisibility` trait. The fetch route consults
- * `EntityVisibility` on every read, so the change takes effect
- * immediately for new requests.
- */
-export const AssetVisibilityChanged = defineEvent({
-  name: "@vtt/assets/AssetVisibilityChanged",
-  schema: z.object({
-    assetId: EntityId,
-    visibility: z.union([
-      z.object({ kind: z.literal("everyone") }),
-      z.object({ kind: z.literal("role"), role: z.string() }),
-      z.object({ kind: z.literal("users"), userIds: z.array(z.string()) }),
-    ]),
   }),
 });
 

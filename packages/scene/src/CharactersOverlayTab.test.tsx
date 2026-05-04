@@ -23,7 +23,7 @@ import {
   mountWithClient,
 } from "@vtt/substrate/client-testing";
 import { type EntityId } from "@vtt/substrate";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { Identity, Online } from "@vtt/identity/shared";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { notes } from "@vtt/notes";
@@ -98,7 +98,7 @@ function harness(opts: SeedOpts) {
       for (const c of opts.characters) {
         const id = world.spawn([
           Character({ name: c.name }),
-          OwnedBy({ userId: c.ownerUserId }),
+          Permissions(ownedBy(c.ownerUserId)),
         ]);
         if (c.imageUrl !== undefined) {
           world.set(id, CharacterToken, { imageUrl: c.imageUrl });
@@ -165,13 +165,11 @@ describe("CharactersOverlayTab", () => {
       sceneId: string;
       characterId: string;
       label: string;
-      ownerUserId: string;
       imageUrl: string | null;
     };
     expect(payload.sceneId).toBe(h.sceneId);
     expect(payload.characterId).toBe(h.characterIds[0]);
     expect(payload.label).toBe("Tarn");
-    expect(payload.ownerUserId).toBe(ME_PLAYER.userId);
     expect(payload.imageUrl).toBe(
       "/plugin-data/test-world/@vtt/characters/characters/x/token.png?v=1",
     );

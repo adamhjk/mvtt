@@ -17,7 +17,7 @@
 
 import { createMemo, createSignal, type Accessor } from "solid-js";
 import { useQuery } from "@vtt/substrate/client";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { canWrite, Permissions } from "@vtt/permissions/shared";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import { Character } from "../shared/traits.js";
 import { useMe } from "./use-me.js";
@@ -51,14 +51,14 @@ export { activeSpeakerId, setActiveSpeakerId };
 
 /**
  * Resolve the speak-as options visible to the current user: the
- * always-present "self" entry plus every Character whose
- * `playerUserId` matches the current user. Owners (often a GM running
- * NPCs) also see characters they own even if they're not the
- * assigned player. Sorted alphabetically with "self" pinned first.
+ * always-present "self" entry plus every Character the user can write
+ * to (per `Permissions.write`). GMs see every character in the world,
+ * which matches the universal GM bypass on `canWrite`. Sorted
+ * alphabetically with "self" pinned first.
  */
 export function useSpeakAsOptions(): Accessor<SpeakAsOption[]> {
   const me = useMe();
-  const rows = useQuery([Character, OwnedBy]);
+  const rows = useQuery([Character, Permissions]);
   const presence = useQuery([Identity, Name, Online]);
 
   return createMemo<SpeakAsOption[]>(() => {
@@ -75,14 +75,11 @@ export function useSpeakAsOptions(): Accessor<SpeakAsOption[]> {
 
     const mine: SpeakAsOption[] = [];
     for (const row of rows()) {
-      const c = row.values.Character as {
-        name: string;
-        playerUserId?: string;
-      };
-      const owner = row.values.OwnedBy as { userId: string };
-      const isPlayer = c.playerUserId === m.userId;
-      const isOwner = owner.userId === m.userId;
-      if (!isPlayer && !isOwner) continue;
+      const c = row.values.Character as { name: string };
+      const perm = row.values.Permissions as
+        | Parameters<typeof canWrite>[1]
+        | undefined;
+      if (!canWrite(m, perm)) continue;
       mine.push({ characterId: row.id, label: c.name });
     }
     mine.sort((a, b) => a.label.localeCompare(b.label));

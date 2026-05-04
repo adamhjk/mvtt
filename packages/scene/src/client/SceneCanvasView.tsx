@@ -499,7 +499,6 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
               label: payload.label,
               x: tgt.x,
               y: tgt.y,
-              ownerUserId: payload.ownerUserId,
             }) as CommandInstance,
           );
           return;

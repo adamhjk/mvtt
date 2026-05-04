@@ -23,11 +23,7 @@ import {
   z,
 } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
-import {
-  requireOwnerOrGm,
-  requireRole,
-} from "@vtt/permissions/shared";
-import { requireCharacterEditor } from "@vtt/characters/shared";
+import { requireWrite } from "@vtt/permissions/shared";
 import {
   CharacterTokenPlaced,
   SceneCreated,
@@ -42,9 +38,11 @@ import { LinkedCharacter, Position } from "./traits.js";
 const Color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 /**
- * GM-only: create a new scene. v0 expects exactly one Scene at a time;
- * issuing this when another exists is currently a no-op at the renderer
- * (it'll just pick the first match) — multi-scene management lands later.
+ * Any authenticated user may create a scene. The scene spawns with
+ * `Permissions(ownedBy(creator))` — the creator is the sole writer
+ * (plus GMs by universal bypass), and the world reads. To restrict
+ * scene creation further (GM-only at a campaign level, say), the host
+ * would gate at the world's membership layer rather than here.
  */
 export const CreateScene = defineCommand({
   name: "@vtt/scene/CreateScene",
@@ -57,7 +55,10 @@ export const CreateScene = defineCommand({
     backgroundColor: Color.default("#1a1a1a"),
     gridColor: Color.default("#2a2a2a"),
   }),
-  validate: (ctx) => requireRole(ctx, "gm"),
+  validate: (ctx) => {
+    if (!requireSession(ctx)) return fail("not authenticated");
+    return ok();
+  },
   apply: ({ cmd, session, world }) => {
     const auth = requireSession({ session })!; // validate already enforced
     return [
@@ -76,10 +77,13 @@ export const CreateScene = defineCommand({
 });
 
 /**
- * GM-only: drop a new token onto the named scene at the given world
- * coordinates. The token's owner is whoever the GM specifies (a player's
- * userId), or the GM themselves by default. The recording system
- * attaches a Position with `movedAt: 0` — the first MoveToken bumps it.
+ * Drop a new token onto the named scene at the given world
+ * coordinates. Gated by `requireWrite(sceneId)` — only users who can
+ * write the scene can add tokens to it. The new token's
+ * `Permissions.write` defaults to `users:[ownerUserId ?? caller]`;
+ * the caller can pass an explicit owner so a GM can drop a token for
+ * a specific player. The recording system attaches a Position with
+ * `movedAt: 0` — the first MoveToken bumps it.
  */
 export const CreateToken = defineCommand({
   name: "@vtt/scene/CreateToken",
@@ -95,12 +99,11 @@ export const CreateToken = defineCommand({
     ownerUserId: z.string().optional(),
   }),
   validate: (ctx) => {
-    const role = requireRole(ctx, "gm");
-    if (!role.ok) return role;
+    if (!requireSession(ctx)) return fail("not authenticated");
     if (!ctx.world.has(ctx.cmd.sceneId)) {
       return fail(`scene ${ctx.cmd.sceneId} does not exist`);
     }
-    return ok();
+    return requireWrite(ctx, ctx.cmd.sceneId);
   },
   apply: ({ cmd, session, world }) => {
     const auth = requireSession({ session })!;
@@ -122,13 +125,16 @@ export const CreateToken = defineCommand({
 });
 
 /**
- * Move a token. Anyone who owns the token (or any GM) can dispatch this.
- * The optional `causalState.lastSeenMovedAt` carries the client's
- * last-known `Position.movedAt` — the validator rejects the command if
- * the authoritative position has moved since, so two clients grabbing
- * the same token at the same moment are arbitrated by "first writer
- * wins." v0 doesn't ship optimistic prediction; the second mover sees a
- * fail ack and snaps back via the next TokenMoved broadcast.
+ * Move a token. Gated by `requireWrite` against the token's
+ * Permissions trait — set at place time to the character's
+ * Permissions for character tokens, or to `users:[creator]` for
+ * plain tokens. The optional `causalState.lastSeenMovedAt` carries
+ * the client's last-known `Position.movedAt` — the validator rejects
+ * the command if the authoritative position has moved since, so two
+ * clients grabbing the same token at the same moment are arbitrated
+ * by "first writer wins." v0 doesn't ship optimistic prediction; the
+ * second mover sees a fail ack and snaps back via the next TokenMoved
+ * broadcast.
  */
 export const MoveToken = defineCommand({
   name: "@vtt/scene/MoveToken",
@@ -142,20 +148,8 @@ export const MoveToken = defineCommand({
     if (!ctx.world.has(ctx.cmd.tokenId)) {
       return fail(`token ${ctx.cmd.tokenId} does not exist`);
     }
-    // Character tokens follow character-editor rules so an assigned
-    // player can move "their" token even when a GM keeps OwnedBy on
-    // the character. Plain tokens (no LinkedCharacter — e.g. NPCs the
-    // GM placed) fall back to the token's own OwnedBy.
-    const linked = ctx.world.get(ctx.cmd.tokenId, [LinkedCharacter]) as
-      | { LinkedCharacter: { characterId: string } }
-      | undefined;
-    if (linked) {
-      const editor = requireCharacterEditor(ctx, linked.LinkedCharacter.characterId);
-      if (!editor.ok) return editor;
-    } else {
-      const owner = requireOwnerOrGm(ctx, ctx.cmd.tokenId);
-      if (!owner.ok) return owner;
-    }
+    const editor = requireWrite(ctx, ctx.cmd.tokenId);
+    if (!editor.ok) return editor;
 
     const causal = ctx.causalState as { lastSeenMovedAt?: number } | undefined;
     if (causal && typeof causal.lastSeenMovedAt === "number") {
@@ -182,18 +176,23 @@ export const MoveToken = defineCommand({
   },
 });
 
+/**
+ * Remove a token. Gated by `requireWrite` on the token — token owners
+ * can remove their own placements, GMs can remove anything (universal
+ * write bypass). No more bespoke GM-only check; permission flows
+ * through the standard model.
+ */
 export const RemoveToken = defineCommand({
   name: "@vtt/scene/RemoveToken",
   schema: z.object({
     tokenId: EntityId,
   }),
   validate: (ctx) => {
-    const role = requireRole(ctx, "gm");
-    if (!role.ok) return role;
+    if (!requireSession(ctx)) return fail("not authenticated");
     if (!ctx.world.has(ctx.cmd.tokenId)) {
       return fail(`token ${ctx.cmd.tokenId} does not exist`);
     }
-    return ok();
+    return requireWrite(ctx, ctx.cmd.tokenId);
   },
   apply: ({ cmd }) => [TokenRemoved({ tokenId: cmd.tokenId })],
 });
@@ -215,12 +214,11 @@ export const RemoveScene = defineCommand({
     sceneId: EntityId,
   }),
   validate: (ctx) => {
-    const role = requireRole(ctx, "gm");
-    if (!role.ok) return role;
+    if (!requireSession(ctx)) return fail("not authenticated");
     if (!ctx.world.has(ctx.cmd.sceneId)) {
       return fail(`scene ${ctx.cmd.sceneId} does not exist`);
     }
-    return ok();
+    return requireWrite(ctx, ctx.cmd.sceneId);
   },
   apply: ({ cmd }) => [SceneRemoved({ sceneId: cmd.sceneId })],
 });
@@ -276,8 +274,7 @@ export const UpdateScene = defineCommand({
     backgroundImage: z.string().nullable().optional(),
   }),
   validate: (ctx) => {
-    const role = requireRole(ctx, "gm");
-    if (!role.ok) return role;
+    if (!requireSession(ctx)) return fail("not authenticated");
     if (!ctx.world.has(ctx.cmd.sceneId)) {
       return fail(`scene ${ctx.cmd.sceneId} does not exist`);
     }
@@ -294,7 +291,7 @@ export const UpdateScene = defineCommand({
         `backgroundImage URL must start with /plugin-data/${ctx.world.worldId}/@vtt/scene/scenes/${ctx.cmd.sceneId}/`,
       );
     }
-    return ok();
+    return requireWrite(ctx, ctx.cmd.sceneId);
   },
   apply: ({ cmd }) => {
     const payload: {
@@ -337,21 +334,19 @@ function isWorldPluginDataUrl(url: string, worldId: string): boolean {
 }
 
 /**
- * Place a character on a scene as a linked token. Permission is
- * owner-or-GM of the character (a player can drop their own character
- * on the active scene; a GM can drop any character). The "place once"
- * rule is enforced here: a character that already has a token in the
- * scene cannot be placed again — the validator queries the world for
- * existing tokens with `LinkedCharacter.characterId === cmd.characterId`
- * AND `Position.sceneId === cmd.sceneId`.
+ * Place a character on a scene as a linked token. Gated by
+ * `requireWrite` against the character (a user listed in
+ * `Permissions.write` can drop their own character; GMs can drop
+ * any). The token's own Permissions is copied from the character at
+ * place time — see `CharacterTokenPlacementSystem`.
  *
- * The client passes pre-resolved `label`, `iconSlug`, `imageUrl`,
- * `ownerUserId` because they're all readable from the character's own
- * traits client-side; revalidating them here would force scene to
- * import every character-side trait. (Adversarial values are caught
- * by URL prefix validation + the scene's own bounded range/size
- * checks; the worst a malicious client can do is set a wrong label
- * on their own placement, which doesn't affect anyone else's state.)
+ * The "place once" rule is enforced here: a character that already
+ * has a token in the scene cannot be placed again.
+ *
+ * The client passes pre-resolved `label`, `iconSlug`, `imageUrl`
+ * because they're all readable from the character's own traits
+ * client-side; revalidating them here would force scene to import
+ * every character-side trait.
  */
 export const PlaceCharacterToken = defineCommand({
   name: "@vtt/scene/PlaceCharacterToken",
@@ -366,7 +361,6 @@ export const PlaceCharacterToken = defineCommand({
     label: z.string().min(1).max(80),
     x: z.number(),
     y: z.number(),
-    ownerUserId: z.string().min(1),
   }),
   validate: (ctx) => {
     if (!requireSession(ctx)) return fail("not authenticated");
@@ -376,10 +370,7 @@ export const PlaceCharacterToken = defineCommand({
     if (!ctx.world.has(ctx.cmd.characterId)) {
       return fail(`character ${ctx.cmd.characterId} does not exist`);
     }
-    // Editor of the character (owner, assigned player, or GM). An
-    // assigned player should be able to place "their" character, even
-    // if a GM remains the OwnedBy.
-    const editor = requireCharacterEditor(ctx, ctx.cmd.characterId);
+    const editor = requireWrite(ctx, ctx.cmd.characterId);
     if (!editor.ok) return editor;
 
     if (
@@ -391,12 +382,6 @@ export const PlaceCharacterToken = defineCommand({
       );
     }
 
-    // Place-once: a character may have at most one token per scene.
-    // We can't import LinkedCharacter's host plugin here without a
-    // cycle — but the trait is owned by THIS plugin, so a direct query
-    // is fine. Queries only return entities where every requested
-    // trait is present, so unrelated tokens (without LinkedCharacter)
-    // are skipped automatically.
     const placed = ctx.world.query([LinkedCharacter, Position]);
     for (const row of placed) {
       const lc = row.values.LinkedCharacter as { characterId: EntityId };
@@ -424,7 +409,6 @@ export const PlaceCharacterToken = defineCommand({
       label: cmd.label,
       x: cmd.x,
       y: cmd.y,
-      ownerUserId: cmd.ownerUserId,
     }),
   ],
 });

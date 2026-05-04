@@ -25,7 +25,7 @@ import {
   type EntityId,
 } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
-import { EntityVisibility, OwnedBy } from "@vtt/permissions/shared";
+import { Permissions } from "@vtt/permissions/shared";
 import { Character } from "@vtt/characters/shared";
 import {
   Formula,
@@ -43,7 +43,7 @@ import { RollRecordingSystem } from "./server/systems.js";
 const serverPlugin = definePlugin({
   name: "@vtt/resolution",
   version: "0.3.0",
-  traits: [Formula, RollResult, RolledBy, EntityVisibility, Character, OwnedBy],
+  traits: [Formula, RollResult, RolledBy, Permissions, Character],
   events: [RollResolved],
   commands: [RequestRoll],
   systems: [RollRecordingSystem],
@@ -121,7 +121,7 @@ describe("@vtt/resolution", () => {
     expect(world.query([Formula])).toHaveLength(0);
   });
 
-  it("RequestRoll → RollResolved → spawned entity carrying Formula + RollResult + RolledBy + EntityVisibility", async () => {
+  it("RequestRoll → RollResolved → spawned entity carrying Formula + RollResult + RolledBy + Permissions", async () => {
     const seen: string[] = [];
     bus.onAny((e) => seen.push(e.type));
 
@@ -133,45 +133,43 @@ describe("@vtt/resolution", () => {
 
     expect(res.result.ok).toBe(true);
     expect(seen).toEqual([RollResolved.name]);
-    const rows = world.query([Formula, RollResult, RolledBy, EntityVisibility]);
+    const rows = world.query([Formula, RollResult, RolledBy, Permissions]);
     expect(rows).toHaveLength(1);
     const v = rows[0]!.values as {
       Formula: { notation: string };
       RollResult: { total: number; output: string };
       RolledBy: { userId: string; displayName: string };
-      EntityVisibility: { visibility: { kind: string } };
+      Permissions: { read: { kind: string } };
     };
     expect(v.Formula.notation).toBe("1d20");
     expect(v.RollResult.total).toBeGreaterThanOrEqual(1);
     expect(v.RollResult.total).toBeLessThanOrEqual(20);
     expect(v.RollResult.output).toContain("1d20");
-    expect(v.EntityVisibility.visibility.kind).toBe("everyone");
+    expect(v.Permissions.read.kind).toBe("everyone");
     expect(v.RolledBy.userId).toBe(SESSION.userId);
     expect(v.RolledBy.displayName).toBe(SESSION.name);
   });
 
-  it("gm-only roll attaches role-restricted EntityVisibility", async () => {
+  it("gm-only roll restricts Permissions.read to the GM role", async () => {
     await dispatch(
       pipeline,
       "r1",
       RequestRoll({ notation: "1d20", visibility: "gm-only" }),
     );
-    const row = world.query([EntityVisibility])[0]!;
-    expect(row.values.EntityVisibility).toEqual({
-      visibility: { kind: "role", role: "gm" },
-    });
+    const row = world.query([Permissions])[0]!;
+    const v = row.values.Permissions as { read: unknown };
+    expect(v.read).toEqual({ kind: "role", role: "gm" });
   });
 
-  it("private roll restricts EntityVisibility to the rolling user", async () => {
+  it("private roll restricts Permissions.read to the rolling user", async () => {
     await dispatch(
       pipeline,
       "r1",
       RequestRoll({ notation: "1d20", visibility: "private" }),
     );
-    const row = world.query([EntityVisibility])[0]!;
-    expect(row.values.EntityVisibility).toEqual({
-      visibility: { kind: "users", userIds: [SESSION.userId] },
-    });
+    const row = world.query([Permissions])[0]!;
+    const v = row.values.Permissions as { read: unknown };
+    expect(v.read).toEqual({ kind: "users", userIds: [SESSION.userId] });
   });
 
   it("respects modifiers in the notation", async () => {
@@ -276,19 +274,21 @@ describe("@vtt/resolution", () => {
   describe("speakingAsCharacterId", () => {
     function spawnCharacter(
       world: World,
-      args: { name: string; ownerUserId: string; playerUserId?: string },
+      args: { name: string; writers: string[] },
     ): EntityId {
       return world.spawn([
-        Character({ name: args.name, playerUserId: args.playerUserId }),
-        OwnedBy({ userId: args.ownerUserId }),
+        Character({ name: args.name }),
+        Permissions({
+          read: { kind: "everyone" },
+          write: { kind: "users", userIds: args.writers },
+        }),
       ]);
     }
 
-    it("uses the character's name as RolledBy.displayName when speaking as it", async () => {
+    it("uses the character's name as RolledBy.displayName when the user can write the character", async () => {
       const charId = spawnCharacter(world, {
         name: "Tarn",
-        ownerUserId: SESSION.userId,
-        playerUserId: SESSION.userId,
+        writers: [SESSION.userId],
       });
       const res = await dispatch(
         pipeline,
@@ -311,11 +311,10 @@ describe("@vtt/resolution", () => {
       expect(v.speakingAsCharacterId).toBe(charId);
     });
 
-    it("rejects roll-as on a character assigned to another player", async () => {
+    it("rejects roll-as on a character the dispatcher can't write", async () => {
       const charId = spawnCharacter(world, {
         name: "Foe",
-        ownerUserId: "u2",
-        playerUserId: "u2",
+        writers: ["u2"],
       });
       const player: AuthSession = {
         userId: "player-x",

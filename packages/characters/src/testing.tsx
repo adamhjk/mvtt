@@ -27,11 +27,10 @@ import {
   type PluginDef,
 } from "@vtt/substrate";
 import { Identity, Online } from "@vtt/identity/shared";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { Character } from "./shared/index.js";
 import { PendingRoll } from "./shared/pending.js";
 import {
-  AssignCharacter,
   CancelPendingRoll,
   CommitPendingRoll,
   ContributeToPendingRoll,
@@ -42,7 +41,6 @@ import {
   SetField,
 } from "./shared/commands.js";
 import {
-  CharacterAssigned,
   CharacterCreated,
   CharacterFieldSet,
   CharacterRemoved,
@@ -53,7 +51,6 @@ import {
   PendingRollOpened,
 } from "./shared/events.js";
 import {
-  CharacterAssignmentSystem,
   CharacterFieldSetSystem,
   CharacterRemovalSystem,
   CharacterRenameSystem,
@@ -131,12 +128,11 @@ const DEFAULT_CLIENT_ID = "test-client-1";
 const charactersTestInfra = definePlugin({
   name: "@vtt/characters-testing",
   version: "0.0.0",
-  traits: [Character, OwnedBy, Identity, Online, PendingRoll],
+  traits: [Character, Permissions, Identity, Online, PendingRoll],
   events: [
     CharacterCreated,
     CharacterRenamed,
     CharacterRemoved,
-    CharacterAssigned,
     CharacterFieldSet,
     PendingRollOpened,
     PendingRollContributed,
@@ -147,7 +143,6 @@ const charactersTestInfra = definePlugin({
     CreateCharacter,
     RemoveCharacter,
     RenameCharacter,
-    AssignCharacter,
     SetField,
     OpenPendingRoll,
     ContributeToPendingRoll,
@@ -158,7 +153,6 @@ const charactersTestInfra = definePlugin({
     CharacterSpawningSystem,
     CharacterRenameSystem,
     CharacterRemovalSystem,
-    CharacterAssignmentSystem,
     CharacterFieldSetSystem,
     PendingRollSpawnSystem,
     PendingRollContributionSystem,
@@ -189,19 +183,29 @@ export function buildCharacterHarness(
       role,
     },
     setupWorld: ({ world, registry }) => {
-      const playerUserId =
-        opts.playerUserId === undefined
-          ? undefined
-          : opts.playerUserId.length > 0
-            ? opts.playerUserId
-            : undefined;
+      // The harness models the new permission semantic: an "assigned"
+      // player is just a userId in `Permissions.write.userIds`. If
+      // `playerUserId` is supplied, we add it to the write list (in
+      // addition to the owner); otherwise the owner is the sole writer.
+      const writers = [ownerUserId];
+      if (
+        opts.playerUserId !== undefined &&
+        opts.playerUserId.length > 0 &&
+        !writers.includes(opts.playerUserId)
+      ) {
+        writers.push(opts.playerUserId);
+      }
       characterId = world.spawn([
-        Character({
-          name: opts.characterName ?? "Tarn",
-          playerUserId,
+        Character({ name: opts.characterName ?? "Tarn" }),
+        Permissions({
+          read: { kind: "everyone" },
+          write: { kind: "users", userIds: writers },
         }),
-        OwnedBy({ userId: ownerUserId }),
       ]);
+      // Owner-not-also-writer reverts to default ownedBy(). The
+      // explicit-writers branch above keeps single-owner harnesses
+      // exactly equivalent to `ownedBy(ownerUserId)`.
+      void ownedBy;
       world.spawn([
         Identity({ userId: meUserId, role }),
         Online({ clientId, since: Date.now() }),

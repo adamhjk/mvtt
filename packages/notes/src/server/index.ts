@@ -21,9 +21,9 @@ export {
   EditExtendSystem,
   LockReleaseSystem,
   NoteDeleteSystem,
+  NotePermissionsCascadeSystem,
   NoteRenameSystem,
   NoteSpawnSystem,
-  NoteVisibilityChangeSystem,
   PageBodyMirrorSystem,
   PageDraftMirrorSystem,
   PageHeadingsSystem,
@@ -32,7 +32,6 @@ export {
   PageRenameSystem,
   PageReorderSystem,
   PageSpawnSystem,
-  PageVisibilityChangeSystem,
 } from "./systems.js";
 export { NotesSearchIndex } from "./search.js";
 export type { SearchHit } from "./search.js";

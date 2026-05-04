@@ -23,7 +23,7 @@ import {
   z,
 } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
-import { requireRole } from "@vtt/permissions/shared";
+import { requireWrite } from "@vtt/permissions/shared";
 import {
   BookCreated,
   BookRemoved,
@@ -31,16 +31,20 @@ import {
 } from "./events.js";
 
 /**
- * GM-only: create a new book. Recording system spawns the Book entity
- * in lockstep on every side; subsequent commands reference the id
- * directly.
+ * Any authenticated user may create a book. Recording system spawns
+ * the Book entity in lockstep with `Permissions(ownedBy(creator))` —
+ * the creator is the sole writer until they share via the chrome's
+ * PermissionsMenu. GMs always pass.
  */
 export const CreateBook = defineCommand({
   name: "@vtt/books/CreateBook",
   schema: z.object({
     name: z.string().min(1).max(160),
   }),
-  validate: (ctx) => requireRole(ctx, "gm"),
+  validate: (ctx) => {
+    if (!requireSession(ctx)) return fail("not authenticated");
+    return ok();
+  },
   apply: ({ cmd, session, world }) => {
     const auth = requireSession({ session })!;
     return [
@@ -54,11 +58,11 @@ export const CreateBook = defineCommand({
 });
 
 /**
- * GM-only: delete a book. Tabs still pointing at the removed bookId
- * silently fall back to the empty state (mirrors RemoveScene's
- * behaviour). Projection plugins (e.g. @vtt/pdf-book) react to
- * BookRemoved in their own systems to despawn associated content
- * traits — books don't reach across plugin boundaries.
+ * Editor-gated (`requireWrite`): delete a book. Tabs still pointing at
+ * the removed bookId silently fall back to the empty state (mirrors
+ * RemoveScene's behaviour). Projection plugins (e.g. @vtt/pdf-book)
+ * react to BookRemoved in their own systems to despawn associated
+ * content traits — books don't reach across plugin boundaries.
  */
 export const RemoveBook = defineCommand({
   name: "@vtt/books/RemoveBook",
@@ -66,19 +70,18 @@ export const RemoveBook = defineCommand({
     bookId: EntityId,
   }),
   validate: (ctx) => {
-    const role = requireRole(ctx, "gm");
-    if (!role.ok) return role;
+    if (!requireSession(ctx)) return fail("not authenticated");
     if (!ctx.world.has(ctx.cmd.bookId)) {
       return fail(`book ${ctx.cmd.bookId} does not exist`);
     }
-    return ok();
+    return requireWrite(ctx, ctx.cmd.bookId);
   },
   apply: ({ cmd }) => [BookRemoved({ bookId: cmd.bookId })],
 });
 
 /**
- * GM-only: rename (or otherwise edit) an existing book. Used by the
- * Config dock tab.
+ * Editor-gated: rename (or otherwise edit) an existing book. Used by
+ * the Config dock tab.
  */
 export const UpdateBook = defineCommand({
   name: "@vtt/books/UpdateBook",
@@ -87,12 +90,11 @@ export const UpdateBook = defineCommand({
     name: z.string().min(1).max(160).optional(),
   }),
   validate: (ctx) => {
-    const role = requireRole(ctx, "gm");
-    if (!role.ok) return role;
+    if (!requireSession(ctx)) return fail("not authenticated");
     if (!ctx.world.has(ctx.cmd.bookId)) {
       return fail(`book ${ctx.cmd.bookId} does not exist`);
     }
-    return ok();
+    return requireWrite(ctx, ctx.cmd.bookId);
   },
   apply: ({ cmd }) => {
     const payload: { bookId: typeof cmd.bookId; name?: string } = {

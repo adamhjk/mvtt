@@ -33,7 +33,7 @@ import {
   RemoveCharacter,
   RenameCharacter,
 } from "@vtt/characters/shared";
-import { OwnedBy } from "@vtt/permissions/shared";
+import { Permissions } from "@vtt/permissions/shared";
 import type { AuthSession } from "@vtt/auth";
 
 /**
@@ -125,12 +125,12 @@ describe("characters wire smoke", () => {
     const characterId = after[0]!.id;
     const initial = handle.worldsRegistry
       .get(worldId)!
-      .world.get(characterId, [Character, OwnedBy]) as {
+      .world.get(characterId, [Character, Permissions]) as {
       Character: { name: string };
-      OwnedBy: { userId: string };
+      Permissions: { write: { kind: string; userIds?: string[] } };
     };
     expect(initial.Character.name).toBe("Tarn the Bold");
-    expect(initial.OwnedBy.userId).toBe(PLAYER.userId);
+    expect(initial.Permissions.write.userIds).toEqual([PLAYER.userId]);
 
     send({
       kind: "command",
