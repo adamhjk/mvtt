@@ -1,0 +1,108 @@
+// mvtt, an RPG virtual tabletop
+// Copyright (C) 2026, Adam Jacob
+//
+// This file is part of mvtt.
+//
+// mvtt is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License version 3
+// as published by the Free Software Foundation.
+//
+// mvtt is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
+
+import { defineEvent, EntityId, z } from "@vtt/substrate";
+
+/**
+ * An item entity has been spawned. Carries the full trait bag the
+ * server-side mirror system uses to call `world.spawnAt(itemId, ...)`
+ * — every side ends up with the same entity. `traits` is an opaque
+ * map keyed by trait name (the universal-mirror system fans it out
+ * by looking up each trait def in the registry).
+ */
+export const ItemCreated = defineEvent({
+  name: "@vtt/items/ItemCreated",
+  schema: z.object({
+    itemId: EntityId,
+    traits: z.record(z.string(), z.unknown()),
+  }),
+});
+
+/**
+ * An existing item has been forked. The mirror system spawns a new
+ * entity at `newItemId`, copies every shareable trait from the source
+ * over (the substrate's `share: false` flag controls which traits
+ * skip the copy), then fires the original "you customized this"
+ * machinery against the new id. The source entity is unchanged.
+ */
+export const ItemForked = defineEvent({
+  name: "@vtt/items/ItemForked",
+  schema: z.object({
+    sourceItemId: EntityId,
+    newItemId: EntityId,
+  }),
+});
+
+/**
+ * A field on an item has been edited. The path uses dot notation
+ * scoped under a trait name (e.g. "ItemIdentity.name",
+ * "TbWeapon.conflictBonuses.attack.value"). The receiving system
+ * applies the field to the trait's current value AND adds the path
+ * to that item's `ItemDerivedFrom.overrides` so re-seed leaves it
+ * alone. Items with no `ItemDerivedFrom` trait skip the override
+ * tracking step (they're not catalog-derived).
+ */
+export const ItemFieldChanged = defineEvent({
+  name: "@vtt/items/ItemFieldChanged",
+  schema: z.object({
+    itemId: EntityId,
+    path: z.string().min(1).max(240),
+    value: z.unknown(),
+  }),
+});
+
+/**
+ * An item's override on a field has been cleared. Removes the path
+ * from `ItemDerivedFrom.overrides`; the next re-seed will adopt the
+ * catalog's value for that field. Items that aren't catalog-derived
+ * cannot be reverted (there's nothing to revert to).
+ */
+export const ItemFieldReverted = defineEvent({
+  name: "@vtt/items/ItemFieldReverted",
+  schema: z.object({
+    itemId: EntityId,
+    path: z.string().min(1).max(240),
+  }),
+});
+
+/**
+ * An item's override on a field has been explicitly locked even
+ * though the GM hasn't edited it yet. Prevents the next re-seed
+ * from clobbering a value the GM is intentionally keeping at the
+ * current catalog value.
+ */
+export const ItemFieldLocked = defineEvent({
+  name: "@vtt/items/ItemFieldLocked",
+  schema: z.object({
+    itemId: EntityId,
+    path: z.string().min(1).max(240),
+  }),
+});
+
+/**
+ * An item entity has been destroyed. The mirror system calls
+ * `world.despawn(itemId)` on every side. Callers are responsible
+ * for removing any holder-side references (e.g. TbCarries entries)
+ * before issuing this; the substrate doesn't enforce referential
+ * integrity.
+ */
+export const ItemDestroyed = defineEvent({
+  name: "@vtt/items/ItemDestroyed",
+  schema: z.object({
+    itemId: EntityId,
+  }),
+});

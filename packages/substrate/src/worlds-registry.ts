@@ -48,7 +48,7 @@ export class WorldRuntime {
     private readonly persistence: PersistenceAdapter | undefined,
     private readonly snapshotEvery: number,
     private readonly snapshotsToKeep: number,
-    activePlugins: ReadonlyArray<PluginDef>,
+    private readonly activePlugins: ReadonlyArray<PluginDef>,
   ) {
     this.registry = new Registry();
     this.registry.load(substrateCorePlugin);
@@ -83,7 +83,34 @@ export class WorldRuntime {
       args.activePlugins,
     );
     await rt.coldBootReplay();
+    rt.runSeeds();
     return rt;
+  }
+
+  /**
+   * Run every active plugin's `seed` hook. Called once during boot
+   * after cold-boot replay, before any client attaches. Each seed
+   * runs synchronously; plugins are responsible for their own
+   * idempotency. Seed runs in plugin-load order, so a plugin that
+   * depends on another's seeded entities will see them.
+   *
+   * Seed writes go through `world.spawn`/`world.set` directly (NOT the
+   * command pipeline) — they're deterministic content that never
+   * needs to enter the persisted event log.
+   */
+  runSeeds(): void {
+    for (const p of this.activePlugins) {
+      if (!p.seed) continue;
+      try {
+        p.seed({ world: this.world, registry: this.registry });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[mvtt] seed hook for ${p.name} failed in world ${this.worldId}:`,
+          (err as Error).message,
+        );
+      }
+    }
   }
 
   get worldId(): WorldId {

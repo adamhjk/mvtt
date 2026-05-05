@@ -58,6 +58,7 @@ import { pdfBookAssetRoots } from "@vtt/pdf-book/server";
 import { characters } from "@vtt/characters";
 import { diceTray } from "@vtt/dice-tray";
 import { diceTrayAssetRoots } from "@vtt/dice-tray/server";
+import { items } from "@vtt/items";
 import { systemSimple } from "@vtt/system-simple";
 import { systemTorchbearer } from "@vtt/system-torchbearer";
 import { createAuth } from "@vtt/auth/server";
@@ -177,6 +178,7 @@ const optionalPlugins = [
   pdfBook,
   characters,
   diceTray,
+  items,
   systemSimple,
   systemTorchbearer,
 ];

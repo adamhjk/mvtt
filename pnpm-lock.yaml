@@ -308,6 +308,15 @@ importers:
         specifier: ^1.9.0
         version: 1.9.12
 
+  packages/items:
+    dependencies:
+      '@vtt/substrate':
+        specifier: workspace:*
+        version: link:../substrate
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+
   packages/notes:
     dependencies:
       '@codemirror/autocomplete':
@@ -636,6 +645,9 @@ importers:
       '@vtt/identity':
         specifier: workspace:*
         version: link:../identity
+      '@vtt/items':
+        specifier: workspace:*
+        version: link:../items
       '@vtt/notes':
         specifier: workspace:*
         version: link:../notes

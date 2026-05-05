@@ -108,6 +108,7 @@ export type {
   AnyViewDef,
   PluginDef,
   EntityVisibilityResolver,
+  SeedFn,
 } from "./define.js";
 export { World } from "./world.js";
 export type { WorldState } from "./world.js";

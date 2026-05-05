@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { z } from "zod";
 import {
   defineCommand,
@@ -297,6 +297,156 @@ describe("WorldsRegistry", () => {
     await r.acquire(w.id);
     await r.acquire(w.id);
     expect(seen).toEqual([w.id]);
+  });
+
+  it("seed hooks run once per acquire after cold-boot replay", async () => {
+    const Marker = defineTrait({
+      name: "@vtt/seed-test/Marker",
+      schema: z.object({ note: z.string() }),
+    });
+    let seedCalls = 0;
+    const seededPlugin = definePlugin({
+      name: "@vtt/seed-test",
+      version: "0",
+      dependsOn: ["@vtt/substrate@^0"],
+      traits: [Marker],
+      gameSystem: true,
+      seed: ({ world }) => {
+        seedCalls++;
+        // Idempotency: only spawn if no marker exists yet.
+        const existing = world.query([Marker]);
+        if (existing.length === 0) {
+          world.spawn([Marker({ note: "seeded" })]);
+        }
+      },
+    });
+    const r = new WorldsRegistry({
+      worldsRepo: repo,
+      persistence,
+      infrastructure: [],
+      optional: [seededPlugin],
+    });
+    const w = await svc.create({
+      name: "S",
+      gameSystemPlugin: "@vtt/seed-test",
+      ownerUserId: "u",
+    });
+    const rt = await r.acquire(w.id);
+    expect(seedCalls).toBe(1);
+    expect(rt.world.query([Marker])).toHaveLength(1);
+    // Re-acquire returns the cached runtime; seed must NOT run twice.
+    await r.acquire(w.id);
+    expect(seedCalls).toBe(1);
+  });
+
+  it("seed runs after cold-boot replay so it sees previously persisted state", async () => {
+    const Marker = defineTrait({
+      name: "@vtt/seed-replay-test/Marker",
+      schema: z.object({ kind: z.string() }),
+    });
+    let observedDuringSeed = 0;
+    const seededPlugin = definePlugin({
+      name: "@vtt/seed-replay-test",
+      version: "0",
+      dependsOn: ["@vtt/substrate@^0"],
+      traits: [Marker],
+      gameSystem: true,
+      seed: ({ world }) => {
+        observedDuringSeed = world.query([Marker]).length;
+        const has = world.query([Marker]).some((r) => {
+          const v = r.values.Marker as { kind: string };
+          return v.kind === "from-seed";
+        });
+        if (!has) world.spawn([Marker({ kind: "from-seed" })]);
+      },
+    });
+
+    // Replay-honest persistence stub (the test-file MemoryPersistence
+    // returns null for snapshots, so cold-boot replay would see nothing).
+    const stored = new Map<
+      WorldId,
+      import("./persistence.js").PersistedSnapshot
+    >();
+    const replayPersist: PersistenceAdapter = {
+      migrate: async () => {},
+      appendEvents: async () => {},
+      readEventsSince: async () => [],
+      highestSeq: async () => 0,
+      loadLatestSnapshot: async (worldId) => stored.get(worldId) ?? null,
+      writeSnapshot: async (s) => {
+        stored.set(s.worldId, s);
+      },
+      hardDeleteWorld: async () => {},
+    };
+
+    const svc2 = new WorldsService({
+      worldsRepo: repo,
+      persistence: replayPersist,
+    });
+    const w = await svc2.create({
+      name: "R",
+      gameSystemPlugin: "@vtt/seed-replay-test",
+      ownerUserId: "u",
+    });
+
+    await replayPersist.writeSnapshot({
+      worldId: w.id,
+      atSeq: 1,
+      takenAt: Date.now(),
+      state: {
+        nextId: 5,
+        entities: {
+          e1: { [Marker.name]: { kind: "from-replay" } },
+        },
+      },
+    });
+
+    const r2 = new WorldsRegistry({
+      worldsRepo: repo,
+      persistence: replayPersist,
+      infrastructure: [],
+      optional: [seededPlugin],
+    });
+    const rt2 = await r2.acquire(w.id);
+    expect(observedDuringSeed).toBeGreaterThanOrEqual(1);
+    const kinds = rt2.world
+      .query([Marker])
+      .map((r) => (r.values.Marker as { kind: string }).kind)
+      .sort();
+    expect(kinds).toEqual(["from-replay", "from-seed"]);
+  });
+
+  it("a seed hook that throws is logged but doesn't crash the runtime", async () => {
+    const Marker = defineTrait({
+      name: "@vtt/seed-throws-test/Marker",
+      schema: z.object({ note: z.string() }),
+    });
+    const seededPlugin = definePlugin({
+      name: "@vtt/seed-throws-test",
+      version: "0",
+      dependsOn: ["@vtt/substrate@^0"],
+      traits: [Marker],
+      gameSystem: true,
+      seed: () => {
+        throw new Error("seed exploded");
+      },
+    });
+    const r = new WorldsRegistry({
+      worldsRepo: repo,
+      persistence,
+      infrastructure: [],
+      optional: [seededPlugin],
+    });
+    const w = await svc.create({
+      name: "T",
+      gameSystemPlugin: "@vtt/seed-throws-test",
+      ownerUserId: "u",
+    });
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const rt = await r.acquire(w.id);
+    expect(rt.worldId).toBe(w.id);
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
   });
 
   it("closeAll takes a final snapshot for each runtime", async () => {

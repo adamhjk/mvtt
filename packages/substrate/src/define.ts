@@ -336,7 +336,32 @@ export interface PluginDef {
    * whose chosen game system is not present are not bootable.
    */
   readonly gameSystem?: boolean;
+  /**
+   * Optional seed hook. Called once per world after cold-boot replay,
+   * before any client is allowed to attach. Plugins use this to spawn
+   * deterministic entities derived from their content catalogs (item
+   * templates, spell lists, monster stat blocks, etc.) and to merge
+   * upstream catalog updates into already-seeded worlds. The hook
+   * runs *outside* the command pipeline — it writes to `world`
+   * directly via `spawn`/`spawnAt`/`set` and never emits events into
+   * the persisted log.
+   *
+   * Idempotency is the contract: re-running the seed against an
+   * already-seeded world must converge on the same state, only adding
+   * new templates that weren't there before and merging updates onto
+   * existing entities. Plugins typically achieve this with a sentinel
+   * "catalog index" entity whose trait maps templateId → entityId.
+   */
+  readonly seed?: SeedFn;
 }
+
+/**
+ * Seed hook signature. The substrate calls this with the live World
+ * (post-replay) and the world's Registry. Plugins are responsible
+ * for their own idempotency — the same hook may run on every boot
+ * of an existing world.
+ */
+export type SeedFn = (ctx: { world: World; registry: import("./registry.js").Registry }) => void;
 
 function attach<F extends (...a: never[]) => unknown, M extends Record<string, unknown>>(
   fn: F,
@@ -497,6 +522,7 @@ export function definePlugin(def: {
   fills?: Readonly<Record<string, ReadonlyArray<unknown>>>;
   entityVisibility?: EntityVisibilityResolver;
   gameSystem?: boolean;
+  seed?: SeedFn;
 }): PluginDef {
   return {
     __kind: "plugin",
@@ -515,6 +541,7 @@ export function definePlugin(def: {
     fills: def.fills ?? {},
     entityVisibility: def.entityVisibility,
     gameSystem: def.gameSystem ?? false,
+    seed: def.seed,
   };
 }
 
