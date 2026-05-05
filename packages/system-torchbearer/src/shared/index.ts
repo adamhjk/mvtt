@@ -22,7 +22,6 @@ export {
   Conditions,
   Heroic,
   Identity,
-  Inventory,
   Pools,
   RawAbilities,
   Relics,

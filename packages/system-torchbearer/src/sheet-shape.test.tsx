@@ -862,16 +862,15 @@ describe("Tab body — Arcane", () => {
 });
 
 describe("Tab body — Inventory", () => {
-  it("renders the slot-based layout with the printed-sheet groupings", () => {
+  it("renders the body-slots / containers / catalog-picker sections", () => {
     const h = harness();
     mountFillBody(h, TbInventoryTabFill.render);
 
     expect(screen.getByText(/On Your Person/i)).toBeInTheDocument();
-    expect(screen.getByText(/Carried/)).toBeInTheDocument();
-    expect(screen.getByText(/Cache/)).toBeInTheDocument();
-    expect(screen.getByText(/Head \(worn\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Belt/i)).toBeInTheDocument();
-    expect(screen.getByText(/Satchel \/ Backpack/i)).toBeInTheDocument();
+    expect(screen.getByText(/Carried Containers/i)).toBeInTheDocument();
+    expect(screen.getByText(/Add from Catalog/i)).toBeInTheDocument();
+    expect(screen.getByText(/Head/)).toBeInTheDocument();
+    expect(screen.getByText(/Belt/)).toBeInTheDocument();
   });
 });
 

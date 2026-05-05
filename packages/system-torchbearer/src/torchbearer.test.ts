@@ -61,7 +61,6 @@ import {
   HealthCheck,
   Identity,
   ImproveSkill,
-  Inventory,
   LogAdvancement,
   LORE_MASTER_SKILLS,
   NatureCheck,
@@ -142,7 +141,6 @@ describe("@vtt/system-torchbearer manifest", () => {
       Skills,
       CharacterTraits,
       Wises,
-      Inventory,
       Spells,
       Relics,
       AlliesEnemies,
@@ -529,21 +527,6 @@ describe("Trait schemas", () => {
     expect(v.entries[0]!.fate).toBe(true);
   });
 
-  it("Inventory caps slot capacity at the printed-sheet maxima", () => {
-    expect(() =>
-      Inventory.schema.parse({
-        head: [
-          { name: "hood", damaged: false, weariness: false },
-          { name: "helmet", damaged: false, weariness: false },
-        ],
-      }),
-    ).toThrow();
-    const v = Inventory.schema.parse({
-      head: [{ name: "hood", damaged: false, weariness: false }],
-    });
-    expect(v.head).toHaveLength(1);
-    expect(v.satchel.status).toBe("carried");
-  });
 
   it("Spells defaults memoryPalace to 0 and accepts a spell entry", () => {
     const v = Spells.schema.parse({
