@@ -207,6 +207,15 @@ export const TbCarries = defineTrait({
           slotsConsumed: z.number().int().min(1).max(20).default(1),
           itemId: EntityId,
           quantity: z.number().int().min(0).default(1),
+          /**
+           * Optional per-entry display label. When the same item
+           * entity is carried more than once (two backpacks, three
+           * waterskins) we want to be able to call them apart in
+           * the UI. The label overrides `ItemIdentity.name` for
+           * this entry only — the underlying item entity is
+           * unchanged. Empty string means "use the entity's name."
+           */
+          label: z.string().max(120).optional(),
           state: z
             .object({
               damaged: z.boolean().optional(),

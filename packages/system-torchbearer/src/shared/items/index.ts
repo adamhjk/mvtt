@@ -40,6 +40,8 @@ export {
   ItemEquipped,
   ItemMoved,
   ItemPickedUp,
+  ItemPlacedOnGround,
+  ItemRemovedFromGround,
   ItemUnequipped,
 } from "./item-events.js";
 export {
@@ -47,13 +49,17 @@ export {
   EquipItem,
   MoveItem,
   PickUpItem,
+  PlaceOnGround,
+  RemoveFromGround,
   SetEntryState,
   UnequipItem,
 } from "./item-commands.js";
 export {
   capacityForCharacterSlot,
   checkPlacement,
+  checkPlacementKind,
   nextSlotIndex,
+  summarizeCapacity,
   type PlacementCheck,
   type PlacementRequest,
 } from "./capacity.js";

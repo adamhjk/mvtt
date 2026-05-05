@@ -80,9 +80,15 @@ export const TbBodySlotSchema = z
   .refine(
     (s) => {
       if (s.startsWith("container:")) return s.length > "container:".length;
+      // `loose:<n>` is a synthetic staging slot for items the
+      // character holds but hasn't equipped to a body location —
+      // surfaces in the Loose pool of the inventory tab. Treated
+      // like a free slot: no body-capacity check, no schema
+      // restriction beyond the prefix.
+      if (s.startsWith("loose:")) return s.length > "loose:".length;
       return (TB_BODY_SLOTS as ReadonlyArray<string>).includes(s);
     },
-    { message: "expected a TB body slot or 'container:<id>'" },
+    { message: "expected a TB body slot, 'container:<id>', or 'loose:<n>'" },
   );
 
 /**

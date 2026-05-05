@@ -27,11 +27,16 @@ import {
   CustomizeItem,
   DestroyItem,
   EditItemField,
+  ItemBundle,
   ItemDerivedFrom,
   ItemEconomics,
   ItemIdentity,
+  JoinItemBundles,
   LockItemField,
+  RemoveItemTrait,
   RevertItemField,
+  SetItemTrait,
+  SplitItemBundle,
   runCatalogMerge,
 } from "./shared/index.js";
 import { items } from "./manifest.js";
@@ -294,6 +299,384 @@ describe("@vtt/items", () => {
         }),
       });
       expect(res.result.ok).toBe(false);
+    });
+  });
+
+  describe("SetItemTrait + RemoveItemTrait", () => {
+    it("adds a trait to an item that didn't have it", async () => {
+      await pipeline.dispatch({
+        id: "c1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: CreateItem({
+          traits: { ItemIdentity: { name: "Hat" } },
+        }),
+      });
+      const itemId = world.query([ItemIdentity])[0]!.id;
+      const res = await pipeline.dispatch({
+        id: "s1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: SetItemTrait({
+          itemId,
+          traitShortName: "ItemEconomics",
+          value: { cost: 3 },
+        }),
+      });
+      expect(res.result.ok).toBe(true);
+      const econ = world.get(itemId, [ItemEconomics]) as
+        | { ItemEconomics: { cost?: number } }
+        | undefined;
+      expect(econ?.ItemEconomics.cost).toBe(3);
+    });
+
+    it("rejects an unknown trait short-name", async () => {
+      await pipeline.dispatch({
+        id: "c1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: CreateItem({
+          traits: { ItemIdentity: { name: "Hat" } },
+        }),
+      });
+      const itemId = world.query([ItemIdentity])[0]!.id;
+      const res = await pipeline.dispatch({
+        id: "s1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: SetItemTrait({
+          itemId,
+          traitShortName: "NotARealTrait",
+          value: {},
+        }),
+      });
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("rejects a value that fails the trait's schema", async () => {
+      await pipeline.dispatch({
+        id: "c1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: CreateItem({
+          traits: { ItemIdentity: { name: "Hat" } },
+        }),
+      });
+      const itemId = world.query([ItemIdentity])[0]!.id;
+      const res = await pipeline.dispatch({
+        id: "s1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: SetItemTrait({
+          itemId,
+          traitShortName: "ItemEconomics",
+          value: { cost: -1 },
+        }),
+      });
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("RemoveItemTrait strips the trait off the item", async () => {
+      await pipeline.dispatch({
+        id: "c1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: CreateItem({
+          traits: {
+            ItemIdentity: { name: "Hat" },
+            ItemEconomics: { cost: 3 },
+          },
+        }),
+      });
+      const itemId = world.query([ItemIdentity])[0]!.id;
+      expect(world.get(itemId, [ItemEconomics])).toBeDefined();
+      await pipeline.dispatch({
+        id: "r1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: RemoveItemTrait({
+          itemId,
+          traitShortName: "ItemEconomics",
+        }),
+      });
+      expect(world.get(itemId, [ItemEconomics])).toBeUndefined();
+      // ItemIdentity is still there.
+      expect(world.get(itemId, [ItemIdentity])).toBeDefined();
+    });
+
+    it("RemoveItemTrait drops the trait's prefix from ItemDerivedFrom.overrides", async () => {
+      runCatalogMerge({
+        world,
+        registry,
+        pluginName: "@vtt/test-system",
+        templates: [
+          {
+            templateId: "test/sword",
+            traits: {
+              ItemIdentity: { name: "Sword" },
+              ItemEconomics: { cost: 3 },
+            },
+          },
+        ],
+      });
+      const itemId = world.query([ItemIdentity])[0]!.id;
+      // Edit a field so the override path lands on the entity.
+      await pipeline.dispatch({
+        id: "e1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: EditItemField({
+          itemId,
+          path: "ItemEconomics.cost",
+          value: 5,
+        }),
+      });
+      const before = world.get(itemId, [ItemDerivedFrom]) as {
+        ItemDerivedFrom: { overrides: string[] };
+      };
+      expect(before.ItemDerivedFrom.overrides).toContain("ItemEconomics.cost");
+      await pipeline.dispatch({
+        id: "r1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: RemoveItemTrait({
+          itemId,
+          traitShortName: "ItemEconomics",
+        }),
+      });
+      const after = world.get(itemId, [ItemDerivedFrom]) as {
+        ItemDerivedFrom: { overrides: string[] };
+      };
+      expect(after.ItemDerivedFrom.overrides).not.toContain("ItemEconomics.cost");
+    });
+  });
+
+  describe("SplitItemBundle", () => {
+    async function spawnTorchStack(count = 4): Promise<string> {
+      await pipeline.dispatch({
+        id: "c1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: CreateItem({
+          traits: {
+            ItemIdentity: { name: "Torch" },
+            ItemBundle: { count, capacity: 4 },
+          },
+        }),
+      });
+      return world.query([ItemIdentity])[0]!.id;
+    }
+
+    it("peels N units off into a new entity, decrementing the source", async () => {
+      const torchId = await spawnTorchStack(4);
+      const res = await pipeline.dispatch({
+        id: "split1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: SplitItemBundle({ itemId: torchId, count: 1 }),
+      });
+      expect(res.result.ok).toBe(true);
+      const src = world.get(torchId, [ItemBundle]) as {
+        ItemBundle: { count: number };
+      };
+      expect(src.ItemBundle.count).toBe(3);
+      const all = world.query([ItemBundle]).map((r) => r.id);
+      expect(all.length).toBe(2);
+      const newId = all.find((id) => id !== torchId)!;
+      const newBundle = world.get(newId, [ItemBundle]) as {
+        ItemBundle: { count: number; capacity: number };
+      };
+      expect(newBundle.ItemBundle.count).toBe(1);
+      expect(newBundle.ItemBundle.capacity).toBe(4);
+      const newIdent = world.get(newId, [ItemIdentity]) as {
+        ItemIdentity: { name: string };
+      };
+      expect(newIdent.ItemIdentity.name).toBe("Torch");
+    });
+
+    it("rejects splits that would empty the source", async () => {
+      const torchId = await spawnTorchStack(2);
+      const res = await pipeline.dispatch({
+        id: "split-bad",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: SplitItemBundle({ itemId: torchId, count: 2 }),
+      });
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("rejects splits on items without ItemBundle", async () => {
+      await pipeline.dispatch({
+        id: "create",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: CreateItem({
+          traits: { ItemIdentity: { name: "Sword" } },
+        }),
+      });
+      const swordId = world.query([ItemIdentity])[0]!.id;
+      const res = await pipeline.dispatch({
+        id: "split-bad",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: SplitItemBundle({ itemId: swordId, count: 1 }),
+      });
+      expect(res.result.ok).toBe(false);
+    });
+  });
+
+  describe("JoinItemBundles", () => {
+    async function spawnPair(opts: {
+      a: { name: string; count: number; capacity: number };
+      b: { name: string; count: number; capacity: number };
+    }): Promise<{ aId: string; bId: string }> {
+      await pipeline.dispatch({
+        id: "ca",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: CreateItem({
+          traits: {
+            ItemIdentity: { name: opts.a.name },
+            ItemBundle: { count: opts.a.count, capacity: opts.a.capacity },
+          },
+        }),
+      });
+      await pipeline.dispatch({
+        id: "cb",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: CreateItem({
+          traits: {
+            ItemIdentity: { name: opts.b.name },
+            ItemBundle: { count: opts.b.count, capacity: opts.b.capacity },
+          },
+        }),
+      });
+      const all = world.query([ItemIdentity]);
+      const aId = all.find(
+        (r) =>
+          (r.values.ItemIdentity as { name: string }).name === opts.a.name &&
+          (world.get(r.id, [ItemBundle]) as { ItemBundle: { count: number } })
+            .ItemBundle.count === opts.a.count,
+      )!.id;
+      const bId = all.find((r) => r.id !== aId)!.id;
+      return { aId, bId };
+    }
+
+    it("merges fully when src fits in dest's headroom; src destroyed", async () => {
+      const { aId, bId } = await spawnPair({
+        a: { name: "Torch", count: 1, capacity: 4 },
+        b: { name: "Torch", count: 2, capacity: 4 },
+      });
+      const res = await pipeline.dispatch({
+        id: "join",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: JoinItemBundles({ srcId: aId, destId: bId }),
+      });
+      expect(res.result.ok).toBe(true);
+      expect(world.has(aId)).toBe(false);
+      const dest = world.get(bId, [ItemBundle]) as {
+        ItemBundle: { count: number };
+      };
+      expect(dest.ItemBundle.count).toBe(3);
+    });
+
+    it("caps transfer at dest.capacity, leaves src remainder", async () => {
+      const { aId, bId } = await spawnPair({
+        a: { name: "Torch", count: 3, capacity: 4 },
+        b: { name: "Torch", count: 3, capacity: 4 },
+      });
+      const res = await pipeline.dispatch({
+        id: "join",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: JoinItemBundles({ srcId: aId, destId: bId }),
+      });
+      expect(res.result.ok).toBe(true);
+      const dest = world.get(bId, [ItemBundle]) as {
+        ItemBundle: { count: number };
+      };
+      const src = world.get(aId, [ItemBundle]) as {
+        ItemBundle: { count: number };
+      };
+      expect(dest.ItemBundle.count).toBe(4);
+      expect(src.ItemBundle.count).toBe(2);
+      expect(world.has(aId)).toBe(true);
+    });
+
+    it("rejects joining items with different identity names", async () => {
+      const { aId, bId } = await spawnPair({
+        a: { name: "Torch", count: 1, capacity: 4 },
+        b: { name: "Candle", count: 2, capacity: 4 },
+      });
+      const res = await pipeline.dispatch({
+        id: "join",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: JoinItemBundles({ srcId: aId, destId: bId }),
+      });
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("rejects joining when dest is already full", async () => {
+      const { aId, bId } = await spawnPair({
+        a: { name: "Torch", count: 1, capacity: 4 },
+        b: { name: "Torch", count: 4, capacity: 4 },
+      });
+      const res = await pipeline.dispatch({
+        id: "join",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: JoinItemBundles({ srcId: aId, destId: bId }),
+      });
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("merges items with matching ItemDerivedFrom.templateId", async () => {
+      // Forge two items that look like they came from the same catalog
+      // template — the join should honour the templateId match even
+      // though one has been customized (different cost).
+      await pipeline.dispatch({
+        id: "ca",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: CreateItem({
+          traits: {
+            ItemIdentity: { name: "Torch" },
+            ItemBundle: { count: 2, capacity: 4 },
+            ItemDerivedFrom: {
+              templateId: "tb/light/torch",
+              pluginName: "@vtt/system-torchbearer",
+            },
+          },
+        }),
+      });
+      await pipeline.dispatch({
+        id: "cb",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: CreateItem({
+          traits: {
+            ItemIdentity: { name: "Bright Torch" },
+            ItemBundle: { count: 1, capacity: 4 },
+            ItemDerivedFrom: {
+              templateId: "tb/light/torch",
+              pluginName: "@vtt/system-torchbearer",
+            },
+          },
+        }),
+      });
+      const rows = world.query([ItemBundle]);
+      const aId = rows[0]!.id;
+      const bId = rows[1]!.id;
+      const res = await pipeline.dispatch({
+        id: "join",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: JoinItemBundles({ srcId: aId, destId: bId }),
+      });
+      expect(res.result.ok).toBe(true);
     });
   });
 

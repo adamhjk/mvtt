@@ -15,15 +15,5 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-export {
-  TbBundleJoinSystem,
-  TbBundleSplitSystem,
-  TbEntryStateSystem,
-  TbItemDropSystem,
-  TbItemEquipSystem,
-  TbItemMoveSystem,
-  TbItemPickUpSystem,
-  TbItemPlacedSystem,
-  TbItemRemovedFromGroundSystem,
-  TbItemUnequipSystem,
-} from "./item-systems.js";
+export { ItemIcon } from "./ItemIcon.js";
+export { ItemsPageProvider } from "./ItemsPage.js";

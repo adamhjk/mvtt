@@ -12,11 +12,13 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@vtt/books": "workspace:*",
     "@vtt/characters": "workspace:*",
     "@vtt/comms": "workspace:*",
     "@vtt/dice-tray": "workspace:*",
     "@vtt/identity": "workspace:*",
     "@vtt/items": "workspace:*",
+    "@vtt/pdf-book": "workspace:*",
     "@vtt/permissions": "workspace:*",
     "@vtt/resolution": "workspace:*",
     "@vtt/scene": "workspace:*",

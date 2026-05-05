@@ -106,3 +106,70 @@ export const ItemDestroyed = defineEvent({
     itemId: EntityId,
   }),
 });
+
+/**
+ * A whole trait was set or replaced on an item — used by the "Add
+ * Subtype" affordance in the items workbench page so a brand-new
+ * item can pick up Weapon/Armor/Supply/Container/etc. shape on
+ * demand. The receiver parses the value against the trait schema
+ * and writes it via `world.set`. If the item didn't carry the
+ * trait before, it will after.
+ */
+export const ItemTraitSet = defineEvent({
+  name: "@vtt/items/ItemTraitSet",
+  schema: z.object({
+    itemId: EntityId,
+    traitShortName: z.string().min(1).max(120),
+    value: z.unknown(),
+  }),
+});
+
+/**
+ * A whole trait was removed from an item — clears subtype data the
+ * GM no longer wants. Used by the "Remove this subtype" button
+ * next to each editable section.
+ */
+export const ItemTraitRemoved = defineEvent({
+  name: "@vtt/items/ItemTraitRemoved",
+  schema: z.object({
+    itemId: EntityId,
+    traitShortName: z.string().min(1).max(120),
+  }),
+});
+
+/**
+ * A bundleable item has been split. The receiver allocates the new
+ * entity by copying every shareable trait from `sourceId`, then
+ * sets the two `ItemBundle.count` values (`sourceFinalCount` on the
+ * source, `newCount` on `newItemId`). Holder-side machinery (per-
+ * game-system) listens for the event to add the new fork into the
+ * appropriate carries entry; that holder-side wiring is
+ * intentionally not part of this generic event.
+ */
+export const ItemBundleSplit = defineEvent({
+  name: "@vtt/items/ItemBundleSplit",
+  schema: z.object({
+    sourceId: EntityId,
+    newItemId: EntityId,
+    sourceFinalCount: z.number().int().min(1).max(99),
+    newCount: z.number().int().min(1).max(99),
+  }),
+});
+
+/**
+ * Two bundleable items have been merged. The receiver sets
+ * `destFinalCount` on `destId`. If `srcDestroyed`, it despawns
+ * `srcId`; otherwise it sets `srcRemainingCount` on `srcId`. Holder-
+ * side machinery (per-game-system) is responsible for clearing any
+ * inventory entry pointing at a destroyed source.
+ */
+export const ItemBundleJoined = defineEvent({
+  name: "@vtt/items/ItemBundleJoined",
+  schema: z.object({
+    srcId: EntityId,
+    destId: EntityId,
+    destFinalCount: z.number().int().min(1).max(99),
+    srcRemainingCount: z.number().int().min(0).max(99),
+    srcDestroyed: z.boolean(),
+  }),
+});

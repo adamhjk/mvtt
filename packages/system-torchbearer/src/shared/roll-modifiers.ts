@@ -722,6 +722,159 @@ export function suggestedQuickModifiersFor(args: {
 }
 
 /**
+ * Surface modifiers contributed by items the character is currently
+ * carrying. Walks the holder's TbCarries and, for each entry that
+ * isn't damaged / dropped / lost, asks two questions:
+ *
+ *   - Does the item have `TbWeapon` and is the rolled action one of
+ *     attack/defend/feint/maneuver with a non-zero conflict bonus?
+ *     If so, suggest that bonus.
+ *
+ *   - Does the item have `TbSkillBonuses` with an entry matching the
+ *     rolled skill (or "any")? If so, suggest the bonus, surfacing
+ *     the condition string in the tooltip so the player knows when
+ *     to actually apply it.
+ *
+ * Modifiers are emitted as `TbSuggestedQuickModifier` so the existing
+ * pending-roll panel renders them with the same UX as condition
+ * suggestions — togglable chips with a button label and tooltip.
+ *
+ * Items can dispatch *forks* of themselves (Ulrik's enchanted sword
+ * = its own entity), so this function reads the actual item entity
+ * each time — local edits to a forked weapon's bonuses flow into
+ * the suggested modifiers automatically.
+ */
+export function suggestedItemModifiersFor(args: {
+  world: World;
+  characterId: string;
+  kind: TbRollKind;
+  sourceId: string;
+}): TbSuggestedQuickModifier[] {
+  const { world, characterId, kind, sourceId } = args;
+  const holderTraits = world.traitsOn(characterId as never);
+  const carries = holderTraits.get(
+    "@vtt/system-torchbearer/TbCarries" as never,
+  ) as
+    | {
+        entries: Array<{
+          slot: string;
+          itemId: string;
+          slotsConsumed: number;
+          state?: { damaged?: boolean; dropped?: boolean; lost?: boolean };
+        }>;
+      }
+    | undefined;
+  if (!carries) return [];
+
+  const out: TbSuggestedQuickModifier[] = [];
+  for (const entry of carries.entries) {
+    const s = entry.state ?? {};
+    if (s.damaged || s.dropped || s.lost) continue;
+
+    // Item identity for the chip label.
+    const itemTraits = world.traitsOn(entry.itemId as never);
+    const ident = itemTraits.get(
+      "@vtt/items/ItemIdentity" as never,
+    ) as { name?: string } | undefined;
+    const itemName = ident?.name ?? "item";
+
+    // Weapon → conflict-action bonus.
+    if (kind === "skill" || kind === "skill-bl") {
+      const weapon = itemTraits.get(
+        "@vtt/system-torchbearer/TbWeapon" as never,
+      ) as
+        | {
+            conflictBonuses: Record<
+              string,
+              { type: string; value: number }
+            >;
+          }
+        | undefined;
+      if (weapon) {
+        const action = mapSkillToConflictAction(sourceId);
+        if (action) {
+          const cb = weapon.conflictBonuses[action];
+          if (cb && cb.value !== 0) {
+            const sign = cb.value > 0 ? "+" : "";
+            out.push({
+              id: `item:weapon:${entry.itemId}:${action}`,
+              buttonLabel: `${sign}${cb.value}D ${itemName}`,
+              note: `${itemName} grants ${sign}${cb.value}D to ${action}`,
+              modifier: {
+                kind: cb.type === "success" ? "success" : "dice",
+                value: cb.value,
+                label: itemName,
+                apply: "always",
+                source: "gear",
+                providedBy: `item:${entry.itemId}`,
+              },
+            });
+          }
+        }
+      }
+    }
+
+    // Skill-bonus entries → optional, condition-tagged suggestion.
+    const sb = itemTraits.get(
+      "@vtt/system-torchbearer/TbSkillBonuses" as never,
+    ) as { entries: Array<{ skill: string; value: number; condition: string }> } | undefined;
+    if (sb && (kind === "skill" || kind === "skill-bl")) {
+      for (const e of sb.entries) {
+        if (!skillMatches(e.skill, sourceId)) continue;
+        const sign = e.value > 0 ? "+" : "";
+        out.push({
+          id: `item:skill:${entry.itemId}:${e.skill}`,
+          buttonLabel: `${sign}${e.value}D ${itemName}`,
+          note: e.condition
+            ? `${itemName}: ${sign}${e.value}D ${e.skill} (${e.condition})`
+            : `${itemName}: ${sign}${e.value}D ${e.skill}`,
+          modifier: {
+            kind: "dice",
+            value: e.value,
+            label: e.condition ? `${itemName} (${e.condition})` : itemName,
+            apply: "always",
+            source: "gear",
+            providedBy: `item:${entry.itemId}:${e.skill}`,
+          },
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Foundry/TB conflict actions are skill-shaped (Fighter, Hunter, etc.
+ * combined with the action type chosen at conflict-start). For now,
+ * surface weapon bonuses on Fighter (most common attack-skill) and
+ * fall back gracefully — the GM can always toggle the chip off.
+ */
+function mapSkillToConflictAction(sourceId: string): string | null {
+  // The conflict actions are attack / defend / feint / maneuver. The
+  // current rollables don't yet expose "which action am I taking" as
+  // a skill source — for now we offer the highest of the four
+  // bonuses on any Fighter / Hunter / Scout / Pathfinder roll. The
+  // panel decides whether to apply.
+  const fighterLike = new Set([
+    "fighter",
+    "hunter",
+    "scout",
+    "pathfinder",
+    "ritualist",
+  ]);
+  if (fighterLike.has(sourceId)) return "attack";
+  return null;
+}
+
+function skillMatches(skillName: string, sourceId: string): boolean {
+  return (
+    skillName.toLowerCase() === sourceId.toLowerCase() ||
+    skillName.toLowerCase().replace(/[^a-z]/g, "") ===
+      sourceId.toLowerCase().replace(/[^a-z]/g, "")
+  );
+}
+
+/**
  * Format a TbRollModifier as a human-readable chip — `"+1D Fresh"`,
  * `"-1D Injured"`, `"+1 Ob factors"`, `"+2s on success: Faith"`.
  * The chat row, panel, and tooltip share this so the wording is

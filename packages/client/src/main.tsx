@@ -35,6 +35,8 @@ import { pdfBook } from "@vtt/pdf-book";
 import { rulesCorpus } from "@vtt/rules-corpus";
 import { characters } from "@vtt/characters";
 import { diceTray } from "@vtt/dice-tray";
+import { items } from "@vtt/items";
+import { itemsPages } from "@vtt/items/pages";
 import { systemSimple } from "@vtt/system-simple";
 import { systemTorchbearer } from "@vtt/system-torchbearer";
 import { App } from "./App";
@@ -68,6 +70,8 @@ const ALL_PLUGINS: ReadonlyArray<PluginDef> = [
   rulesCorpus,
   characters,
   diceTray,
+  items,
+  itemsPages,
   systemSimple,
   systemTorchbearer,
 ];

@@ -35,10 +35,14 @@ export {
   TbCommitSpendsSystem,
 } from "./spend-systems.js";
 export {
+  TbBundleJoinSystem,
+  TbBundleSplitSystem,
   TbEntryStateSystem,
   TbItemDropSystem,
   TbItemEquipSystem,
   TbItemMoveSystem,
   TbItemPickUpSystem,
+  TbItemPlacedSystem,
+  TbItemRemovedFromGroundSystem,
   TbItemUnequipSystem,
 } from "./items/index.js";

@@ -48,65 +48,74 @@ export interface PlacementRequest {
 }
 
 /**
- * Run the TB placement rules against a candidate slot/channel/cost.
- * Confirms:
- *   1. The item has TbItemSlotOptions and the chosen slot is in
- *      its allowed map (or is `container:<id>` and the container
- *      exists with a TbContainer trait).
- *   2. The slotsConsumed matches the item's stated cost for the
- *      chosen slot (so a "torso 2" backpack can't sneak in as
- *      torso 1).
- *   3. Adding the cost wouldn't exceed the slot's capacity, given
- *      what the holder already carries.
+ * Schema-level placement check: is the candidate slot one this
+ * item is allowed in, and does the cost match the catalog-stated
+ * one? Used by `EquipItem.validate` / `MoveItem.validate` to
+ * reject ill-formed placements (head-only item slotted to feet,
+ * sword equipped at slotsConsumed=2 instead of 1, etc.).
+ *
+ * Capacity is *NOT* checked here — overfill is a soft constraint.
+ * The UI lets a player intentionally overfill a slot while
+ * shuffling items around, lighting up the slot in red so they
+ * know they need to clear space before they can rest. See
+ * `summarizeCapacity()` for the per-slot used/total + over-flag
+ * the inventory view consumes.
+ *
+ * Canonical body slots (`handR` / `handL` + worn/carried channel)
+ * map back to the catalog's slotOptions vocabulary
+ * (`carried` / `wornHand` / `hands`) before lookup, so an item
+ * listed as `carried: 1` validates when placed in either hand.
+ * Container targets (`container:<id>`) accept any item that is
+ * itself container-eligible; the container's `containerType`
+ * gates which catalog category the cost is read from
+ * (`pack` / `pouch` / `quiver`).
  */
-export function checkPlacement(req: PlacementRequest): PlacementCheck {
-  const { world, holderId, itemId, slot, channel, slotsConsumed } = req;
+export function checkPlacementKind(req: PlacementRequest): PlacementCheck {
+  const { world, itemId, slot, channel, slotsConsumed } = req;
 
-  // Item-side: must have slotOptions, and the chosen slot must be
-  // in the allowed map (with the right cost).
   const itemSlotOpts = world.get(itemId as never, [TbItemSlotOptions]) as
     | { TbItemSlotOptions: { options: Record<string, number> } }
     | undefined;
 
   if (slot.startsWith("container:")) {
-    // Container target: the item itself doesn't need to allow
-    // "container:<id>" — that's a meta-slot. But the source item
-    // must allow being packed at all, which we infer from "pack"
-    // / "carried" / "wornHand" being in the slotOptions, OR by
-    // the catalog explicitly listing the *containerType* (e.g.
-    // a small sack inside a backpack uses `pack: 1`). For
-    // simplicity we accept any non-empty slotOptions when the
-    // target is a container; the container's capacity is the
-    // only hard check.
-    if (itemSlotOpts && Object.keys(itemSlotOpts.TbItemSlotOptions.options).length === 0) {
-      return { ok: false, reason: "item has no slot options; cannot be placed in a container" };
+    if (!itemSlotOpts || Object.keys(itemSlotOpts.TbItemSlotOptions.options).length === 0) {
+      return {
+        ok: false,
+        reason: "item has no slot options; cannot be placed in a container",
+      };
     }
     const containerId = slot.slice("container:".length);
     if (!world.has(containerId as never)) {
       return { ok: false, reason: `container ${containerId} does not exist` };
     }
-    const cgot = world.get(containerId as never, [TbContainer]) as
-      | { TbContainer: { containerSlots: number } }
-      | undefined;
+    const cgot = world.get(containerId as never, [TbContainer]);
     if (!cgot) {
       return { ok: false, reason: `entity ${containerId} is not a container` };
     }
-    const containerHolderUsed = computeUsedSlots(world, containerId, slot, req.excludeEntryIndex);
-    if (containerHolderUsed + slotsConsumed > cgot.TbContainer.containerSlots) {
-      return {
-        ok: false,
-        reason: `container ${containerId} full (${containerHolderUsed}/${cgot.TbContainer.containerSlots}, item needs ${slotsConsumed})`,
-      };
-    }
+    // Container targets accept any item with non-empty slotOptions.
+    // Cost is whatever the caller specified — the UI's pill is the
+    // contract for "this is a legal way to pack this item." See
+    // LMM p.84: "Carried items can be packed away, but might have
+    // different inventory requirements." Capacity overfill is
+    // surfaced visually, not rejected.
     return { ok: true };
   }
 
   if (!itemSlotOpts) {
     return { ok: false, reason: "item has no TbItemSlotOptions; cannot be equipped" };
   }
-  const allowedCost = itemSlotOpts.TbItemSlotOptions.options[slot];
+  const candidateCategories = catalogCategoriesFor(slot, channel, slotsConsumed);
+  const allowedCost = pickCost(
+    itemSlotOpts.TbItemSlotOptions.options,
+    candidateCategories,
+  );
   if (allowedCost === undefined) {
-    return { ok: false, reason: `item not allowed in slot ${slot}` };
+    return {
+      ok: false,
+      reason: `item not allowed in slot ${slot}${
+        channel === "default" ? "" : `/${channel}`
+      }`,
+    };
   }
   if (allowedCost !== slotsConsumed) {
     return {
@@ -114,18 +123,121 @@ export function checkPlacement(req: PlacementRequest): PlacementCheck {
       reason: `slot ${slot} requires ${allowedCost} slot(s); equipped with ${slotsConsumed}`,
     };
   }
+  return { ok: true };
+}
 
-  const cap = capacityForCharacterSlot(slot, channel);
-  if (cap !== undefined) {
-    const used = computeUsedSlots(world, holderId, slot, req.excludeEntryIndex, channel);
-    if (used + slotsConsumed > cap) {
-      return {
-        ok: false,
-        reason: `slot ${slot}/${channel} full (${used}/${cap}, item needs ${slotsConsumed})`,
-      };
+/**
+ * Map a canonical body slot + channel + cost to the list of catalog
+ * `slotOptions` keys that could legally cover it. Tried in order;
+ * the first whose cost matches `slotsConsumed` wins.
+ *
+ * Hand-shaped placements (`handR` / `handL` + carried / worn) map
+ * to the catalog category. A carried item with `slotsConsumed=2`
+ * is held two-handed (a longbow, a large sack), which the catalog
+ * lists as `hands:1` *or* `carried:2`. We accept either.
+ */
+function catalogCategoriesFor(
+  slot: string,
+  channel: TbEquipChannelT,
+  slotsConsumed: number,
+): string[] {
+  if (slot === "handR" || slot === "handL") {
+    if (channel === "worn") {
+      return slotsConsumed >= 2 ? ["wornHand", "hands"] : ["wornHand"];
     }
+    return slotsConsumed >= 2 ? ["carried", "hands"] : ["carried"];
   }
+  // Synthetic "hands" slot — two-handed placement that occupies
+  // both hand panels. Catalog category depends on channel: gloves
+  // list `hands:2`, large sacks list `carried:2`.
+  if (slot === "hands") {
+    return channel === "worn" ? ["hands", "wornHand"] : ["carried", "hands"];
+  }
+  return [slot];
+}
 
+function pickCost(
+  options: Record<string, number>,
+  categories: string[],
+): number | undefined {
+  for (const c of categories) {
+    if (options[c] !== undefined) return options[c];
+  }
+  return undefined;
+}
+
+/**
+ * Capacity summary for one slot on one holder: how many slots are
+ * already used, what the limit is, and whether placement at the
+ * given `slotsConsumed` would tip it overfull. Limit is null when
+ * the slot has no hard cap (pocket, etc.).
+ *
+ * For `container:<id>` slots, capacity comes from the container's
+ * `TbContainer.containerSlots`. For body slots it comes from the
+ * TB rules table (LMM p.83).
+ */
+export function summarizeCapacity(args: {
+  world: World;
+  holderId: string;
+  slot: TbBodySlot | string;
+  channel: TbEquipChannelT;
+  excludeEntryIndex?: number;
+}): {
+  used: number;
+  limit: number | null;
+  wouldOverfill: (slotsConsumed: number) => boolean;
+} {
+  const { world, holderId, slot, channel, excludeEntryIndex } = args;
+  let limit: number | null = null;
+  let containerHolderId = holderId;
+  if (slot.startsWith("container:")) {
+    containerHolderId = slot.slice("container:".length);
+    const cgot = world.get(containerHolderId as never, [TbContainer]) as
+      | { TbContainer: { containerSlots: number } }
+      | undefined;
+    limit = cgot?.TbContainer.containerSlots ?? null;
+  } else {
+    const cap = capacityForCharacterSlot(slot, channel);
+    limit = cap === undefined ? null : cap;
+  }
+  const used = computeUsedSlots(
+    world,
+    containerHolderId,
+    slot,
+    excludeEntryIndex,
+    slot.startsWith("container:") ? undefined : channel,
+  );
+  return {
+    used,
+    limit,
+    wouldOverfill: (slotsConsumed: number): boolean =>
+      limit !== null && used + slotsConsumed > limit,
+  };
+}
+
+/**
+ * Backwards-compatible wrapper: kind-check + capacity-check rolled
+ * into one. Useful for tests / pre-flight UI predicates that want
+ * a single yes/no. New call sites should prefer
+ * `checkPlacementKind` (validator) and `summarizeCapacity` (view)
+ * separately.
+ */
+export function checkPlacement(req: PlacementRequest): PlacementCheck {
+  const kind = checkPlacementKind(req);
+  if (!kind.ok) return kind;
+  const cap = summarizeCapacity({
+    world: req.world,
+    holderId: req.holderId,
+    slot: req.slot,
+    channel: req.channel,
+    excludeEntryIndex: req.excludeEntryIndex,
+  });
+  if (cap.wouldOverfill(req.slotsConsumed)) {
+    return {
+      ok: false,
+      reason: `slot ${req.slot} full (${cap.used}/${cap.limit}, item needs ${req.slotsConsumed})`,
+    };
+  }
   return { ok: true };
 }
 
@@ -160,15 +272,48 @@ function computeUsedSlots(
   channel?: TbEquipChannelT,
 ): number {
   const got = world.get(holderId as never, [TbCarries]) as
-    | { TbCarries: { entries: Array<{ slot: string; channel: string; slotsConsumed: number }> } }
+    | {
+        TbCarries: {
+          entries: Array<{
+            slot: string;
+            channel: string;
+            slotsConsumed: number;
+            state?: { dropped?: boolean; lost?: boolean };
+          }>;
+        };
+      }
     | undefined;
   if (!got) return 0;
   let used = 0;
   got.TbCarries.entries.forEach((e, idx) => {
     if (idx === excludeEntryIndex) return;
-    if (e.slot !== slot) return;
-    if (channel && e.channel !== channel && e.channel !== "default") return;
-    used += e.slotsConsumed;
+    // Dropped or lost entries don't actually occupy a slot — they
+    // sit in the On the Ground / Missing zones with no body
+    // presence. A backpack that was at torso slot 0 but is now
+    // dropped shouldn't keep eating those torso slots.
+    if (e.state?.dropped || e.state?.lost) return;
+    // "loose:<n>" is a synthetic staging slot for items the
+    // character holds without a body placement; it never costs
+    // body capacity.
+    if (e.slot.startsWith("loose:")) return;
+    const channelMatches = channel
+      ? e.channel === channel || e.channel === "default"
+      : true;
+    if (!channelMatches) return;
+    if (e.slot === slot) {
+      used += e.slotsConsumed;
+      return;
+    }
+    // A two-handed entry (slot="hands") consumes one slot on each
+    // hand. When summing capacity for handR or handL, count the
+    // "hands" entry as +1 — not its full slotsConsumed (the catalog
+    // cost of 2 represents both hands together; we split it 1+1).
+    if (
+      e.slot === "hands" &&
+      (slot === "handR" || slot === "handL")
+    ) {
+      used += 1;
+    }
   });
   return used;
 }

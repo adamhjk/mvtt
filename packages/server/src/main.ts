@@ -59,6 +59,7 @@ import { characters } from "@vtt/characters";
 import { diceTray } from "@vtt/dice-tray";
 import { diceTrayAssetRoots } from "@vtt/dice-tray/server";
 import { items } from "@vtt/items";
+import { itemsPages } from "@vtt/items/pages";
 import { systemSimple } from "@vtt/system-simple";
 import { systemTorchbearer } from "@vtt/system-torchbearer";
 import { createAuth } from "@vtt/auth/server";
@@ -179,6 +180,7 @@ const optionalPlugins = [
   characters,
   diceTray,
   items,
+  itemsPages,
   systemSimple,
   systemTorchbearer,
 ];

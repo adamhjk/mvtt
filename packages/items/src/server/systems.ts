@@ -17,14 +17,18 @@
 
 import { defineSystem, type TraitName } from "@vtt/substrate";
 import {
+  ItemBundleJoined,
+  ItemBundleSplit,
   ItemCreated,
   ItemDestroyed,
   ItemFieldChanged,
   ItemFieldLocked,
   ItemFieldReverted,
   ItemForked,
+  ItemTraitRemoved,
+  ItemTraitSet,
 } from "../shared/events.js";
-import { ItemDerivedFrom } from "../shared/traits.js";
+import { ItemBundle, ItemDerivedFrom } from "../shared/traits.js";
 import {
   applyEditedField,
   copyShareableTraits,
@@ -158,6 +162,160 @@ export const ItemFieldLockSystem = defineSystem({
   run: ({ event, world }) => {
     if (!world.has(event.itemId)) return [];
     recordOverride(world, event.itemId, event.path);
+    return [];
+  },
+});
+
+/**
+ * ItemTraitSet → set the named trait wholesale. Used by the "Add
+ * Subtype" / "Replace Subtype" affordance in the items workbench
+ * page so a brand-new item can grow Weapon/Armor/Supply/etc.
+ * shape on demand.
+ */
+export const ItemTraitSetSystem = defineSystem({
+  name: "ItemTraitSet",
+  on: ItemTraitSet,
+  reads: [],
+  writes: [],
+  run: ({ event, world, registry }) => {
+    if (!world.has(event.itemId)) return [];
+    const def = findTraitByShortName(registry, event.traitShortName);
+    if (!def) return [];
+    try {
+      world.set(event.itemId, def, event.value);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[items] failed to set trait ${event.traitShortName} on ${event.itemId}:`,
+        (err as Error).message,
+      );
+    }
+    return [];
+  },
+});
+
+/**
+ * ItemTraitRemoved → strip the named trait off the item entity.
+ * Also clears any `ItemDerivedFrom.overrides` paths under that
+ * trait so future re-seed treats it as freshly absent rather than
+ * locked-empty.
+ */
+export const ItemTraitRemoveSystem = defineSystem({
+  name: "ItemTraitRemove",
+  on: ItemTraitRemoved,
+  reads: [ItemDerivedFrom],
+  writes: [ItemDerivedFrom],
+  run: ({ event, world, registry }) => {
+    if (!world.has(event.itemId)) return [];
+    const def = findTraitByShortName(registry, event.traitShortName);
+    if (!def) return [];
+    world.remove(event.itemId, def);
+    // Clear any overrides under this trait's prefix.
+    const got = world.get(event.itemId, [ItemDerivedFrom]) as
+      | {
+          ItemDerivedFrom: {
+            templateId: string;
+            pluginName: string;
+            overrides: string[];
+            deprecated?: boolean;
+          };
+        }
+      | undefined;
+    if (got) {
+      const prefix = `${event.traitShortName}.`;
+      const next = got.ItemDerivedFrom.overrides.filter(
+        (p) => p !== event.traitShortName && !p.startsWith(prefix),
+      );
+      if (next.length !== got.ItemDerivedFrom.overrides.length) {
+        world.set(event.itemId, ItemDerivedFrom, {
+          ...got.ItemDerivedFrom,
+          overrides: next,
+        });
+      }
+    }
+    return [];
+  },
+});
+
+/**
+ * ItemBundleSplit → spawn the new fork by copying the source's
+ * shareable traits, then write `ItemBundle.count` on both sides.
+ * Universal mirror — runs on every side. Idempotent: skips if the
+ * new id is already present.
+ */
+export const ItemBundleSplitSystem = defineSystem({
+  name: "ItemBundleSplit",
+  on: ItemBundleSplit,
+  reads: [ItemBundle],
+  writes: [ItemBundle],
+  run: ({ event, world, registry }) => {
+    if (!world.has(event.sourceId)) return [];
+    if (world.has(event.newItemId)) return [];
+    world.spawnAt(event.newItemId, []);
+    copyShareableTraits({
+      world,
+      registry,
+      sourceId: event.sourceId,
+      destId: event.newItemId,
+    });
+    const srcGot = world.get(event.sourceId, [ItemBundle]) as
+      | { ItemBundle: { count: number; capacity: number } }
+      | undefined;
+    if (srcGot) {
+      world.set(event.sourceId, ItemBundle, {
+        ...srcGot.ItemBundle,
+        count: event.sourceFinalCount,
+      });
+    }
+    const newGot = world.get(event.newItemId, [ItemBundle]) as
+      | { ItemBundle: { count: number; capacity: number } }
+      | undefined;
+    if (newGot) {
+      world.set(event.newItemId, ItemBundle, {
+        ...newGot.ItemBundle,
+        count: event.newCount,
+      });
+    }
+    return [];
+  },
+});
+
+/**
+ * ItemBundleJoined → set `ItemBundle.count` on the destination and
+ * either despawn or update the source. Holder-side cleanup (e.g.
+ * removing a TbCarries entry that pointed at a now-destroyed src)
+ * is the game-system's responsibility — this system only touches
+ * the items themselves.
+ */
+export const ItemBundleJoinSystem = defineSystem({
+  name: "ItemBundleJoin",
+  on: ItemBundleJoined,
+  reads: [ItemBundle],
+  writes: [ItemBundle],
+  run: ({ event, world }) => {
+    if (!world.has(event.destId)) return [];
+    const destGot = world.get(event.destId, [ItemBundle]) as
+      | { ItemBundle: { count: number; capacity: number } }
+      | undefined;
+    if (destGot) {
+      world.set(event.destId, ItemBundle, {
+        ...destGot.ItemBundle,
+        count: event.destFinalCount,
+      });
+    }
+    if (event.srcDestroyed) {
+      if (world.has(event.srcId)) world.despawn(event.srcId);
+    } else if (world.has(event.srcId)) {
+      const srcGot = world.get(event.srcId, [ItemBundle]) as
+        | { ItemBundle: { count: number; capacity: number } }
+        | undefined;
+      if (srcGot) {
+        world.set(event.srcId, ItemBundle, {
+          ...srcGot.ItemBundle,
+          count: event.srcRemainingCount,
+        });
+      }
+    }
     return [];
   },
 });

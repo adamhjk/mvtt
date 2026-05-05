@@ -57,6 +57,13 @@ export const ItemMoved = defineEvent({
     toSlot: TbBodySlotSchema,
     toSlotIndex: z.number().int().min(0),
     toChannel: TbEquipChannel,
+    /**
+     * New slot-cost the entry adopts on landing. Optional —
+     * absent means "keep the entry's current slotsConsumed."
+     * Set when moving across slot kinds with different catalog
+     * costs (sack moving from pack:1 to carried:2).
+     */
+    toSlotsConsumed: z.number().int().min(1).max(20).optional(),
   }),
 });
 
@@ -99,6 +106,39 @@ export const ItemDropped = defineEvent({
     sceneId: EntityId,
     x: z.number(),
     y: z.number(),
+  }),
+});
+
+/**
+ * Item placed on the ground without ever entering a holder's
+ * inventory — used by the catalog quick-add's "Drop" button so
+ * GMs can scatter loot directly into the shared On the Ground
+ * zone. The system handles auto-forking for catalog containers
+ * (so each "drop a backpack" produces a fresh forked entity)
+ * and then stamps ItemPosition on the result.
+ */
+export const ItemPlacedOnGround = defineEvent({
+  name: "@vtt/system-torchbearer/ItemPlacedOnGround",
+  schema: z.object({
+    itemId: EntityId,
+    sceneId: EntityId,
+    x: z.number(),
+    y: z.number(),
+  }),
+});
+
+/**
+ * Item cleared from the world ground without being picked up by
+ * anyone. Strips the ItemPosition trait so the entity vanishes
+ * from every character's "On the Ground" zone, while leaving the
+ * entity itself intact in the world's item registry — the Items
+ * workbench page still finds it, and it can be re-equipped or
+ * re-dropped later.
+ */
+export const ItemRemovedFromGround = defineEvent({
+  name: "@vtt/system-torchbearer/ItemRemovedFromGround",
+  schema: z.object({
+    itemId: EntityId,
   }),
 });
 

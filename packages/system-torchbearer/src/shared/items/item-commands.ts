@@ -23,13 +23,15 @@ import {
   z,
   type EventInstance,
 } from "@vtt/substrate";
-import { ItemCatalogIndex, ItemForked } from "@vtt/items/shared";
+import { ItemBundle, ItemCatalogIndex, ItemForked } from "@vtt/items/shared";
 import { TbBodySlotSchema, TbEquipChannel } from "./body-slots.js";
 import {
   ItemDropped,
   ItemEquipped,
   ItemMoved,
   ItemPickedUp,
+  ItemPlacedOnGround,
+  ItemRemovedFromGround,
   ItemUnequipped,
   EntryStateChanged,
 } from "./item-events.js";
@@ -38,7 +40,7 @@ import {
   TbCarries,
   TbContainer,
 } from "./item-traits.js";
-import { checkPlacement } from "./capacity.js";
+import { checkPlacementKind } from "./capacity.js";
 
 /**
  * EquipItem — place an item entity into a holder's TbCarries.
@@ -74,7 +76,7 @@ export const EquipItem = defineCommand({
     if (!world.has(cmd.itemId)) {
       return fail(`unknown item ${cmd.itemId}`);
     }
-    const placement = checkPlacement({
+    const placement = checkPlacementKind({
       world,
       holderId: cmd.holderId,
       itemId: cmd.itemId,
@@ -89,7 +91,8 @@ export const EquipItem = defineCommand({
     const events: EventInstance[] = [];
     let finalItemId = cmd.itemId;
     const isContainer = world.get(cmd.itemId, [TbContainer]) !== undefined;
-    if (isContainer && isCatalogEntity(world, cmd.itemId)) {
+    const isBundle = world.get(cmd.itemId, [ItemBundle]) !== undefined;
+    if ((isContainer || isBundle) && isCatalogEntity(world, cmd.itemId)) {
       finalItemId = world.allocateId();
       events.push(
         ItemForked({
@@ -127,6 +130,14 @@ export const MoveItem = defineCommand({
     toSlot: TbBodySlotSchema,
     toSlotIndex: z.number().int().min(0).default(0),
     toChannel: TbEquipChannel,
+    /**
+     * Optional new slotsConsumed when the destination slot has a
+     * different catalog cost than the source slot — e.g. a sack
+     * moving from `pack:1` to `carried:2`. When omitted, the entry
+     * keeps its current cost. Validators canonicalize the cost
+     * against the catalog so the slot-kind check resolves properly.
+     */
+    toSlotsConsumed: z.number().int().min(1).max(20).optional(),
   }),
   validate: ({ cmd, world }) => {
     const got = world.get(cmd.holderId, [TbCarries]) as
@@ -135,13 +146,14 @@ export const MoveItem = defineCommand({
     if (!got) return fail(`holder ${cmd.holderId} has no TbCarries`);
     const entry = got.TbCarries.entries[cmd.fromIndex];
     if (!entry) return fail(`no carry entry at index ${cmd.fromIndex}`);
-    const placement = checkPlacement({
+    const finalCost = cmd.toSlotsConsumed ?? entry.slotsConsumed;
+    const placement = checkPlacementKind({
       world,
       holderId: cmd.holderId,
       itemId: entry.itemId,
       slot: cmd.toSlot,
       channel: cmd.toChannel,
-      slotsConsumed: entry.slotsConsumed,
+      slotsConsumed: finalCost,
       excludeEntryIndex: cmd.fromIndex,
     });
     if (!placement.ok) return fail(placement.reason ?? "placement rejected");
@@ -154,6 +166,7 @@ export const MoveItem = defineCommand({
       toSlot: cmd.toSlot,
       toSlotIndex: cmd.toSlotIndex,
       toChannel: cmd.toChannel,
+      toSlotsConsumed: cmd.toSlotsConsumed,
     }),
   ],
 });
@@ -239,6 +252,70 @@ export const DropItem = defineCommand({
 });
 
 /**
+ * PlaceOnGround — drop a catalog item directly onto the shared
+ * ground without ever putting it in a holder's inventory. Useful
+ * for GMs scattering loot for the party. If the item is a catalog
+ * container, the apply step auto-forks first so each placement
+ * produces a fresh, customizable entity.
+ */
+export const PlaceOnGround = defineCommand({
+  name: "@vtt/system-torchbearer/PlaceOnGround",
+  schema: z.object({
+    itemId: EntityId,
+    sceneId: EntityId,
+    x: z.number(),
+    y: z.number(),
+  }),
+  validate: ({ cmd, world }) => {
+    if (!world.has(cmd.itemId)) return fail(`unknown item ${cmd.itemId}`);
+    return ok();
+  },
+  apply: ({ cmd, world }) => {
+    const events: EventInstance[] = [];
+    let finalId = cmd.itemId;
+    const isContainer = world.get(cmd.itemId, [TbContainer]) !== undefined;
+    const isBundle = world.get(cmd.itemId, [ItemBundle]) !== undefined;
+    if ((isContainer || isBundle) && isCatalogEntity(world, cmd.itemId)) {
+      finalId = world.allocateId();
+      events.push(
+        ItemForked({ sourceItemId: cmd.itemId, newItemId: finalId }),
+      );
+    }
+    events.push(
+      ItemPlacedOnGround({
+        itemId: finalId,
+        sceneId: cmd.sceneId,
+        x: cmd.x,
+        y: cmd.y,
+      }),
+    );
+    return events;
+  },
+});
+
+/**
+ * RemoveFromGround — clear the ItemPosition trait on a grounded
+ * item. The item entity itself stays in the world registry, so
+ * the Items workbench page can still find it; it just no longer
+ * appears in any character's On the Ground zone. Symmetric with
+ * the inventory Remove button: detach without destroy.
+ */
+export const RemoveFromGround = defineCommand({
+  name: "@vtt/system-torchbearer/RemoveFromGround",
+  schema: z.object({
+    itemId: EntityId,
+  }),
+  validate: ({ cmd, world }) => {
+    if (!world.has(cmd.itemId)) return fail(`unknown item ${cmd.itemId}`);
+    if (!world.get(cmd.itemId, [ItemPosition])) {
+      return fail(`item ${cmd.itemId} is not on the ground`);
+    }
+    return ok();
+  },
+  apply: ({ cmd }) => [ItemRemovedFromGround({ itemId: cmd.itemId })],
+});
+
+/**
  * PickUpItem — inverse of DropItem. The item must currently have
  * an ItemPosition trait (i.e. it's on a scene floor). No auto-fork.
  */
@@ -263,7 +340,7 @@ export const PickUpItem = defineCommand({
     if (!world.get(cmd.itemId, [ItemPosition])) {
       return fail(`item ${cmd.itemId} is not on a scene (no ItemPosition)`);
     }
-    const placement = checkPlacement({
+    const placement = checkPlacementKind({
       world,
       holderId: cmd.holderId,
       itemId: cmd.itemId,

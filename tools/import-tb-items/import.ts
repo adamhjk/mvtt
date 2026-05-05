@@ -36,9 +36,27 @@
  * you intentionally want to merge in new upstream items.
  */
 
+import { existsSync } from "node:fs";
 import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
-import { resolve, basename, dirname } from "node:path";
+import { resolve, dirname } from "node:path";
 import { parse } from "yaml";
+
+/**
+ * Repo-relative path that the served `/icons/...` URLs map to.
+ * Used to validate that every image path we emit exists, and to
+ * fall back to a sibling author when the foundry data references
+ * an icon we ship under a different author folder.
+ */
+const ICONS_ROOT = resolve(
+  dirname(new URL(import.meta.url).pathname),
+  "..",
+  "..",
+  "assets",
+  "icons",
+  "ffffff",
+  "transparent",
+  "1x1",
+);
 
 interface FoundryItem {
   _id: string;
@@ -177,12 +195,47 @@ function slugifyName(name: string): string {
  * to the local serving path ("/icons/delapouite/foo.svg"). The repo
  * ships a Game-Icons.net set under `/assets/icons/ffffff/transparent/1x1/`,
  * served at `/icons/<author>/<name>.svg`.
+ *
+ * If the exact author/file pair the foundry data references isn't in
+ * our local set, scan every author folder for the same filename and
+ * pick the first match. The Foundry tb2e module shipped some icons
+ * under different author paths than our snapshot of Game-Icons.net,
+ * so the fallback keeps the catalog visually intact instead of
+ * leaking to "" (which would render as no icon).
  */
 function mapImgPath(foundryImg: string | undefined): string {
   if (!foundryImg) return "";
   const m = foundryImg.match(/\/([^/]+)\/([^/]+\.svg)$/);
   if (!m) return "";
-  return `/icons/${m[1]}/${m[2]}`;
+  const author = m[1]!;
+  const file = m[2]!;
+  if (existsSync(resolve(ICONS_ROOT, author, file))) {
+    return `/icons/${author}/${file}`;
+  }
+  return findIconAcrossAuthors(file);
+}
+
+let cachedAuthors: ReadonlyArray<string> | null = null;
+function authorDirs(): ReadonlyArray<string> {
+  if (cachedAuthors) return cachedAuthors;
+  try {
+    const entries = require("node:fs").readdirSync(ICONS_ROOT, {
+      withFileTypes: true,
+    }) as Array<{ name: string; isDirectory(): boolean }>;
+    cachedAuthors = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    cachedAuthors = [];
+  }
+  return cachedAuthors;
+}
+
+function findIconAcrossAuthors(file: string): string {
+  for (const author of authorDirs()) {
+    if (existsSync(resolve(ICONS_ROOT, author, file))) {
+      return `/icons/${author}/${file}`;
+    }
+  }
+  return "";
 }
 
 function parseSourcePage(description: string): number | null {

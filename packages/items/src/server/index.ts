@@ -16,10 +16,14 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 export {
+  ItemBundleJoinSystem,
+  ItemBundleSplitSystem,
   ItemDestroySystem,
   ItemFieldEditSystem,
   ItemFieldLockSystem,
   ItemFieldRevertSystem,
   ItemForkSystem,
   ItemSpawningSystem,
+  ItemTraitRemoveSystem,
+  ItemTraitSetSystem,
 } from "./systems.js";

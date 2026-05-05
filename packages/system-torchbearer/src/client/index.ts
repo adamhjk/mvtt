@@ -34,3 +34,4 @@ export {
 export { TbPendingRollContributor } from "./pending-roll-contributor.js";
 export { TbRollActionsFill } from "./tb-roll-actions-fill.js";
 export { TbRollRow } from "./tb-roll-row.js";
+export { TB_ITEM_DETAIL_SECTIONS } from "./item-detail-sections.js";

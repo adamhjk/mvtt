@@ -83,6 +83,28 @@ export const ItemDerivedFrom = defineTrait({
 });
 
 /**
+ * ItemBundle — stack/bundle accounting for items that come in
+ * fixed-size bundles per the rules (e.g. TB torches: pack 1 for
+ * 4 torches; small sacks: pack 1 for 2 empty sacks). `count` is
+ * the number of independent units currently in this stack;
+ * `capacity` is the maximum the stack can hold (joining a smaller
+ * stack into this one is capped at `capacity`). Splitting takes
+ * N units off into a freshly forked entity that carries the same
+ * traits — same name, same kind — but with `count = N`.
+ *
+ * Distinct from supplies-with-charges (TbSupply.turnsRemaining
+ * for things like rations / bottles / lanterns): those track how
+ * much of one consumable is left and are never split.
+ */
+export const ItemBundle = defineTrait({
+  name: "@vtt/items/ItemBundle",
+  schema: z.object({
+    count: z.number().int().min(1).max(99),
+    capacity: z.number().int().min(1).max(99),
+  }),
+});
+
+/**
  * ItemCatalogIndex — sentinel trait carried by exactly one entity
  * per catalog plugin per world. Maps templateId → entityId so the
  * seed hook can find previously seeded entities on subsequent boots

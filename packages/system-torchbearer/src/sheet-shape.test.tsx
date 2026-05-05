@@ -39,6 +39,7 @@ import {
 import { Permissions, everyone } from "@vtt/permissions/shared";
 import { definePlugin, type EntityId } from "@vtt/substrate";
 import { RequestRoll, RollActionsSlot } from "@vtt/resolution/shared";
+import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
 import { type JSX } from "solid-js";
 import { systemTorchbearer } from "./manifest.js";
@@ -108,6 +109,9 @@ const sheetSlotsTestInfra = definePlugin({
     // Resolution-side slot torchbearer fills with its post-roll
     // action panel (log buttons + future fate/persona spends).
     RollActionsSlot,
+    // Items-side slot torchbearer fills with its per-subtype
+    // workbench-page sections (TbWeapon stats, TbArmor stats, etc.).
+    ItemDetailSectionsSlot,
   ],
   // Resolution-side traits are registered by the real `@vtt/resolution`
   // plugin. The character harness doesn't load it, so the TB roll-row
@@ -241,7 +245,9 @@ describe("Torchbearer sheet shell", () => {
     expect(screen.queryByText("Belief")).toBeNull();
 
     fireEvent.click(screen.getByRole("tab", { name: "Inventory" }));
-    expect(screen.getByText(/On Your Person/i)).toBeInTheDocument();
+    // The slot-roof layout opens on the body slots — `Head` is the
+    // first body-slot panel.
+    expect(screen.getByText(/^Head$/)).toBeInTheDocument();
     expect(screen.queryByText("Adventuring")).toBeNull();
 
     // And back — the Who You Are body re-mounts cleanly.
@@ -862,15 +868,17 @@ describe("Tab body — Arcane", () => {
 });
 
 describe("Tab body — Inventory", () => {
-  it("renders the body-slots / containers / catalog-picker sections", () => {
+  it("renders the slot-roof body-slot panels + dropped/missing zones", () => {
     const h = harness();
     mountFillBody(h, TbInventoryTabFill.render);
 
-    expect(screen.getByText(/On Your Person/i)).toBeInTheDocument();
-    expect(screen.getByText(/Carried Containers/i)).toBeInTheDocument();
-    expect(screen.getByText(/Add from Catalog/i)).toBeInTheDocument();
-    expect(screen.getByText(/Head/)).toBeInTheDocument();
-    expect(screen.getByText(/Belt/)).toBeInTheDocument();
+    expect(screen.getByText(/^Head$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Neck$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Torso$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Belt$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Feet$/)).toBeInTheDocument();
+    expect(screen.getByText(/On the Ground/)).toBeInTheDocument();
+    expect(screen.getByText(/Missing/)).toBeInTheDocument();
   });
 });
 

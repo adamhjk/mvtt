@@ -47,6 +47,7 @@ import {
   TbSupply,
   TbWeapon,
   UnequipItem,
+  summarizeCapacity,
 } from "./shared/index.js";
 import {
   TbEntryStateSystem,
@@ -134,7 +135,7 @@ function makeSetup(): TestSetup {
         templateId: "tb/sword",
         traits: {
           ItemIdentity: { name: "Sword", description: "" },
-          TbItemSlotOptions: { options: { handR: 1, handL: 1, belt: 1 } },
+          TbItemSlotOptions: { options: { carried: 1, belt: 1 } },
           TbWeapon: { wield: 1 },
         },
       },
@@ -150,7 +151,7 @@ function makeSetup(): TestSetup {
         templateId: "tb/shield",
         traits: {
           ItemIdentity: { name: "Shield", description: "" },
-          TbItemSlotOptions: { options: { handR: 1, handL: 1, torso: 1 } },
+          TbItemSlotOptions: { options: { carried: 1, torso: 1 } },
           TbWeapon: { wield: 1 },
         },
       },
@@ -248,10 +249,12 @@ describe("@vtt/system-torchbearer items", () => {
       expect(res.result.ok).toBe(false);
     });
 
-    it("rejects equipping past torso capacity", async () => {
+    it("accepts overfill (validator no longer caps capacity) and reports it via summarizeCapacity", async () => {
       // Equip the backpack (2 torso slots), then a shield on torso (1
-      // slot, total = 3 = capacity). A second torso-1 item should be
-      // rejected.
+      // slot, total = 3 = capacity). A second torso-1 item lands
+      // anyway — overfill is a soft constraint surfaced through the
+      // capacity summary so the UI can flag the slot red while the
+      // player shuffles things around.
       await setup.pipeline.dispatch({
         id: "e1",
         issuedBy: "alice",
@@ -278,7 +281,6 @@ describe("@vtt/system-torchbearer items", () => {
           slotsConsumed: 1,
         }),
       });
-      // Spawn a torso-1 mock item and try to equip it; capacity is full.
       const filler = setup.world.spawn([
         TbItemSlotOptions({ options: { torso: 1 } }),
       ]);
@@ -295,7 +297,16 @@ describe("@vtt/system-torchbearer items", () => {
           slotsConsumed: 1,
         }),
       });
-      expect(res.result.ok).toBe(false);
+      expect(res.result.ok).toBe(true);
+      const cap = summarizeCapacity({
+        world: setup.world,
+        holderId: setup.characterId,
+        slot: "torso",
+        channel: "default",
+      });
+      expect(cap.used).toBe(4);
+      expect(cap.limit).toBe(3);
+      expect(cap.wouldOverfill(0)).toBe(true);
     });
   });
 
@@ -346,6 +357,47 @@ describe("@vtt/system-torchbearer items", () => {
         TbCarries: { entries: Array<{ itemId: string }> };
       };
       expect(carries.TbCarries.entries[0]!.itemId).toBe(setup.swordId);
+    });
+
+    it("equipping a catalog bundle (e.g. torches) auto-forks so split is per-character", async () => {
+      // Seed a fresh template with ItemBundle and pull its id.
+      runCatalogMerge({
+        world: setup.world,
+        registry: setup.registry,
+        pluginName: "@vtt/system-torchbearer",
+        templates: [
+          {
+            templateId: "tb/torch",
+            traits: {
+              ItemIdentity: { name: "Torch", description: "" },
+              TbItemSlotOptions: { options: { carried: 1, pack: 1 } },
+              ItemBundle: { count: 4, capacity: 4 },
+            },
+          },
+        ],
+      });
+      const torchId = findByTemplate(setup.world, "tb/torch");
+      const res = await setup.pipeline.dispatch({
+        id: "et",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: EquipItem({
+          holderId: setup.characterId,
+          itemId: torchId,
+          slot: "handR",
+          slotIndex: 0,
+          channel: "carried",
+          slotsConsumed: 1,
+        }),
+      });
+      expect(res.result.ok).toBe(true);
+      const carries = setup.world.get(setup.characterId, [TbCarries]) as {
+        TbCarries: { entries: Array<{ itemId: string }> };
+      };
+      const equippedId = carries.TbCarries.entries.at(-1)!.itemId;
+      expect(equippedId).not.toBe(torchId);
+      // Catalog template still exists at its original count.
+      expect(setup.world.has(torchId)).toBe(true);
     });
   });
 
@@ -693,7 +745,79 @@ describe("@vtt/system-torchbearer items", () => {
       expect(bp.TbCarries.entries[0]!.itemId).toBe(setup.swordId);
     });
 
-    it("rejects exceeding container capacity", async () => {
+    it("dropped entries don't count toward body-slot capacity", async () => {
+      // A backpack placed at torso then dropped should leave torso
+      // empty (3/3 → 0/3) — its body presence vanishes when the
+      // dropped flag is set.
+      await setup.pipeline.dispatch({
+        id: "e1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: EquipItem({
+          holderId: setup.characterId,
+          itemId: setup.backpackId,
+          slot: "torso",
+          slotIndex: 0,
+          channel: "default",
+          slotsConsumed: 2,
+        }),
+      });
+      const beforeDrop = summarizeCapacity({
+        world: setup.world,
+        holderId: setup.characterId,
+        slot: "torso",
+        channel: "default",
+      });
+      expect(beforeDrop.used).toBe(2);
+      // Drop it.
+      await setup.pipeline.dispatch({
+        id: "s1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: SetEntryState({
+          holderId: setup.characterId,
+          entryIndex: 0,
+          state: { dropped: true },
+        }),
+      });
+      const afterDrop = summarizeCapacity({
+        world: setup.world,
+        holderId: setup.characterId,
+        slot: "torso",
+        channel: "default",
+      });
+      expect(afterDrop.used).toBe(0);
+      expect(afterDrop.wouldOverfill(0)).toBe(false);
+    });
+
+    it("loose:<n> entries don't count toward body-slot capacity", async () => {
+      // A "loose" item is staged on the character without a body
+      // placement — it should not eat torso/handR/etc. capacity.
+      const filler = setup.world.spawn([
+        TbItemSlotOptions({ options: { torso: 1 } }),
+      ]);
+      setup.world.set(setup.characterId, TbCarries, {
+        entries: [
+          {
+            slot: "loose:1",
+            slotIndex: 0,
+            channel: "default",
+            slotsConsumed: 1,
+            itemId: filler,
+            quantity: 1,
+          },
+        ],
+      });
+      const cap = summarizeCapacity({
+        world: setup.world,
+        holderId: setup.characterId,
+        slot: "torso",
+        channel: "default",
+      });
+      expect(cap.used).toBe(0);
+    });
+
+    it("accepts overfill in a container; capacity summary surfaces the overfill", async () => {
       await setup.pipeline.dispatch({
         id: "e1",
         issuedBy: "alice",
@@ -742,7 +866,16 @@ describe("@vtt/system-torchbearer items", () => {
           slotsConsumed: 1,
         }),
       });
-      expect(res.result.ok).toBe(false);
+      expect(res.result.ok).toBe(true);
+      const cap = summarizeCapacity({
+        world: setup.world,
+        holderId: forkedBackpackId,
+        slot: `container:${forkedBackpackId}`,
+        channel: "default",
+      });
+      expect(cap.used).toBe(7);
+      expect(cap.limit).toBe(6);
+      expect(cap.wouldOverfill(0)).toBe(true);
     });
   });
 });

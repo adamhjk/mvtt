@@ -143,6 +143,7 @@ export {
   obstacleFromContributions,
   personaSpendsFromContributions,
   personaSpendTotalFromContributions,
+  suggestedItemModifiersFor,
   suggestedQuickModifiersFor,
   synergyDeclsFromContributions,
   synergyHelpersFromContributions,

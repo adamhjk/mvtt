@@ -57,6 +57,7 @@ import {
   heroicFromContributions,
   obstacleFromContributions,
   personaSpendTotalFromContributions,
+  suggestedItemModifiersFor,
   suggestedQuickModifiersFor,
   synergyHelpersFromContributions,
   versusFromContributions,
@@ -246,12 +247,19 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
     ) as TbRollKind;
     const versusTestId =
       typeof spec.versusTestId === "string" ? spec.versusTestId : null;
-    return suggestedQuickModifiersFor({
+    const condition = suggestedQuickModifiersFor({
       conditions: c,
       kind,
       sourceId,
       versusTestId,
     });
+    const items = suggestedItemModifiersFor({
+      world: client.world,
+      characterId: props.initiatorCharacterId,
+      kind,
+      sourceId,
+    });
+    return [...condition, ...items];
   });
 
   /**

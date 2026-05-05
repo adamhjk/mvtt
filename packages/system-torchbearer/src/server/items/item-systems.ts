@@ -16,12 +16,15 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineSystem } from "@vtt/substrate";
+import { ItemBundleJoined, ItemBundleSplit } from "@vtt/items/shared";
 import {
   EntryStateChanged,
   ItemDropped,
   ItemEquipped,
   ItemMoved,
   ItemPickedUp,
+  ItemPlacedOnGround,
+  ItemRemovedFromGround,
   ItemUnequipped,
 } from "../../shared/items/item-events.js";
 import {
@@ -86,6 +89,9 @@ export const TbItemMoveSystem = defineSystem({
       slot: event.toSlot,
       slotIndex: event.toSlotIndex,
       channel: event.toChannel,
+      ...(event.toSlotsConsumed !== undefined
+        ? { slotsConsumed: event.toSlotsConsumed }
+        : {}),
     };
     world.set(event.holderId, TbCarries, { entries });
     return [];
@@ -155,6 +161,44 @@ export const TbItemDropSystem = defineSystem({
 });
 
 /**
+ * ItemPlacedOnGround → just stamp ItemPosition on the item entity.
+ * No holder interaction; the item never entered any TbCarries.
+ * Used by the catalog quick-add's "Drop on Ground" affordance.
+ */
+export const TbItemPlacedSystem = defineSystem({
+  name: "TbItemPlaced",
+  on: ItemPlacedOnGround,
+  reads: [],
+  writes: [ItemPosition],
+  run: ({ event, world }) => {
+    if (!world.has(event.itemId)) return [];
+    world.set(event.itemId, ItemPosition, {
+      sceneId: event.sceneId,
+      x: event.x,
+      y: event.y,
+    });
+    return [];
+  },
+});
+
+/**
+ * ItemRemovedFromGround → strip ItemPosition. The entity stays in
+ * the world registry; it just disappears from the world-shared
+ * On the Ground zone.
+ */
+export const TbItemRemovedFromGroundSystem = defineSystem({
+  name: "TbItemRemovedFromGround",
+  on: ItemRemovedFromGround,
+  reads: [],
+  writes: [ItemPosition],
+  run: ({ event, world }) => {
+    if (!world.has(event.itemId)) return [];
+    world.remove(event.itemId, ItemPosition);
+    return [];
+  },
+});
+
+/**
  * ItemPickedUp → clear ItemPosition, append a TbCarries entry
  * (same shape as TbItemEquipSystem).
  */
@@ -180,6 +224,70 @@ export const TbItemPickUpSystem = defineSystem({
       quantity: event.quantity,
     });
     world.set(event.holderId, TbCarries, { entries });
+    return [];
+  },
+});
+
+/**
+ * ItemBundleSplit → mirror the new fork into the same holder + slot
+ * as the source. We scan all TbCarries holders for an entry whose
+ * itemId matches `sourceId`; on hit, append a new entry pointing
+ * at `newItemId` with the same slot/channel/slotsConsumed. If the
+ * source isn't carried by anyone (e.g. on the workbench page or
+ * the ground), the new entity is just a free-floating item — caller
+ * decides what to do with it.
+ */
+export const TbBundleSplitSystem = defineSystem({
+  name: "TbBundleSplit",
+  on: ItemBundleSplit,
+  reads: [TbCarries],
+  writes: [TbCarries],
+  run: ({ event, world }) => {
+    for (const row of world.query([TbCarries])) {
+      const v = row.values.TbCarries as {
+        entries: Array<Record<string, unknown> & { itemId: string }>;
+      };
+      const sourceEntry = v.entries.find((e) => e.itemId === event.sourceId);
+      if (!sourceEntry) continue;
+      const entries = [
+        ...v.entries,
+        {
+          slot: sourceEntry.slot,
+          slotIndex: sourceEntry.slotIndex,
+          channel: sourceEntry.channel,
+          slotsConsumed: sourceEntry.slotsConsumed,
+          itemId: event.newItemId,
+          quantity: 1,
+        },
+      ];
+      world.set(row.id, TbCarries, { entries });
+      return [];
+    }
+    return [];
+  },
+});
+
+/**
+ * ItemBundleJoined → if the source was destroyed, drop any
+ * TbCarries entry that pointed at it. The dest's entry is left
+ * alone — its underlying item entity is the same; only its
+ * count changed.
+ */
+export const TbBundleJoinSystem = defineSystem({
+  name: "TbBundleJoin",
+  on: ItemBundleJoined,
+  reads: [TbCarries],
+  writes: [TbCarries],
+  run: ({ event, world }) => {
+    if (!event.srcDestroyed) return [];
+    for (const row of world.query([TbCarries])) {
+      const v = row.values.TbCarries as {
+        entries: Array<{ itemId: string }>;
+      };
+      if (!v.entries.some((e) => e.itemId === event.srcId)) continue;
+      const entries = v.entries.filter((e) => e.itemId !== event.srcId);
+      world.set(row.id, TbCarries, { entries });
+    }
     return [];
   },
 });

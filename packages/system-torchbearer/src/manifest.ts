@@ -42,7 +42,9 @@ import {
   ItemEquipped,
   ItemMoved,
   ItemPickedUp,
+  ItemPlacedOnGround,
   ItemPosition,
+  ItemRemovedFromGround,
   ItemUnequipped,
   LearnSkill,
   LogAdvancement,
@@ -54,7 +56,9 @@ import {
   OpenSkillImprovement,
   OpenSkillLearning,
   PickUpItem,
+  PlaceOnGround,
   Pools,
+  RemoveFromGround,
   RawAbilities,
   Relics,
   ResourcesCheck,
@@ -107,12 +111,16 @@ import {
   SkillLearningSweepSystem,
   SkillOpportunitySweepSystem,
   SynergyAdvancementLoggedSystem,
+  TbBundleJoinSystem,
+  TbBundleSplitSystem,
   TbCommitSpendsSystem,
   TbEntryStateSystem,
   TbItemDropSystem,
   TbItemEquipSystem,
   TbItemMoveSystem,
   TbItemPickUpSystem,
+  TbItemPlacedSystem,
+  TbItemRemovedFromGroundSystem,
   TbItemUnequipSystem,
   TraitUsageLoggedSystem,
 } from "./server/index.js";
@@ -125,6 +133,7 @@ import {
   TbInventoryTabFill,
   TbPendingRollContributor,
   TbRollActionsFill,
+  TB_ITEM_DETAIL_SECTIONS,
   TbRollChatTimelineContributor,
   TbSkillLearningTimelineContributor,
   TbTraitsWisesTabFill,
@@ -135,6 +144,7 @@ import {
 import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
 import { PendingRollContributorsSlot } from "@vtt/characters/shared";
 import { RollActionsSlot } from "@vtt/resolution/shared";
+import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { tbItemsSeed } from "./data/seed.js";
 
 /**
@@ -161,10 +171,13 @@ export const systemTorchbearer = definePlugin({
   version: "0.1.0",
   dependsOn: [
     "@vtt/substrate@^0",
+    "@vtt/books@^0",
     "@vtt/characters@^0",
     "@vtt/comms@^0",
     "@vtt/dice-tray@^0",
     "@vtt/items@^0",
+    "@vtt/items-pages@^0",
+    "@vtt/pdf-book@^0",
     "@vtt/scene@^0",
     "@vtt/resolution@^0",
   ],
@@ -217,6 +230,8 @@ export const systemTorchbearer = definePlugin({
     EntryStateChanged,
     ItemDropped,
     ItemPickedUp,
+    ItemPlacedOnGround,
+    ItemRemovedFromGround,
     ItemUnequipped,
   ],
   commands: [
@@ -237,6 +252,8 @@ export const systemTorchbearer = definePlugin({
     SetEntryState,
     DropItem,
     PickUpItem,
+    PlaceOnGround,
+    RemoveFromGround,
     UnequipItem,
   ],
   slots: [TbRollModifierProvidersSlot],
@@ -262,7 +279,11 @@ export const systemTorchbearer = definePlugin({
     TbEntryStateSystem,
     TbItemDropSystem,
     TbItemPickUpSystem,
+    TbItemPlacedSystem,
+    TbItemRemovedFromGroundSystem,
     TbItemUnequipSystem,
+    TbBundleSplitSystem,
+    TbBundleJoinSystem,
   ],
   rollables: [
     WillCheck,
@@ -291,6 +312,7 @@ export const systemTorchbearer = definePlugin({
     ],
     [PendingRollContributorsSlot.name]: [TbPendingRollContributor],
     [RollActionsSlot.name]: [TbRollActionsFill],
+    [ItemDetailSectionsSlot.name]: [...TB_ITEM_DETAIL_SECTIONS],
   },
   seed: tbItemsSeed,
 });

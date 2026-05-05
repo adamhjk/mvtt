@@ -16,26 +16,35 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 export {
+  ItemBundle,
   ItemCatalogIndex,
   ItemDerivedFrom,
   ItemEconomics,
   ItemIdentity,
 } from "./traits.js";
 export {
+  ItemBundleJoined,
+  ItemBundleSplit,
   ItemCreated,
   ItemDestroyed,
   ItemFieldChanged,
   ItemFieldLocked,
   ItemFieldReverted,
   ItemForked,
+  ItemTraitRemoved,
+  ItemTraitSet,
 } from "./events.js";
 export {
   CreateItem,
   CustomizeItem,
   DestroyItem,
   EditItemField,
+  JoinItemBundles,
   LockItemField,
+  RemoveItemTrait,
   RevertItemField,
+  SetItemTrait,
+  SplitItemBundle,
 } from "./commands.js";
 export {
   applyEditedField,
@@ -44,3 +53,7 @@ export {
   type FieldPath,
 } from "./field-paths.js";
 export { runCatalogMerge, type CatalogTemplate } from "./merge.js";
+export {
+  ItemDetailSectionsSlot,
+  type ItemDetailSection,
+} from "./slots.js";

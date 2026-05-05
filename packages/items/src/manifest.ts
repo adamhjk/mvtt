@@ -16,31 +16,46 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { definePlugin } from "@vtt/substrate";
+import { PagesSlot } from "@vtt/shell-workbench/shared";
 import {
   CreateItem,
   CustomizeItem,
   DestroyItem,
   EditItemField,
+  ItemBundle,
+  ItemBundleJoined,
+  ItemBundleSplit,
   ItemCatalogIndex,
   ItemCreated,
   ItemDerivedFrom,
   ItemDestroyed,
+  ItemDetailSectionsSlot,
   ItemEconomics,
   ItemFieldChanged,
   ItemFieldLocked,
   ItemFieldReverted,
   ItemForked,
   ItemIdentity,
+  ItemTraitRemoved,
+  ItemTraitSet,
+  JoinItemBundles,
   LockItemField,
+  RemoveItemTrait,
   RevertItemField,
+  SetItemTrait,
+  SplitItemBundle,
 } from "./shared/index.js";
 import {
+  ItemBundleJoinSystem,
+  ItemBundleSplitSystem,
   ItemDestroySystem,
   ItemFieldEditSystem,
   ItemFieldLockSystem,
   ItemFieldRevertSystem,
   ItemForkSystem,
   ItemSpawningSystem,
+  ItemTraitRemoveSystem,
+  ItemTraitSetSystem,
 } from "./server/index.js";
 
 /**
@@ -65,13 +80,23 @@ export const items = definePlugin({
   name: "@vtt/items",
   version: "0.1.0",
   dependsOn: ["@vtt/substrate@^0"],
-  traits: [ItemIdentity, ItemEconomics, ItemDerivedFrom, ItemCatalogIndex],
+  traits: [
+    ItemIdentity,
+    ItemEconomics,
+    ItemDerivedFrom,
+    ItemBundle,
+    ItemCatalogIndex,
+  ],
   events: [
     ItemCreated,
     ItemForked,
     ItemFieldChanged,
     ItemFieldReverted,
     ItemFieldLocked,
+    ItemTraitSet,
+    ItemTraitRemoved,
+    ItemBundleSplit,
+    ItemBundleJoined,
     ItemDestroyed,
   ],
   commands: [
@@ -80,6 +105,10 @@ export const items = definePlugin({
     EditItemField,
     RevertItemField,
     LockItemField,
+    SetItemTrait,
+    RemoveItemTrait,
+    SplitItemBundle,
+    JoinItemBundles,
     DestroyItem,
   ],
   systems: [
@@ -88,8 +117,18 @@ export const items = definePlugin({
     ItemFieldEditSystem,
     ItemFieldRevertSystem,
     ItemFieldLockSystem,
+    ItemTraitSetSystem,
+    ItemTraitRemoveSystem,
+    ItemBundleSplitSystem,
+    ItemBundleJoinSystem,
     ItemDestroySystem,
   ],
+  slots: [ItemDetailSectionsSlot],
 });
+
+// PagesSlot is filled by the sibling `itemsPages` plugin so that
+// downstream consumers can pick up the workbench tab without
+// pulling shell-workbench into every test that touches items.
+void PagesSlot;
 
 export default items;

@@ -17,14 +17,18 @@
 
 import { defineCommand, EntityId, fail, ok, z } from "@vtt/substrate";
 import {
+  ItemBundleJoined,
+  ItemBundleSplit,
   ItemCreated,
   ItemDestroyed,
   ItemFieldChanged,
   ItemFieldLocked,
   ItemFieldReverted,
   ItemForked,
+  ItemTraitRemoved,
+  ItemTraitSet,
 } from "./events.js";
-import { ItemDerivedFrom } from "./traits.js";
+import { ItemBundle, ItemDerivedFrom, ItemIdentity } from "./traits.js";
 import { findTraitByShortName } from "./field-paths.js";
 
 /**
@@ -187,6 +191,217 @@ export const LockItemField = defineCommand({
     }),
   ],
 });
+
+/**
+ * SetItemTrait — add or replace a trait on an existing item. The
+ * `traitShortName` is the segment after the final "/" in the
+ * trait's plugin-namespaced name (e.g. "TbWeapon"). The value is
+ * parsed against the trait's schema before being stored, so
+ * malformed payloads land as a validate-time fail rather than a
+ * server-side throw.
+ *
+ * Differs from `EditItemField` in that it operates on the WHOLE
+ * trait — useful for "Add Subtype" affordances where the trait
+ * doesn't yet exist on the item, or for wholesale replacement.
+ */
+export const SetItemTrait = defineCommand({
+  name: "@vtt/items/SetItemTrait",
+  schema: z.object({
+    itemId: EntityId,
+    traitShortName: z.string().min(1).max(120),
+    value: z.unknown(),
+  }),
+  validate: ({ cmd, world, registry }) => {
+    if (!world.has(cmd.itemId)) return fail(`unknown item ${cmd.itemId}`);
+    const def = findTraitByShortName(registry, cmd.traitShortName);
+    if (!def) return fail(`unknown trait ${cmd.traitShortName}`);
+    try {
+      def.schema.parse(cmd.value);
+    } catch (err) {
+      return fail(`invalid trait value: ${(err as Error).message}`);
+    }
+    return ok();
+  },
+  apply: ({ cmd }) => [
+    ItemTraitSet({
+      itemId: cmd.itemId,
+      traitShortName: cmd.traitShortName,
+      value: cmd.value,
+    }),
+  ],
+});
+
+/**
+ * RemoveItemTrait — strip a single trait off an item. The item
+ * entity stays; only that trait's data is wiped. The receiver
+ * also drops the trait's path prefix from any
+ * ItemDerivedFrom.overrides so future re-seed treats the trait
+ * as freshly absent.
+ */
+export const RemoveItemTrait = defineCommand({
+  name: "@vtt/items/RemoveItemTrait",
+  schema: z.object({
+    itemId: EntityId,
+    traitShortName: z.string().min(1).max(120),
+  }),
+  validate: ({ cmd, world }) => {
+    if (!world.has(cmd.itemId)) return fail(`unknown item ${cmd.itemId}`);
+    return ok();
+  },
+  apply: ({ cmd }) => [
+    ItemTraitRemoved({
+      itemId: cmd.itemId,
+      traitShortName: cmd.traitShortName,
+    }),
+  ],
+});
+
+/**
+ * SplitItemBundle — peel `count` units off an existing bundle into
+ * a freshly forked entity. The new entity inherits every shareable
+ * trait (so its kind, slot options, weapon/armor/etc. data all
+ * match the source) and gets its own `ItemBundle.count = count`.
+ * The source's `ItemBundle.count` decreases by `count`.
+ *
+ * Constraints:
+ *   - `itemId` must have an ItemBundle trait.
+ *   - `count >= 1` and `count < bundle.count` (must leave at least
+ *     1 unit on the source — if you wanted to give the whole stack
+ *     away, transfer the entity itself, don't split-then-destroy).
+ *   - The source must NOT be a catalog-master (template entity in
+ *     the catalog index). Catalog masters are shared by reference;
+ *     split would mutate everyone's stack. Game-system EquipItem
+ *     (or equivalent) auto-forks bundleable catalog items on
+ *     pickup so a caller's source is always a private fork by the
+ *     time they reach SplitItemBundle.
+ *
+ * Holder-side bookkeeping (e.g. equipping the new fork next to
+ * the source on a TbCarries entry) lives in the game-system plugin
+ * — it subscribes to ItemBundleSplit and adds the new id wherever
+ * the source was.
+ */
+export const SplitItemBundle = defineCommand({
+  name: "@vtt/items/SplitItemBundle",
+  schema: z.object({
+    itemId: EntityId,
+    count: z.number().int().min(1).max(99),
+  }),
+  validate: ({ cmd, world }) => {
+    if (!world.has(cmd.itemId)) return fail(`unknown item ${cmd.itemId}`);
+    const got = world.get(cmd.itemId, [ItemBundle]) as
+      | { ItemBundle: { count: number; capacity: number } }
+      | undefined;
+    if (!got) return fail(`item ${cmd.itemId} has no ItemBundle`);
+    if (cmd.count >= got.ItemBundle.count) {
+      return fail(
+        `cannot split ${cmd.count} from a stack of ${got.ItemBundle.count}; would leave the source empty`,
+      );
+    }
+    return ok();
+  },
+  apply: ({ cmd, world }) => {
+    const got = world.get(cmd.itemId, [ItemBundle]) as {
+      ItemBundle: { count: number; capacity: number };
+    };
+    return [
+      ItemBundleSplit({
+        sourceId: cmd.itemId,
+        newItemId: world.allocateId(),
+        sourceFinalCount: got.ItemBundle.count - cmd.count,
+        newCount: cmd.count,
+      }),
+    ];
+  },
+});
+
+/**
+ * JoinItemBundles — pour `srcId`'s units into `destId`. The amount
+ * actually transferred is capped at `dest.capacity - dest.count`,
+ * so combining a partial src into a near-full dest can leave src
+ * with leftovers. If the entire src is absorbed, the src entity
+ * is despawned; otherwise its count is decremented.
+ *
+ * Compatibility check: both items must look like the same "kind"
+ * of thing — either both carry an ItemDerivedFrom whose templateId
+ * matches, or both lack ItemDerivedFrom and have matching
+ * ItemIdentity.name. This is intentionally loose: a torch the GM
+ * has tweaked still merges with a stock torch (the dest's overrides
+ * win; src's data is discarded along with the entity).
+ */
+export const JoinItemBundles = defineCommand({
+  name: "@vtt/items/JoinItemBundles",
+  schema: z.object({
+    srcId: EntityId,
+    destId: EntityId,
+  }),
+  validate: ({ cmd, world }) => {
+    if (cmd.srcId === cmd.destId) return fail("cannot join an item with itself");
+    if (!world.has(cmd.srcId)) return fail(`unknown src ${cmd.srcId}`);
+    if (!world.has(cmd.destId)) return fail(`unknown dest ${cmd.destId}`);
+    const src = world.get(cmd.srcId, [ItemBundle]) as
+      | { ItemBundle: { count: number; capacity: number } }
+      | undefined;
+    const dest = world.get(cmd.destId, [ItemBundle]) as
+      | { ItemBundle: { count: number; capacity: number } }
+      | undefined;
+    if (!src) return fail(`src ${cmd.srcId} has no ItemBundle`);
+    if (!dest) return fail(`dest ${cmd.destId} has no ItemBundle`);
+    if (dest.ItemBundle.count >= dest.ItemBundle.capacity) {
+      return fail(
+        `dest is already at capacity (${dest.ItemBundle.capacity})`,
+      );
+    }
+    if (!bundlesAreCompatible(world, cmd.srcId, cmd.destId)) {
+      return fail("src and dest are not the same kind of item");
+    }
+    return ok();
+  },
+  apply: ({ cmd, world }) => {
+    const src = world.get(cmd.srcId, [ItemBundle]) as {
+      ItemBundle: { count: number; capacity: number };
+    };
+    const dest = world.get(cmd.destId, [ItemBundle]) as {
+      ItemBundle: { count: number; capacity: number };
+    };
+    const room = dest.ItemBundle.capacity - dest.ItemBundle.count;
+    const transfer = Math.min(src.ItemBundle.count, room);
+    const srcRemaining = src.ItemBundle.count - transfer;
+    return [
+      ItemBundleJoined({
+        srcId: cmd.srcId,
+        destId: cmd.destId,
+        destFinalCount: dest.ItemBundle.count + transfer,
+        srcRemainingCount: srcRemaining,
+        srcDestroyed: srcRemaining === 0,
+      }),
+    ];
+  },
+});
+
+function bundlesAreCompatible(
+  world: import("@vtt/substrate").World,
+  a: import("@vtt/substrate").EntityId,
+  b: import("@vtt/substrate").EntityId,
+): boolean {
+  const aDerived = world.get(a, [ItemDerivedFrom]) as
+    | { ItemDerivedFrom: { templateId: string } }
+    | undefined;
+  const bDerived = world.get(b, [ItemDerivedFrom]) as
+    | { ItemDerivedFrom: { templateId: string } }
+    | undefined;
+  if (aDerived && bDerived) {
+    return aDerived.ItemDerivedFrom.templateId === bDerived.ItemDerivedFrom.templateId;
+  }
+  if (aDerived || bDerived) return false;
+  const aIdent = world.get(a, [ItemIdentity]) as
+    | { ItemIdentity: { name: string } }
+    | undefined;
+  const bIdent = world.get(b, [ItemIdentity]) as
+    | { ItemIdentity: { name: string } }
+    | undefined;
+  if (!aIdent || !bIdent) return false;
+  return aIdent.ItemIdentity.name === bIdent.ItemIdentity.name;
+}
 
 /**
  * DestroyItem — remove an item entity from the world. Callers are
