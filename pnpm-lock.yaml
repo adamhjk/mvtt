@@ -818,6 +818,9 @@ importers:
       '@vtt/identity':
         specifier: workspace:*
         version: link:../identity
+      '@vtt/items':
+        specifier: workspace:*
+        version: link:../items
       '@vtt/permissions':
         specifier: workspace:*
         version: link:../permissions

@@ -16,29 +16,10 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 export {
-  AdvancementLoggedSystem,
-  FreshCancellationSystem,
-  SkillImprovedSystem,
-  SkillImprovementOpenedSystem,
-  SkillLearnedSystem,
-  SkillLearningOpenedSystem,
-  SkillLearningSweepSystem,
-  SkillOpportunitySweepSystem,
-  TraitUsageLoggedSystem,
-} from "./systems.js";
-export {
-  ChannelNatureTaxSystem,
-  DeeperUnderstandingSpentSystem,
-  LuckSpentSystem,
-  OfCourseSpentSystem,
-  SynergyAdvancementLoggedSystem,
-  TbCommitSpendsSystem,
-} from "./spend-systems.js";
-export {
   TbEntryStateSystem,
   TbItemDropSystem,
   TbItemEquipSystem,
   TbItemMoveSystem,
   TbItemPickUpSystem,
   TbItemUnequipSystem,
-} from "./items/index.js";
+} from "./item-systems.js";

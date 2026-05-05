@@ -151,6 +151,21 @@ export class World {
     for (const fn of this.listeners) fn(id, trait.name);
   }
 
+  /**
+   * Remove one trait from an entity. No-op if the entity doesn't
+   * exist or the trait isn't on it. Fires subscribers so reactivity
+   * hooks (`useTrait`) re-read and see the trait gone. Used for
+   * transient flags on item entities (ItemPosition cleared at
+   * pickup) and any future "this fact about the entity is no
+   * longer true" cases.
+   */
+  remove(id: EntityId, trait: TraitMeta): void {
+    const rec = this.entities.get(id);
+    if (!rec) return;
+    if (!rec.delete(trait.name)) return;
+    for (const fn of this.listeners) fn(id, trait.name);
+  }
+
   subscribe(fn: (id: EntityId, trait: TraitName) => void): () => void {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);

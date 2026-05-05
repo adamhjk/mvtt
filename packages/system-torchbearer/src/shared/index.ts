@@ -158,3 +158,4 @@ export {
   TbRollModifierProvidersSlot,
   type TbRollModifierProvider,
 } from "./roll-providers.js";
+export * from "./items/index.js";
