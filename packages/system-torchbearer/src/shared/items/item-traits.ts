@@ -82,7 +82,9 @@ export const TbWeapon = defineTrait({
 export const TbArmor = defineTrait({
   name: "@vtt/system-torchbearer/TbArmor",
   schema: z.object({
-    armorType: z.enum(["leather", "chain", "plate", "shield", "other"]).default("leather"),
+    armorType: z
+      .enum(["leather", "chain", "plate", "helmet", "shield", "other"])
+      .default("leather"),
     absorbs: z.number().int().min(0).default(1),
   }),
 });
@@ -98,7 +100,9 @@ export const TbArmor = defineTrait({
 export const TbSupply = defineTrait({
   name: "@vtt/system-torchbearer/TbSupply",
   schema: z.object({
-    supplyType: z.enum(["food", "light", "ammunition", "other"]).default("other"),
+    supplyType: z
+      .enum(["food", "light", "ammunition", "sacramental", "spellMaterial", "other"])
+      .default("other"),
     turnsRemaining: z.number().int().min(0).default(0),
     lit: z.boolean().default(false),
     nameSingular: z.string().max(120).default(""),

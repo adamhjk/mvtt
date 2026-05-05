@@ -136,6 +136,7 @@ import {
 import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
 import { PendingRollContributorsSlot } from "@vtt/characters/shared";
 import { RollActionsSlot } from "@vtt/resolution/shared";
+import { tbItemsSeed } from "./data/seed.js";
 
 /**
  * Torchbearer 2nd Edition game system. Shape-only first pass:
@@ -293,6 +294,7 @@ export const systemTorchbearer = definePlugin({
     [PendingRollContributorsSlot.name]: [TbPendingRollContributor],
     [RollActionsSlot.name]: [TbRollActionsFill],
   },
+  seed: tbItemsSeed,
 });
 
 export default systemTorchbearer;
