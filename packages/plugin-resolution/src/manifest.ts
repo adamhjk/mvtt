@@ -20,6 +20,7 @@ import { Formula, RollResult, RolledBy } from "./shared/traits.js";
 import { RollResolved } from "./shared/events.js";
 import { RequestRoll } from "./shared/commands.js";
 import { RollChatFills } from "./shared/chat-handler.js";
+import { RollActionsSlot } from "./shared/slot.js";
 import { RollRecordingSystem } from "./server/systems.js";
 import { RollTimelineFills } from "./client/index.js";
 
@@ -45,6 +46,7 @@ export const resolution = definePlugin({
   events: [RollResolved],
   commands: [RequestRoll],
   systems: [RollRecordingSystem],
+  slots: [RollActionsSlot],
   fills: { ...RollChatFills, ...RollTimelineFills },
 });
 

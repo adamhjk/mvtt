@@ -38,7 +38,7 @@ import {
 } from "@vtt/characters/shared";
 import { Permissions, everyone } from "@vtt/permissions/shared";
 import { definePlugin, type EntityId } from "@vtt/substrate";
-import { RequestRoll } from "@vtt/resolution/shared";
+import { RequestRoll, RollActionsSlot } from "@vtt/resolution/shared";
 import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
 import { type JSX } from "solid-js";
 import { systemTorchbearer } from "./manifest.js";
@@ -105,6 +105,9 @@ const sheetSlotsTestInfra = definePlugin({
     // resolves when both plugins are loaded into the harness without
     // pulling all of @vtt/comms in.
     ChatTimelineContributorSlot,
+    // Resolution-side slot torchbearer fills with its post-roll
+    // action panel (log buttons + future fate/persona spends).
+    RollActionsSlot,
   ],
   // Resolution-side traits are registered by the real `@vtt/resolution`
   // plugin. The character harness doesn't load it, so the TB roll-row
@@ -2712,6 +2715,133 @@ describe("TbRollRow — log advancement", () => {
     expect(
       screen.getByTestId("tb-roll-row-advancement-confirmation").textContent,
     ).toContain("Pass logged for Fighter");
+  });
+
+  it("hides the Log Pass button when the pass column is already at threshold (DH p.108)", () => {
+    // Skill rating 2 needs 2 passes / 1 fail to advance. Pre-load pass=2;
+    // a passing roll's Log Pass button should hide because the column is full.
+    const h = harness(({ world, characterId }) => {
+      world.set(characterId, Skills, {
+        entries: {
+          fighter: {
+            rating: 2,
+            advancement: { pass: 2, fail: 0 },
+            taxed: false,
+            learningTests: 0,
+          },
+        },
+      });
+    });
+    mountWithClient(h, () => {
+      const rollId = spawnTbRoll(h, {
+        speakingAsCharacterId: h.characterId,
+        spec: {
+          kind: "skill",
+          source: "Fighter",
+          sourceId: "fighter",
+          baseDice: 2,
+          pool: 2,
+          bonusSuccesses: 0,
+          heroic: false,
+          successTarget: 4,
+          baseObstacle: 1,
+          obstacle: 1,
+          modifiers: [],
+          caption: "Bryn — Fighter vs Ob 1",
+        },
+        dice: [
+          { sides: 6, value: 5 },
+          { sides: 6, value: 1 },
+        ],
+      });
+      return TbRollRow({ entityId: rollId }) as JSX.Element;
+    });
+    expect(screen.queryByTestId("tb-roll-row-log-advancement")).toBeNull();
+  });
+
+  it("still shows Log Fail when only the pass column is full (the fail column would advance)", () => {
+    // Same rating-2 fighter with pass=2 / fail=0 — a failing roll's
+    // Log Fail still helps fill the gate.
+    const h = harness(({ world, characterId }) => {
+      world.set(characterId, Skills, {
+        entries: {
+          fighter: {
+            rating: 2,
+            advancement: { pass: 2, fail: 0 },
+            taxed: false,
+            learningTests: 0,
+          },
+        },
+      });
+    });
+    mountWithClient(h, () => {
+      const rollId = spawnTbRoll(h, {
+        speakingAsCharacterId: h.characterId,
+        spec: {
+          kind: "skill",
+          source: "Fighter",
+          sourceId: "fighter",
+          baseDice: 2,
+          pool: 2,
+          bonusSuccesses: 0,
+          heroic: false,
+          successTarget: 4,
+          baseObstacle: 5,
+          obstacle: 5,
+          modifiers: [],
+          caption: "Bryn — Fighter vs Ob 5",
+        },
+        dice: [
+          { sides: 6, value: 1 },
+          { sides: 6, value: 2 },
+        ],
+      });
+      return TbRollRow({ entityId: rollId }) as JSX.Element;
+    });
+    const btn = screen.getByTestId("tb-roll-row-log-advancement");
+    expect(btn.getAttribute("data-outcome")).toBe("fail");
+  });
+
+  it("hides the Log Test button when BL learning track is already at maxNature (DH p.75)", () => {
+    const h = harness(({ world, characterId }) => {
+      world.set(characterId, Skills, {
+        entries: {
+          fighter: {
+            rating: 0,
+            advancement: { pass: 0, fail: 0 },
+            taxed: false,
+            // Bryn's nature.maximum is 4 (set in harness); learningTests at 4 = ready to learn.
+            learningTests: 4,
+          },
+        },
+      });
+    });
+    mountWithClient(h, () => {
+      const rollId = spawnTbRoll(h, {
+        speakingAsCharacterId: h.characterId,
+        spec: {
+          kind: "skill-bl",
+          source: "Fighter (Beginner's Luck, health)",
+          sourceId: "fighter",
+          baseDice: 5,
+          pool: 3,
+          bonusSuccesses: 0,
+          heroic: false,
+          successTarget: 4,
+          baseObstacle: null,
+          obstacle: null,
+          modifiers: [],
+          caption: "Bryn — Fighter (BL)",
+        },
+        dice: [
+          { sides: 6, value: 5 },
+          { sides: 6, value: 4 },
+          { sides: 6, value: 1 },
+        ],
+      });
+      return TbRollRow({ entityId: rollId }) as JSX.Element;
+    });
+    expect(screen.queryByTestId("tb-roll-row-log-advancement")).toBeNull();
   });
 
   it("renders a Log Test button (not Pass/Fail) for a Beginner's Luck roll", () => {

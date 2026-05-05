@@ -95,7 +95,12 @@ import {
   helpProvidedBy,
   helpReplacesKey,
   isKnownSkillId,
+  RollSpends,
+  SpendDeeperUnderstanding,
+  SpendLuck,
+  SpendOfCourse,
   type HelperContext,
+  type RollSpendEntry,
 } from "./shared/index.js";
 import {
   AdvancementLoggedSystem,
@@ -860,11 +865,15 @@ import {
   TbRollSpecSchema,
   TB_DISPOSITION_CONTRIB_KIND,
   TB_ROLL_META_SYSTEM,
+  TB_CHANNEL_NATURE_CONTRIB_KIND,
   TB_HEROIC_CONTRIB_KIND,
   TB_MODIFIER_CONTRIB_KIND,
   TB_OBSTACLE_CONTRIB_KIND,
+  TB_PERSONA_SPEND_CONTRIB_KIND,
+  TB_SYNERGY_CONTRIB_KIND,
   TB_VERSUS_CONTRIB_KIND,
   buildTbNotation,
+  channelNatureFromContributions,
   countSuccesses,
   dispositionFromContributions,
   foldBlModifiers,
@@ -873,7 +882,9 @@ import {
   heroicFromContributions,
   isBlPreHalfModifier,
   obstacleFromContributions,
+  personaSpendTotalFromContributions,
   resolveSuccessCount,
+  synergyHelpersFromContributions,
   autoModifiersFromConditions,
   modifiersFromContributions,
   suggestedQuickModifiersFor,
@@ -5866,5 +5877,419 @@ describe("LogTraitUsage command", () => {
     expect((r2.result as { ok: false; reason: string }).reason).toMatch(
       /already logged/i,
     );
+  });
+});
+
+/* -------------------------------------------------------------------------
+ * Fate / persona spend commands (DH p.23, p.67, p.77, p.87)
+ * ----------------------------------------------------------------------- */
+
+describe("Fate / persona spend commands", () => {
+  /**
+   * Set Pools / Wises directly via world.set so tests start with a known
+   * fate / persona budget. The improvement harness already sets up
+   * Character + Permissions + RawAbilities; we layer the spend-specific
+   * fixtures on top.
+   */
+  function setupSpendCharacter(
+    world: World,
+    characterId: string,
+    args: {
+      fate?: number;
+      persona?: number;
+      natureRating?: number;
+      wises?: ReadonlyArray<{ name: string }>;
+    } = {},
+  ): void {
+    world.set(characterId, Pools, {
+      fate: { current: args.fate ?? 0, totalSpent: 0 },
+      persona: { current: args.persona ?? 0, totalSpent: 0 },
+    });
+    if (args.natureRating !== undefined) {
+      world.set(characterId, RawAbilities, {
+        will: { rating: 4, advancement: { pass: 0, fail: 0 } },
+        health: { rating: 4, advancement: { pass: 0, fail: 0 } },
+        nature: {
+          rating: args.natureRating,
+          maximum: args.natureRating,
+          advancement: { pass: 0, fail: 0 },
+          descriptors: [],
+        },
+      });
+    }
+    if (args.wises) {
+      world.set(characterId, Wises, {
+        entries: args.wises.map((w) => ({
+          name: w.name,
+          pass: false,
+          fail: false,
+          fate: false,
+          persona: false,
+        })),
+      });
+    }
+  }
+
+  function readPools(world: World, id: string): {
+    fate: { current: number; totalSpent: number };
+    persona: { current: number; totalSpent: number };
+  } {
+    const got = world.get(id as Parameters<World["get"]>[0], [Pools]) as
+      | { Pools: typeof Pools extends never ? never : { fate: { current: number; totalSpent: number }; persona: { current: number; totalSpent: number } } }
+      | undefined;
+    return got!.Pools;
+  }
+
+  function readSpends(world: World, rollId: string): ReadonlyArray<RollSpendEntry> {
+    const got = world.get(rollId as Parameters<World["get"]>[0], [RollSpends]) as
+      | { RollSpends: { entries: ReadonlyArray<RollSpendEntry> } }
+      | undefined;
+    return got?.RollSpends.entries ?? [];
+  }
+
+  function readDice(world: World, rollId: string): ReadonlyArray<{ sides: number | "F"; value: number }> {
+    const got = world.get(rollId as Parameters<World["get"]>[0], [RollResult]) as
+      | { RollResult: { dice: ReadonlyArray<{ sides: number | "F"; value: number }> } }
+      | undefined;
+    return got?.RollResult.dice ?? [];
+  }
+
+
+  describe("SpendLuck", () => {
+    it("rejects when no 6s in the dice pool", async () => {
+      const h = buildImprovementHarness();
+      await spawnImproveCharacter(h.pipeline, h.registry);
+      const charId = h.world.query([Character])[0]!.id;
+      setupSpendCharacter(h.world, charId, { fate: 1 });
+      // Default test roll has dice [5, 4, 2] — no 6s.
+      const rollId = await spawnTestRoll(h.pipeline, h.registry, {
+        characterId: charId,
+        spec: { kind: "skill", source: "Fighter", sourceId: "fighter" },
+      });
+      const r = await h.pipeline.dispatch({
+        id: "spend-luck-no-6",
+        issuedBy: "u1",
+        issuedAt: 0,
+        session: gmSession(),
+        cmd: SpendLuck({
+          rollId: rollId as Parameters<typeof SpendLuck>[0]["rollId"],
+        }) as CommandInstance,
+      });
+      expect((r.result as { ok: false }).ok).toBe(false);
+    });
+  });
+
+  describe("SpendDeeperUnderstanding", () => {
+    it("rejects rerolling a die that's already a success", async () => {
+      const h = buildImprovementHarness();
+      await spawnImproveCharacter(h.pipeline, h.registry);
+      const charId = h.world.query([Character])[0]!.id;
+      setupSpendCharacter(h.world, charId, {
+        fate: 1,
+        wises: [{ name: "Field-Dressing" }],
+      });
+      const rollId = await spawnTestRoll(h.pipeline, h.registry, {
+        characterId: charId,
+        spec: { kind: "skill", source: "Fighter", sourceId: "fighter" },
+      });
+      // dice[0] = 5 — a success. DU only rerolls fails.
+      const r = await h.pipeline.dispatch({
+        id: "spend-du-pass",
+        issuedBy: "u1",
+        issuedAt: 0,
+        session: gmSession(),
+        cmd: SpendDeeperUnderstanding({
+          rollId: rollId as Parameters<typeof SpendDeeperUnderstanding>[0]["rollId"],
+          wiseIndex: 0,
+          dieIndex: 0,
+        }) as CommandInstance,
+      });
+      expect((r.result as { ok: false; reason: string }).ok).toBe(false);
+      expect((r.result as { ok: false; reason: string }).reason).toMatch(
+        /already a success/i,
+      );
+    });
+
+    it("decrements fate, replaces a single failed die, bumps wise.fate", async () => {
+      const h = buildImprovementHarness();
+      await spawnImproveCharacter(h.pipeline, h.registry);
+      const charId = h.world.query([Character])[0]!.id;
+      setupSpendCharacter(h.world, charId, {
+        fate: 1,
+        wises: [{ name: "Field-Dressing" }],
+      });
+      const rollId = await spawnTestRoll(h.pipeline, h.registry, {
+        characterId: charId,
+        spec: { kind: "skill", source: "Fighter", sourceId: "fighter" },
+      });
+      // dice[2] = 2 — a fail. Reroll it.
+      const r = await h.pipeline.dispatch({
+        id: "spend-du-fail",
+        issuedBy: "u1",
+        issuedAt: 0,
+        session: gmSession(),
+        cmd: SpendDeeperUnderstanding({
+          rollId: rollId as Parameters<typeof SpendDeeperUnderstanding>[0]["rollId"],
+          wiseIndex: 0,
+          dieIndex: 2,
+        }) as CommandInstance,
+      });
+      expect((r.result as { ok: true }).ok).toBe(true);
+      expect(readPools(h.world, charId).fate.current).toBe(0);
+      const wises = h.world.get(charId as Parameters<World["get"]>[0], [
+        Wises,
+      ]) as { Wises: { entries: ReadonlyArray<{ fate: boolean }> } };
+      expect(wises.Wises.entries[0]!.fate).toBe(true);
+      const entries = readSpends(h.world, rollId);
+      expect(entries[0]!.kind).toBe("deeper-understanding");
+      expect(entries[0]!.rerolledIndices).toEqual([2]);
+    });
+  });
+
+  describe("SpendOfCourse", () => {
+    it("rejects after Luck has fired (RAW ordering DH p.77)", async () => {
+      const h = buildImprovementHarness();
+      await spawnImproveCharacter(h.pipeline, h.registry);
+      const charId = h.world.query([Character])[0]!.id;
+      setupSpendCharacter(h.world, charId, {
+        fate: 1,
+        persona: 1,
+        wises: [{ name: "Field-Dressing" }],
+      });
+      const rollId = await spawnTestRoll(h.pipeline, h.registry, {
+        characterId: charId,
+        spec: { kind: "skill", source: "Fighter", sourceId: "fighter" },
+      });
+      // First, manually inject a luck spend by going around the validator
+      // — set RollSpends directly so the OC validator's "no prior luck"
+      // check fires. (Spending Luck legitimately needs a 6 in the dice
+      // pool, which our default test roll doesn't have.)
+      h.world.set(rollId as Parameters<World["get"]>[0], RollSpends, {
+        entries: [
+          {
+            kind: "luck",
+            pool: "fate",
+            cost: 1,
+            rerolledIndices: [],
+            appendedCount: 0,
+            newSuccesses: 0,
+            byUserId: "u1",
+            byCharacterId: charId,
+            loggedAt: 0,
+          },
+        ],
+      });
+      const r = await h.pipeline.dispatch({
+        id: "spend-oc-after-luck",
+        issuedBy: "u1",
+        issuedAt: 0,
+        session: gmSession(),
+        cmd: SpendOfCourse({
+          rollId: rollId as Parameters<typeof SpendOfCourse>[0]["rollId"],
+          wiseIndex: 0,
+        }) as CommandInstance,
+      });
+      expect((r.result as { ok: false; reason: string }).ok).toBe(false);
+      expect((r.result as { ok: false; reason: string }).reason).toMatch(
+        /OC first|before Luck/i,
+      );
+    });
+
+    it("rerolls all failed dice, bumps wise.persona", async () => {
+      const h = buildImprovementHarness();
+      await spawnImproveCharacter(h.pipeline, h.registry);
+      const charId = h.world.query([Character])[0]!.id;
+      setupSpendCharacter(h.world, charId, {
+        persona: 1,
+        wises: [{ name: "Field-Dressing" }],
+      });
+      const rollId = await spawnTestRoll(h.pipeline, h.registry, {
+        characterId: charId,
+        spec: { kind: "skill", source: "Fighter", sourceId: "fighter" },
+      });
+      // dice[2] = 2 is the only fail.
+      const r = await h.pipeline.dispatch({
+        id: "spend-oc-ok",
+        issuedBy: "u1",
+        issuedAt: 0,
+        session: gmSession(),
+        cmd: SpendOfCourse({
+          rollId: rollId as Parameters<typeof SpendOfCourse>[0]["rollId"],
+          wiseIndex: 0,
+        }) as CommandInstance,
+      });
+      expect((r.result as { ok: true }).ok).toBe(true);
+      expect(readPools(h.world, charId).persona.current).toBe(0);
+      const wises = h.world.get(charId as Parameters<World["get"]>[0], [
+        Wises,
+      ]) as { Wises: { entries: ReadonlyArray<{ persona: boolean }> } };
+      expect(wises.Wises.entries[0]!.persona).toBe(true);
+      const entries = readSpends(h.world, rollId);
+      expect(entries[0]!.kind).toBe("of-course");
+      expect(entries[0]!.rerolledIndices).toContain(2);
+    });
+  });
+
+});
+
+/* -------------------------------------------------------------------------
+ * Pre-roll spend contribution helpers (DH p.250 — tally before the test)
+ * ----------------------------------------------------------------------- */
+
+describe("Pre-roll spend contribution helpers", () => {
+  let nextId = 0;
+  function freshId(): string {
+    nextId += 1;
+    return `m-${nextId}`;
+  }
+  function persona(count: 1 | 2 | 3): Contribution {
+    return {
+      kind: TB_PERSONA_SPEND_CONTRIB_KIND,
+      label: `+${count}D`,
+      fromUserId: "u1",
+      payload: { id: freshId(), count },
+    } as Contribution;
+  }
+
+  function channel(scope: "within" | "outside"): Contribution {
+    return {
+      kind: TB_CHANNEL_NATURE_CONTRIB_KIND,
+      label: `Channel (${scope})`,
+      fromUserId: "u1",
+      payload: { id: freshId(), scope },
+    } as Contribution;
+  }
+
+  function synergy(helperCharacterId: string): Contribution {
+    return {
+      kind: TB_SYNERGY_CONTRIB_KIND,
+      label: `synergy ${helperCharacterId}`,
+      fromUserId: "u1",
+      payload: { id: freshId(), helperCharacterId },
+    } as Contribution;
+  }
+
+  it("personaSpendTotalFromContributions sums and caps at 3 (DH p.8)", () => {
+    expect(personaSpendTotalFromContributions(undefined)).toBe(0);
+    expect(personaSpendTotalFromContributions([])).toBe(0);
+    expect(personaSpendTotalFromContributions([persona(1)])).toBe(1);
+    expect(
+      personaSpendTotalFromContributions([persona(1), persona(1), persona(1)]),
+    ).toBe(3);
+    // Beyond 3 should clamp.
+    expect(
+      personaSpendTotalFromContributions([persona(2), persona(2)]),
+    ).toBe(3);
+  });
+
+  it("channelNatureFromContributions returns last-wins or null", () => {
+    expect(channelNatureFromContributions(undefined)).toBeNull();
+    expect(channelNatureFromContributions([channel("within")])?.scope).toBe(
+      "within",
+    );
+    expect(
+      channelNatureFromContributions([channel("within"), channel("outside")])
+        ?.scope,
+    ).toBe("outside");
+  });
+
+  it("synergyHelpersFromContributions de-dups by helper id", () => {
+    expect(synergyHelpersFromContributions(undefined)).toEqual([]);
+    expect(synergyHelpersFromContributions([synergy("e1")])).toEqual(["e1"]);
+    expect(
+      synergyHelpersFromContributions([synergy("e1"), synergy("e1"), synergy("e2")]),
+    ).toEqual(["e1", "e2"]);
+  });
+});
+
+/* -------------------------------------------------------------------------
+ * TbCommitSpendsSystem — pool debit + ledger writes after commit
+ * ----------------------------------------------------------------------- */
+
+describe("Pre-roll spend → commit-time debit", () => {
+  it("declared persona on the spec → debits roller persona, writes ledger entry", async () => {
+    const h = buildImprovementHarness();
+    await spawnImproveCharacter(h.pipeline, h.registry);
+    const charId = h.world.query([Character])[0]!.id;
+    h.world.set(charId, Pools, {
+      fate: { current: 0, totalSpent: 0 },
+      persona: { current: 3, totalSpent: 0 },
+    });
+    // Spawn a roll whose spec.personaDiceSpent = 2. The TbCommitSpendsSystem
+    // listens to RollResolved; spawnTestRoll synthesises the resolved Roll
+    // entity but doesn't emit RollResolved — so we exercise the system by
+    // dispatching a RollResolved event directly via a one-shot command.
+    const rollId = await spawnTestRoll(h.pipeline, h.registry, {
+      characterId: charId,
+      spec: {
+        kind: "skill",
+        source: "Fighter",
+        sourceId: "fighter",
+        personaDiceSpent: 2,
+      },
+    });
+    const EmitResolved = defineCommand({
+      name: "@vtt/test-tb-improvement/EmitResolved",
+      schema: z.object({}),
+      validate: () => ok(),
+      apply: () => [
+        // Re-emit RollResolved with the same roll's meta. The system reads
+        // meta.spec for the spend declarations.
+        {
+          type: "@vtt/resolution/RollResolved",
+          payload: {
+            rollId,
+            notation: "3d6>=4",
+            reason: "test",
+            output: "x",
+            total: 2,
+            dice: [],
+            visibility: "public",
+            rolledByUserId: "u1",
+            rolledByName: "Tester",
+            speakingAsCharacterId: charId,
+            rolledAt: 0,
+            meta: {
+              system: "@vtt/system-torchbearer",
+              spec: {
+                kind: "skill",
+                source: "Fighter",
+                sourceId: "fighter",
+                baseDice: 3,
+                pool: 5,
+                bonusSuccesses: 0,
+                heroic: false,
+                successTarget: 4,
+                baseObstacle: null,
+                obstacle: null,
+                modifiers: [],
+                personaDiceSpent: 2,
+                channelNature: null,
+                synergyHelpers: [],
+                caption: "test",
+              },
+            },
+          },
+        } as never,
+      ],
+    });
+    h.registry.commands.set(EmitResolved.name, EmitResolved);
+    await h.pipeline.dispatch({
+      id: "emit-resolved",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: EmitResolved({}) as CommandInstance,
+    });
+    const pools = (h.world.get(charId as Parameters<World["get"]>[0], [Pools]) as
+      | { Pools: { persona: { current: number; totalSpent: number } } }
+      | undefined)!.Pools;
+    expect(pools.persona.current).toBe(1);
+    expect(pools.persona.totalSpent).toBe(2);
+    const got = h.world.get(rollId as Parameters<World["get"]>[0], [
+      RollSpends,
+    ]) as { RollSpends: { entries: ReadonlyArray<RollSpendEntry> } } | undefined;
+    const spends = got!.RollSpends.entries;
+    expect(spends.find((e) => e.kind === "persona-dice")?.cost).toBe(2);
   });
 });

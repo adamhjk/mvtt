@@ -22,3 +22,16 @@ body {
   color: var(--color-fg);
   font-family: var(--font-sans);
 }
+
+/*
+ * Native `<option>` elements render in a system popup that ignores
+ * the parent select's `background-color` — Chrome/Firefox/Safari all
+ * fall back to the OS theme. In dark mode that gives a light popup
+ * with our light `--color-fg` text inherited, rendering white-on-white.
+ * Force every option to paint with the surface + fg theme tokens so
+ * the popup follows the rest of the UI.
+ */
+option {
+  background-color: var(--color-surface-elevated, var(--color-surface));
+  color: var(--color-fg);
+}

@@ -26,14 +26,18 @@ export {
   Pools,
   RawAbilities,
   Relics,
+  RollSpends,
   SkillImprovementOpportunity,
   SkillLearningOpportunity,
   Skills,
   Spells,
+  SynergyAdvancementLogged as SynergyAdvancementLoggedTrait,
   TownAbilities,
   TraitUsageLogged as TraitUsageLoggedTrait,
   WhatYouFightFor,
   Wises,
+  type RollSpendEntry,
+  type RollSpendKind,
 } from "./traits.js";
 export {
   ImproveSkill,
@@ -46,11 +50,23 @@ export {
   traitUsageFromSpec,
 } from "./commands.js";
 export {
+  LogSynergyAdvancement,
+  SpendDeeperUnderstanding,
+  SpendLuck,
+  SpendOfCourse,
+  helperOptionFromContributions,
+  helperOptionFromSpec,
+} from "./spend-commands.js";
+export {
   AdvancementLogged,
+  DeeperUnderstandingSpent,
+  LuckSpent,
+  OfCourseSpent,
   SkillImproved,
   SkillImprovementOpened,
   SkillLearned,
   SkillLearningOpened,
+  SynergyAdvancementLoggedEvent,
   TraitUsageLogged,
 } from "./events.js";
 export {
@@ -111,20 +127,31 @@ export {
 } from "./help.js";
 export {
   ANGRY_AFFECTED_SKILLS,
+  TB_CHANNEL_NATURE_CONTRIB_KIND,
   TB_DISPOSITION_CONTRIB_KIND,
   TB_HEROIC_CONTRIB_KIND,
   TB_MODIFIER_CONTRIB_KIND,
   TB_OBSTACLE_CONTRIB_KIND,
+  TB_PERSONA_SPEND_CONTRIB_KIND,
+  TB_SYNERGY_CONTRIB_KIND,
   TB_VERSUS_CONTRIB_KIND,
   autoModifiersFromConditions,
+  channelNatureFromContributions,
   dispositionFromContributions,
   formatModifier,
   heroicFromContributions,
   modifiersFromContributions,
   obstacleFromContributions,
+  personaSpendsFromContributions,
+  personaSpendTotalFromContributions,
   suggestedQuickModifiersFor,
+  synergyDeclsFromContributions,
+  synergyHelpersFromContributions,
   teamPenaltiesForDisposition,
   versusFromContributions,
+  type ChannelNatureDecl,
+  type PersonaSpendDecl,
+  type SynergyDecl,
   type TbSuggestedQuickModifier,
 } from "./roll-modifiers.js";
 export {

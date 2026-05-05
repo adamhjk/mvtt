@@ -35,15 +35,20 @@ import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
   CharacterTraits,
   Conditions,
+  Pools,
   RawAbilities,
   Skills,
   TownAbilities,
+  TB_CHANNEL_NATURE_CONTRIB_KIND,
   TB_DISPOSITION_CONTRIB_KIND,
   TB_HEROIC_CONTRIB_KIND,
   TB_MODIFIER_CONTRIB_KIND,
   TB_OBSTACLE_CONTRIB_KIND,
+  TB_PERSONA_SPEND_CONTRIB_KIND,
+  TB_SYNERGY_CONTRIB_KIND,
   TB_VERSUS_CONTRIB_KIND,
   UseTraitOnRoll,
+  channelNatureFromContributions,
   dispositionFromContributions,
   eligibleHelpFor,
   getSkill,
@@ -51,7 +56,9 @@ import {
   helpReplacesKey,
   heroicFromContributions,
   obstacleFromContributions,
+  personaSpendTotalFromContributions,
   suggestedQuickModifiersFor,
+  synergyHelpersFromContributions,
   versusFromContributions,
   type HelperContext,
   type HelpOption,
@@ -357,6 +364,91 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
       // system replaces any prior tb:heroic in the contributions list
       // so the panel's history shows just the live state.
       replaces: "tb:heroic",
+    });
+  };
+
+  /* -------- Pre-roll persona / channel-nature / synergy spends -------- */
+
+  // Initiator's pools / abilities for gating the buttons.
+  const initiatorPools = useTrait(props.initiatorCharacterId, Pools);
+  const initiatorAbilities = useTrait(props.initiatorCharacterId, RawAbilities);
+
+  /** Cumulative persona declared on this pending roll (cap 3 per RAW). */
+  const personaSpendDeclared = createMemo<number>(() => {
+    const value = pr();
+    if (!value) return 0;
+    return personaSpendTotalFromContributions(
+      value.contributions as Contribution[],
+    );
+  });
+
+  /** Latest channel-nature scope on the pending roll (or null). */
+  const channelDeclared = createMemo<"within" | "outside" | null>(() => {
+    const value = pr();
+    if (!value) return null;
+    const decl = channelNatureFromContributions(
+      value.contributions as Contribution[],
+    );
+    return decl?.scope ?? null;
+  });
+
+  /** Helpers who've declared synergy on this pending roll. */
+  const synergyDeclared = createMemo<string[]>(() => {
+    const value = pr();
+    if (!value) return [];
+    return synergyHelpersFromContributions(
+      value.contributions as Contribution[],
+    );
+  });
+
+  const fateAvail = createMemo<number>(
+    () => initiatorPools()?.fate.current ?? 0,
+  );
+  const personaAvail = createMemo<number>(
+    () => initiatorPools()?.persona.current ?? 0,
+  );
+  const natureRating = createMemo<number>(
+    () => initiatorAbilities()?.nature.rating ?? 0,
+  );
+
+  /**
+   * Stamp one persona-dice declaration. Each click adds an independent
+   * `tb-persona-spend` contribution; the rollable's compute sums them
+   * (capped at 3). Each contribution carries a unique `id`, and the
+   * rollable mints its synthesized `+ND Persona` modifier with the
+   * same id — so the standard PendingRollPanel chip × can clear a
+   * single mistaken click. The fate / persona pool isn't decremented
+   * until commit — see `TbCommitSpendsSystem`.
+   */
+  const declarePersonaDice = (count: 1) => {
+    const m = me();
+    if (!m) return;
+    props.contribute({
+      kind: TB_PERSONA_SPEND_CONTRIB_KIND,
+      label: `Spend ${count} persona (+${count}D)`,
+      fromUserId: m.userId,
+      fromCharacterId: props.initiatorCharacterId,
+      payload: { id: freshModifierId(), count },
+    });
+  };
+
+  /**
+   * Toggle channel-nature. Posts `tb-channel-nature` with `scope`;
+   * posting again with the same scope or a different one supersedes
+   * the previous via `replaces: "tb:channel-nature"`. The contribution
+   * carries a fresh `id` so the synthesized modifier chip's × can
+   * clear the channel entirely.
+   */
+  const toggleChannelNature = (scope: "within" | "outside") => {
+    const m = me();
+    if (!m) return;
+    props.contribute({
+      kind: TB_CHANNEL_NATURE_CONTRIB_KIND,
+      label: `Channel Nature (${scope})`,
+      fromUserId: m.userId,
+      fromCharacterId: props.initiatorCharacterId,
+      payload: { id: freshModifierId(), scope },
+      replaces: "tb:channel-nature",
     });
   };
 
@@ -693,6 +785,38 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
     });
   };
 
+  /**
+   * Toggle synergy on a helper row (DH p.87): the helper spends 1 fate
+   * "before the dice are cast" so they learn from the test on a pass.
+   * Posting again with `replaces: "tb:synergy:<charId>"` supersedes the
+   * previous toggle for that helper. The fate debit lands at commit
+   * via `TbCommitSpendsSystem`.
+   */
+  const toggleSynergy = (h: HelperRow): void => {
+    const m = me();
+    if (!m) return;
+    props.contribute({
+      kind: TB_SYNERGY_CONTRIB_KIND,
+      label: `${h.name} synergy (1 fate, DH p.87)`,
+      fromUserId: m.userId,
+      fromCharacterId: h.characterId,
+      payload: { id: freshModifierId(), helperCharacterId: h.characterId },
+      replaces: `tb:synergy:${h.characterId}`,
+    });
+  };
+
+  /**
+   * Helper's fate-pool snapshot — used to gate the synergy toggle.
+   * Reactively re-reads when the helper character's pool changes.
+   */
+  const helperFateAvail = (helperCharacterId: string): number => {
+    const got = client.world.get(
+      helperCharacterId as Parameters<typeof client.world.get>[0],
+      [Pools],
+    ) as { Pools: { fate: { current: number } } } | undefined;
+    return got?.Pools.fate.current ?? 0;
+  };
+
   /* -------- Trait usage (DH p.79–80) -------- */
   // Initiator's character traits, reactive — so dot counts and the
   // "1 trait per test" guard update live.
@@ -933,6 +1057,96 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
         </Show>
       </div>
 
+      {/* Persona advantage + Channel Nature — pre-roll declarations
+          per DH p.250 ("tally advantages before the test"). The fate /
+          persona pool isn't decremented until commit. */}
+      <div
+        class="flex flex-col gap-1 border-t border-border-muted pt-2"
+        data-testid="tb-pending-roll-persona"
+      >
+        <span class="font-display text-[0.6rem] uppercase tracking-[0.16em] text-fg-subtle">
+          Persona spends
+        </span>
+        <div class="flex flex-wrap items-center gap-1">
+          {/* Persona advantage — one click = one persona = +1D, capped at 3. */}
+          <button
+            type="button"
+            class="rounded-(--radius-control) border border-border bg-surface-elevated px-2 py-0.5 text-[0.7rem] text-fg-muted hover:border-accent hover:text-fg transition disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled={
+              personaAvail() < 1 || personaSpendDeclared() >= 3
+            }
+            onClick={() => declarePersonaDice(1)}
+            title={
+              personaAvail() < 1
+                ? "no persona to spend"
+                : personaSpendDeclared() >= 3
+                  ? "persona-dice cap reached (3 max — DH p.8)"
+                  : `Spend 1 persona for +1D (cumulative: ${personaSpendDeclared()}/3)`
+            }
+            data-testid="tb-pending-roll-persona-dice"
+          >
+            +1D persona ({personaSpendDeclared()}/3)
+          </button>
+
+          {/* Channel Nature — within / outside picker (DH p.67). */}
+          <Show when={natureRating() > 0}>
+            <span
+              class="inline-flex items-center gap-1 rounded-(--radius-control) border border-border bg-surface-elevated px-2 py-0.5 text-[0.65rem] text-fg-muted"
+              data-testid="tb-pending-roll-channel-group"
+            >
+              <button
+                type="button"
+                class="rounded-(--radius-control) border px-1.5 py-0.5 transition"
+                classList={{
+                  "border-accent bg-accent text-accent-fg":
+                    channelDeclared() === "within",
+                  "border-border hover:border-accent hover:text-fg":
+                    channelDeclared() !== "within",
+                }}
+                disabled={
+                  personaAvail() < 1 && channelDeclared() !== "within"
+                }
+                onClick={() => toggleChannelNature("within")}
+                title="Channel Nature within your descriptors — no tax (DH p.67). 1 persona, +Nature D."
+                data-testid="tb-pending-roll-channel-within"
+              >
+                within
+              </button>
+              <button
+                type="button"
+                class="rounded-(--radius-control) border px-1.5 py-0.5 transition"
+                classList={{
+                  "border-accent bg-accent text-accent-fg":
+                    channelDeclared() === "outside",
+                  "border-border hover:border-accent hover:text-fg":
+                    channelDeclared() !== "outside",
+                }}
+                disabled={
+                  personaAvail() < 1 && channelDeclared() !== "outside"
+                }
+                onClick={() => toggleChannelNature("outside")}
+                title="Channel Nature outside your descriptors — taxes Nature post-resolution (DH p.67-68: -1 on pass, -margin on fail)."
+                data-testid="tb-pending-roll-channel-outside"
+              >
+                outside
+              </button>
+              <span class="text-fg-subtle">
+                channel +{natureRating()}D
+              </span>
+            </span>
+          </Show>
+        </div>
+        <Show
+          when={
+            personaSpendDeclared() === 0 && channelDeclared() === null
+          }
+        >
+          <span class="text-[0.65rem] text-fg-subtle">
+            no persona declared (DH p.250 — tally advantages before the test)
+          </span>
+        </Show>
+      </div>
+
       <Show when={(initiatorTraits()?.entries.length ?? 0) > 0}>
         <div
           class="flex flex-col gap-1 border-t border-border-muted pt-2"
@@ -1122,6 +1336,41 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
                         >
                           per GM
                         </button>
+                      </Show>
+                      {/* Synergy toggle (DH p.87) — only when this
+                          helper has actually offered help and has fate. */}
+                      <Show when={h.activeOptionId !== null}>
+                        {(_) => {
+                          const isSynergy = (): boolean =>
+                            synergyDeclared().includes(h.characterId);
+                          return (
+                            <button
+                              type="button"
+                              class="rounded-(--radius-control) border px-2 py-0.5 text-[0.65rem] transition disabled:opacity-50"
+                              classList={{
+                                "border-accent bg-accent text-accent-fg":
+                                  isSynergy(),
+                                "border-border bg-surface-elevated text-fg-muted hover:border-accent hover:text-fg":
+                                  !isSynergy(),
+                              }}
+                              disabled={
+                                !isSynergy() &&
+                                helperFateAvail(h.characterId) < 1
+                              }
+                              onClick={() => toggleSynergy(h)}
+                              title={
+                                isSynergy()
+                                  ? `Synergy active — ${h.name} learns from a passed test (DH p.87). Click to clear.`
+                                  : helperFateAvail(h.characterId) < 1
+                                    ? `${h.name} has 0 fate — can't synergize`
+                                    : `Spend 1 of ${h.name}'s fate to learn from a passed test (DH p.87)`
+                              }
+                              data-testid={`tb-pending-roll-synergy-btn-${h.characterId}`}
+                            >
+                              {isSynergy() ? "synergy ✓" : "synergy"}
+                            </button>
+                          );
+                        }}
                       </Show>
                     </li>
                   );

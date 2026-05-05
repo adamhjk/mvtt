@@ -19,3 +19,4 @@ export {
   RollTimelineContributor,
   RollTimelineFills,
 } from "./views";
+export { RollActionsRegion } from "./RollActionsRegion.js";

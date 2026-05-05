@@ -180,3 +180,102 @@ export const TraitUsageLogged = defineEvent({
     loggedAt: z.number(),
   }),
 });
+
+/* -------------------------------------------------------------------------
+ * Fate / persona spend events
+ * -------------------------------------------------------------------------
+ *
+ * Each post-roll spend command emits one event whose name encodes the
+ * spend kind. A single shared system reacts to all of them — appends
+ * a ledger entry to `RollSpends`, decrements the spending pool, and
+ * (for dice-affecting spends) mutates `RollResult.dice` with the
+ * already-rolled outcomes carried in the event payload.
+ *
+ * The new dice values live on the **event**, not the command — apply
+ * is forbidden from RNG, so the command's apply emits the pre-rolled
+ * faces it computed via `world.rng()` and the system reacts by
+ * appending or replacing in `RollResult.dice`. This keeps replay
+ * deterministic.
+ */
+
+const RolledDieSchema = z.object({
+  sides: z.union([z.number().int().min(2).max(100), z.literal("F")]),
+  value: z.number().int(),
+});
+
+export const LuckSpent = defineEvent({
+  name: "@vtt/system-torchbearer/LuckSpent",
+  schema: z.object({
+    rollId: EntityId,
+    characterId: EntityId,
+    /** Indices in RollResult.dice that triggered the reroll (showed 6). */
+    rerolledIndices: z.array(z.number().int().min(0)),
+    /** New dice appended to the pool, one per rerolled 6 (cascading). */
+    appendedDice: z.array(RolledDieSchema),
+    byUserId: z.string(),
+    loggedAt: z.number(),
+  }),
+});
+
+export const DeeperUnderstandingSpent = defineEvent({
+  name: "@vtt/system-torchbearer/DeeperUnderstandingSpent",
+  schema: z.object({
+    rollId: EntityId,
+    characterId: EntityId,
+    wiseIndex: z.number().int().min(0).max(40),
+    /** Index in RollResult.dice of the failed die that's being rerolled. */
+    rerolledIndex: z.number().int().min(0),
+    /** Replacement value for the rerolled die. */
+    newValue: z.number().int().min(1).max(6),
+    byUserId: z.string(),
+    loggedAt: z.number(),
+  }),
+});
+
+/**
+ * Emitted by `LogSynergyAdvancement` when a helper's player clicks
+ * the per-helper "Log Pass" button on a passed test (DH p.87). The
+ * universal-mirror `SynergyAdvancementLoggedSystem` reacts by:
+ *
+ *   - appending the helper to the roll's `SynergyAdvancementLogged`
+ *     marker so the button hides
+ *   - emitting a fresh `AdvancementLogged` for the helper against
+ *     their helped-with target (skill / ability / town-ability),
+ *     which the standard `AdvancementLoggedSystem` then bumps.
+ */
+export const SynergyAdvancementLoggedEvent = defineEvent({
+  name: "@vtt/system-torchbearer/SynergyAdvancementLogged",
+  schema: z.object({
+    rollId: EntityId,
+    helperCharacterId: EntityId,
+    target: z.object({
+      kind: z.enum(["ability", "town-ability", "skill", "skill-bl"]),
+      id: z.string().min(1).max(60),
+      label: z.string().min(1).max(80),
+    }),
+    /**
+     * Per SG p.87: "If the player rolling the dice passes the test,
+     * the helper marks a passed test for advancement … If they fail,
+     * they mark a failed test." Synergy mirrors the roller's outcome
+     * on the helper's track.
+     */
+    outcome: z.enum(["pass", "fail"]),
+    loggedAt: z.number(),
+  }),
+});
+
+export const OfCourseSpent = defineEvent({
+  name: "@vtt/system-torchbearer/OfCourseSpent",
+  schema: z.object({
+    rollId: EntityId,
+    characterId: EntityId,
+    wiseIndex: z.number().int().min(0).max(40),
+    /** Indices of failed dice being rerolled. */
+    rerolledIndices: z.array(z.number().int().min(0)),
+    /** Replacement values, one per rerolledIndex (in order). */
+    newValues: z.array(z.number().int().min(1).max(6)),
+    byUserId: z.string(),
+    loggedAt: z.number(),
+  }),
+});
+

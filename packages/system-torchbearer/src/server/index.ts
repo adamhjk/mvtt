@@ -26,3 +26,11 @@ export {
   SkillOpportunitySweepSystem,
   TraitUsageLoggedSystem,
 } from "./systems.js";
+export {
+  ChannelNatureTaxSystem,
+  DeeperUnderstandingSpentSystem,
+  LuckSpentSystem,
+  OfCourseSpentSystem,
+  SynergyAdvancementLoggedSystem,
+  TbCommitSpendsSystem,
+} from "./spend-systems.js";

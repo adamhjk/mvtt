@@ -15,22 +15,19 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import type { CommandInstance } from "@vtt/substrate";
-import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
+import { useQuery, useTrait } from "@vtt/substrate/client";
 import { Formula, RollResult, RolledBy } from "@vtt/resolution/shared";
+import { RollActionsRegion } from "@vtt/resolution/client";
 import { createMemo, For, Show, type JSX } from "solid-js";
 import {
-  AdvancementLoggedTrait,
   countSuccesses,
   formatModifier,
-  LogAdvancement,
-  LogTraitUsage,
   resolveSuccessCount,
   TbRollMetaSchema,
-  TraitUsageLoggedTrait,
-  traitUsageFromSpec,
   type TbRollSpec,
 } from "../shared/index.js";
+
+import { type EntityId } from "@vtt/substrate";
 
 interface TbRollRowProps {
   entityId: string;
@@ -53,31 +50,10 @@ interface TbRollRowProps {
  * Roll entities with `Formula.meta.system` set, so this row is the
  * only one that surfaces a TB roll.
  */
-const ADVANCE_ABILITY_IDS = new Set(["will", "health", "nature"]);
-const ADVANCE_TOWN_ABILITY_IDS = new Set(["resources", "circles"]);
-
-/**
- * Mirror of the server-side `targetFromSpec` — same advance-ability
- * decision, used here only to gate the button. The server still
- * validates independently.
- */
-function specIsAdvanceable(spec: TbRollSpec): boolean {
-  if (spec.dispositionMode) return false;
-  if (!spec.sourceId) return false;
-  if (spec.kind === "ability") return ADVANCE_ABILITY_IDS.has(spec.sourceId);
-  if (spec.kind === "town-ability")
-    return ADVANCE_TOWN_ABILITY_IDS.has(spec.sourceId);
-  if (spec.kind === "skill" || spec.kind === "skill-bl") return true;
-  return false;
-}
-
 export function TbRollRow(props: TbRollRowProps): JSX.Element {
-  const client = useClient();
   const formula = useTrait(props.entityId, Formula);
   const result = useTrait(props.entityId, RollResult);
   const rolledBy = useTrait(props.entityId, RolledBy);
-  const advancementLogged = useTrait(props.entityId, AdvancementLoggedTrait);
-  const traitUsageLogged = useTrait(props.entityId, TraitUsageLoggedTrait);
 
   const spec = createMemo<TbRollSpec | null>(() => {
     const meta = formula()?.meta;
@@ -182,110 +158,6 @@ export function TbRollRow(props: TbRollRowProps): JSX.Element {
     if (!s?.dispositionMode || !sum) return null;
     return Math.max(1, s.baseDice + sum.rawSuccesses + sum.always);
   });
-
-  /**
-   * Resolved outcome for the post-roll "Log Advancement" button.
-   * Maps the chat row's pass/fail (or versus won/lost) into a single
-   * `"pass" | "fail"` decision the player can commit. Returns null
-   * when the row hasn't enough state to decide — versus tests
-   * awaiting an opponent, ties (GM-resolved per DH p.250), or
-   * dispositionMode rolls (no advancement under TB rules).
-   *
-   * For Beginner's Luck rolls (`spec.kind === "skill-bl"`) outcome
-   * doesn't matter to the rule (DH p.75), but we still expose
-   * pass/fail here so the chat row's color treatment matches the
-   * resolution. The dispatched LogAdvancement command always sends
-   * the outcome — the system ignores it for BL.
-   */
-  const advancementOutcome = createMemo<"pass" | "fail" | null>(() => {
-    const s = spec();
-    const sum = summary();
-    if (!s || !sum) return null;
-    if (s.dispositionMode) return null;
-    if (s.versusTestId) {
-      const v = versusVerdict();
-      if (!v) return null;
-      if (v.state === "tied") return null;
-      return v.state === "won" ? "pass" : "fail";
-    }
-    return sum.passed ? "pass" : "fail";
-  });
-
-  const isBeginnersLuck = createMemo<boolean>(
-    () => spec()?.kind === "skill-bl",
-  );
-
-  const showLogAdvancement = createMemo<boolean>(() => {
-    const s = spec();
-    if (!s) return false;
-    if (advancementLogged()) return false;
-    if (!specIsAdvanceable(s)) return false;
-    // BL rolls log a single "test" regardless of outcome (DH p.75
-    // — pass/fail doesn't matter for learning), so the button is
-    // available even on a tie or before a versus opponent rolls.
-    if (s.kind === "skill-bl") return true;
-    return advancementOutcome() !== null;
-  });
-
-  const logAdvancement = (outcome: "pass" | "fail"): void => {
-    client.dispatch(
-      LogAdvancement({
-        rollId: props.entityId,
-        outcome,
-      }) as CommandInstance,
-    );
-  };
-
-  /**
-   * Trait-usage log button visibility & wording. Mirrors the
-   * advancement button's deferred-log pattern: a trait modifier with
-   * a structured `providedBy` left a usage breadcrumb in the spec at
-   * commit time; this button lets the player apply the corresponding
-   * sheet mutation (consume a beneficial use, or earn checks) only
-   * when they're sure they want to keep the result.
-   */
-  const traitUsage = createMemo<ReturnType<typeof traitUsageFromSpec> | null>(
-    () => {
-      const s = spec();
-      return s ? traitUsageFromSpec(s) : null;
-    },
-  );
-
-  const showLogTraitUsage = createMemo<boolean>(() => {
-    if (!traitUsage()) return false;
-    if (traitUsageLogged()) return false;
-    return true;
-  });
-
-  const traitUsageButtonLabel = createMemo<string>(() => {
-    const u = traitUsage();
-    if (!u) return "";
-    if (u.direction === "for") return "Log Beneficial Use";
-    if (u.severity === "minus-1d") return "Log Check (+1)";
-    return "Log Checks (+2)";
-  });
-
-  const traitUsageButtonTitle = createMemo<string>(() => {
-    const u = traitUsage();
-    if (!u) return "";
-    if (u.direction === "for") {
-      return "Mark a beneficial use of this trait on the character sheet (DH p.79)";
-    }
-    if (u.severity === "minus-1d") {
-      return "Earn 1 check for using the trait against yourself (DH p.80)";
-    }
-    return "Earn 2 checks for adding +2D to your opponent (DH p.80)";
-  });
-
-  const logTraitUsage = (): void => {
-    client.dispatch(
-      LogTraitUsage({
-        rollId: props.entityId as Parameters<
-          typeof LogTraitUsage
-        >[0]["rollId"],
-      }) as CommandInstance,
-    );
-  };
 
   return (
     <Show when={formula() && result() && rolledBy() && spec()}>
@@ -483,108 +355,13 @@ export function TbRollRow(props: TbRollRowProps): JSX.Element {
           </ul>
         </Show>
 
-        {/* Post-roll actions strip. Sits above the summary line so
-            future buttons (mark wise, spend fate, etc.) can stack
-            here without disturbing the resolution line. The button
-            shown depends on the resolved outcome:
-              - "Log Pass" / "Log Fail" for normal advancement rolls.
-              - "Log Test" for Beginner's Luck rolls (DH p.75: pass /
-                fail doesn't matter — only the count of attempts).
-            Hidden once the AdvancementLogged trait is attached so
-            the same roll can't double-advance, and replaced by a
-            small confirmation footer instead. */}
-        <Show when={showLogAdvancement() || showLogTraitUsage()}>
-          <div
-            class="mt-3 flex flex-wrap items-center justify-end gap-1.5"
-            data-testid="tb-roll-row-actions"
-          >
-            <Show when={showLogTraitUsage()}>
-              <button
-                type="button"
-                class="rounded-(--radius-control) border border-border bg-surface px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-[0.12em] text-fg-muted transition hover:border-accent hover:text-fg"
-                data-testid="tb-roll-row-log-trait-usage"
-                title={traitUsageButtonTitle()}
-                onClick={logTraitUsage}
-              >
-                {traitUsageButtonLabel()}
-              </button>
-            </Show>
-            <Show when={showLogAdvancement()}>
-              {(_) => {
-                const bl = isBeginnersLuck();
-                const outcome = bl
-                  ? ("pass" as const)
-                  : (advancementOutcome() as "pass" | "fail");
-                return (
-                  <button
-                    type="button"
-                    class="rounded-(--radius-control) border border-accent bg-transparent px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-[0.12em] text-accent transition hover:bg-accent hover:text-accent-fg"
-                    classList={{
-                      "border-danger text-danger hover:bg-danger hover:text-bg":
-                        !bl && outcome === "fail",
-                    }}
-                    data-testid="tb-roll-row-log-advancement"
-                    data-outcome={bl ? "test" : outcome}
-                    title={
-                      bl
-                        ? "Mark a Beginner's Luck learning test on this skill (DH p.75)"
-                        : outcome === "pass"
-                          ? "Mark a passed advancement test on the rolled trait"
-                          : "Mark a failed advancement test on the rolled trait"
-                    }
-                    onClick={() => logAdvancement(outcome)}
-                  >
-                    {bl ? "Log Test" : `Log ${outcome === "pass" ? "Pass" : "Fail"}`}
-                  </button>
-                );
-              }}
-            </Show>
-          </div>
-        </Show>
-
-        <Show when={traitUsageLogged()}>
-          {(_) => {
-            const t = traitUsageLogged() as {
-              traitNameAtLog: string;
-              direction: "for" | "against";
-              severity?: "minus-1d" | "plus-2d-opp";
-            };
-            const summary =
-              t.direction === "for"
-                ? `Beneficial use of ${t.traitNameAtLog} marked`
-                : t.severity === "plus-2d-opp"
-                  ? `+2 checks earned (${t.traitNameAtLog})`
-                  : `+1 check earned (${t.traitNameAtLog})`;
-            return (
-              <p
-                class="mt-2 text-[0.65rem] text-fg-subtle text-right"
-                data-testid="tb-roll-row-trait-usage-confirmation"
-              >
-                ✓ {summary}
-              </p>
-            );
-          }}
-        </Show>
-
-        <Show when={advancementLogged()}>
-          {(_) => {
-            const a = advancementLogged() as {
-              outcome: "pass" | "fail";
-              target: { kind: string; label: string };
-            };
-            const bl = a.target.kind === "skill-bl";
-            return (
-              <p
-                class="mt-2 text-[0.65rem] text-fg-subtle text-right"
-                data-testid="tb-roll-row-advancement-confirmation"
-              >
-                {bl
-                  ? `✓ Learning test logged for ${a.target.label}`
-                  : `✓ ${a.outcome === "pass" ? "Pass" : "Fail"} logged for ${a.target.label}`}
-              </p>
-            );
-          }}
-        </Show>
+        {/* Post-roll actions: log buttons, fate/persona spends, plus
+            anything other plugins drop into RollActionsSlot. The fill
+            stack stays at the bottom of the row so the dice/result
+            line above is undisturbed. */}
+        <div class="mt-3">
+          <RollActionsRegion rollId={props.entityId as EntityId} />
+        </div>
 
         {/* Disposition resolution — replaces the standard pass/fail
             line entirely. Shows the disposition formula breakdown:

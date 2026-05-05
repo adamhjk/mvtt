@@ -31,14 +31,18 @@ import {
 import { Team } from "@vtt/characters/shared";
 import {
   autoModifiersFromConditions,
+  channelNatureFromContributions,
   dispositionFromContributions,
   heroicFromContributions,
   modifiersFromContributions,
   obstacleFromContributions,
+  personaSpendsFromContributions,
+  personaSpendTotalFromContributions,
+  synergyDeclsFromContributions,
   teamPenaltiesForDisposition,
   versusFromContributions,
 } from "./roll-modifiers.js";
-import type { World } from "@vtt/substrate";
+import type { EntityId, World } from "@vtt/substrate";
 import {
   buildTbNotation,
   foldBlModifiers,
@@ -49,6 +53,22 @@ import {
   type TbRollModifier,
   type TbRollSpec,
 } from "./roll-spec.js";
+
+/**
+ * Defensive read of the rolling character's current Nature rating.
+ * `buildSpec` uses this to size the Channel Nature dice add — even
+ * for rollables (Resources/Circles) that don't otherwise read
+ * `RawAbilities`. Returns 0 when the trait isn't present (the
+ * channel-nature panel section already gates on rating > 0, but
+ * we re-check here so a malformed contribution can't synthesise
+ * dice the character doesn't actually have).
+ */
+function readNatureRating(world: World, entityId: EntityId): number {
+  const got = world.get(entityId, [RawAbilities]) as
+    | { RawAbilities: { nature: { rating: number } } }
+    | undefined;
+  return got?.RawAbilities.nature.rating ?? 0;
+}
 
 /**
  * Torchbearer rolling subsystem (DH p.20-24, p.250-251).
@@ -83,6 +103,13 @@ import {
  */
 
 interface TbRollableArgs {
+  /**
+   * The rolling character's entity id. Threaded through so `buildSpec`
+   * can read traits beyond the rollable's declared inputs (e.g.
+   * `RawAbilities.nature.rating` for Channel Nature, even on rollables
+   * like Resources/Circles that don't otherwise look at Nature).
+   */
+  entityId: import("@vtt/substrate").EntityId;
   baseDice: number;
   source: string;
   sourceId: string;
@@ -202,11 +229,68 @@ function buildSpec(
     args.sourceId,
     args.versusTestId,
   );
-  const fromContrib = modifiersFromContributions(
+  const contribsTyped: ReadonlyArray<z.infer<typeof ContributionSchema>> =
     Array.isArray(contributionsRaw)
       ? (contributionsRaw as ReadonlyArray<z.infer<typeof ContributionSchema>>)
-      : undefined,
-  );
+      : [];
+  const fromContrib = modifiersFromContributions(contribsTyped);
+  // Pre-roll persona / channel-nature / synergy declarations from the
+  // panel (DH p.250 "tally advantages before the test"). The dice they
+  // add fold into the pool here; the fate / persona pool debits and
+  // ledger entries land at commit time via TbCommitSpendsSystem.
+  //
+  // Each declaration synthesizes a `TbRollModifier` whose `id` matches
+  // the contribution's `payload.id` — so the standard PendingRollPanel
+  // chip × affordance can dispatch `RemoveContribution` and clear the
+  // pending state, exactly like a manual `tb-modifier`.
+  const personaDecls = personaSpendsFromContributions(contribsTyped);
+  const personaSpend = personaSpendTotalFromContributions(contribsTyped);
+  const channelDecl = channelNatureFromContributions(contribsTyped);
+  const synergyDecls = synergyDeclsFromContributions(contribsTyped);
+  const synergyHelpers = synergyDecls.map((d) => d.helperCharacterId);
+  const natureRating = readNatureRating(args.world, args.entityId);
+  const channelDice =
+    channelDecl !== null && natureRating > 0 ? natureRating : 0;
+  const preRollSpendMods: TbRollModifier[] = [];
+  for (const d of personaDecls) {
+    preRollSpendMods.push({
+      id: d.id,
+      kind: "dice",
+      value: d.count,
+      label: `Persona +${d.count}D`,
+      apply: "always",
+      source: "persona",
+      providedBy: "persona:advantage",
+    });
+  }
+  if (channelDice > 0 && channelDecl !== null) {
+    preRollSpendMods.push({
+      id: channelDecl.id,
+      kind: "dice",
+      value: channelDice,
+      label: `Channel Nature +${channelDice}D (${channelDecl.scope})`,
+      apply: "always",
+      source: "persona",
+      providedBy: `persona:channel-nature:${channelDecl.scope}`,
+    });
+  }
+  // Synergy declarations don't add dice (DH p.87 — fate spent for the
+  // helper to learn from a passed test). Synthesize a zero-value
+  // dice modifier per helper so the standard chip × can clear it,
+  // and the chip is visible alongside other declarations. The chat
+  // row's modifier rendering filters zero-value entries out, so this
+  // doesn't pollute the post-roll display.
+  for (const d of synergyDecls) {
+    preRollSpendMods.push({
+      id: d.id,
+      kind: "dice",
+      value: 0,
+      label: `Synergy: ${d.helperCharacterId} (1 fate post-pass)`,
+      apply: "always",
+      source: "persona",
+      providedBy: `synergy:${d.helperCharacterId}`,
+    });
+  }
   // Disposition mode adds team-aggregate penalties (Hungry & Thirsty,
   // Exhausted) computed across every party-tagged character. The
   // versus / obstacle resolution short-circuits to "no obstacle"
@@ -217,6 +301,7 @@ function buildSpec(
   const modifiers: TbRollModifier[] = [
     ...auto,
     ...(args.extraAuto ?? []),
+    ...preRollSpendMods,
     ...dispositionPenalties,
     ...fromContrib,
   ];
@@ -266,6 +351,15 @@ function buildSpec(
     modifiers,
     versusTestId: effectiveVersusId,
     dispositionMode: args.dispositionMode ? true : undefined,
+    personaDiceSpent: personaSpend,
+    channelNature:
+      channelDice > 0 && channelDecl !== null
+        ? {
+            scope: channelDecl.scope,
+            dice: channelDice as 1 | 2 | 3 | 4 | 5 | 6 | 7,
+          }
+        : null,
+    synergyHelpers,
     caption,
   };
   // Round-trip through the schema so `apply`/`source` defaults are
@@ -461,7 +555,7 @@ export const WillCheck = defineRollable({
   opts: z.object(RollOptsBase),
   compute: (
     [abilities, identity, character, conditions, heroic],
-    { opts, world },
+    { opts, world, entityId },
   ): TbRollSpec => {
     const obstacle = resolveObstacle({
       optsObstacle: opts?.obstacle,
@@ -483,6 +577,7 @@ export const WillCheck = defineRollable({
         versusTestId: resolveVersusForOpts(opts),
         dispositionMode: resolveDispositionForOpts(opts),
         world,
+        entityId,
         headline,
         characterName: character.name,
       },
@@ -503,7 +598,7 @@ export const HealthCheck = defineRollable({
   opts: z.object(RollOptsBase),
   compute: (
     [abilities, character, conditions, heroic],
-    { opts, world },
+    { opts, world, entityId },
   ): TbRollSpec => {
     const obstacle = resolveObstacle({
       optsObstacle: opts?.obstacle,
@@ -524,6 +619,7 @@ export const HealthCheck = defineRollable({
         versusTestId: resolveVersusForOpts(opts),
         dispositionMode: resolveDispositionForOpts(opts),
         world,
+        entityId,
         headline: "Health",
         characterName: character.name,
       },
@@ -553,7 +649,7 @@ export const NatureCheck = defineRollable({
   }),
   compute: (
     [abilities, character, conditions, heroic],
-    { opts, world },
+    { opts, world, entityId },
   ): TbRollSpec => {
     const tap = opts?.tap === true;
     const baseDice = tap ? abilities.nature.maximum : abilities.nature.rating;
@@ -578,6 +674,7 @@ export const NatureCheck = defineRollable({
         versusTestId: resolveVersusForOpts(opts),
         dispositionMode: resolveDispositionForOpts(opts),
         world,
+        entityId,
         headline,
         characterName: character.name,
       },
@@ -609,7 +706,7 @@ export const ResourcesCheck = defineRollable({
   opts: z.object(RollOptsBase),
   compute: (
     [town, character, conditions, heroic],
-    { opts, world },
+    { opts, world, entityId },
   ): TbRollSpec => {
     const obstacle = resolveObstacle({
       optsObstacle: opts?.obstacle,
@@ -630,6 +727,7 @@ export const ResourcesCheck = defineRollable({
         versusTestId: resolveVersusForOpts(opts),
         dispositionMode: resolveDispositionForOpts(opts),
         world,
+        entityId,
         headline: "Resources",
         characterName: character.name,
       },
@@ -650,7 +748,7 @@ export const CirclesCheck = defineRollable({
   opts: z.object(RollOptsBase),
   compute: (
     [town, character, conditions, heroic],
-    { opts, world },
+    { opts, world, entityId },
   ): TbRollSpec => {
     const obstacle = resolveObstacle({
       optsObstacle: opts?.obstacle,
@@ -671,6 +769,7 @@ export const CirclesCheck = defineRollable({
         versusTestId: resolveVersusForOpts(opts),
         dispositionMode: resolveDispositionForOpts(opts),
         world,
+        entityId,
         headline: "Circles",
         characterName: character.name,
       },
@@ -709,7 +808,7 @@ export const SkillCheck = defineRollable({
   }),
   compute: (
     [skills, abilities, character, conditions, heroic],
-    { opts, world },
+    { opts, world, entityId },
   ): TbRollSpec => {
     const skill = getSkill(opts.skillId);
     const entry = skills.entries[opts.skillId];
@@ -751,6 +850,7 @@ export const SkillCheck = defineRollable({
           versusTestId: resolveVersusForOpts(opts),
           dispositionMode: resolveDispositionForOpts(opts),
           world,
+          entityId,
           headline: skillName,
           characterName: character.name,
           extraAuto,
@@ -785,6 +885,7 @@ export const SkillCheck = defineRollable({
         versusTestId: resolveVersusForOpts(opts),
         dispositionMode: resolveDispositionForOpts(opts),
         world,
+        entityId,
         headline: blLabel,
         characterName: character.name,
         extraAuto,

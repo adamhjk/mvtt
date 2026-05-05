@@ -682,6 +682,139 @@ export const TraitUsageLogged = defineTrait({
 });
 
 /* -------------------------------------------------------------------------
+ * RollSpends — fate / persona spend ledger on a resolved Roll
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Each kind of post-roll fate / persona spend the TB system supports.
+ * The shape is shared across spends so a single trait + system pair
+ * can hold the full audit trail for a roll:
+ *
+ *   - `luck`                — DH p.23, p.250: 1 fate, reroll 6s as bonus dice
+ *   - `deeper-understanding`— DH p.77: 1 fate, reroll one failed die on a
+ *                             wise-related test
+ *   - `of-course`           — DH p.77: 1 persona, reroll all failed dice on
+ *                             a wise-related test
+ *   - `persona-dice`        — DH p.8 / p.250: 1–3 persona, +1D each (cap 3)
+ *   - `channel-nature`      — DH p.67: 1 persona, +Nature dice; outside-of-
+ *                             nature taxes Nature post-roll
+ *   - `synergy`             — DH p.87: helper spends 1 fate, learns from
+ *                             the roller's test on a pass
+ */
+const RollSpendKindSchema = z.enum([
+  "luck",
+  "deeper-understanding",
+  "of-course",
+  "persona-dice",
+  "channel-nature",
+  "synergy",
+]);
+export type RollSpendKind = z.infer<typeof RollSpendKindSchema>;
+
+const RollSpendEntrySchema = z.object({
+  kind: RollSpendKindSchema,
+  /** Whether this spend drew from the fate or persona pool. */
+  pool: z.enum(["fate", "persona"]),
+  /** Points spent (1–3 — persona-dice can land 1, 2, or 3 in a single click). */
+  cost: z.number().int().min(1).max(3),
+  /**
+   * Indices of dice in `RollResult.dice` that this spend rerolled.
+   * Empty for purely-additive spends (persona-dice, channel-nature).
+   * Used by validators on subsequent spends to enforce DH p.77's
+   * "may not reroll a die that's already been rerolled" rule.
+   */
+  rerolledIndices: z.array(z.number().int().min(0)).default([]),
+  /**
+   * Number of new dice this spend appended to `RollResult.dice`. Each
+   * append slot is recorded so the chat-card legend can attribute new
+   * dice to the correct spend ("+5D Channel Nature", "+1D Persona").
+   */
+  appendedCount: z.number().int().min(0).default(0),
+  /**
+   * Net change in successes the spend produced (positive when a
+   * reroll lifted a fail to a success). Display-only for the chat
+   * row's running ledger; `RollResult.dice` is canonical.
+   */
+  newSuccesses: z.number().int().default(0),
+  /**
+   * Wise index for `deeper-understanding` and `of-course` — points
+   * into the rolling character's `Wises.entries[]`. The wise's pass /
+   * fail / fate / persona box that this spend earns is decided by
+   * the spend kind: DU bumps `fate`, OC bumps `persona` (DH p.78
+   * "Evolving Wises").
+   */
+  wiseIndex: z.number().int().min(0).max(40).optional(),
+  /**
+   * For `channel-nature`: whether the player declared the test as
+   * "within" or "outside" their character's Nature descriptors. Drives
+   * the post-resolution Nature tax (DH p.67–68): within = no tax;
+   * outside + pass = -1; outside + fail = -margin.
+   */
+  channelScope: z.enum(["within", "outside"]).optional(),
+  /** User who clicked the spend (the roller, or — for synergy — the helper). */
+  byUserId: z.string(),
+  /**
+   * The character whose pool was spent. For roller-spends this is
+   * the `RolledBy.speakingAsCharacterId`; for synergy it's the
+   * helper's character.
+   */
+  byCharacterId: EntityId,
+  loggedAt: z.number(),
+});
+
+export type RollSpendEntry = z.infer<typeof RollSpendEntrySchema>;
+
+/**
+ * Attached to a Roll entity the first time any fate / persona spend is
+ * logged against it. Subsequent spends append to the same `entries`
+ * array — one trait, full ledger — so the chat card can render the
+ * running history and validators can enforce stacking rules (DH p.77
+ * "OC before Luck", "no double-reroll", DH p.8 "up to three persona
+ * per roll").
+ */
+export const RollSpends = defineTrait({
+  name: "@vtt/system-torchbearer/RollSpends",
+  schema: z.object({
+    entries: z.array(RollSpendEntrySchema).default([]),
+  }),
+});
+
+/**
+ * Per-roll marker tracking which synergy helpers have already logged
+ * their advancement test (DH p.87 — "If the player rolling the dice
+ * passes the test, the helper marks a passed test for advancement").
+ *
+ * Each declared synergy helper gets one Log Pass button on the chat
+ * card; this trait records which ones have been clicked so the same
+ * helper can't double-log on the same roll.
+ *
+ * Shape mirrors the per-helper synergy entry on `RollSpends` —
+ * `helperCharacterId` is the key, `target` is the advancement target
+ * resolved from the helper's help modifier on the spec, and `loggedAt`
+ * is the unix-ms when the helper's player clicked.
+ */
+export const SynergyAdvancementLogged = defineTrait({
+  name: "@vtt/system-torchbearer/SynergyAdvancementLogged",
+  schema: z.object({
+    entries: z
+      .array(
+        z.object({
+          helperCharacterId: EntityId,
+          target: z.object({
+            kind: z.enum(["ability", "town-ability", "skill", "skill-bl"]),
+            id: z.string().min(1).max(60),
+            label: z.string().min(1).max(80),
+          }),
+          /** Pass / fail — mirrors the roller's outcome (SG p.87). */
+          outcome: z.enum(["pass", "fail"]),
+          loggedAt: z.number(),
+        }),
+      )
+      .default([]),
+  }),
+});
+
+/* -------------------------------------------------------------------------
  * Heroic — per-character "this is heroic" registry
  * ----------------------------------------------------------------------- */
 

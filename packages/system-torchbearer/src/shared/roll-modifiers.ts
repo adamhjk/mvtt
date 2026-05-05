@@ -103,6 +103,71 @@ const VersusContributionPayloadSchema = z.object({
 });
 
 /**
+ * Pre-roll persona advantage (DH p.8 sheet, p.250 reference card —
+ * "Tally advantages before the test"). The player declares 1–3 persona
+ * points to spend; each point grants +1D to the pool, capped at 3
+ * cumulative per roll.
+ *
+ * Each click stamps a separate contribution (no `replaces` key) so
+ * the panel renders one per spend; the rollable's compute sums the
+ * counts and clamps the resulting `personaDiceSpent` at 3. The
+ * fate/persona pool isn't decremented until the roll commits — see
+ * `TbCommitSpendsSystem`.
+ */
+export const TB_PERSONA_SPEND_CONTRIB_KIND = "tb-persona-spend" as const;
+
+const PersonaSpendContributionPayloadSchema = z.object({
+  /**
+   * Stable id stamped at click-time. The rollable mints a synthesized
+   * `+ND Persona` modifier carrying the same id, so the panel's
+   * standard modifier-chip × affordance can dispatch
+   * `RemoveContribution(modifierId: id)` to clear this single click.
+   */
+  id: z.string().min(1).max(80),
+  count: z.number().int().min(1).max(3),
+});
+
+/**
+ * Pre-roll channel-nature declaration (DH p.67 — "Channeling Nature").
+ * Adds the character's current Nature rating dice to the pool. Player
+ * picks scope at declaration time:
+ *   - `"within"`  — descriptors cover this test; no Nature tax (DH p.67).
+ *   - `"outside"` — Nature is taxed post-resolution (DH p.67–68): -1 on
+ *     pass, -margin on fail.
+ *
+ * Single-value setting per roll — `replaces: "tb:channel-nature"` so
+ * a re-toggle supersedes the previous pick. Persona is debited at
+ * commit time; the tax fires on `LogAdvancement`.
+ */
+export const TB_CHANNEL_NATURE_CONTRIB_KIND = "tb-channel-nature" as const;
+
+const ChannelNatureContributionPayloadSchema = z.object({
+  /** Stable id — see persona-spend payload. */
+  id: z.string().min(1).max(80),
+  scope: z.enum(["within", "outside"]),
+});
+
+/**
+ * Pre-roll synergy declaration (DH p.87 — "Synergy"). The helper
+ * spends 1 fate **before the dice are cast** to learn from the
+ * experience; on a passed test the helper marks a passed advancement
+ * test for whatever skill/ability they helped with.
+ *
+ * The contribution carries the helper's character id; the rollable
+ * notes them on `spec.synergyHelpers[]` so commit-time debit and
+ * (post-pass) advancement fan-out have the list. Each helper has
+ * their own `replaces: "tb:synergy:<charId>"` so the toggle works
+ * per-helper without colliding.
+ */
+export const TB_SYNERGY_CONTRIB_KIND = "tb-synergy" as const;
+
+const SynergyContributionPayloadSchema = z.object({
+  /** Stable id — see persona-spend payload. */
+  id: z.string().min(1).max(80),
+  helperCharacterId: z.string().min(1).max(80),
+});
+
+/**
  * Read the contributions list off a pending-roll opts blob and
  * return them as TbRollModifiers. Anything that isn't shaped like a
  * TB modifier is silently dropped — system-simple-style contributions
@@ -207,6 +272,115 @@ export function versusFromContributions(
     if (parsed.success) latest = parsed.data.versusTestId;
   }
   return latest;
+}
+
+/**
+ * Per-contribution persona-spend declarations. Each click stamps its
+ * own contribution; the rollable synthesizes one `+ND Persona`
+ * modifier per entry, carrying the same `id` so the standard chip ×
+ * affordance can `RemoveContribution(modifierId: id)` to drop just
+ * that one click. Order preserved (chronological).
+ *
+ * The cap-at-3 rule (DH p.8) is enforced separately in
+ * `personaSpendTotalFromContributions` — we surface every entry here
+ * so the cap UI ("3/3 reached") can render even when a 4th click
+ * would have stacked over the limit.
+ */
+export interface PersonaSpendDecl {
+  readonly id: string;
+  readonly count: number;
+}
+
+export function personaSpendsFromContributions(
+  contributions: ReadonlyArray<Contribution> | undefined,
+): PersonaSpendDecl[] {
+  if (!contributions || contributions.length === 0) return [];
+  const out: PersonaSpendDecl[] = [];
+  for (const c of contributions) {
+    if (c.kind !== TB_PERSONA_SPEND_CONTRIB_KIND) continue;
+    const parsed = PersonaSpendContributionPayloadSchema.safeParse(c.payload);
+    if (!parsed.success) continue;
+    out.push({ id: parsed.data.id, count: parsed.data.count });
+  }
+  return out;
+}
+
+/**
+ * Sum of declared persona dice, clamped at 3 (DH p.8 sheet legend).
+ * Used by `buildSpec` to populate `spec.personaDiceSpent` and by the
+ * panel UI to show the cumulative tally.
+ */
+export function personaSpendTotalFromContributions(
+  contributions: ReadonlyArray<Contribution> | undefined,
+): number {
+  let total = 0;
+  for (const e of personaSpendsFromContributions(contributions)) {
+    total += e.count;
+  }
+  return Math.min(3, total);
+}
+
+/**
+ * Latest channel-nature declaration on the contribution list (last-wins
+ * via `replaces: "tb:channel-nature"`). Returns `null` when nothing
+ * has been declared. Carries the contribution `id` so the synthesized
+ * modifier chip can be removed via the standard × affordance.
+ */
+export interface ChannelNatureDecl {
+  readonly id: string;
+  readonly scope: "within" | "outside";
+}
+
+export function channelNatureFromContributions(
+  contributions: ReadonlyArray<Contribution> | undefined,
+): ChannelNatureDecl | null {
+  if (!contributions || contributions.length === 0) return null;
+  let latest: ChannelNatureDecl | null = null;
+  for (const c of contributions) {
+    if (c.kind !== TB_CHANNEL_NATURE_CONTRIB_KIND) continue;
+    const parsed = ChannelNatureContributionPayloadSchema.safeParse(c.payload);
+    if (!parsed.success) continue;
+    latest = { id: parsed.data.id, scope: parsed.data.scope };
+  }
+  return latest;
+}
+
+/**
+ * Per-helper synergy declarations on a pending roll. Each helper has
+ * their own `replaces: "tb:synergy:<characterId>"` key, so re-toggling
+ * supersedes the prior declaration; we walk chronologically and keep
+ * the latest entry per helper. Empty list when nobody has declared
+ * synergy.
+ */
+export interface SynergyDecl {
+  readonly id: string;
+  readonly helperCharacterId: string;
+}
+
+export function synergyDeclsFromContributions(
+  contributions: ReadonlyArray<Contribution> | undefined,
+): SynergyDecl[] {
+  if (!contributions || contributions.length === 0) return [];
+  const byHelper = new Map<string, SynergyDecl>();
+  for (const c of contributions) {
+    if (c.kind !== TB_SYNERGY_CONTRIB_KIND) continue;
+    const parsed = SynergyContributionPayloadSchema.safeParse(c.payload);
+    if (!parsed.success) continue;
+    byHelper.set(parsed.data.helperCharacterId, {
+      id: parsed.data.id,
+      helperCharacterId: parsed.data.helperCharacterId,
+    });
+  }
+  return [...byHelper.values()];
+}
+
+/** Convenience: just the helper character ids. */
+export function synergyHelpersFromContributions(
+  contributions: ReadonlyArray<Contribution> | undefined,
+): string[] {
+  return synergyDeclsFromContributions(contributions).map(
+    (e) => e.helperCharacterId,
+  );
 }
 
 /**

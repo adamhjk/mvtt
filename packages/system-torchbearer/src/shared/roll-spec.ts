@@ -290,6 +290,44 @@ export const TbRollSpecSchema = z.object({
   dispositionMode: z.boolean().optional(),
 
   /**
+   * Pre-roll persona-advantage declared in the panel (DH p.8 sheet,
+   * p.250 reference card). 0–3 inclusive, capped per RAW. The dice
+   * are folded into `pool` via a `+ND Persona` modifier; the count
+   * lives separately so the commit-time debit system knows how many
+   * persona points to debit from `Pools.persona`. Optional in the
+   * spec — absent means "no persona spent" (treat as 0); the rollable
+   * always sets it concretely.
+   */
+  personaDiceSpent: z.number().int().min(0).max(3).optional(),
+
+  /**
+   * Pre-roll channel-nature declaration (DH p.67). Absent / `null`
+   * when the player didn't channel. When present, the rollable folds
+   * `nature.rating` dice into the pool and snapshots `dice` so the
+   * chat row's audit shows `+5D Channel Nature` even if `rating`
+   * later changes (e.g. tax fires). `scope` drives the post-test
+   * Nature tax (DH p.67–68): `"within"` skips it; `"outside"` taxes
+   * -1 on pass / -margin on fail when the player logs the outcome.
+   */
+  channelNature: z
+    .object({
+      scope: z.enum(["within", "outside"]),
+      dice: z.number().int().min(1).max(7),
+    })
+    .nullable()
+    .optional(),
+
+  /**
+   * Pre-roll synergy declarations (DH p.87). Each entry is a helper
+   * character id who spent 1 fate "before the dice are cast" to learn
+   * from this test. The commit-time debit decrements every helper's
+   * fate; the post-pass advancement fan-out marks each helper's
+   * matching skill / ability for advancement. Absent / empty for
+   * rolls with no synergy.
+   */
+  synergyHelpers: z.array(z.string().min(1).max(80)).optional(),
+
+  /**
    * Free-text caption that flows into the chat row's reason. Distinct
    * from the rollable's `label` (which becomes `RequestRoll.reason`
    * for the generic fallback path).
