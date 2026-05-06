@@ -82,6 +82,7 @@ export const EntryStateChanged = defineEvent({
       dropped: z.boolean().optional(),
       lit: z.boolean().optional(),
       turnsRemaining: z.number().int().min(0).optional(),
+      spent: z.boolean().optional(),
       lost: z.boolean().optional(),
       quantity: z.number().int().min(0).optional(),
     }),

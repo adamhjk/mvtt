@@ -159,3 +159,22 @@ export {
   type TbRollModifierProvider,
 } from "./roll-providers.js";
 export * from "./items/index.js";
+export {
+  DismissLightWentOut,
+  GRIND_SENTINEL_ID,
+  Grind,
+  GrindExtremeSet,
+  GrindToll,
+  GrindTollOpened,
+  GrindTollRowApplied,
+  GrindTurnSet,
+  LightSourceWentOut,
+  LightWentOutNotice,
+  MarkGrindToll,
+  NoticeDismissed,
+  SetGrindExtreme,
+  SetGrindTurn,
+  nextGrindCondition,
+  tollCadence,
+  type GrindCondition,
+} from "./grind.js";

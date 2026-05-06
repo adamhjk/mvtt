@@ -74,6 +74,7 @@ import {
   RolledBy,
   RollResult,
 } from "@vtt/resolution/shared";
+import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
 import {
   AdvancementLoggedTrait,
   LogAdvancement,
@@ -113,6 +114,10 @@ const sheetSlotsTestInfra = definePlugin({
     // workbench-page sections (TbWeapon stats, TbArmor stats, etc.).
     ItemDetailSectionsSlot,
   ],
+  // The grind tracker view targets the workbench's chat-rail
+  // surface. The harness doesn't load shell-workbench; declare the
+  // surface here so the TB plugin's view registers cleanly.
+  surfaces: [WorkbenchChatRailSurface],
   // Resolution-side traits are registered by the real `@vtt/resolution`
   // plugin. The character harness doesn't load it, so the TB roll-row
   // jsdom tests register them here so spawned Roll entities decode

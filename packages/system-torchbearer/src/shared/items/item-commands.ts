@@ -26,6 +26,7 @@ import {
 import { ItemBundle, ItemCatalogIndex, ItemForked } from "@vtt/items/shared";
 import { TbBodySlotSchema, TbEquipChannel } from "./body-slots.js";
 import {
+  EntryStateChanged,
   ItemDropped,
   ItemEquipped,
   ItemMoved,
@@ -33,7 +34,6 @@ import {
   ItemPlacedOnGround,
   ItemRemovedFromGround,
   ItemUnequipped,
-  EntryStateChanged,
 } from "./item-events.js";
 import {
   ItemPosition,
@@ -159,16 +159,46 @@ export const MoveItem = defineCommand({
     if (!placement.ok) return fail(placement.reason ?? "placement rejected");
     return ok();
   },
-  apply: ({ cmd }) => [
-    ItemMoved({
-      holderId: cmd.holderId,
-      fromIndex: cmd.fromIndex,
-      toSlot: cmd.toSlot,
-      toSlotIndex: cmd.toSlotIndex,
-      toChannel: cmd.toChannel,
-      toSlotsConsumed: cmd.toSlotsConsumed,
-    }),
-  ],
+  apply: ({ cmd, world }) => {
+    const events: EventInstance[] = [
+      ItemMoved({
+        holderId: cmd.holderId,
+        fromIndex: cmd.fromIndex,
+        toSlot: cmd.toSlot,
+        toSlotIndex: cmd.toSlotIndex,
+        toChannel: cmd.toChannel,
+        toSlotsConsumed: cmd.toSlotsConsumed,
+      }),
+    ];
+    // Auto-douse a lit light source on its way into a container.
+    // Stowing a burning torch in a backpack is a fire hazard the
+    // SetEntryState validator already refuses, so the only way it
+    // could land lit is via this code path — close the loop here.
+    const isContainerDestination = cmd.toSlot.startsWith("container:");
+    if (isContainerDestination) {
+      const got = world.get(cmd.holderId, [TbCarries]) as
+        | {
+            TbCarries: {
+              entries: Array<{
+                itemId: string;
+                state?: { lit?: boolean };
+              }>;
+            };
+          }
+        | undefined;
+      const entry = got?.TbCarries.entries[cmd.fromIndex];
+      if (entry?.state?.lit) {
+        events.push(
+          EntryStateChanged({
+            holderId: cmd.holderId,
+            entryIndex: cmd.fromIndex,
+            state: { lit: false },
+          }),
+        );
+      }
+    }
+    return events;
+  },
 });
 
 /**
@@ -186,17 +216,32 @@ export const SetEntryState = defineCommand({
       dropped: z.boolean().optional(),
       lit: z.boolean().optional(),
       turnsRemaining: z.number().int().min(0).optional(),
+      // Marks a light source as burned-out: `turnsRemaining: 0` after
+      // the grind ticked it past the last turn of fuel. Cleared on
+      // re-lighting, but re-lighting a spent entry is disallowed in
+      // the UI (no fuel left).
+      spent: z.boolean().optional(),
       lost: z.boolean().optional(),
       quantity: z.number().int().min(0).optional(),
     }),
   }),
   validate: ({ cmd, world }) => {
     const got = world.get(cmd.holderId, [TbCarries]) as
-      | { TbCarries: { entries: Array<unknown> } }
+      | {
+          TbCarries: { entries: Array<{ slot: string }> };
+        }
       | undefined;
     if (!got) return fail(`holder ${cmd.holderId} has no TbCarries`);
-    if (!got.TbCarries.entries[cmd.entryIndex]) {
+    const entry = got.TbCarries.entries[cmd.entryIndex];
+    if (!entry) {
       return fail(`no carry entry at index ${cmd.entryIndex}`);
+    }
+    // You can't light a torch sealed in a backpack. The slot key
+    // for stowed items is `container:<id>` — the very fact of being
+    // stowed means the item isn't accessible to ignite, and the
+    // surrounding stuff probably doesn't appreciate the heat.
+    if (cmd.state.lit === true && entry.slot.startsWith("container:")) {
+      return fail("can't light an item that's stowed in a container");
     }
     return ok();
   },

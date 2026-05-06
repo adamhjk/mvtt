@@ -77,6 +77,7 @@ import {
   TbCarries,
   TbContainer,
   TbItemSlotOptions,
+  TbSupply,
   UnequipItem,
   summarizeCapacity,
   type TbBodySlot,
@@ -576,6 +577,7 @@ interface CarryEntry {
     dropped?: boolean;
     lit?: boolean;
     turnsRemaining?: number;
+    spent?: boolean;
     lost?: boolean;
   };
 }
@@ -1550,6 +1552,23 @@ function ItemRow(props: {
   const bundle = useTrait(props.entry.itemId, ItemBundle) as () =>
     | { count: number; capacity: number }
     | undefined;
+  const supply = useTrait(props.entry.itemId, TbSupply) as () =>
+    | {
+        supplyType: string;
+        turnsRemaining: number;
+        lit: boolean;
+        nameSingular: string;
+      }
+    | undefined;
+  const isLightSource = createMemo(() => supply()?.supplyType === "light");
+  // A torch stowed in a backpack can't be lit — same rule the
+  // SetEntryState validator enforces. UI disables the button so
+  // there's no failed-dispatch round-trip; the validator is the
+  // authority.
+  const isStowed = createMemo(() =>
+    typeof props.entry.slot === "string" &&
+    props.entry.slot.startsWith("container:"),
+  );
   const carries = useTrait(props.characterId, TbCarries) as () =>
     | { entries: ReadonlyArray<CarryEntry> }
     | undefined;
@@ -1626,6 +1645,42 @@ function ItemRow(props: {
       SplitItemBundle({
         itemId: props.entry.itemId,
         count: 1,
+      }) as CommandInstance,
+    );
+  };
+  const lightUp = (): void => {
+    const s = supply();
+    if (!s) return;
+    // Re-lighting a doused source preserves whatever fuel is left
+    // on the entry (douse keeps state.turnsRemaining as-is). A
+    // never-lit or freshly-customized entry has 0/undefined turns
+    // here, so we fall back to the supply's per-unit default.
+    const remaining = props.entry.state?.turnsRemaining ?? 0;
+    const turns = remaining > 0 ? remaining : s.turnsRemaining;
+    void client.dispatch(
+      SetEntryState({
+        holderId: props.characterId as EntityId,
+        entryIndex: props.entryIndex,
+        state: { lit: true, turnsRemaining: turns, spent: false },
+      }) as CommandInstance,
+    );
+  };
+  const douse = (): void => {
+    void client.dispatch(
+      SetEntryState({
+        holderId: props.characterId as EntityId,
+        entryIndex: props.entryIndex,
+        state: { lit: false },
+      }) as CommandInstance,
+    );
+  };
+  const setTurns = (next: number): void => {
+    const clamped = Math.max(0, Math.min(99, Math.floor(next)));
+    void client.dispatch(
+      SetEntryState({
+        holderId: props.characterId as EntityId,
+        entryIndex: props.entryIndex,
+        state: { turnsRemaining: clamped },
       }) as CommandInstance,
     );
   };
@@ -1844,6 +1899,93 @@ function ItemRow(props: {
             >
               Split 1
             </button>
+          </Show>
+          <Show when={isLightSource()}>
+            <Show
+              when={!props.entry.state?.lit}
+              fallback={
+                <button
+                  type="button"
+                  onClick={douse}
+                  data-testid={`douse-${props.entry.itemId}-${props.entryIndex}`}
+                  style={tinyButton()}
+                  title="Snuff this light source (turns remaining are preserved)"
+                >
+                  Douse
+                </button>
+              }
+            >
+              <button
+                type="button"
+                onClick={lightUp}
+                disabled={!!props.entry.state?.spent || isStowed()}
+                data-testid={`light-${props.entry.itemId}-${props.entryIndex}`}
+                style={{
+                  ...tinyButton(),
+                  opacity: props.entry.state?.spent || isStowed() ? 0.5 : 1,
+                  cursor:
+                    props.entry.state?.spent || isStowed()
+                      ? "default"
+                      : "pointer",
+                }}
+                title={
+                  isStowed()
+                    ? "Can't light an item stowed in a container — take it out first"
+                    : props.entry.state?.spent
+                      ? "Spent — no fuel remaining"
+                      : (props.entry.state?.turnsRemaining ?? 0) > 0
+                        ? `Re-light with ${props.entry.state!.turnsRemaining} turns remaining`
+                        : `Light it (${supply()?.turnsRemaining ?? 0} turns of fuel)`
+                }
+              >
+                Light
+              </button>
+              <Show when={props.entry.state?.spent}>
+                <small
+                  data-testid={`spent-${props.entry.itemId}-${props.entryIndex}`}
+                  style={{
+                    color: "var(--color-fg-subtle)",
+                    "font-style": "italic",
+                  }}
+                  title="The light source has burned through all its fuel"
+                >
+                  spent
+                </small>
+              </Show>
+            </Show>
+            <Show when={props.entry.state?.lit}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  "align-items": "center",
+                  gap: "0.25rem",
+                  "font-size": "0.75rem",
+                  color: "var(--color-fg-subtle)",
+                }}
+                title="Turns remaining of light"
+              >
+                <span>turns</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={99}
+                  value={props.entry.state?.turnsRemaining ?? 0}
+                  data-testid={`turns-${props.entry.itemId}-${props.entryIndex}`}
+                  onChange={(e) => {
+                    const n = Number(e.currentTarget.value);
+                    if (Number.isFinite(n)) setTurns(n);
+                  }}
+                  style={{
+                    width: "3.2rem",
+                    padding: "0.1rem 0.25rem",
+                    border: "1px solid var(--color-border)",
+                    background: "var(--color-surface)",
+                    "border-radius": "0.2rem",
+                    "text-align": "center",
+                  }}
+                />
+              </span>
+            </Show>
           </Show>
           <Show when={bundle() && mergeTargets().length > 0}>
             <div

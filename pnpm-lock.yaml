@@ -852,6 +852,9 @@ importers:
       '@vtt/scene':
         specifier: workspace:*
         version: link:../scene
+      '@vtt/shell-workbench':
+        specifier: workspace:*
+        version: link:../shell-workbench
       '@vtt/substrate':
         specifier: workspace:*
         version: link:../substrate

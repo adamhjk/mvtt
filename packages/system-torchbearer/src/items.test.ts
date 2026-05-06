@@ -24,7 +24,7 @@ import {
   World,
 } from "@vtt/substrate";
 import { items } from "@vtt/items";
-import { runCatalogMerge } from "@vtt/items/shared";
+import { ItemIdentity, runCatalogMerge } from "@vtt/items/shared";
 import {
   DropItem,
   EntryStateChanged,
@@ -398,6 +398,205 @@ describe("@vtt/system-torchbearer items", () => {
       expect(equippedId).not.toBe(torchId);
       // Catalog template still exists at its original count.
       expect(setup.world.has(torchId)).toBe(true);
+    });
+  });
+
+  describe("SetEntryState — light gating", () => {
+    it("rejects lighting an entry that lives inside a container", async () => {
+      // Equip a torch directly into the backpack's container slot.
+      const torchTemplate = setup.world.spawn([
+        ItemIdentity({ name: "Torch" }),
+        TbItemSlotOptions({ options: { pack: 1 } }),
+        TbSupply({
+          supplyType: "light",
+          turnsRemaining: 2,
+          lit: false,
+          nameSingular: "Torch",
+        }),
+      ]);
+      // Equip backpack first (auto-fork on catalog container).
+      await setup.pipeline.dispatch({
+        id: "e1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: EquipItem({
+          holderId: setup.characterId,
+          itemId: setup.backpackId,
+          slot: "torso",
+          slotIndex: 0,
+          channel: "default",
+          slotsConsumed: 2,
+        }),
+      });
+      const carries = setup.world.get(setup.characterId, [TbCarries]) as {
+        TbCarries: { entries: Array<{ itemId: string }> };
+      };
+      const backpackInstanceId = carries.TbCarries.entries[0]!.itemId;
+      // Stow torch inside the backpack: equip with the container slot.
+      await setup.pipeline.dispatch({
+        id: "e2",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: EquipItem({
+          holderId: backpackInstanceId as never,
+          itemId: torchTemplate,
+          slot: `container:${backpackInstanceId}` as never,
+          slotIndex: 0,
+          channel: "default",
+          slotsConsumed: 1,
+        }),
+      });
+      // Try to light it.
+      const res = await setup.pipeline.dispatch({
+        id: "s1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: SetEntryState({
+          holderId: backpackInstanceId as never,
+          entryIndex: 0,
+          state: { lit: true, turnsRemaining: 2 },
+        }),
+      });
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("auto-douses a lit torch when moved into a container", async () => {
+      // Create a torch + backpack, equip both on the character, light
+      // the torch, then move it into the backpack. The move must
+      // succeed AND the entry must come out doused.
+      const torchId = setup.world.spawn([
+        ItemIdentity({ name: "Torch" }),
+        TbItemSlotOptions({ options: { carried: 1, pack: 1 } }),
+        TbSupply({
+          supplyType: "light",
+          turnsRemaining: 2,
+          lit: false,
+          nameSingular: "Torch",
+        }),
+      ]);
+      // Equip backpack into torso (auto-fork).
+      await setup.pipeline.dispatch({
+        id: "e1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: EquipItem({
+          holderId: setup.characterId,
+          itemId: setup.backpackId,
+          slot: "torso",
+          slotIndex: 0,
+          channel: "default",
+          slotsConsumed: 2,
+        }),
+      });
+      const carries0 = setup.world.get(setup.characterId, [TbCarries]) as {
+        TbCarries: { entries: Array<{ itemId: string }> };
+      };
+      const backpackInstanceId = carries0.TbCarries.entries[0]!.itemId;
+      // Equip torch into the right hand (carried).
+      await setup.pipeline.dispatch({
+        id: "e2",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: EquipItem({
+          holderId: setup.characterId,
+          itemId: torchId,
+          slot: "handR",
+          slotIndex: 0,
+          channel: "carried",
+          slotsConsumed: 1,
+        }),
+      });
+      // Light it.
+      await setup.pipeline.dispatch({
+        id: "s1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: SetEntryState({
+          holderId: setup.characterId,
+          entryIndex: 1,
+          state: { lit: true, turnsRemaining: 2 },
+        }),
+      });
+      // Move it into the backpack (same holder; container slot).
+      const res = await setup.pipeline.dispatch({
+        id: "m1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: MoveItem({
+          holderId: setup.characterId,
+          fromIndex: 1,
+          toSlot: `container:${backpackInstanceId}` as never,
+          toSlotIndex: 0,
+          toChannel: "default",
+        }),
+      });
+      expect(res.result.ok).toBe(true);
+      const after = setup.world.get(setup.characterId, [TbCarries]) as {
+        TbCarries: {
+          entries: Array<{ slot: string; state?: { lit?: boolean } }>;
+        };
+      };
+      expect(after.TbCarries.entries[1]!.slot).toBe(
+        `container:${backpackInstanceId}`,
+      );
+      expect(after.TbCarries.entries[1]!.state?.lit).toBe(false);
+    });
+
+    it("allows non-lit state changes on an entry inside a container", async () => {
+      // Equip a torch directly into the backpack so the entry's
+      // slot is `container:<id>`; then mark it dropped (which
+      // should still be allowed even though `lit:true` would not).
+      const torchTemplate = setup.world.spawn([
+        ItemIdentity({ name: "Torch" }),
+        TbItemSlotOptions({ options: { pack: 1 } }),
+        TbSupply({
+          supplyType: "light",
+          turnsRemaining: 2,
+          lit: false,
+          nameSingular: "Torch",
+        }),
+      ]);
+      await setup.pipeline.dispatch({
+        id: "e1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: EquipItem({
+          holderId: setup.characterId,
+          itemId: setup.backpackId,
+          slot: "torso",
+          slotIndex: 0,
+          channel: "default",
+          slotsConsumed: 2,
+        }),
+      });
+      const carries = setup.world.get(setup.characterId, [TbCarries]) as {
+        TbCarries: { entries: Array<{ itemId: string }> };
+      };
+      const backpackInstanceId = carries.TbCarries.entries[0]!.itemId;
+      await setup.pipeline.dispatch({
+        id: "e2",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: EquipItem({
+          holderId: backpackInstanceId as never,
+          itemId: torchTemplate,
+          slot: `container:${backpackInstanceId}` as never,
+          slotIndex: 0,
+          channel: "default",
+          slotsConsumed: 1,
+        }),
+      });
+      const res = await setup.pipeline.dispatch({
+        id: "s1",
+        issuedBy: "alice",
+        issuedAt: 0,
+        cmd: SetEntryState({
+          holderId: backpackInstanceId as never,
+          entryIndex: 0,
+          state: { damaged: true },
+        }),
+      });
+      expect(res.result.ok).toBe(true);
     });
   });
 

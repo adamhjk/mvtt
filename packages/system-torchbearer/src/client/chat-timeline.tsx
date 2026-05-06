@@ -22,13 +22,18 @@ import type {
   ChatTimelineEntry,
 } from "@vtt/comms/shared";
 import { Formula, RollResult, RolledBy } from "@vtt/resolution/shared";
-import { createMemo, Show, type JSX } from "solid-js";
+import { createMemo, For, Show, type JSX } from "solid-js";
 import {
+  DismissLightWentOut,
+  GrindToll,
   ImproveSkill,
   LearnSkill,
+  LightWentOutNotice,
+  MarkGrindToll,
   SkillImprovementOpportunity,
   SkillLearningOpportunity,
   TB_ROLL_META_SYSTEM,
+  type GrindCondition,
 } from "../shared/index.js";
 import { TbRollRow } from "./tb-roll-row.js";
 
@@ -215,6 +220,194 @@ export const TbSkillLearningTimelineContributor: ChatTimelineContributor = {
  * package's contributor filters out system-claimed rolls, so for any
  * given TB roll exactly one chat row appears.
  */
+/**
+ * Plug-in contributor for the comms `chat-timeline-contributors`
+ * slot. Surfaces every `LightWentOutNotice` entity as a chat card
+ * reading "{character}'s {item} goes out" — spawned by the grind
+ * tick system when a lit light source's turnsRemaining hits 0.
+ * The notice entity persists so the card stays visible across
+ * snapshot replays.
+ */
+function LightWentOutCard(props: { entityId: string }): JSX.Element {
+  const client = useClient();
+  const notice = useTrait(props.entityId, LightWentOutNotice) as () =>
+    | {
+        holderName: string;
+        itemName: string;
+        turn: number;
+      }
+    | undefined;
+  const remove = (): void => {
+    client.dispatch(
+      DismissLightWentOut({ noticeId: props.entityId }) as CommandInstance,
+    );
+  };
+  return (
+    <Show when={notice()} keyed>
+      {(n) => (
+        <article
+          class="rounded-(--radius-card) border border-border-muted bg-surface-elevated px-3 py-2 text-sm"
+          data-testid={`light-out-card-${props.entityId}`}
+        >
+          <header class="flex items-baseline justify-between gap-2 text-xs">
+            <span class="font-medium text-fg">{n.holderName}</span>
+            <span class="text-[0.6rem] uppercase tracking-[0.16em] text-warning">
+              light · turn {n.turn}
+            </span>
+          </header>
+          <p class="mt-1 whitespace-pre-wrap break-words text-fg-muted">
+            {`${n.holderName}'s ${n.itemName} goes out.`}
+          </p>
+          <div class="mt-1.5 flex justify-end">
+            <button
+              type="button"
+              class="rounded-(--radius-control) border border-border bg-transparent px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-[0.12em] text-fg-muted transition hover:bg-surface"
+              data-testid={`light-out-remove-${props.entityId}`}
+              title="Remove the burnt-out light source from inventory"
+              onClick={remove}
+            >
+              Remove
+            </button>
+          </div>
+        </article>
+      )}
+    </Show>
+  );
+}
+
+function GrindTollCard(props: { entityId: string }): JSX.Element {
+  const client = useClient();
+  const toll = useTrait(props.entityId, GrindToll) as () =>
+    | {
+        turn: number;
+        rows: Array<{
+          characterId: string;
+          characterName: string;
+          condition: GrindCondition;
+          applied: boolean;
+        }>;
+      }
+    | undefined;
+  const apply = (rowIndex: number): void => {
+    client.dispatch(
+      MarkGrindToll({
+        tollId: props.entityId,
+        rowIndex,
+      }) as CommandInstance,
+    );
+  };
+  return (
+    <Show when={toll()} keyed>
+      {(t) => (
+        <article
+          class="rounded-(--radius-card) border border-border-muted bg-surface-elevated px-3 py-2 text-sm"
+          data-testid={`grind-toll-card-${props.entityId}`}
+        >
+          <header class="flex items-baseline justify-between gap-2 text-xs">
+            <span class="font-medium text-fg">The grind takes its toll.</span>
+            <span class="text-[0.6rem] uppercase tracking-[0.16em] text-warning">
+              turn {t.turn}
+            </span>
+          </header>
+          <ul class="mt-1.5 flex flex-col gap-1.5 list-none p-0 m-0">
+            <For each={t.rows}>
+              {(row, idx) => (
+                <li class="flex items-center gap-2">
+                  <span class="flex-1">
+                    {row.characterName} is {grindConditionLabel(row.condition)}.
+                  </span>
+                  <Show
+                    when={row.applied}
+                    fallback={
+                      <button
+                        type="button"
+                        class="rounded-(--radius-control) border border-accent bg-transparent px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-[0.12em] text-accent transition hover:bg-accent hover:text-accent-fg"
+                        data-testid={`grind-toll-apply-${props.entityId}-${idx()}`}
+                        title={`Mark ${row.characterName} as ${grindConditionLabel(row.condition)}`}
+                        onClick={() => apply(idx())}
+                      >
+                        Apply
+                      </button>
+                    }
+                  >
+                    <span
+                      class="text-[0.7rem] uppercase tracking-[0.12em] text-fg-subtle"
+                      data-testid={`grind-toll-applied-${props.entityId}-${idx()}`}
+                    >
+                      ✓ applied
+                    </span>
+                  </Show>
+                </li>
+              )}
+            </For>
+          </ul>
+        </article>
+      )}
+    </Show>
+  );
+}
+
+function grindConditionLabel(c: GrindCondition): string {
+  switch (c) {
+    case "hungryThirsty":
+      return "hungry and thirsty";
+    case "exhausted":
+      return "exhausted";
+    case "angry":
+      return "angry";
+    case "sick":
+      return "sick";
+    case "injured":
+      return "injured";
+    case "afraid":
+      return "afraid";
+    case "dead":
+      return "dead";
+  }
+}
+
+/**
+ * Plug-in contributor for the comms `chat-timeline-contributors`
+ * slot. Surfaces every open `GrindToll` entity as one chat card —
+ * a row per character with an Apply button. Once every row is
+ * applied the toll entity is despawned and the card disappears.
+ */
+export const TbGrindTollContributor: ChatTimelineContributor = {
+  kind: "@vtt/system-torchbearer/grind-toll",
+  useEntries: () => {
+    const rows = useQuery([GrindToll]);
+    const accessor = createMemo<ChatTimelineEntry[]>(() =>
+      rows().map((row) => {
+        const t = row.values.GrindToll as { sentAt: number };
+        return {
+          id: row.id,
+          sortKey: t.sentAt,
+          render: () => GrindTollCard({ entityId: row.id }) as unknown,
+        };
+      }),
+    );
+    return accessor as unknown as () => ChatTimelineEntry[];
+  },
+};
+
+export const TbLightWentOutContributor: ChatTimelineContributor = {
+  kind: "@vtt/system-torchbearer/light-out",
+  useEntries: () => {
+    const rows = useQuery([LightWentOutNotice]);
+    const accessor = createMemo<ChatTimelineEntry[]>(() =>
+      rows().map((row) => {
+        const n = row.values.LightWentOutNotice as { sentAt: number };
+        return {
+          id: row.id,
+          sortKey: n.sentAt,
+          render: () => LightWentOutCard({ entityId: row.id }) as unknown,
+        };
+      }),
+    );
+    return accessor as unknown as () => ChatTimelineEntry[];
+  },
+};
+
 export const TbRollChatTimelineContributor: ChatTimelineContributor = {
   kind: "@vtt/system-torchbearer/roll",
   useEntries: () => {
