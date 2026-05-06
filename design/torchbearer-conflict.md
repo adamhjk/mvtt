@@ -485,7 +485,8 @@ const TbConflict = defineTrait({
     gmUserId: z.string(),
     phase: z.enum([
       "declared","weapons","disposition","hp","scripting",
-      "reveal","betweenRounds","compromise","ended",
+      "reveal","awaitingDamageDistribution","betweenRounds",
+      "compromise","ended",
     ]),
     round: z.number().int().min(1).default(1),
     revealIndex: z.number().int().min(0).max(2).default(0),
@@ -691,6 +692,7 @@ const TbConflictModifier = defineTrait({
 | `AddHelp` / `RemoveHelp`       | `{ conflictId, side, slotIndex, helperCharacterId, source }`                                      | Phase = scripting. Helper not knocked out, has applicable skill.          |
 | `LockScript`                   | `{ conflictId, side }`                                                                            | All three slots filled. Captain (heroes) or GM (foes).                    |
 | `RevealNextSlot`               | `{ conflictId }`                                                                                  | Both sides locked. Phase = reveal. GM-only.                               |
+| `DistributeOverflowDamage`     | `{ conflictId, side, allocations: [{ characterId, amount }] }`                                    | Phase = awaitingDamageDistribution, side matches the side taking damage. Allocator is hero captain (heroes) or GM (foes). Sum equals pending overflow amount; no allocation to knocked-out targets. |
 | `ApplyCompromise`              | `{ conflictId, conditions: [{ characterId, conditionId }], description }`                         | Phase = compromise. GM authoritative.                                     |
 | `EndConflict`                  | `{ conflictId }`                                                                                  | Phase = compromise (or short-circuit by GM). Cleans up sentinels.         |
 
@@ -709,6 +711,13 @@ server-allocated fields:
 - `ScriptLocked` is broadcast in full.
 - `SlotRevealed` is broadcast in full and carries the
   `ResolutionSchema` payload.
+- `OverflowDamagePending { conflictId, side, leadCharacterId, totalDamage, overflowAmount }`
+  emits when a damage effect produces overflow. Phase transitions to
+  `awaitingDamageDistribution` and the reveal cascade pauses until
+  `OverflowDamageDistributed` is emitted in response to a
+  `DistributeOverflowDamage` command from the captain (heroes) or GM
+  (foes). Both events are public — every recipient sees them — so
+  the table can watch the captain hand-walk the damage.
 - `ConflictEnded` carries `{ winner, suggestedCompromiseLevel }`.
 
 ### Side-scoping
@@ -780,11 +789,19 @@ Steps:
    - **Damage** (Attack winner of versus, Attack independent passer,
      Feint independent or versus winner, Feint vs Defend or vs
      Maneuver passer): `dmg = MoS` (versus) or `dmg = successes − Ob`
-     (independent). Apply `TbConflictArmorState` absorption per the
-     armor matrix; bypassing weapons skip leather/chain as listed.
-     Overflow into other participants on the hit side per captain's
-     allocation default (round-robin over remaining HP unless GM
-     overrides via a `TbConflictDamageAllocation` queue).
+     (independent). Apply *lead character's* `TbConflictArmorState`
+     absorption per the armor pipeline; bypassing weapons skip
+     leather/chain as listed. Pre-overflow damage lands on the lead
+     character, reducing HP by up to its current value. If HP would
+     drop below 0, the remainder is **overflow** and is *not*
+     absorbed by armor (SG p.65). The engine writes the lead's HP
+     immediately, then if overflow > 0 emits
+     `OverflowDamagePending` and transitions phase to
+     `awaitingDamageDistribution`. **No auto-distribution**: the
+     captain (heroes) or GM (foes) receives the pending amount and
+     dispatches `DistributeOverflowDamage` with hand-allocated
+     amounts to non-knocked-out teammates. The cascade resumes only
+     after `OverflowDamageDistributed` fires.
    - **Heal** (Defend versus winner, Defend independent passer):
      versus → MoS pool; independent → `1 + MoS` pool. Allocate
      self-first whole, then teammate-by-teammate whole, never
@@ -825,6 +842,7 @@ Steps:
 | `<CaptainInputStrip>`        | `TbConflictScript` for hero side (own writes via optimistic trait)     | Slot index, action chips, performer/weapon dropdowns, lock       |
 | `<GmInputStrip>`             | `TbConflictScript` for foe side                                        | Same                                                             |
 | `<RoundBreadcrumbs>`         | `TbConflict.round` history (re-emitted as `RoundResolved` events)      | Click to scrub                                                   |
+| `<DamageDistributor>`        | `TbConflict.phase`, latest `OverflowDamagePending`, hit-side roster    | Pop-in on the side taking damage; lists participants with HP, lets captain/GM type or click to allocate the pending amount, blocks resume until summed and confirmed |
 
 The optimistic trait wraps `TbConflictScript` for own-side writes
 (`SetScriptSlot` / `ClearScriptSlot`); see
@@ -862,6 +880,13 @@ authoritative trait for display.
   unless the character has Duelist (level 4 warrior).
 - **Knocked-out cannot help**, cannot perform, cannot be performer
   in a `SetScriptSlot`.
+- **Overflow damage halts the cascade**: when an Attack/Feint
+  produces overflow, the engine emits `OverflowDamagePending`,
+  transitions phase to `awaitingDamageDistribution`, and the next
+  `RevealNextSlot` is rejected until `OverflowDamageDistributed`
+  fires. Allocation rejects if the sum doesn't equal the pending
+  amount, if any allocation targets a knocked-out participant, or
+  if the dispatcher is not the side's captain/GM.
 - **Win check**: dispo=0 / dispo>0 → win; both 0 same slot → tied.
 
 Every command (`SetScriptSlot`, `LockScript`, `RevealNextSlot`,
@@ -953,44 +978,61 @@ The TB plugin manifest grows two entries: a new sentinel kind
 ("conflict") with `ConflictPage` as its primary view, and the new
 trait/command/event registrations. No new top-level plugin.
 
-## Open questions
+## Resolved decisions
 
-1. **Damage allocation overflow**: the rules say the captain
-   distributes overflow damage. Default to round-robin? Always
-   prompt? An auto-distribute toggle would help fast play but the
-   captain wants control on a knockout-threshold round. Proposal:
-   default round-robin over participants with HP > 0; captain has a
-   "redistribute" pop after each damage event that fires only if
-   knockout would occur.
-2. **NPC scripting**: GM may want to pre-script all foe rounds in
-   advance (e.g. "skel always Attack/Defend/Attack"). Worth a
-   `TbConflictNpcScriptTemplate` that auto-fills the GM's script
-   between rounds, with a one-click confirm? Defer to v2.
-3. **Mid-conflict joiners**: TB rules don't really support someone
-   joining mid-conflict, but a player rejoining the table after
-   disconnect should be picked up by event replay. Tested as part of
-   the wire smoke.
-4. **Convince-conflict spend mechanics** (SG p.235-237): convince
-   conflicts allow weapons whose +1D applies to "one action of your
-   choice." That's the same shape as Sword's choose-an-action — the
-   `TbConflictWeapon.chosenAction` field already covers it, but the
-   list of weapons that have this property needs encoding in the
-   convince-weapons catalog. Out of scope for this doc; covered when
-   the convince-weapons catalog lands.
-5. **Boss monsters / Might differential**: SG p.62 (Order of Might
-   and Precedence) gives flat post-roll modifiers. Worth a
-   `TbMightModifier` that fires post-roll. Defer to milestone M3.
-6. **Spell / invocation effects on disposition** (e.g. Wizard's
-   Ægis +2s to Defend, Balefire +3s to Attack): these are auto
-   modifiers from the spells plugin. Out of scope here; the rules
-   engine already supports the modifier shape via
-   `TbConflictModifier`.
-7. **Armor inventory state vs conflict state**: a hit during a
-   conflict can damage armor *permanently* (chain on a 1-3 after
-   absorbing). Need to write that back to the item entity's
-   `TbItemDamaged` trait at conflict end. Add an
-   `ApplyConflictArmorDamage` command that runs in `EndConflict`'s
-   apply.
+These were earlier open questions; recorded here so the rationale is
+preserved and not re-litigated.
+
+1. **Damage distribution is captain-manual, no auto-allocation.**
+   The lead character takes pre-overflow damage automatically
+   (their armor applies), but any overflow halts the reveal
+   cascade. The hit side's captain (heroes) or GM (foes) receives
+   the pending amount and hand-walks each point of damage to a
+   teammate via `DistributeOverflowDamage`. Rationale: at the table
+   the captain wants this control on knockout-threshold rounds —
+   the moment when the wrong default is most painful — and a
+   one-time-per-conflict round-robin auto-default never feels
+   right. Locked in the resolution algorithm and command table
+   above.
+2. **Conflicts pin characters, not players.** Once
+   `DeclareConflict` lists a character as a participant, that
+   character remains in the conflict regardless of whether the
+   owning player is connected. A player disconnecting and
+   reconnecting picks up via event replay; their character did not
+   leave. The captain role is bound to a character id (not a user
+   id), so the captain's character stays even if the player
+   disconnects. *If the captain's character is knocked out*, the
+   hero side may `ElectCaptain` to a new character. *If the
+   captain's player disconnects but their character is still
+   conscious*, the table waits for them, or any hero may
+   `ElectCaptain` to take over (with table consensus); validate
+   accepts re-election as long as the elector is on the same side.
+
+## Deferred
+
+Worth doing, not for v1. Each lands when the named adjacent system
+arrives.
+
+- **NPC scripting templates**: GMs may want to pre-script all foe
+  rounds in advance. Defer until we have enough complex GM-side
+  encounters for this to feel painful — easy to add as a
+  `TbConflictNpcScriptTemplate` later.
+- **Convince-conflict spend mechanics** (SG p.235-237): convince
+  weapons that grant "+1D to one action of your choice" reuse the
+  existing `TbConflictWeapon.chosenAction` field; the catalog rows
+  ship when the convince-weapons catalog lands.
+- **Boss monsters / Might differential** (SG p.62): the Order of
+  Might and Precedence gives flat post-roll modifiers; encode as a
+  `TbMightModifier` post-roll source when the bestiary plugin
+  arrives.
+- **Spell / invocation effects on disposition** (e.g. Wizard's Ægis
+  +2s Defend, Balefire +3s Attack): the spells plugin will register
+  itself as a roll-modifier provider through the existing
+  `TbConflictModifier` shape; no engine changes needed here.
+- **Armor inventory write-back**: chain/plate that gets damaged
+  mid-conflict needs to flag its item entity's `TbItemDamaged`
+  trait at `EndConflict` apply. Add `ApplyConflictArmorDamage` when
+  the broader item-condition system lands.
 
 ## Implementation milestones
 

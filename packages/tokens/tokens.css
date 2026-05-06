@@ -94,12 +94,22 @@
   }
 }
 
-[data-theme="light"] {
+/*
+ * Theme overrides use `:root[data-theme=...]` rather than plain
+ * `[data-theme=...]` so the specificity is (0,0,2,0) — one notch above
+ * `:root` (0,0,1,0). Lazy-loaded plugin CSS (e.g. pdfjs-dist's
+ * `pdf_viewer.css`) injects its own `:root { color-scheme: light dark }`
+ * rule when a Book tab opens; with equal-specificity `[data-theme=...]`
+ * overrides, that later rule wins on cascade order and silently
+ * nullifies the user's explicit theme choice. Bumping our specificity
+ * locks the override in regardless of injection order.
+ */
+:root[data-theme="light"] {
   color-scheme: light;
   --icon-filter: invert(1);
 }
 
-[data-theme="dark"] {
+:root[data-theme="dark"] {
   color-scheme: dark;
   --icon-filter: none;
 }
