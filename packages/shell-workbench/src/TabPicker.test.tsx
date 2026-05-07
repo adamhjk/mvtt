@@ -96,14 +96,19 @@ function harness() {
   });
 }
 
-const ctx = { world: undefined as never, userId: ME, role: "player" };
+const ctx = {
+  world: undefined as never,
+  registry: undefined as never,
+  userId: ME,
+  role: "player",
+};
 
 describe("shell-workbench TabPicker", () => {
   it("renders 'Pick a type' as the kind disclosure when no tab is bound", () => {
     const h = harness();
     render(() => (
       <ClientProvider value={h.client}>
-        <TabPicker ctx={{ ...ctx, world: h.world }} />
+        <TabPicker ctx={{ ...ctx, world: h.world, registry: h.registry }} />
       </ClientProvider>
     ));
     expect(screen.getByText(/Pick a type/i)).toBeInTheDocument();
@@ -115,7 +120,7 @@ describe("shell-workbench TabPicker", () => {
     render(() => (
       <ClientProvider value={h.client}>
         <TabPicker
-          ctx={{ ...ctx, world: h.world }}
+          ctx={{ ...ctx, world: h.world, registry: h.registry }}
           tab={{
             id: "tab-1",
             pageKind: noteProvider.kind as never,
@@ -132,7 +137,7 @@ describe("shell-workbench TabPicker", () => {
     const h = harness();
     render(() => (
       <ClientProvider value={h.client}>
-        <TabPicker ctx={{ ...ctx, world: h.world }} />
+        <TabPicker ctx={{ ...ctx, world: h.world, registry: h.registry }} />
       </ClientProvider>
     ));
     fireEvent.click(screen.getByText(/Pick a type/i));
@@ -144,7 +149,7 @@ describe("shell-workbench TabPicker", () => {
     const h = harness();
     render(() => (
       <ClientProvider value={h.client}>
-        <TabPicker ctx={{ ...ctx, world: h.world }} />
+        <TabPicker ctx={{ ...ctx, world: h.world, registry: h.registry }} />
       </ClientProvider>
     ));
     fireEvent.click(screen.getByText(/Pick a type/i));
@@ -159,7 +164,7 @@ describe("shell-workbench TabPicker", () => {
     render(() => (
       <ClientProvider value={h.client}>
         <TabPicker
-          ctx={{ ...ctx, world: h.world }}
+          ctx={{ ...ctx, world: h.world, registry: h.registry }}
           tab={{
             id: "tab-1",
             pageKind: noteProvider.kind as never,
@@ -182,7 +187,7 @@ describe("shell-workbench TabPicker", () => {
     render(() => (
       <ClientProvider value={h.client}>
         <TabPicker
-          ctx={{ ...ctx, world: h.world }}
+          ctx={{ ...ctx, world: h.world, registry: h.registry }}
           onPick={(kind, entityId) => {
             captured = { kind, entityId };
           }}

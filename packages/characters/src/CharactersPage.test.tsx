@@ -142,6 +142,7 @@ describe("CharactersPageProvider", () => {
     const b = h.world.spawn([Character({ name: "B" }), Permissions(ownedBy(ME))]);
     const list = CharactersPageProvider.list({
       world: h.world,
+      registry: h.registry,
       userId: ME,
       role: "player",
     });

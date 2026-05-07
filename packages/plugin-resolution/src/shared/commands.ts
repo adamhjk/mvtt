@@ -202,6 +202,22 @@ export const RequestRoll = defineCommand({
     // plugin consumes this; chat-only consumers can ignore the field.
     const tokens = diceTokensFromNotation(roll.notation);
     const dice = extractDieOutcomes(roll.rolls, tokens);
+    // Resolve the speaker's display name on the server (the source
+    // of truth that has unrestricted read access). Otherwise the
+    // universal mirror would re-resolve per-client and players who
+    // can't read a private speaker (a GM-only monster) would fall
+    // back to the rolling user's name — leaving every monster's
+    // dice card attributed to "the GM" instead of "Marcus
+    // Poopypants". Embedding the resolved name in the public event
+    // is intentional: the user explicitly wants players to see the
+    // monster's name when its rolls hit chat.
+    let speakingAsCharacterName: string | undefined;
+    if (cmd.speakingAsCharacterId !== undefined) {
+      const got = world.get(cmd.speakingAsCharacterId, [Character]) as
+        | { Character: { name: string } }
+        | undefined;
+      speakingAsCharacterName = got?.Character.name;
+    }
     return [
       withVisibility(
         RollResolved({
@@ -216,6 +232,7 @@ export const RequestRoll = defineCommand({
           rolledByName: auth.name,
           dice,
           speakingAsCharacterId: cmd.speakingAsCharacterId,
+          speakingAsCharacterName,
           meta: cmd.meta,
         }),
         visibility,

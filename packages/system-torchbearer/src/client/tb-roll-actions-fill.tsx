@@ -41,6 +41,7 @@ import {
   SpendLuck,
   SpendOfCourse,
   SynergyAdvancementLoggedTrait,
+  TbMonster,
   TbRollMetaSchema,
   TownAbilities,
   TraitUsageLoggedTrait,
@@ -234,6 +235,21 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
   );
 
   /**
+   * Roller is a monster ⇒ none of the PC-only post-roll affordances
+   * apply: monsters don't advance abilities/skills, log trait usage,
+   * spend Fate / Persona / DU / OC, or earn synergy. SG p.171-177
+   * describes their resolution path entirely in Nature terms — no
+   * pass/fail bookkeeping. The chat row collapses to just the dice
+   * + verdict for monster rolls.
+   */
+  const charMonster = useTrait(
+    (rolledBy()?.speakingAsCharacterId as EntityId | undefined) ??
+      ("" as EntityId),
+    TbMonster,
+  );
+  const rollerIsMonster = createMemo(() => charMonster() !== undefined);
+
+  /**
    * `true` when the column the resolved outcome would log into is
    * already at threshold for the source's current rating. Hides the
    * matching button so the player doesn't waste a click.
@@ -269,6 +285,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
   const showLogAdvancement = createMemo<boolean>(() => {
     const s = spec();
     if (!s) return false;
+    if (rollerIsMonster()) return false;
     if (advancementLogged()) return false;
     if (!specIsAdvanceable(s)) return false;
     if (advancementColumnFull()) return false;
@@ -293,6 +310,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
   );
 
   const showLogTraitUsage = createMemo<boolean>(() => {
+    if (rollerIsMonster()) return false;
     if (!traitUsage()) return false;
     if (traitUsageLogged()) return false;
     return true;
@@ -352,6 +370,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
     const s = spec();
     const outcome = advancementOutcome();
     if (!m || !s || !outcome) return [];
+    if (rollerIsMonster()) return [];
     const declared = s.synergyHelpers ?? [];
     if (declared.length === 0) return [];
     const loggedSet = new Set(
@@ -473,6 +492,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
     const s = spec();
     if (!s) return false;
     if (s.dispositionMode) return false;
+    if (rollerIsMonster()) return false;
     return iAmTheRoller();
   });
 

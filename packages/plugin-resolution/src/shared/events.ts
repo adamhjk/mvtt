@@ -68,6 +68,17 @@ export const RollResolved = defineEvent({
      */
     speakingAsCharacterId: EntityId.optional(),
     /**
+     * Server-resolved snapshot of the speaking-as character's
+     * `Character.name` at the moment the roll resolved. Embedded in
+     * the event so the universal mirror system doesn't have to read
+     * the live world to resolve the displayName — important when
+     * the speaker entity is private (GM-only monster) and players
+     * who receive the public roll event can't see the character
+     * trait. Falls back to `rolledByName` (the user's display name)
+     * when the speaker is absent or this field is missing.
+     */
+    speakingAsCharacterName: z.string().optional(),
+    /**
      * Optional system-specific structured payload propagated from the
      * `RequestRoll` command — see `Formula.meta` for the convention.
      * Allows a game-system rollable to round-trip its own spec

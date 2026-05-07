@@ -38,6 +38,7 @@ import {
  */
 export interface PageProviderContext {
   readonly world: import("@vtt/substrate").World;
+  readonly registry: import("@vtt/substrate").Registry;
   readonly userId: string;
   readonly role: string;
 }

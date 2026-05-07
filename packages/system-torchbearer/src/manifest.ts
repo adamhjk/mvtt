@@ -15,12 +15,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { definePlugin } from "@vtt/substrate";
+import { definePlugin, qualifiedName } from "@vtt/substrate";
 import {
+  CharacterListExclusionSlot,
   CharacterSheetActionsSlot,
   CharacterSheetIdentitySlot,
   CharacterSheetTabsSlot,
   CharacterSheetVitalsSlot,
+  type CharacterListExclusion,
 } from "@vtt/characters/shared";
 import {
   AdvancementLogged,
@@ -110,6 +112,17 @@ import {
   WhatYouFightFor,
   WillCheck,
   Wises,
+  // Monsters:
+  CreateBlankMonster,
+  CreateMonsterFromCatalog,
+  MonsterCreated,
+  MonsterRemoved,
+  RemoveMonster,
+  TbConflictResource,
+  TbMonster,
+  TbMonsterDerivedFrom,
+  TbMonsterSpecialRules,
+  TbMonsterWeapons,
 } from "./shared/index.js";
 import {
   AdvancementLoggedSystem,
@@ -130,6 +143,8 @@ import {
   GrindTollOpenedSystem,
   GrindTollRowAppliedSystem,
   LightWentOutSystem,
+  MonsterRemovalSystem,
+  MonsterSpawningSystem,
   NoticeDismissSystem,
   TbBundleJoinSystem,
   TbBundleSplitSystem,
@@ -175,6 +190,18 @@ import {
   ALL_CONFLICT_TRAITS,
 } from "./conflict/shared/index.js";
 import { ALL_CONFLICT_SYSTEMS } from "./conflict/server/index.js";
+
+/**
+ * Hide monster entities from the Characters tab — they live on their
+ * own Bestiary tab via `BestiaryPageProvider`. The same trait powers
+ * the monster sheet's existence check.
+ */
+const tbMonsterListExclusion: CharacterListExclusion = {
+  id: qualifiedName(
+    "@vtt/system-torchbearer/exclude-monsters-from-characters-list",
+  ) as CharacterListExclusion["id"],
+  matchTrait: TbMonster,
+};
 
 /**
  * Torchbearer 2nd Edition game system. Shape-only first pass:
@@ -251,6 +278,12 @@ export const systemTorchbearer = definePlugin({
     Grind,
     LightWentOutNotice,
     GrindToll,
+    // Monsters:
+    TbMonster,
+    TbMonsterWeapons,
+    TbMonsterSpecialRules,
+    TbMonsterDerivedFrom,
+    TbConflictResource,
     ...ALL_CONFLICT_TRAITS,
   ],
   events: [
@@ -279,6 +312,9 @@ export const systemTorchbearer = definePlugin({
     NoticeDismissed,
     GrindTollOpened,
     GrindTollRowApplied,
+    // Monsters:
+    MonsterCreated,
+    MonsterRemoved,
     ...ALL_CONFLICT_EVENTS,
   ],
   commands: [
@@ -306,6 +342,10 @@ export const systemTorchbearer = definePlugin({
     SetGrindExtreme,
     DismissLightWentOut,
     MarkGrindToll,
+    // Monsters:
+    CreateBlankMonster,
+    CreateMonsterFromCatalog,
+    RemoveMonster,
     ...ALL_CONFLICT_COMMANDS,
   ],
   slots: [TbRollModifierProvidersSlot],
@@ -343,6 +383,9 @@ export const systemTorchbearer = definePlugin({
     NoticeDismissSystem,
     GrindTollOpenedSystem,
     GrindTollRowAppliedSystem,
+    // Monsters:
+    MonsterSpawningSystem,
+    MonsterRemovalSystem,
     ...ALL_CONFLICT_SYSTEMS,
   ],
   rollables: [
@@ -376,6 +419,7 @@ export const systemTorchbearer = definePlugin({
     [PendingRollContributorsSlot.name]: [TbPendingRollContributor],
     [RollActionsSlot.name]: [TbRollActionsFill],
     [ItemDetailSectionsSlot.name]: [...TB_ITEM_DETAIL_SECTIONS],
+    [CharacterListExclusionSlot.name]: [tbMonsterListExclusion],
   },
   seed: tbItemsSeed,
 });

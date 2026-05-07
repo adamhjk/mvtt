@@ -16,7 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { CommandInstance, EntityId } from "@vtt/substrate";
-import { useClient } from "@vtt/substrate/client";
+import { useClient, useTrait } from "@vtt/substrate/client";
 import { createMemo, For, Show, type JSX } from "solid-js";
 import {
   AdvanceRound,
@@ -24,6 +24,7 @@ import {
   TB_ACTION_INDEP_OB,
   TB_CONFLICT_TYPES,
   TB_MATCHUP_NOTES,
+  TbConflictParticipant,
   actionSkillLabel,
   testForAction,
   type ConflictAction,
@@ -87,12 +88,14 @@ export function ResolutionRow(props: { conflictId: EntityId }): JSX.Element {
           party: {
             status: "revealed" as const,
             action: r.partyAction,
+            performerParticipantEntityId: r.partyPerformerParticipantEntityId,
             performerCharacterId: r.partyPerformerCharacterId,
             weaponItemId: r.partyWeaponItemId,
           } satisfies ScriptSlot,
           enemy: {
             status: "revealed" as const,
             action: r.enemyAction,
+            performerParticipantEntityId: r.enemyPerformerParticipantEntityId,
             performerCharacterId: r.enemyPerformerCharacterId,
             weaponItemId: r.enemyWeaponItemId,
           } satisfies ScriptSlot,
@@ -384,6 +387,10 @@ function SideColumn(props: {
       : "var(--color-warning, #8C6210)";
   const performerCharId = (): EntityId | null =>
     props.slot.status === "revealed" ? props.slot.performerCharacterId : null;
+  const performerParticipantId = (): EntityId | null =>
+    props.slot.status === "revealed"
+      ? props.slot.performerParticipantEntityId
+      : null;
   const action = (): ConflictAction | null =>
     props.slot.status === "revealed" ? props.slot.action : null;
   const opposingAction = (): ConflictAction | null =>
@@ -426,9 +433,12 @@ function SideColumn(props: {
           {sideLabel()}
         </span>
         <Show when={performerCharId()}>
-          {(idAcc) => (
+          {(charIdAcc) => (
             <span class="font-display text-sm tracking-tight">
-              <PerformerName characterId={idAcc() as EntityId} />
+              <PerformerName
+                participantEntityId={performerParticipantId()}
+                characterId={charIdAcc() as EntityId}
+              />
             </span>
           )}
         </Show>
@@ -454,9 +464,22 @@ function SideColumn(props: {
   );
 }
 
-function PerformerName(props: { characterId: EntityId }): JSX.Element {
-  const name = useCharacterName(props.characterId);
-  return <>{name()}</>;
+function PerformerName(props: {
+  participantEntityId: EntityId | null;
+  characterId: EntityId;
+}): JSX.Element {
+  const characterName = useCharacterName(props.characterId);
+  // Read the participant's per-instance label live so multi-spawns
+  // resolve to "Goblin 2" instead of just "Goblin". Singletons leave
+  // label undefined and we fall back to the live character name.
+  const participant = useTrait(
+    props.participantEntityId ?? ("" as EntityId),
+    TbConflictParticipant,
+  ) as () => { label?: string } | undefined;
+  const display = createMemo(
+    () => participant()?.label ?? characterName(),
+  );
+  return <>{display()}</>;
 }
 
 function TestPrompt(props: {

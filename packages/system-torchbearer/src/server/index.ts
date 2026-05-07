@@ -54,3 +54,7 @@ export {
   TbItemRemovedFromGroundSystem,
   TbItemUnequipSystem,
 } from "./items/index.js";
+export {
+  MonsterRemovalSystem,
+  MonsterSpawningSystem,
+} from "./monster-systems.js";

@@ -54,8 +54,19 @@ export const RollRecordingSystem = defineSystem({
   reads: [Character],
   writes: [Formula, RollResult, RolledBy, Permissions],
   run: ({ event, world }) => {
+    // Prefer the server-resolved name carried on the event so every
+    // recipient agrees on what to display — including players who
+    // can't read a private (GM-only) speaker entity but should still
+    // see "Marcus Poopypants rolled Nature" in chat. Fall back to a
+    // local read for backwards compatibility, then to the user's
+    // own name when no character is in play.
     let displayName = event.rolledByName;
     if (
+      event.speakingAsCharacterName &&
+      event.speakingAsCharacterName.length > 0
+    ) {
+      displayName = event.speakingAsCharacterName;
+    } else if (
       event.speakingAsCharacterId &&
       world.has(event.speakingAsCharacterId)
     ) {

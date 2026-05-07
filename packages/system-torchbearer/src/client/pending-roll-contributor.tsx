@@ -29,7 +29,7 @@ import {
   type PendingRollContributor,
   type PendingRollContributorArgs,
 } from "@vtt/characters/shared";
-import { Character } from "@vtt/characters/shared";
+import { Character, Team } from "@vtt/characters/shared";
 import { canWrite, Permissions } from "@vtt/permissions/shared";
 import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
@@ -38,6 +38,7 @@ import {
   Pools,
   RawAbilities,
   Skills,
+  TbMonster,
   TownAbilities,
   TB_CHANNEL_NATURE_CONTRIB_KIND,
   TB_DISPOSITION_CONTRIB_KIND,
@@ -51,6 +52,7 @@ import {
   channelNatureFromContributions,
   dispositionAddToFromContributions,
   dispositionFromContributions,
+  dispositionMonsterPoolFromContributions,
   eligibleHelpFor,
   getSkill,
   helpProvidedBy,
@@ -62,6 +64,8 @@ import {
   suggestedQuickModifiersFor,
   synergyHelpersFromContributions,
   versusFromContributions,
+  type DispoAddTo,
+  type DispoMonsterPool,
   type HelperContext,
   type HelpOption,
   type TbRollKind,
@@ -178,18 +182,33 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
     return typeof fromOpts === "boolean" ? fromOpts : false;
   });
 
-  // Active disposition addTo — which ability ("will"/"health") is the
-  // additive base for the dispo total. Panel contribution > opts; null
-  // when explicitly cleared, undefined when never set.
-  const activeDispositionAddTo = createMemo<"will" | "health" | null>(() => {
+  // Active disposition addTo — which ability ("will"/"health"/"nature")
+  // is the additive base for the dispo total. Panel contribution >
+  // opts; null when explicitly cleared, undefined when never set.
+  const activeDispositionAddTo = createMemo<DispoAddTo | null>(() => {
     const fromPanel = dispositionAddToFromContributions(
       (pr()?.contributions ?? []) as Contribution[],
     );
     if (fromPanel !== undefined) return fromPanel;
     const fromOpts = (
-      pr()?.opts as { dispositionAddTo?: "will" | "health" | null } | undefined
+      pr()?.opts as { dispositionAddTo?: DispoAddTo | null } | undefined
     )?.dispositionAddTo;
     return fromOpts ?? null;
+  });
+
+  // Initiator's TbMonster trait — load-bearing for the monster-aware
+  // disposition UI: monsters always add Nature, and pick within /
+  // outside Nature for the dice pool (SG p.172).
+  const initiatorMonster = useTrait(props.initiatorCharacterId, TbMonster);
+  const isMonster = createMemo(() => initiatorMonster() !== undefined);
+
+  // Monster pool selection — "within" (full Nature) or "outside" (half
+  // Nature, rounded up). Default "within"; the panel button toggles.
+  const activeMonsterPool = createMemo<DispoMonsterPool>(() => {
+    const fromPanel = dispositionMonsterPoolFromContributions(
+      (pr()?.contributions ?? []) as Contribution[],
+    );
+    return fromPanel ?? "within";
   });
 
   // Currently-paired versusTestId (panel contribution wins; opts.versusTestId
@@ -488,35 +507,77 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
   const toggleDisposition = (next: boolean) => {
     const m = me();
     if (!m) return;
+    // Monsters always add Nature, so seed the addTo on toggle-on
+    // even before the pool toggle is touched.
+    const seededAddTo: DispoAddTo | null = next
+      ? isMonster()
+        ? "nature"
+        : activeDispositionAddTo()
+      : null;
     props.contribute({
       kind: TB_DISPOSITION_CONTRIB_KIND,
-      label: next
-        ? "Disposition roll (SG p.63)"
-        : "Disposition off",
+      label: next ? "Disposition roll (SG p.63)" : "Disposition off",
       fromUserId: m.userId,
       fromCharacterId: props.initiatorCharacterId,
-      payload: { enabled: next, addTo: next ? activeDispositionAddTo() : null },
+      payload: {
+        enabled: next,
+        addTo: seededAddTo,
+        pool: next && seededAddTo === "nature" ? activeMonsterPool() : undefined,
+      },
       replaces: "tb:disposition",
     });
   };
 
   /**
-   * Pick the Will or Health additive base for the disposition roll.
-   * Per SG p.63-64 / LM p.106 the conflict type pins which ability is
-   * added: Kill / Drive Off / Flee / Pursue → Health; Convince /
-   * Capture / Trick → Will. The pending-roll panel needs an explicit
-   * pick so skill rolls (where the dice pool ≠ the additive base)
-   * compute correctly.
+   * Pick the Will / Health / Nature additive base for the disposition
+   * roll. PC conflict types (SG p.63-64 / LM p.106) pin Will or
+   * Health; monsters always add Nature (SG p.172). The pending-roll
+   * panel needs an explicit pick so skill rolls (where dice pool ≠
+   * additive base) compute correctly.
    */
-  const pickDispositionAddTo = (next: "will" | "health") => {
+  const pickDispositionAddTo = (next: DispoAddTo) => {
+    const m = me();
+    if (!m) return;
+    const label =
+      next === "will"
+        ? "Disposition: + Will"
+        : next === "health"
+          ? "Disposition: + Health"
+          : "Disposition: + Nature";
+    props.contribute({
+      kind: TB_DISPOSITION_CONTRIB_KIND,
+      label,
+      fromUserId: m.userId,
+      fromCharacterId: props.initiatorCharacterId,
+      payload: {
+        enabled: true,
+        addTo: next,
+        // Preserve the monster pool selection across addTo changes —
+        // the picker only re-asserts pool when the user explicitly
+        // toggles within / outside.
+        pool: next === "nature" ? activeMonsterPool() : undefined,
+      },
+      replaces: "tb:disposition",
+    });
+  };
+
+  /**
+   * Toggle the monster dispo pool — "within" Nature (full) or
+   * "outside" (half Nature, rounded up). Per SG p.172 both still add
+   * the full Nature rating; only the dice pool differs.
+   */
+  const pickMonsterPool = (next: DispoMonsterPool) => {
     const m = me();
     if (!m) return;
     props.contribute({
       kind: TB_DISPOSITION_CONTRIB_KIND,
-      label: `Disposition: + ${next === "will" ? "Will" : "Health"}`,
+      label:
+        next === "within"
+          ? "Disposition: within Nature (full)"
+          : "Disposition: outside Nature (half)",
       fromUserId: m.userId,
       fromCharacterId: props.initiatorCharacterId,
-      payload: { enabled: true, addTo: next },
+      payload: { enabled: true, addTo: "nature", pool: next },
       replaces: "tb:disposition",
     });
   };
@@ -623,8 +684,14 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
   /* -------- Help (DH p.37) -------- */
   // Every Character entity in the world (with Permissions) — used to
   // enumerate the helper roster. Reactive so a GM dropping a new NPC
-  // shows up live.
+  // shows up live. Filtered by Team match downstream so PCs only see
+  // PC helpers and monsters only see monster allies.
   const allCharacters = useQuery([Character, Permissions]);
+
+  // Initiator's team affiliation — drives the same-team filter on
+  // the helper roster. Reactive: if the GM flips a character's team
+  // mid-conflict, the picker live-updates.
+  const initiatorTeam = useTrait(props.initiatorCharacterId, Team);
 
   // Roll's headline kind/sourceId — what the helper is helping with.
   // Read off the previewed spec so it tracks as panel toggles
@@ -751,12 +818,25 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
     const rows: HelperRow[] = [];
     const live = pr();
     const contributions = (live?.contributions ?? []) as Contribution[];
+    // Initiator's team — defaults to "party" when the trait isn't set,
+    // matching the Team trait's own default. Same-team filter below
+    // hides cross-team helpers (a PC can't be helped by a monster, a
+    // monster can't be helped by the party).
+    const myTeam = initiatorTeam()?.kind ?? "party";
     for (const row of allCharacters()) {
       if (row.id === props.initiatorCharacterId) continue;
       const perm = row.values.Permissions as
         | Parameters<typeof canWrite>[1]
         | undefined;
       if (!canWrite(m, perm)) continue;
+      // Helper must be on the same team. Read live so a GM can flip a
+      // monster's team and the picker re-derives.
+      const helperTeam = client.world.get(
+        row.id as Parameters<typeof client.world.get>[0],
+        [Team],
+      ) as { Team: { kind: "party" | "enemy" } } | undefined;
+      const helperTeamKind = helperTeam?.Team.kind ?? "party";
+      if (helperTeamKind !== myTeam) continue;
       const ctx = helperContextOf(row.id);
       const automatic = eligibleHelpFor(r, ctx);
       const gm = gmOptionsFor(r.kind, r.sourceId, ctx, automatic);
@@ -979,54 +1059,105 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
           {activeDisposition() ? "disposition (on)" : "switch to disposition"}
         </button>
         <Show when={activeDisposition()}>
-          <div
-            class="flex items-center gap-1 mt-0.5"
-            data-testid="tb-pending-roll-disposition-addto"
+          <Show
+            when={isMonster()}
+            fallback={
+              <>
+                <div
+                  class="flex items-center gap-1 mt-0.5"
+                  data-testid="tb-pending-roll-disposition-addto"
+                >
+                  <span class="text-[0.6rem] text-fg-subtle uppercase tracking-[0.14em]">
+                    add to
+                  </span>
+                  <button
+                    type="button"
+                    class="rounded-(--radius-control) border px-1.5 py-0.5 text-[0.65rem] transition"
+                    classList={{
+                      "border-accent bg-accent text-accent-fg":
+                        activeDispositionAddTo() === "will",
+                      "border-border bg-surface text-fg-muted hover:border-accent":
+                        activeDispositionAddTo() !== "will",
+                    }}
+                    onClick={() => pickDispositionAddTo("will")}
+                    data-testid="tb-pending-roll-disposition-addto-will"
+                    title="Add Will rating to successes (Convince / Capture / Trick conflicts)"
+                  >
+                    Will
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-(--radius-control) border px-1.5 py-0.5 text-[0.65rem] transition"
+                    classList={{
+                      "border-accent bg-accent text-accent-fg":
+                        activeDispositionAddTo() === "health",
+                      "border-border bg-surface text-fg-muted hover:border-accent":
+                        activeDispositionAddTo() !== "health",
+                    }}
+                    onClick={() => pickDispositionAddTo("health")}
+                    data-testid="tb-pending-roll-disposition-addto-health"
+                    title="Add Health rating to successes (Kill / Drive Off / Flee / Pursue conflicts)"
+                  >
+                    Health
+                  </button>
+                </div>
+                <span class="text-[0.65rem] text-fg-subtle">
+                  disposition = (Will or Health) + successes − team penalties
+                </span>
+                <Show when={activeDispositionAddTo() === null}>
+                  <span
+                    class="text-[0.65rem] italic"
+                    style={{ color: "var(--color-warning, #C9A227)" }}
+                    data-testid="tb-pending-roll-disposition-addto-warning"
+                  >
+                    pick Will or Health — required for the dispo math
+                  </span>
+                </Show>
+              </>
+            }
           >
-            <span class="text-[0.6rem] text-fg-subtle uppercase tracking-[0.14em]">
-              add to
-            </span>
-            <button
-              type="button"
-              class="rounded-(--radius-control) border px-1.5 py-0.5 text-[0.65rem] transition"
-              classList={{
-                "border-accent bg-accent text-accent-fg":
-                  activeDispositionAddTo() === "will",
-                "border-border bg-surface text-fg-muted hover:border-accent":
-                  activeDispositionAddTo() !== "will",
-              }}
-              onClick={() => pickDispositionAddTo("will")}
-              data-testid="tb-pending-roll-disposition-addto-will"
-              title="Add Will rating to successes (Convince / Capture / Trick conflicts)"
+            {/* Monster path (SG p.172): always adds Nature; the toggle
+                picks within (full Nature) vs outside (half Nature). */}
+            <div
+              class="flex items-center gap-1 mt-0.5"
+              data-testid="tb-pending-roll-disposition-monster-pool"
             >
-              Will
-            </button>
-            <button
-              type="button"
-              class="rounded-(--radius-control) border px-1.5 py-0.5 text-[0.65rem] transition"
-              classList={{
-                "border-accent bg-accent text-accent-fg":
-                  activeDispositionAddTo() === "health",
-                "border-border bg-surface text-fg-muted hover:border-accent":
-                  activeDispositionAddTo() !== "health",
-              }}
-              onClick={() => pickDispositionAddTo("health")}
-              data-testid="tb-pending-roll-disposition-addto-health"
-              title="Add Health rating to successes (Kill / Drive Off / Flee / Pursue conflicts)"
-            >
-              Health
-            </button>
-          </div>
-          <span class="text-[0.65rem] text-fg-subtle">
-            disposition = (Will or Health) + successes − team penalties
-          </span>
-          <Show when={activeDispositionAddTo() === null}>
-            <span
-              class="text-[0.65rem] italic"
-              style={{ color: "var(--color-warning, #C9A227)" }}
-              data-testid="tb-pending-roll-disposition-addto-warning"
-            >
-              pick Will or Health — required for the dispo math
+              <span class="text-[0.6rem] text-fg-subtle uppercase tracking-[0.14em]">
+                Nature
+              </span>
+              <button
+                type="button"
+                class="rounded-(--radius-control) border px-1.5 py-0.5 text-[0.65rem] transition"
+                classList={{
+                  "border-accent bg-accent text-accent-fg":
+                    activeMonsterPool() === "within",
+                  "border-border bg-surface text-fg-muted hover:border-accent":
+                    activeMonsterPool() !== "within",
+                }}
+                onClick={() => pickMonsterPool("within")}
+                data-testid="tb-pending-roll-disposition-pool-within"
+                title="Conflict matches one of the monster's Nature descriptors — roll full Nature (SG p.172)"
+              >
+                Within Nature
+              </button>
+              <button
+                type="button"
+                class="rounded-(--radius-control) border px-1.5 py-0.5 text-[0.65rem] transition"
+                classList={{
+                  "border-accent bg-accent text-accent-fg":
+                    activeMonsterPool() === "outside",
+                  "border-border bg-surface text-fg-muted hover:border-accent":
+                    activeMonsterPool() !== "outside",
+                }}
+                onClick={() => pickMonsterPool("outside")}
+                data-testid="tb-pending-roll-disposition-pool-outside"
+                title="Conflict outside the monster's Nature descriptors — roll half Nature, rounded up (SG p.172)"
+              >
+                Outside Nature
+              </button>
+            </div>
+            <span class="text-[0.65rem] text-fg-subtle">
+              disposition = Nature rating + successes − team penalties
             </span>
           </Show>
         </Show>
@@ -1151,7 +1282,11 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
 
       {/* Persona advantage + Channel Nature — pre-roll declarations
           per DH p.250 ("tally advantages before the test"). The fate /
-          persona pool isn't decremented until commit. */}
+          persona pool isn't decremented until commit.
+          PC-only: monsters don't carry Fate/Persona pools (SG p.171
+          "Monsters Acting Outside of Nature" describes Nature-tax
+          mechanics for monsters but never persona/fate spends). */}
+      <Show when={!isMonster()}>
       <div
         class="flex flex-col gap-1 border-t border-border-muted pt-2"
         data-testid="tb-pending-roll-persona"
@@ -1238,8 +1373,13 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
           </span>
         </Show>
       </div>
+      </Show>
 
-      <Show when={(initiatorTraits()?.entries.length ?? 0) > 0}>
+      <Show
+        when={
+          !isMonster() && (initiatorTraits()?.entries.length ?? 0) > 0
+        }
+      >
         <div
           class="flex flex-col gap-1 border-t border-border-muted pt-2"
           data-testid="tb-pending-roll-traits"

@@ -50,6 +50,7 @@ import {
   SetField,
 } from "./shared/commands.js";
 import {
+  CharacterListExclusionSlot,
   CharacterSheetActionsSlot,
   CharacterSheetIdentitySlot,
   CharacterSheetStatusSlot,
@@ -153,6 +154,7 @@ export const characters = definePlugin({
     CharacterSheetStatusSlot,
     CharacterSheetTabsSlot,
     CharacterSheetActionsSlot,
+    CharacterListExclusionSlot,
     PendingRollContributorsSlot,
   ],
   fills: {

@@ -31,6 +31,26 @@ import type {
   ScriptSlot,
 } from "../shared/index.js";
 
+/**
+ * Set of item-entity ids carried by *any* character in the world.
+ * Reactive: re-derives whenever any TbCarries trait changes. Used by
+ * the weapon/armor pickers to distinguish "owned by a character"
+ * (only that character can wield it — Hideous Bite belongs to the
+ * Vampire Lord) from "shared catalog conflict resource" (Blackmail,
+ * Hostage, True Name — anyone can pick).
+ */
+export function useGloballyCarriedItemIds(): () => ReadonlySet<string> {
+  const carriers = useQuery([TbCarries]);
+  return createMemo<ReadonlySet<string>>(() => {
+    const out = new Set<string>();
+    for (const row of carriers()) {
+      const c = row.values.TbCarries as ReturnType<typeof TbCarries>["value"];
+      for (const e of c.entries) out.add(e.itemId as string);
+    }
+    return out;
+  });
+}
+
 export interface ConflictView {
   readonly id: EntityId;
   readonly type: ReturnType<typeof TbConflict>["value"]["type"];
@@ -73,6 +93,7 @@ export interface ParticipantView {
   readonly hp: number;
   readonly hpMax: number;
   readonly knockedOut: boolean;
+  readonly label?: string;
 }
 
 export function useParticipants(
@@ -157,11 +178,17 @@ export function useCharacterName(
 
 export interface WeaponView {
   readonly conflictId: EntityId;
-  readonly characterId: EntityId;
+  readonly participantEntityId: EntityId;
   readonly weaponItemId: EntityId | null;
   readonly chosenAction: ReturnType<typeof TbConflictWeapon>["value"]["chosenAction"];
 }
 
+/**
+ * Map of participantEntityId → current weapon binding for a conflict.
+ * Indexed by the *participant* (not the character) so two goblins
+ * referencing the same Goblin character entity can wield two
+ * different weapons.
+ */
 export function useWeaponBindings(
   conflictId: EntityId,
 ): () => Map<EntityId, WeaponView> {
@@ -173,7 +200,7 @@ export function useWeaponBindings(
         typeof TbConflictWeapon
       >["value"];
       if (w.conflictId !== conflictId) continue;
-      out.set(w.characterId, w);
+      out.set(w.participantEntityId, w);
     }
     return out;
   });

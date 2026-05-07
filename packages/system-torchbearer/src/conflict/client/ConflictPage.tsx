@@ -27,6 +27,12 @@ import {
 } from "solid-js";
 import { Character, SetField, Team } from "@vtt/characters/shared";
 import {
+  CreateMonsterFromCatalog,
+  MonsterCreated,
+  TB_MONSTER_TEMPLATES,
+  TbMonster,
+} from "../../shared/index.js";
+import {
   ALL_CONFLICT_TYPES,
   DeclareConflict,
   TB_CONFLICT_TYPES,
@@ -39,7 +45,7 @@ import { TopStripe } from "./TopStripe.js";
 import { TeamColumn } from "./TeamColumn.js";
 import { ResolutionRow } from "./ResolutionRow.js";
 import { ActionMatrix } from "./ActionMatrix.js";
-import { WeaponPanel } from "./WeaponPanel.js";
+import { ConflictWeaponsReference, WeaponPanel } from "./WeaponPanel.js";
 import { ArmorRulesLegend, ArmorSidePanel } from "./ArmorPanel.js";
 import { ConditionsPanel } from "./ConditionsPanel.js";
 import { CompromisePanel } from "./CompromisePanel.js";
@@ -268,22 +274,80 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
       if (captainId() === c.id) setCaptainId(null);
     }
     if (next === "party" && enemyIds().has(c.id)) {
-      setEnemyIds((cur) => {
-        const n = new Set(cur);
+      setEnemyCounts((cur) => {
+        const n = new Map(cur);
         n.delete(c.id);
         return n;
       });
     }
   };
 
-  const partyChars = createMemo(() => characters().filter((c) => c.team === "party"));
-  const enemyChars = createMemo(() => characters().filter((c) => c.team === "enemy"));
-
   const [type, setType] = createSignal<ConflictType>("kill");
   const [location, setLocation] = createSignal("");
   const [captainId, setCaptainId] = createSignal<EntityId | null>(null);
   const [partyIds, setPartyIds] = createSignal<Set<EntityId>>(new Set());
-  const [enemyIds, setEnemyIds] = createSignal<Set<EntityId>>(new Set());
+
+  const partyChars = createMemo(() =>
+    characters().filter((c) => c.team === "party"),
+  );
+  const enemyChars = createMemo(() =>
+    characters().filter((c) => c.team === "enemy"),
+  );
+  // Bestiary picker — pick a template + count, click Spawn, the
+  // freshly-spawned character appears in the enemy list with the
+  // requested count selected. Saves a roundtrip through the
+  // Bestiary tab when declaring "throw 4 goblins at them".
+  //
+  // The picker is a typeahead: `bestiaryQuery` holds the typed text;
+  // `bestiarySelected` is the committed pick (template id) used when
+  // Spawn fires. `bestiaryQuery` and `bestiarySelected` are
+  // independent so a user can keep editing the query without losing
+  // their selection.
+  const [bestiaryQuery, setBestiaryQuery] = createSignal("");
+  const [bestiarySelected, setBestiarySelected] = createSignal<string | null>(
+    TB_MONSTER_TEMPLATES[0]?.id ?? null,
+  );
+  const [bestiaryCount, setBestiaryCount] = createSignal<number>(1);
+  const [bestiaryBusy, setBestiaryBusy] = createSignal(false);
+
+  // Subsequence-style fuzzy match: every char in the query (in order,
+  // not necessarily adjacent) must appear in the candidate name.
+  // "vmpr" matches "Vampire Lord"; "dor" matches "Dragefolk"; "x"
+  // matches nothing in the catalog. Cheap (linear over both inputs)
+  // and good enough for the ~30-entry monster catalog.
+  const fuzzyMatch = (name: string, query: string): boolean => {
+    const n = name.toLowerCase();
+    const q = query.toLowerCase();
+    let i = 0;
+    for (let j = 0; j < n.length && i < q.length; j += 1) {
+      if (n.charCodeAt(j) === q.charCodeAt(i)) i += 1;
+    }
+    return i === q.length;
+  };
+  const bestiaryCandidates = createMemo(() => {
+    const q = bestiaryQuery().trim();
+    if (q.length === 0) return TB_MONSTER_TEMPLATES;
+    return TB_MONSTER_TEMPLATES.filter((t) => fuzzyMatch(t.name, q));
+  });
+  // Resolve the selected template's display label for the input's
+  // placeholder + the chip alongside it. Falls back to "—" if the
+  // selection has been cleared (e.g. typed a query that doesn't
+  // match anything yet — Spawn stays disabled).
+  const bestiarySelectedTemplate = createMemo(() =>
+    TB_MONSTER_TEMPLATES.find((t) => t.id === bestiarySelected()) ?? null,
+  );
+  // Enemy is a multimap — characterId → count. Selecting a chip adds
+  // it with count=1; the +/- stepper next to the chip lets the GM
+  // bump it to 4 goblins. Unselecting removes the entry entirely.
+  const [enemyCounts, setEnemyCounts] = createSignal<Map<EntityId, number>>(
+    new Map(),
+  );
+  const enemyIds = createMemo(() => new Set(enemyCounts().keys()));
+  const enemyTotalCount = createMemo(() => {
+    let n = 0;
+    for (const c of enemyCounts().values()) n += c;
+    return n;
+  });
   const [busy, setBusy] = createSignal(false);
 
   const togglePartyMember = (id: EntityId): void => {
@@ -299,12 +363,59 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
     });
   };
   const toggleEnemyMember = (id: EntityId): void => {
-    setEnemyIds((cur) => {
-      const next = new Set(cur);
+    setEnemyCounts((cur) => {
+      const next = new Map(cur);
       if (next.has(id)) next.delete(id);
-      else next.add(id);
+      else next.set(id, 1);
       return next;
     });
+  };
+
+  const setEnemyCount = (id: EntityId, count: number): void => {
+    const clamped = Math.max(1, Math.min(20, Math.floor(count)));
+    setEnemyCounts((cur) => {
+      const next = new Map(cur);
+      if (next.has(id)) next.set(id, clamped);
+      return next;
+    });
+  };
+
+  /**
+   * Spawn a fresh monster from the bestiary catalog and pre-select
+   * it in the enemy list with the chosen count. The command itself
+   * spawns ONE character entity; we just dial up `count` on the
+   * enemy-counts map so DeclareConflict's expansion produces N rows
+   * referencing it.
+   */
+  const spawnAndPickFromBestiary = (): void => {
+    if (bestiaryBusy()) return;
+    const tmplId = bestiarySelected();
+    if (!tmplId) return;
+    setBestiaryBusy(true);
+    // Snapshot the existing monster ids so we can identify the new
+    // one when the MonsterCreated event lands. The command's apply
+    // allocates the id server-side, so we don't know it up-front.
+    const beforeIds = new Set(
+      client.world.query([Character, TbMonster]).map((r) => r.id as string),
+    );
+    const requestedCount = Math.max(1, Math.min(20, bestiaryCount()));
+    const off = client.bus.on(MonsterCreated.name, () => {
+      off();
+      const fresh = client.world
+        .query([Character, TbMonster])
+        .find((r) => !beforeIds.has(r.id as string));
+      if (fresh) {
+        setEnemyCounts((cur) => {
+          const next = new Map(cur);
+          next.set(fresh.id as EntityId, requestedCount);
+          return next;
+        });
+      }
+      setBestiaryBusy(false);
+    });
+    client.dispatch(
+      CreateMonsterFromCatalog({ templateId: tmplId }) as CommandInstance,
+    );
   };
 
   const canSubmit = createMemo(
@@ -322,10 +433,11 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
     setBusy(true);
     const partyParticipants = [...partyIds()].map((id) => ({
       characterId: id,
+      count: 1,
     }));
-    const enemyParticipants = [...enemyIds()].map((id) => ({
-      characterId: id,
-    }));
+    const enemyParticipants = [...enemyCounts().entries()].map(
+      ([id, count]) => ({ characterId: id, count }),
+    );
     const before = new Set(
       client.world.query([TbConflict]).map((r) => r.id as string),
     );
@@ -420,6 +532,7 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
           <ul class="flex flex-wrap gap-1">
             <For each={partyChars()}>
               {(c) => (
+                <li>
                 <CharChip
                   c={c}
                   selected={partyIds().has(c.id)}
@@ -446,6 +559,7 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
                   }
                   testId={`party-chip-${c.id}`}
                 />
+                </li>
               )}
             </For>
           </ul>
@@ -454,7 +568,8 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
 
       <fieldset class="flex flex-col gap-2 border-0 p-0">
         <legend class="text-xs uppercase tracking-wider text-fg-subtle">
-          Enemy ({enemyIds().size}) · enemy-team characters
+          Enemy ({enemyIds().size}/{enemyTotalCount()}) · enemy-team
+          characters · count for groups (4 goblins, etc.)
         </legend>
         <Show
           when={enemyChars().length > 0}
@@ -468,16 +583,42 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
           <ul class="flex flex-wrap gap-1">
             <For each={enemyChars()}>
               {(c) => (
-                <CharChip
-                  c={c}
-                  selected={enemyIds().has(c.id)}
-                  onToggle={() => toggleEnemyMember(c.id)}
-                  testId={`enemy-chip-${c.id}`}
-                />
+                <li class="flex items-center gap-1">
+                  <CharChip
+                    c={c}
+                    selected={enemyIds().has(c.id)}
+                    onToggle={() => toggleEnemyMember(c.id)}
+                    testId={`enemy-chip-${c.id}`}
+                  />
+                  <Show when={enemyIds().has(c.id)}>
+                    <EnemyCountStepper
+                      characterId={c.id}
+                      count={enemyCounts().get(c.id) ?? 1}
+                      onChange={(n) => setEnemyCount(c.id, n)}
+                    />
+                  </Show>
+                </li>
               )}
             </For>
           </ul>
         </Show>
+
+        {/* Spawn-from-bestiary inline picker. Lets the GM materialize
+            a fresh monster mid-declare instead of bouncing to the
+            Bestiary tab first. The freshly-spawned character is
+            auto-selected with the chosen count. */}
+        <BestiarySpawnRow
+          query={bestiaryQuery}
+          setQuery={setBestiaryQuery}
+          selected={bestiarySelected}
+          setSelected={setBestiarySelected}
+          selectedTemplate={bestiarySelectedTemplate}
+          candidates={bestiaryCandidates}
+          count={bestiaryCount}
+          setCount={setBestiaryCount}
+          busy={bestiaryBusy}
+          onSpawn={spawnAndPickFromBestiary}
+        />
       </fieldset>
 
       <fieldset class="flex flex-col gap-1 border-t border-border-muted pt-2">
@@ -544,21 +685,733 @@ function CharChip(props: {
   testId: string;
 }): JSX.Element {
   return (
-    <li>
+    <button
+      type="button"
+      onClick={props.onToggle}
+      data-testid={props.testId}
+      class="rounded-(--radius-control) border px-2 py-1 text-xs flex items-center gap-1 transition"
+      classList={{
+        "border-accent bg-accent text-accent-fg": props.selected,
+        "border-border-muted bg-surface text-fg hover:border-accent":
+          !props.selected,
+      }}
+    >
+      <span>{props.c.name}</span>
+      {props.badge}
+    </button>
+  );
+}
+
+/**
+ * Per-enemy count stepper. Sits next to a selected enemy CharChip
+ * so the GM can dial in "4 goblins" without separate AddParticipants
+ * round-trips. Range 1..20 (the schema's hard cap).
+ */
+function EnemyCountStepper(props: {
+  characterId: EntityId;
+  count: number;
+  onChange: (next: number) => void;
+}): JSX.Element {
+  return (
+    <span
+      class="inline-flex items-center gap-0.5 rounded-(--radius-control) border border-border-muted bg-surface-elevated px-1 py-0.5 text-[0.7rem]"
+      data-testid={`enemy-count-${props.characterId}`}
+    >
       <button
         type="button"
-        onClick={props.onToggle}
-        data-testid={props.testId}
-        class="rounded-(--radius-control) border px-2 py-1 text-xs flex items-center gap-1 transition"
-        classList={{
-          "border-accent bg-accent text-accent-fg": props.selected,
-          "border-border-muted bg-surface text-fg hover:border-accent":
-            !props.selected,
+        onClick={() => props.onChange(Math.max(1, props.count - 1))}
+        disabled={props.count <= 1}
+        class="px-1 text-fg-muted hover:text-fg disabled:opacity-30 disabled:cursor-not-allowed"
+        aria-label="decrement"
+        data-testid={`enemy-count-dec-${props.characterId}`}
+      >
+        −
+      </button>
+      <span
+        class="min-w-[1ch] text-center tabular-nums font-mono text-fg"
+        data-testid={`enemy-count-value-${props.characterId}`}
+      >
+        {props.count}
+      </span>
+      <button
+        type="button"
+        onClick={() => props.onChange(Math.min(20, props.count + 1))}
+        disabled={props.count >= 20}
+        class="px-1 text-fg-muted hover:text-fg disabled:opacity-30 disabled:cursor-not-allowed"
+        aria-label="increment"
+        data-testid={`enemy-count-inc-${props.characterId}`}
+      >
+        +
+      </button>
+    </span>
+  );
+}
+
+/**
+ * Inline bestiary picker row inside the conflict-declare form.
+ * Combobox-style: typing filters the catalog with a subsequence
+ * fuzzy match, clicking a candidate commits the selection, the
+ * count input dials the participant multiplier, the Spawn button
+ * dispatches CreateMonsterFromCatalog and the spawn handler
+ * pre-selects the resulting character with the requested count.
+ *
+ * Lifted into its own component so the createMemo / signals it
+ * needs (filtered candidates, "is dropdown open") don't pollute
+ * the larger DeclareConflictForm scope. State is owned by the
+ * parent and passed in as accessor / setter pairs — keeps the
+ * spawn handler colocated with the rest of the form.
+ */
+/**
+ * Bestiary spawn picker. Replaces the prior combobox with a
+ * persistent card-list rack: search filters the visible cards
+ * inline, the selected creature is shouted via an inverted accent
+ * surface + a thick rail on the leading edge + a chevron marker, and
+ * the footer button reads as a verb-on-target ("Conjure 4 × Goblin →")
+ * so the GM can see exactly what they're about to commit.
+ *
+ * The list is always visible — no open/closed state, no floating
+ * dropdown. Filtering shrinks the rack; selection re-paints one row
+ * in solid accent. Stats render in JetBrains Mono for the
+ * stat-block tone; names use the display face. Selection is
+ * keyboard-navigable (↑/↓ to step through filtered candidates,
+ * Enter to commit, Esc to clear).
+ */
+function BestiarySpawnRow(props: {
+  query: () => string;
+  setQuery: (next: string) => void;
+  selected: () => string | null;
+  setSelected: (next: string | null) => void;
+  selectedTemplate: () =>
+    | {
+        id: string;
+        name: string;
+        nature: { rating: number };
+        might: number;
+        type: string;
+      }
+    | null;
+  candidates: () => ReadonlyArray<{
+    id: string;
+    name: string;
+    nature: { rating: number };
+    might: number;
+    type: string;
+  }>;
+  count: () => number;
+  setCount: (next: number) => void;
+  busy: () => boolean;
+  onSpawn: () => void;
+}): JSX.Element {
+  // Roving selection inside the filtered list — arrow keys move the
+  // selected card up/down through whatever's currently visible. The
+  // selection survives a query change as long as the card still
+  // matches; otherwise we fall through to the first candidate.
+  const moveSelection = (dir: 1 | -1): void => {
+    const list = props.candidates();
+    if (list.length === 0) return;
+    const cur = props.selected();
+    const idx = list.findIndex((t) => t.id === cur);
+    if (idx === -1) {
+      const next = dir === 1 ? list[0]! : list[list.length - 1]!;
+      props.setSelected(next.id);
+      return;
+    }
+    const nextIdx = (idx + dir + list.length) % list.length;
+    props.setSelected(list[nextIdx]!.id);
+  };
+
+  // Selection auto-heals when the search trims it out. Without this
+  // the user can type a query that excludes the current selection
+  // and the spawn button stays "armed" with a creature they can't
+  // see — confusing. createMemo runs synchronously after the query
+  // signal updates so the heal lands in the same render frame.
+  createMemo(() => {
+    const list = props.candidates();
+    const cur = props.selected();
+    if (list.length === 0) return;
+    if (cur && list.some((t) => t.id === cur)) return;
+    props.setSelected(list[0]!.id);
+  });
+
+  const stepCount = (delta: 1 | -1): void => {
+    const next = Math.max(1, Math.min(20, props.count() + delta));
+    if (next !== props.count()) props.setCount(next);
+  };
+
+  return (
+    <div
+      class="relative mt-2"
+      data-testid="declare-bestiary-picker"
+      style={{
+        "border-top": "1px solid var(--color-border-muted)",
+        "padding-top": "0.85rem",
+      }}
+    >
+      {/* Section header — small caps display type, with a manuscript
+          ornament + a live count. Sits flush left so the rack reads
+          as a single labeled object. */}
+      <div class="flex items-baseline justify-between mb-2">
+        <h3
+          class="flex items-baseline gap-2"
+          style={{
+            "font-family": "var(--font-display)",
+            "font-size": "0.68rem",
+            "letter-spacing": "0.22em",
+            "text-transform": "uppercase",
+            color: "var(--color-fg)",
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              color: "var(--color-accent)",
+              "font-size": "0.85rem",
+              transform: "translateY(-0.05em)",
+            }}
+          >
+            ❦
+          </span>
+          Bestiary
+        </h3>
+        <span
+          class="tabular-nums"
+          style={{
+            "font-family": "var(--font-mono)",
+            "font-size": "0.65rem",
+            color: "var(--color-fg-subtle)",
+          }}
+        >
+          {props.candidates().length} / {TB_MONSTER_TEMPLATES.length}
+        </span>
+      </div>
+
+      {/* Search input — sits ABOVE the always-visible card rack, not
+          AS the picker. Filters in place; clearing the query restores
+          the full catalog. */}
+      <div class="relative mb-1.5">
+        <span
+          aria-hidden="true"
+          class="absolute left-2 top-1/2 -translate-y-1/2"
+          style={{
+            "font-family": "var(--font-mono)",
+            "font-size": "0.7rem",
+            color: "var(--color-fg-subtle)",
+            "letter-spacing": "0.05em",
+          }}
+        >
+          ▸
+        </span>
+        <input
+          type="text"
+          value={props.query()}
+          placeholder="filter by name…"
+          onInput={(e) => props.setQuery(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              moveSelection(1);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              moveSelection(-1);
+            } else if (e.key === "Enter" && props.selected()) {
+              e.preventDefault();
+              if (!props.busy()) props.onSpawn();
+            } else if (e.key === "Escape") {
+              props.setQuery("");
+            }
+          }}
+          class="w-full rounded-(--radius-control) outline-none transition-colors"
+          style={{
+            "padding-left": "1.6rem",
+            "padding-right": props.query().length > 0 ? "1.8rem" : "0.55rem",
+            "padding-top": "0.4rem",
+            "padding-bottom": "0.4rem",
+            "background-color": "var(--color-surface-sunken, var(--color-surface))",
+            "border": "1px solid var(--color-border-muted)",
+            "font-family": "var(--font-display)",
+            "font-size": "0.85rem",
+            color: "var(--color-fg)",
+          }}
+          onFocus={(e) => {
+            (e.currentTarget as HTMLInputElement).style.borderColor =
+              "var(--color-accent)";
+          }}
+          onBlur={(e) => {
+            (e.currentTarget as HTMLInputElement).style.borderColor =
+              "var(--color-border-muted)";
+          }}
+          data-testid="declare-bestiary-input"
+          autocomplete="off"
+          spellcheck={false}
+          name="conflict-bestiary"
+          data-1p-ignore="true"
+          data-lpignore="true"
+          data-bwignore="true"
+          data-form-type="other"
+          disabled={props.busy()}
+        />
+        <Show when={props.query().length > 0}>
+          <button
+            type="button"
+            onClick={() => props.setQuery("")}
+            aria-label="clear filter"
+            class="absolute right-1 top-1/2 -translate-y-1/2 rounded-sm px-1.5 py-0.5 hover:opacity-100 transition-opacity"
+            style={{
+              "font-family": "var(--font-mono)",
+              "font-size": "0.7rem",
+              color: "var(--color-fg-subtle)",
+              opacity: "0.6",
+            }}
+          >
+            ×
+          </button>
+        </Show>
+      </div>
+
+      {/* The rack itself. Cards always rendered; selection paints one
+          row inverted with a thick accent rail. Compact: ~2.6rem per
+          row, ~5 rows visible without scrolling. */}
+      <Show
+        when={props.candidates().length > 0}
+        fallback={
+          <div
+            class="flex items-center justify-center text-center py-4"
+            style={{
+              "border": "1px dashed var(--color-border-muted)",
+              "border-radius": "var(--radius-control)",
+              "background-color":
+                "var(--color-surface-sunken, var(--color-surface))",
+            }}
+            data-testid="declare-bestiary-empty"
+          >
+            <span
+              style={{
+                "font-family": "var(--font-display)",
+                "font-size": "0.78rem",
+                color: "var(--color-fg-subtle)",
+                "font-style": "italic",
+              }}
+            >
+              no creature matches “{props.query()}”
+            </span>
+          </div>
+        }
+      >
+        <BestiaryRack
+          candidates={props.candidates}
+          selected={props.selected}
+          setSelected={props.setSelected}
+          query={props.query}
+        />
+      </Show>
+
+      {/* Footer: count stepper + dynamic spawn button. The button
+          label is the verb-on-target ("Conjure 4 × Goblin →") so
+          the GM can see exactly what's queued before clicking. */}
+      <div
+        class="mt-2 flex items-stretch gap-1.5"
+        style={{ "min-height": "2.1rem" }}
+      >
+        <div
+          class="flex items-stretch overflow-hidden"
+          style={{
+            "border": "1px solid var(--color-border-muted)",
+            "border-radius": "var(--radius-control)",
+            "background-color":
+              "var(--color-surface-sunken, var(--color-surface))",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => stepCount(-1)}
+            disabled={props.busy() || props.count() <= 1}
+            aria-label="decrement count"
+            class="px-2 transition-colors hover:text-fg disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{
+              "font-family": "var(--font-mono)",
+              "font-size": "0.95rem",
+              color: "var(--color-fg-muted)",
+              "border-right": "1px solid var(--color-border-muted)",
+            }}
+          >
+            −
+          </button>
+          <input
+            type="number"
+            min="1"
+            max="20"
+            value={props.count()}
+            onInput={(e) => {
+              const v = Number.parseInt(e.currentTarget.value, 10);
+              if (Number.isFinite(v)) {
+                props.setCount(Math.max(1, Math.min(20, v)));
+              }
+            }}
+            class="text-center bg-transparent outline-none tabular-nums"
+            style={{
+              "font-family": "var(--font-mono)",
+              "font-size": "0.85rem",
+              width: "2.4rem",
+              color: "var(--color-fg)",
+            }}
+            data-testid="declare-bestiary-count"
+            disabled={props.busy()}
+          />
+          <button
+            type="button"
+            onClick={() => stepCount(1)}
+            disabled={props.busy() || props.count() >= 20}
+            aria-label="increment count"
+            class="px-2 transition-colors hover:text-fg disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{
+              "font-family": "var(--font-mono)",
+              "font-size": "0.95rem",
+              color: "var(--color-fg-muted)",
+              "border-left": "1px solid var(--color-border-muted)",
+            }}
+          >
+            +
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => props.onSpawn()}
+          disabled={props.busy() || !props.selected()}
+          data-testid="declare-bestiary-spawn"
+          class="flex-1 transition-all rounded-(--radius-control) flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            "background-color": props.busy()
+              ? "var(--color-surface-elevated)"
+              : "var(--color-accent)",
+            color: "var(--color-accent-fg)",
+            "font-family": "var(--font-display)",
+            "font-size": "0.78rem",
+            "letter-spacing": "0.08em",
+            "text-transform": "uppercase",
+            "font-weight": 600,
+            padding: "0 0.9rem",
+            border: "1px solid var(--color-accent)",
+          }}
+          onMouseEnter={(e) => {
+            if (props.busy() || !props.selected()) return;
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+              "var(--color-accent-hover, var(--color-accent))";
+          }}
+          onMouseLeave={(e) => {
+            if (props.busy() || !props.selected()) return;
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+              "var(--color-accent)";
+          }}
+        >
+          <Show when={!props.busy()} fallback={<span>Conjuring…</span>}>
+            <Show
+              when={props.selectedTemplate()}
+              fallback={<span>Pick a creature</span>}
+            >
+              <span>
+                Conjure{" "}
+                <span class="tabular-nums" style={{ "font-family": "var(--font-mono)" }}>
+                  {props.count()}
+                </span>{" "}
+                ×{" "}
+                <span style={{ "letter-spacing": "0.04em" }}>
+                  {props.selectedTemplate()!.name}
+                </span>
+              </span>
+              <span aria-hidden="true">→</span>
+            </Show>
+          </Show>
+        </button>
+      </div>
+
+      {/* Helper line. Small, italic, sits just below the action so the
+          GM has the rules-of-engagement in their peripheral vision. */}
+      <p
+        class="mt-1.5"
+        style={{
+          "font-family": "var(--font-display)",
+          "font-size": "0.65rem",
+          "font-style": "italic",
+          color: "var(--color-fg-subtle)",
+          "letter-spacing": "0.02em",
         }}
       >
-        <span>{props.c.name}</span>
-        {props.badge}
-      </button>
+        Materializes one character on the bestiary; expanded into{" "}
+        <span class="tabular-nums" style={{ "font-family": "var(--font-mono)", "font-style": "normal" }}>
+          {props.count()}
+        </span>{" "}
+        participant rows on declare.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Bestiary card rack. When the user is searching, the matching
+ * candidates render as a flat list. When the rack is unfiltered, we
+ * group by monster `type` (undead/troll/beast/…) with sticky group
+ * headers — same scrollroll, but the wall-of-names breaks into
+ * scannable sections so a future catalog of 100+ creatures stays
+ * navigable. Group order is alphabetical-by-type for stability;
+ * within a group, monsters keep their catalog order.
+ *
+ * Selection paints exactly one row in solid accent regardless of
+ * grouping. A sentinel `<li>` is rendered so an empty filter state
+ * is handled by the parent's `<Show>` — this component assumes a
+ * non-empty list.
+ */
+function BestiaryRack(props: {
+  candidates: () => ReadonlyArray<{
+    id: string;
+    name: string;
+    nature: { rating: number };
+    might: number;
+    type: string;
+  }>;
+  selected: () => string | null;
+  setSelected: (id: string | null) => void;
+  query: () => string;
+}): JSX.Element {
+  // Filtered → flat. Unfiltered → grouped by type. The threshold is
+  // "has any query" rather than candidate count, since a user typing
+  // "go" wants a single ranked list, not "Beasts" / "Trolls"
+  // sub-headers stretching one match per group across the rack.
+  const isFiltered = createMemo(() => props.query().trim().length > 0);
+
+  const grouped = createMemo<
+    ReadonlyArray<{
+      type: string;
+      label: string;
+      members: ReadonlyArray<{
+        id: string;
+        name: string;
+        nature: { rating: number };
+        might: number;
+        type: string;
+      }>;
+    }>
+  >(() => {
+    const buckets = new Map<
+      string,
+      Array<{
+        id: string;
+        name: string;
+        nature: { rating: number };
+        might: number;
+        type: string;
+      }>
+    >();
+    for (const t of props.candidates()) {
+      const key = (t.type ?? "other").toLowerCase();
+      const list = buckets.get(key) ?? [];
+      list.push(t);
+      buckets.set(key, list);
+    }
+    const out: Array<{
+      type: string;
+      label: string;
+      members: ReadonlyArray<{
+        id: string;
+        name: string;
+        nature: { rating: number };
+        might: number;
+        type: string;
+      }>;
+    }> = [];
+    for (const [key, members] of buckets) {
+      out.push({
+        type: key,
+        label: key.charAt(0).toUpperCase() + key.slice(1),
+        members,
+      });
+    }
+    out.sort((a, b) => a.label.localeCompare(b.label));
+    return out;
+  });
+
+  return (
+    <div
+      class="overflow-y-auto"
+      role="listbox"
+      aria-label="Bestiary templates"
+      data-testid="declare-bestiary-options"
+      style={{
+        "max-height": "22rem",
+        "border": "1px solid var(--color-border-muted)",
+        "border-radius": "var(--radius-control)",
+        "background-color":
+          "var(--color-surface-sunken, var(--color-surface))",
+      }}
+    >
+      <Show
+        when={isFiltered()}
+        fallback={
+          <For each={grouped()}>
+            {(group) => (
+              <section>
+                {/* Sticky group header — small caps display type
+                    on a translucent surface band so the user can
+                    see "Trolls" / "Undead" while scrolling. */}
+                <header
+                  class="sticky top-0 z-10"
+                  style={{
+                    "background-color":
+                      "var(--color-surface-elevated)",
+                    "border-bottom": "1px solid var(--color-border-muted)",
+                    padding: "0.3rem 0.7rem 0.3rem 0.85rem",
+                    "font-family": "var(--font-display)",
+                    "font-size": "0.6rem",
+                    "letter-spacing": "0.2em",
+                    "text-transform": "uppercase",
+                    color: "var(--color-fg-muted)",
+                    display: "flex",
+                    "align-items": "baseline",
+                    "justify-content": "space-between",
+                  }}
+                >
+                  <span>{group.label}</span>
+                  <span
+                    class="tabular-nums"
+                    style={{
+                      "font-family": "var(--font-mono)",
+                      "font-size": "0.6rem",
+                      color: "var(--color-fg-subtle)",
+                      "letter-spacing": "0.04em",
+                    }}
+                  >
+                    {group.members.length}
+                  </span>
+                </header>
+                <ul>
+                  <For each={group.members}>
+                    {(t, i) => (
+                      <BestiaryRow
+                        candidate={t}
+                        isLast={i() === group.members.length - 1}
+                        selected={() => props.selected() === t.id}
+                        onPick={() => props.setSelected(t.id)}
+                      />
+                    )}
+                  </For>
+                </ul>
+              </section>
+            )}
+          </For>
+        }
+      >
+        <ul>
+          <For each={props.candidates()}>
+            {(t, i) => (
+              <BestiaryRow
+                candidate={t}
+                isLast={i() === props.candidates().length - 1}
+                selected={() => props.selected() === t.id}
+                onPick={() => props.setSelected(t.id)}
+              />
+            )}
+          </For>
+        </ul>
+      </Show>
+    </div>
+  );
+}
+
+function BestiaryRow(props: {
+  candidate: {
+    id: string;
+    name: string;
+    nature: { rating: number };
+    might: number;
+    type: string;
+  };
+  isLast: boolean;
+  selected: () => boolean;
+  onPick: () => void;
+}): JSX.Element {
+  return (
+    <li
+      role="option"
+      aria-selected={props.selected()}
+      onClick={props.onPick}
+      data-testid={`declare-bestiary-option-${props.candidate.id}`}
+      class="cursor-pointer transition-colors relative"
+      style={{
+        display: "grid",
+        "grid-template-columns": "0.4rem 1fr auto",
+        "align-items": "center",
+        "column-gap": "0.7rem",
+        padding: "0.45rem 0.7rem 0.45rem 0",
+        "border-bottom": props.isLast
+          ? "0"
+          : "1px solid var(--color-border-muted)",
+        "background-color": props.selected()
+          ? "var(--color-accent)"
+          : "transparent",
+        color: props.selected()
+          ? "var(--color-accent-fg)"
+          : "var(--color-fg)",
+      }}
+      onMouseEnter={(e) => {
+        if (props.selected()) return;
+        (e.currentTarget as HTMLLIElement).style.backgroundColor =
+          "var(--color-surface-elevated)";
+      }}
+      onMouseLeave={(e) => {
+        if (props.selected()) return;
+        (e.currentTarget as HTMLLIElement).style.backgroundColor =
+          "transparent";
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          "align-self": "stretch",
+          "background-color": props.selected()
+            ? "var(--color-accent-fg)"
+            : "transparent",
+          width: "0.25rem",
+          "margin-left": "0.25rem",
+        }}
+      />
+      <span class="flex items-baseline gap-2 min-w-0">
+        <Show when={props.selected()}>
+          <span
+            aria-hidden="true"
+            style={{
+              "font-family": "var(--font-mono)",
+              "font-size": "0.7rem",
+              opacity: "0.85",
+            }}
+          >
+            ▸
+          </span>
+        </Show>
+        <span
+          class="truncate"
+          style={{
+            "font-family": "var(--font-display)",
+            "font-size": "0.92rem",
+            "font-weight": props.selected() ? 600 : 500,
+          }}
+        >
+          {props.candidate.name}
+        </span>
+      </span>
+      <span
+        class="tabular-nums whitespace-nowrap"
+        style={{
+          "font-family": "var(--font-mono)",
+          "font-size": "0.7rem",
+          "letter-spacing": "0.04em",
+          color: props.selected()
+            ? "var(--color-accent-fg)"
+            : "var(--color-fg-muted)",
+          opacity: props.selected() ? 0.9 : 1,
+        }}
+      >
+        N{props.candidate.nature.rating} · M{props.candidate.might}
+      </span>
     </li>
   );
 }
@@ -588,6 +1441,8 @@ function ConflictBoard(props: { conflictId: EntityId }): JSX.Element {
   const conflict = useConflict(props.conflictId);
   const partyScript = useScript(props.conflictId, "party");
   const enemyScript = useScript(props.conflictId, "enemy");
+  const me = useMe();
+  const isGm = (): boolean => me()?.role === "gm";
 
   const matrixHighlight = createMemo(() => {
     const c = conflict();
@@ -650,16 +1505,27 @@ function ConflictBoard(props: { conflictId: EntityId }): JSX.Element {
             side="party"
             title="Party Armor"
           />
-          <WeaponPanel
-            conflictId={props.conflictId}
-            side="enemy"
-            title="Enemy Weapons"
-          />
-          <ArmorSidePanel
-            conflictId={props.conflictId}
-            side="enemy"
-            title="Enemy Armor"
-          />
+          {/* Enemy weapon + armor possibilities are GM-only — players
+              still see what the enemy *declared* via the dropdown
+              binding on each row, but the full possibility tables are
+              GM information. */}
+          <Show when={isGm()}>
+            <WeaponPanel
+              conflictId={props.conflictId}
+              side="enemy"
+              title="Enemy Weapons"
+            />
+            <ArmorSidePanel
+              conflictId={props.conflictId}
+              side="enemy"
+              title="Enemy Armor"
+            />
+          </Show>
+          {/* Shared catalog conflict-resource weapons (Blackmail,
+              Hostage, True Name, Maps, …). Visible to everyone: the
+              menu of abstract weapons is identical for both sides
+              and useful as table reference. */}
+          <ConflictWeaponsReference conflictId={props.conflictId} />
           <ArmorRulesLegend />
         </div>
         <ConditionsPanel conflictId={props.conflictId} />

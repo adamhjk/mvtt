@@ -20,6 +20,7 @@ import {
   type EntityId,
   type QualifiedName,
   QualifiedNameSchema,
+  type TraitMeta,
   z,
 } from "@vtt/substrate";
 
@@ -202,4 +203,34 @@ export const PendingRollContributorsSlot = defineSlot({
   schema: PendingRollContributorSchema,
   description:
     "Game-system fills for in-panel contribution UI on PendingRoll panels (Help, invoke aspect, etc.).",
+});
+
+/**
+ * List-exclusion fill — game-system fills register marker traits whose
+ * presence on a Character entity excludes that entity from the Characters
+ * page list. Lets a system carve "monster" / "NPC" / "vehicle" archetypes
+ * onto their own dedicated workbench pages without the characters list
+ * also surfacing them.
+ *
+ * Each fill names a single marker trait; the Characters page filters
+ * out any entity carrying ANY registered marker. The fill itself is
+ * intentionally tiny — the page provider for the dedicated archetype
+ * handles its own listing + sheet.
+ */
+export interface CharacterListExclusion {
+  id: QualifiedName;
+  /** Marker trait — entities carrying this trait are hidden from the Characters list. */
+  matchTrait: TraitMeta;
+}
+
+const ExclusionSchema = z.object({
+  id: QualifiedNameSchema,
+  matchTrait: z.any(),
+});
+
+export const CharacterListExclusionSlot = defineSlot({
+  name: "@vtt/characters/list-exclusion",
+  schema: ExclusionSchema,
+  description:
+    "Marker traits whose presence on a Character entity hides it from the Characters page list. Game systems register one fill per archetype that lives on its own workbench page (monsters, NPCs, vehicles, etc.).",
 });

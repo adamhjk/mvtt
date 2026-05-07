@@ -28,7 +28,9 @@ import { SheetShell } from "./SheetShell.js";
  *
  * The shell is rendered even with no game-system fills — players
  * still get the editable name + player-assignment via the default
- * Identity fill.
+ * Identity fill. Game systems with archetypes that need a different
+ * layout (monsters, NPCs, vehicles) ship their own page provider
+ * instead of fighting the shell.
  */
 export function CharacterSheet(props: { characterId: string }): JSX.Element {
   const character = useTrait(props.characterId, Character);

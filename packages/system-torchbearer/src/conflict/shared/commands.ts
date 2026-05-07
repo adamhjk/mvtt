@@ -30,6 +30,7 @@ import {
   ofRole,
   Permissions,
   requireRole,
+  requireWrite,
 } from "@vtt/permissions/shared";
 import { requireSession } from "@vtt/identity/shared";
 import { ConflictActionEnum } from "./actions.js";
@@ -48,6 +49,7 @@ import {
   CompromiseApplied,
   ConflictDeclared,
   ConflictEnded,
+  ConflictParticipantsAdded,
   ConflictWeaponChosen,
   DispositionRolled,
   HpAssigned,
@@ -154,6 +156,20 @@ function sideVisibility(
 
 const ParticipantInputSchema = z.object({
   characterId: EntityId,
+  /**
+   * How many copies of this character to add. Defaults to 1; values
+   * greater than 1 expand into N participant rows with auto-numbered
+   * labels (`Goblin 1`, `Goblin 2`, …) so the table can disambiguate
+   * them. Single rows leave the label absent and read the live
+   * `Character.name` at render time.
+   */
+  count: z.number().int().min(1).max(20).default(1),
+  /**
+   * Optional override for the auto-numbered label prefix. When `count`
+   * > 1 and `baseLabel` is set, rows become `${baseLabel} 1`...
+   * `${baseLabel} N`. Defaults to the character's own name.
+   */
+  baseLabel: z.string().min(1).max(120).optional(),
 });
 
 /* -------------------------------------------------------------------------
@@ -191,16 +207,46 @@ export const DeclareConflict = defineCommand({
     // which would auto-allocate a different id on each side and
     // silently collide with the next server-allocated participant
     // (CLAUDE.md "Entity ids are server-authoritative").
-    const partyParticipants = ctx.cmd.partyParticipants.map((p) => ({
-      participantEntityId: ctx.world.allocateId(),
-      characterId: p.characterId,
-      armorStateEntityId: ctx.world.allocateId(),
-    }));
-    const enemyParticipants = ctx.cmd.enemyParticipants.map((p) => ({
-      participantEntityId: ctx.world.allocateId(),
-      characterId: p.characterId,
-      armorStateEntityId: ctx.world.allocateId(),
-    }));
+    //
+    // Each participant input expands by `count`: count===1 stays a
+    // singleton with no label (renders as the live character name);
+    // count>1 expands to `${baseLabel ?? Character.name} 1`...N.
+    const expand = (
+      inputs: ReadonlyArray<{
+        characterId: EntityId;
+        count: number;
+        baseLabel?: string;
+      }>,
+    ): Array<{
+      participantEntityId: EntityId;
+      characterId: EntityId;
+      armorStateEntityId: EntityId;
+      label?: string;
+    }> => {
+      const out: Array<{
+        participantEntityId: EntityId;
+        characterId: EntityId;
+        armorStateEntityId: EntityId;
+        label?: string;
+      }> = [];
+      for (const p of inputs) {
+        const got = ctx.world.get(p.characterId, [Character]) as
+          | { Character: { name: string } }
+          | undefined;
+        const baseName = p.baseLabel ?? got?.Character.name ?? "Participant";
+        for (let i = 0; i < p.count; i += 1) {
+          out.push({
+            participantEntityId: ctx.world.allocateId(),
+            characterId: p.characterId,
+            armorStateEntityId: ctx.world.allocateId(),
+            label: p.count > 1 ? `${baseName} ${i + 1}` : undefined,
+          });
+        }
+      }
+      return out;
+    };
+    const partyParticipants = expand(ctx.cmd.partyParticipants);
+    const enemyParticipants = expand(ctx.cmd.enemyParticipants);
     const partyUserIds = new Set<string>();
     for (const p of partyParticipants) {
       for (const uid of findCharacterOwners(ctx.world, p.characterId)) {
@@ -219,6 +265,78 @@ export const DeclareConflict = defineCommand({
         partyUserIds: [...partyUserIds],
         partyParticipants,
         enemyParticipants,
+      }),
+    ];
+  },
+});
+
+/**
+ * Add one or more participants of the same character to an existing
+ * conflict — the GM's "drop in 4 goblins" affordance. count===1 spawns
+ * a single row labelled by the character's own name; count>1
+ * auto-numbers `${baseLabel ?? Character.name} 1`...`${... } N` so
+ * the table can disambiguate them.
+ *
+ * GM-only. Re-keys nothing — each row is a fresh `TbConflictParticipant`
+ * entity referencing the same `characterId`. Per-row state (hp,
+ * weapon, KO) lives on the participant entity, so the goblins won't
+ * desync.
+ */
+export const AddConflictParticipants = defineCommand({
+  name: "@vtt/system-torchbearer/AddConflictParticipants",
+  schema: z.object({
+    conflictId: EntityId,
+    side: ConflictSideEnum,
+    characterId: EntityId,
+    count: z.number().int().min(1).max(20).default(1),
+    /**
+     * Optional override for the auto-numbered label prefix. Defaults
+     * to the character's `Character.name` at the moment of spawn.
+     * Only used when `count > 1`; single spawns leave the label
+     * absent and read the live character name.
+     */
+    baseLabel: z.string().min(1).max(120).optional(),
+  }),
+  validate: (ctx) => {
+    const r = requireRole(ctx, "gm");
+    if (!r.ok) return r;
+    const conf = getConflict(ctx.world, ctx.cmd.conflictId);
+    if (!conf) return fail("conflict not found");
+    if (conf.endedAt !== null) return fail("conflict ended");
+    if (!ctx.world.has(ctx.cmd.characterId)) {
+      return fail("character does not exist");
+    }
+    // Match DeclareConflict's posture: only require the entity to
+    // exist. Apply defaults the label to "Participant" if the
+    // entity has no `Character` trait.
+    return ok();
+  },
+  apply: (ctx) => {
+    const got = ctx.world.get(ctx.cmd.characterId, [Character]) as
+      | { Character: { name: string } }
+      | undefined;
+    const baseName = ctx.cmd.baseLabel ?? got?.Character.name ?? "Participant";
+    const count = ctx.cmd.count;
+    const participants: Array<{
+      participantEntityId: ReturnType<typeof ctx.world.allocateId>;
+      characterId: typeof ctx.cmd.characterId;
+      label?: string;
+    }> = [];
+    for (let i = 0; i < count; i += 1) {
+      participants.push({
+        participantEntityId: ctx.world.allocateId(),
+        characterId: ctx.cmd.characterId,
+        // Singletons read the live character name; multi-spawns
+        // freeze a numbered label at spawn-time so the table can
+        // distinguish "Goblin 1" from "Goblin 2".
+        label: count > 1 ? `${baseName} ${i + 1}` : undefined,
+      });
+    }
+    return [
+      ConflictParticipantsAdded({
+        conflictId: ctx.cmd.conflictId,
+        side: ctx.cmd.side,
+        participants,
       }),
     ];
   },
@@ -489,18 +607,43 @@ export const ChooseWeapon = defineCommand({
   name: "@vtt/system-torchbearer/ConflictChooseWeapon",
   schema: z.object({
     conflictId: EntityId,
-    characterId: EntityId,
+    /**
+     * The TbConflictParticipant entity wielding the weapon. Per-
+     * participant (not per-character) so two goblins in the same
+     * fight can hold different weapons.
+     */
+    participantEntityId: EntityId,
     weaponItemId: EntityId.nullable(),
   }),
   validate: (ctx) => {
     const conf = getConflict(ctx.world, ctx.cmd.conflictId);
     if (!conf) return fail("conflict not found");
-    return ok();
+    if (!ctx.world.has(ctx.cmd.participantEntityId)) {
+      return fail(`participant ${ctx.cmd.participantEntityId} not found`);
+    }
+    // GM bypass via requireWrite. Otherwise the caller must have
+    // write access to the character the participant references —
+    // players can pick weapons for their own PC, not someone else's.
+    const participantRow = ctx.world.get(
+      ctx.cmd.participantEntityId,
+      [TbConflictParticipant],
+    ) as
+      | {
+          TbConflictParticipant: z.infer<typeof TbConflictParticipant.schema>;
+        }
+      | undefined;
+    if (!participantRow) {
+      return fail("participant trait missing");
+    }
+    return requireWrite(
+      ctx,
+      participantRow.TbConflictParticipant.characterId,
+    );
   },
   apply: (ctx) => [
     ConflictWeaponChosen({
       conflictId: ctx.cmd.conflictId,
-      characterId: ctx.cmd.characterId,
+      participantEntityId: ctx.cmd.participantEntityId,
       weaponItemId: ctx.cmd.weaponItemId,
     }),
   ],
@@ -517,7 +660,13 @@ export const SetScriptSlot = defineCommand({
     side: ConflictSideEnum,
     slotIndex: z.number().int().min(0).max(2),
     action: ConflictActionEnum,
-    performerCharacterId: EntityId,
+    /**
+     * The TbConflictParticipant entity performing this slot. Lets the
+     * script disambiguate two participants of the same character —
+     * "Goblin 2 attacks" vs "Goblin 3 feints". The character id is
+     * looked up server-side from the participant entity.
+     */
+    performerParticipantEntityId: EntityId,
     weaponItemId: EntityId.nullable(),
   }),
   validate: (ctx) => {
@@ -543,22 +692,35 @@ export const SetScriptSlot = defineCommand({
     const script = (got as { TbConflictScript: z.infer<typeof TbConflictScript.schema> }).TbConflictScript;
     if (script.locked) return fail("script already locked");
     // Performer must be on the same side and not knocked out.
-    let performerOnSide = false;
-    for (const row of ctx.world.query([TbConflictParticipant])) {
-      const p = row.values.TbConflictParticipant as z.infer<typeof TbConflictParticipant.schema>;
-      if (p.conflictId === ctx.cmd.conflictId && p.characterId === ctx.cmd.performerCharacterId) {
-        if (p.side !== ctx.cmd.side) return fail("performer must be on the scripted side");
-        if (p.knockedOut) return fail("performer is knocked out");
-        performerOnSide = true;
-        break;
-      }
-    }
-    if (!performerOnSide) return fail("performer is not a conflict participant");
+    const participantRow = ctx.world.get(
+      ctx.cmd.performerParticipantEntityId,
+      [TbConflictParticipant],
+    ) as
+      | {
+          TbConflictParticipant: z.infer<typeof TbConflictParticipant.schema>;
+        }
+      | undefined;
+    if (!participantRow) return fail("performer is not a conflict participant");
+    const p = participantRow.TbConflictParticipant;
+    if (p.conflictId !== ctx.cmd.conflictId)
+      return fail("performer is not in this conflict");
+    if (p.side !== ctx.cmd.side)
+      return fail("performer must be on the scripted side");
+    if (p.knockedOut) return fail("performer is knocked out");
     return ok();
   },
   apply: (ctx) => {
     const scriptEntityId = findScriptEntityId(ctx.world, ctx.cmd.conflictId, ctx.cmd.side);
     if (!scriptEntityId) throw new Error("validate let through missing script entity");
+    const participantRow = ctx.world.get(
+      ctx.cmd.performerParticipantEntityId,
+      [TbConflictParticipant],
+    ) as
+      | {
+          TbConflictParticipant: z.infer<typeof TbConflictParticipant.schema>;
+        }
+      | undefined;
+    const characterId = participantRow!.TbConflictParticipant.characterId;
     return [
       withVisibility(
         ScriptSlotSet({
@@ -567,7 +729,8 @@ export const SetScriptSlot = defineCommand({
           side: ctx.cmd.side,
           slotIndex: ctx.cmd.slotIndex,
           action: ctx.cmd.action,
-          performerCharacterId: ctx.cmd.performerCharacterId,
+          performerParticipantEntityId: ctx.cmd.performerParticipantEntityId,
+          performerCharacterId: characterId,
           weaponItemId: ctx.cmd.weaponItemId,
         }),
         sideVisibility(ctx.world, ctx.cmd.conflictId, ctx.cmd.side),
@@ -758,11 +921,13 @@ export const RevealNextSlot = defineCommand({
         enemyScriptEntityId,
         partySlot: {
           action: partySlot.action,
+          performerParticipantEntityId: partySlot.performerParticipantEntityId,
           performerCharacterId: partySlot.performerCharacterId,
           weaponItemId: partySlot.weaponItemId,
         },
         enemySlot: {
           action: enemySlot.action,
+          performerParticipantEntityId: enemySlot.performerParticipantEntityId,
           performerCharacterId: enemySlot.performerCharacterId,
           weaponItemId: enemySlot.weaponItemId,
         },
@@ -871,6 +1036,7 @@ void actors;
 
 export const ALL_CONFLICT_COMMANDS = [
   DeclareConflict,
+  AddConflictParticipants,
   ElectCaptain,
   RollDisposition,
   AssignHp,

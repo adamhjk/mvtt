@@ -45,6 +45,13 @@ export const ConflictDeclared = defineEvent({
         // server-allocated participant id (universal-mirror rule —
         // see CLAUDE.md "Entity ids are server-authoritative").
         armorStateEntityId: EntityId,
+        /**
+         * Optional per-instance display name. Set when the GM declared
+         * `count > 1` for the same character so each row reads
+         * `Goblin 1`, `Goblin 2`, … . Singletons leave it absent and
+         * the panel reads the live `Character.name`.
+         */
+        label: z.string().min(1).max(120).optional(),
       }),
     ),
     enemyParticipants: z.array(
@@ -52,6 +59,30 @@ export const ConflictDeclared = defineEvent({
         participantEntityId: EntityId,
         characterId: EntityId,
         armorStateEntityId: EntityId,
+        label: z.string().min(1).max(120).optional(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * One or more participant rows added to an existing conflict — used
+ * for "GM adds 4 goblins mid-conflict" or "GM adds the boss after
+ * the first round". Each entry carries a server-allocated
+ * `participantEntityId` so every recipient spawns the row at the
+ * same id; `label` is the per-instance display name (`"Goblin 1"`
+ * for multi-spawn, omitted for solos).
+ */
+export const ConflictParticipantsAdded = defineEvent({
+  name: "@vtt/system-torchbearer/ConflictParticipantsAdded",
+  schema: z.object({
+    conflictId: EntityId,
+    side: ConflictSideEnum,
+    participants: z.array(
+      z.object({
+        participantEntityId: EntityId,
+        characterId: EntityId,
+        label: z.string().min(1).max(120).optional(),
       }),
     ),
   }),
@@ -145,7 +176,7 @@ export const ConflictWeaponChosen = defineEvent({
   name: "@vtt/system-torchbearer/ConflictWeaponChosen",
   schema: z.object({
     conflictId: EntityId,
-    characterId: EntityId,
+    participantEntityId: EntityId,
     weaponItemId: EntityId.nullable(),
   }),
 });
@@ -167,6 +198,7 @@ export const ScriptSlotSet = defineEvent({
     side: ConflictSideEnum,
     slotIndex: z.number().int().min(0).max(2),
     action: ConflictActionEnum,
+    performerParticipantEntityId: EntityId,
     performerCharacterId: EntityId,
     weaponItemId: EntityId.nullable(),
   }),
@@ -230,11 +262,13 @@ export const SlotRevealed = defineEvent({
     enemyScriptEntityId: EntityId,
     partySlot: z.object({
       action: ConflictActionEnum,
+      performerParticipantEntityId: EntityId,
       performerCharacterId: EntityId,
       weaponItemId: EntityId.nullable(),
     }),
     enemySlot: z.object({
       action: ConflictActionEnum,
+      performerParticipantEntityId: EntityId,
       performerCharacterId: EntityId,
       weaponItemId: EntityId.nullable(),
     }),
@@ -279,6 +313,7 @@ export const CompromiseApplied = defineEvent({
 
 export const ALL_CONFLICT_EVENTS = [
   ConflictDeclared,
+  ConflictParticipantsAdded,
   CaptainElected,
   RoundAdvanced,
   DispositionRolled,

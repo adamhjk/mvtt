@@ -106,9 +106,20 @@ function mountReveal(opts: {
           revealedSlots: [
             {
               partyAction: opts.partyAction,
+              // Pre-launch: tests don't spawn TbConflictParticipant
+              // entities (they short-circuit straight to revealedSlots),
+              // so we synthesize plausible participant ids that match
+              // the EntityId branding. The runtime never reads these
+              // back via TbConflictParticipant in this test — only the
+              // chat row's PerformerName lookup, which falls through to
+              // the live character name.
+              partyPerformerParticipantEntityId: ("e:" +
+                partyChar) as typeof partyChar,
               partyPerformerCharacterId: partyChar,
               partyWeaponItemId: null,
               enemyAction: opts.enemyAction,
+              enemyPerformerParticipantEntityId: ("e:" +
+                enemyChar) as typeof enemyChar,
               enemyPerformerCharacterId: enemyChar,
               enemyWeaponItemId: null,
             },

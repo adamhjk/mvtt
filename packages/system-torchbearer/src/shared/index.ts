@@ -138,6 +138,7 @@ export {
   channelNatureFromContributions,
   dispositionAddToFromContributions,
   dispositionFromContributions,
+  dispositionMonsterPoolFromContributions,
   formatModifier,
   heroicFromContributions,
   modifiersFromContributions,
@@ -151,6 +152,8 @@ export {
   teamPenaltiesForDisposition,
   versusFromContributions,
   type ChannelNatureDecl,
+  type DispoAddTo,
+  type DispoMonsterPool,
   type PersonaSpendDecl,
   type SynergyDecl,
   type TbSuggestedQuickModifier,
@@ -160,6 +163,26 @@ export {
   type TbRollModifierProvider,
 } from "./roll-providers.js";
 export * from "./items/index.js";
+export {
+  TbConflictResource,
+  TbMonster,
+  TbMonsterDerivedFrom,
+  TbMonsterSpecialRules,
+  TbMonsterWeapons,
+} from "./monster-traits.js";
+export {
+  CreateBlankMonster,
+  CreateMonsterFromCatalog,
+  RemoveMonster,
+  monsterTemplateById,
+  TB_MONSTER_TEMPLATES,
+  type TbMonsterTemplate,
+  type TbMonsterWeaponTemplate,
+} from "./monsters.js";
+export {
+  MonsterCreated,
+  MonsterRemoved,
+} from "./monster-events.js";
 export {
   DismissLightWentOut,
   GRIND_SENTINEL_ID,

@@ -56,7 +56,12 @@ import {
 } from "./server/index.js";
 import { runCatalogMerge } from "@vtt/items/shared";
 import { tbItemsSeed, TB_ITEM_TEMPLATES, templateToTraitBag } from "./data/seed.js";
+import { TB_CONFLICT_RESOURCE_TEMPLATES } from "./data/tb-conflict-resources.generated.js";
+import { TbConflictResource } from "./shared/monster-traits.js";
 import type { TbItemTemplate } from "./data/catalog-types.js";
+
+const TOTAL_SEED_TEMPLATE_COUNT =
+  TB_ITEM_TEMPLATES.length + TB_CONFLICT_RESOURCE_TEMPLATES.length;
 
 // A bare-bones plugin that registers the TB items schema (so the
 // merge engine can parse the catalog values) without dragging in
@@ -74,6 +79,7 @@ const tbItemsTestPlugin = definePlugin({
     TbSkillBonuses,
     TbItemSpecialRules,
     TbCarries,
+    TbConflictResource,
     ItemPosition,
   ],
   events: [
@@ -156,7 +162,7 @@ describe("TB items catalog → seed", () => {
     const world = new World();
     tbItemsSeed({ world, registry });
     const firstCount = world.query([ItemDerivedFrom]).length;
-    expect(firstCount).toBe(TB_ITEM_TEMPLATES.length);
+    expect(firstCount).toBe(TOTAL_SEED_TEMPLATE_COUNT);
     tbItemsSeed({ world, registry });
     const secondCount = world.query([ItemDerivedFrom]).length;
     expect(secondCount).toBe(firstCount);
@@ -173,7 +179,7 @@ describe("TB items catalog → seed", () => {
       entries: Record<string, string>;
     };
     expect(idx.pluginName).toBe("@vtt/system-torchbearer");
-    expect(Object.keys(idx.entries)).toHaveLength(TB_ITEM_TEMPLATES.length);
+    expect(Object.keys(idx.entries)).toHaveLength(TOTAL_SEED_TEMPLATE_COUNT);
     // Every template id maps to a real entity with the matching ItemDerivedFrom.
     for (const t of TB_ITEM_TEMPLATES.slice(0, 5)) {
       const eid = idx.entries[t.id];

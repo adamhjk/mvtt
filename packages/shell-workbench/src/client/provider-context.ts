@@ -37,6 +37,7 @@ export function useProviderContext(): Accessor<ProviderRunContext> {
     const m = me();
     return {
       world: client.world,
+      registry: client.registry,
       userId: m?.userId ?? "",
       role: m?.role ?? "player",
     };

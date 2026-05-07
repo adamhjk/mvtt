@@ -307,8 +307,30 @@ export const TbRollSpecSchema = z.object({
    */
   dispoBase: z.number().int().min(0).max(20).optional(),
 
-  /** When `dispositionMode`, which ability the panel selected to add. */
-  dispoAddTo: z.enum(["will", "health"]).nullable().optional(),
+  /**
+   * When `dispositionMode`, which ability the panel selected to add.
+   *
+   * - `"will"` — Convince / Capture / Trick (PCs).
+   * - `"health"` — Kill / Drive Off / Flee / Pursue (PCs).
+   * - `"nature"` — every monster disposition (SG p.172 "roll Nature
+   *   and add the successes to the Nature rating"). Both within-
+   *   Nature and outside-Nature use Nature as the additive base; only
+   *   the dice pool differs (see `dispoMonsterPool`).
+   */
+  dispoAddTo: z.enum(["will", "health", "nature"]).nullable().optional(),
+
+  /**
+   * For monster disposition rolls: which scaling the dice pool uses.
+   * - `"within"` — conflict falls within the monster's Nature
+   *   descriptors → roll full Nature (SG p.172 "Within Nature").
+   * - `"outside"` — conflict falls outside its Nature descriptors →
+   *   roll half Nature, rounded up (SG p.172 "Outside of Nature").
+   *
+   * Only meaningful when `dispoAddTo === "nature"`. PC dispo rolls
+   * (Will/Health add-to) leave this field absent — the dice pool is
+   * always the skill / ability rating in those cases.
+   */
+  dispoMonsterPool: z.enum(["within", "outside"]).optional(),
 
   /**
    * Pre-roll persona-advantage declared in the panel (DH p.8 sheet,

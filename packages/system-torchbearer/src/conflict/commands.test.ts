@@ -111,6 +111,29 @@ function setup(): H {
   };
 }
 
+/**
+ * Find the first participant entity id matching the given character +
+ * (optional) side in `h.world`. Tests set up via `declareConflict`
+ * spawn one participant per character per side; this helper lets the
+ * scripting tests look up the participant id without threading it
+ * through the helper.
+ */
+function findParticipantId(
+  h: H,
+  characterId: EntityId,
+  side?: "party" | "enemy",
+): EntityId {
+  for (const row of h.world.query([TbConflictParticipant])) {
+    const p = row.values.TbConflictParticipant as ReturnType<
+      typeof TbConflictParticipant
+    >["value"];
+    if (p.characterId === characterId && (!side || p.side === side)) {
+      return row.id;
+    }
+  }
+  throw new Error(`no participant for ${characterId}`);
+}
+
 async function declareConflict(h: H): Promise<EntityId> {
   const before = new Set(
     h.world.query([TbConflict]).map((r) => r.id as string),
@@ -428,7 +451,7 @@ describe("SetScriptSlot + LockScript", () => {
         side: "party",
         slotIndex: 0,
         action: "attack",
-        performerCharacterId: h.partyChar,
+        performerParticipantEntityId: findParticipantId(h, h.partyChar, "party"),
         weaponItemId: null,
       }),
       session: stranger,
@@ -442,7 +465,8 @@ describe("SetScriptSlot + LockScript", () => {
     h.world.set(conflictId, TbConflict, {
       ...(h.world.get(conflictId, [TbConflict]) as any).TbConflict,
     });
-    // Party captain trying to set enemy character as performer.
+    // Party captain trying to script an enemy participant — the
+    // performer's participant entity is on the wrong side.
     const res = await h.pipeline.dispatch({
       id: "s",
       issuedBy: "p1",
@@ -452,7 +476,7 @@ describe("SetScriptSlot + LockScript", () => {
         side: "party",
         slotIndex: 0,
         action: "attack",
-        performerCharacterId: h.enemyChar,
+        performerParticipantEntityId: findParticipantId(h, h.enemyChar, "enemy"),
         weaponItemId: null,
       }),
       session: PLAYER,
@@ -476,7 +500,7 @@ describe("SetScriptSlot + LockScript", () => {
         side: "party",
         slotIndex: 0,
         action: "attack",
-        performerCharacterId: h.partyChar,
+        performerParticipantEntityId: findParticipantId(h, h.partyChar, "party"),
         weaponItemId: null,
       }),
       session: PLAYER,
@@ -507,7 +531,7 @@ describe("SetScriptSlot + LockScript", () => {
           side: "party",
           slotIndex: i,
           action: "attack",
-          performerCharacterId: h.partyChar,
+          performerParticipantEntityId: findParticipantId(h, h.partyChar, "party"),
           weaponItemId: null,
         }),
         session: PLAYER,
@@ -524,19 +548,238 @@ describe("SetScriptSlot + LockScript", () => {
   });
 });
 
+describe("multi-spawn participants (4 goblins case)", () => {
+  it("DeclareConflict with count>1 expands into N labelled participants", async () => {
+    const h = setup();
+    const res = await h.pipeline.dispatch({
+      id: "c-multi",
+      issuedBy: "client-gm",
+      issuedAt: Date.now(),
+      cmd: DeclareConflict({
+        type: "kill",
+        locationLabel: "Goblin Lair",
+        captainCharacterId: h.partyChar,
+        partyParticipants: [{ characterId: h.partyChar }],
+        // 4 goblins, plus a singleton enemyChar to verify both shapes
+        // coexist.
+        enemyParticipants: [
+          { characterId: h.enemyChar, count: 4, baseLabel: "Goblin" },
+        ],
+      }),
+      session: GM,
+    });
+    expect(res.result.ok).toBe(true);
+    const enemies = h.world
+      .query([TbConflictParticipant])
+      .map(
+        (r) =>
+          r.values.TbConflictParticipant as ReturnType<
+            typeof TbConflictParticipant
+          >["value"],
+      )
+      .filter((p) => p.side === "enemy");
+    expect(enemies).toHaveLength(4);
+    expect(enemies.map((p) => p.label)).toEqual([
+      "Goblin 1",
+      "Goblin 2",
+      "Goblin 3",
+      "Goblin 4",
+    ]);
+    // All four reference the same character id.
+    for (const p of enemies) expect(p.characterId).toBe(h.enemyChar);
+  });
+
+  it("count===1 leaves the label undefined so the panel reads the live character name", async () => {
+    const h = setup();
+    await declareConflict(h);
+    const enemy = h.world
+      .query([TbConflictParticipant])
+      .map(
+        (r) =>
+          r.values.TbConflictParticipant as ReturnType<
+            typeof TbConflictParticipant
+          >["value"],
+      )
+      .find((p) => p.side === "enemy");
+    expect(enemy).toBeDefined();
+    expect(enemy!.label).toBeUndefined();
+  });
+
+  it("AddConflictParticipants drops in extra goblins after declaration with auto-numbered labels", async () => {
+    const h = setup();
+    const conflictId = await declareConflict(h);
+    const { AddConflictParticipants } = await import(
+      "./shared/commands.js"
+    );
+    const res = await h.pipeline.dispatch({
+      id: "add-goblins",
+      issuedBy: "client-gm",
+      issuedAt: Date.now(),
+      cmd: AddConflictParticipants({
+        conflictId,
+        side: "enemy",
+        characterId: h.enemyChar,
+        count: 3,
+        baseLabel: "Goblin",
+      }),
+      session: GM,
+    });
+    expect(res.result.ok).toBe(true);
+    const enemies = h.world
+      .query([TbConflictParticipant])
+      .map(
+        (r) =>
+          r.values.TbConflictParticipant as ReturnType<
+            typeof TbConflictParticipant
+          >["value"],
+      )
+      .filter((p) => p.side === "enemy" && p.conflictId === conflictId);
+    // The original singleton + 3 new auto-labelled rows.
+    expect(enemies).toHaveLength(4);
+    const labels = enemies.map((p) => p.label).sort();
+    expect(labels).toContain("Goblin 1");
+    expect(labels).toContain("Goblin 2");
+    expect(labels).toContain("Goblin 3");
+  });
+
+  it("AddConflictParticipants with count===1 spawns an unlabelled row", async () => {
+    const h = setup();
+    const conflictId = await declareConflict(h);
+    const { AddConflictParticipants } = await import(
+      "./shared/commands.js"
+    );
+    const res = await h.pipeline.dispatch({
+      id: "add-one",
+      issuedBy: "client-gm",
+      issuedAt: Date.now(),
+      cmd: AddConflictParticipants({
+        conflictId,
+        side: "party",
+        characterId: h.partyChar,
+        count: 1,
+      }),
+      session: GM,
+    });
+    expect(res.result.ok).toBe(true);
+    const parties = h.world
+      .query([TbConflictParticipant])
+      .map((r) => ({
+        id: r.id,
+        ...(r.values.TbConflictParticipant as ReturnType<
+          typeof TbConflictParticipant
+        >["value"]),
+      }))
+      .filter((p) => p.side === "party" && p.conflictId === conflictId);
+    expect(parties.length).toBeGreaterThanOrEqual(2);
+    // The freshly-added party row has no label (count===1).
+    const fresh = parties[parties.length - 1]!;
+    expect(fresh.label).toBeUndefined();
+  });
+
+  it("two participants of the same character can hold different weapons", async () => {
+    const h = setup();
+    const before = new Set(
+      h.world.query([TbConflict]).map((r) => r.id as string),
+    );
+    const res = await h.pipeline.dispatch({
+      id: "c-multi-weap",
+      issuedBy: "client-gm",
+      issuedAt: Date.now(),
+      cmd: DeclareConflict({
+        type: "kill",
+        locationLabel: "Test",
+        captainCharacterId: h.partyChar,
+        partyParticipants: [{ characterId: h.partyChar }],
+        enemyParticipants: [
+          { characterId: h.enemyChar, count: 2, baseLabel: "Goblin" },
+        ],
+      }),
+      session: GM,
+    });
+    expect(res.result.ok).toBe(true);
+    const conflictId = h.world
+      .query([TbConflict])
+      .map((r) => r.id as string)
+      .find((id) => !before.has(id))!;
+    h.conflictId = conflictId;
+    const goblins = h.world
+      .query([TbConflictParticipant])
+      .map((r) => ({
+        id: r.id,
+        ...(r.values.TbConflictParticipant as ReturnType<
+          typeof TbConflictParticipant
+        >["value"]),
+      }))
+      .filter((p) => p.side === "enemy" && p.conflictId === conflictId);
+    expect(goblins).toHaveLength(2);
+    // Goblin 1 picks weapon A; Goblin 2 picks weapon B. Even though
+    // they share characterId, the per-participant binding keeps them
+    // distinct.
+    const weaponA = h.world.spawn([]);
+    const weaponB = h.world.spawn([]);
+    const r1 = await h.pipeline.dispatch({
+      id: "w1",
+      issuedBy: "client-gm",
+      issuedAt: Date.now(),
+      cmd: ChooseWeapon({
+        conflictId: h.conflictId,
+        participantEntityId: goblins[0]!.id,
+        weaponItemId: weaponA,
+      }),
+      session: GM,
+    });
+    expect(r1.result.ok).toBe(true);
+    const r2 = await h.pipeline.dispatch({
+      id: "w2",
+      issuedBy: "client-gm",
+      issuedAt: Date.now(),
+      cmd: ChooseWeapon({
+        conflictId: h.conflictId,
+        participantEntityId: goblins[1]!.id,
+        weaponItemId: weaponB,
+      }),
+      session: GM,
+    });
+    expect(r2.result.ok).toBe(true);
+
+    const { TbConflictWeapon } = await import("./shared/traits.js");
+    const bindings = h.world.query([TbConflictWeapon]).map(
+      (r) =>
+        r.values.TbConflictWeapon as ReturnType<
+          typeof TbConflictWeapon
+        >["value"],
+    );
+    const g1 = bindings.find((b) => b.participantEntityId === goblins[0]!.id);
+    const g2 = bindings.find((b) => b.participantEntityId === goblins[1]!.id);
+    expect(g1?.weaponItemId).toBe(weaponA);
+    expect(g2?.weaponItemId).toBe(weaponB);
+  });
+});
+
 describe("ChooseWeapon", () => {
 
   it("accepts in weapons phase", async () => {
     const h = setup();
     const conflictId = await declareConflict(h);
-    // declare leaves us in `weapons`.
+    // ChooseWeapon is now keyed by participantEntityId so two
+    // copies of the same character can hold different weapons —
+    // pick the party participant's row from the world.
+    const partyParticipant = h.world
+      .query([TbConflictParticipant])
+      .find((r) => {
+        const p = r.values.TbConflictParticipant as ReturnType<
+          typeof TbConflictParticipant
+        >["value"];
+        return p.conflictId === conflictId && p.side === "party";
+      });
+    expect(partyParticipant).toBeDefined();
     const res = await h.pipeline.dispatch({
       id: "w",
       issuedBy: "p1",
       issuedAt: Date.now(),
       cmd: ChooseWeapon({
         conflictId,
-        characterId: h.partyChar,
+        participantEntityId: partyParticipant!.id,
         weaponItemId: null,
       }),
       session: PLAYER,

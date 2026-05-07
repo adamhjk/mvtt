@@ -62,6 +62,7 @@ export {
   CompromiseApplied,
   ConflictDeclared,
   ConflictEnded,
+  ConflictParticipantsAdded,
   RoundAdvanced,
   ConflictWeaponChosen,
   DispositionRolled,
@@ -76,6 +77,7 @@ export {
 } from "./events.js";
 export {
   ALL_CONFLICT_COMMANDS,
+  AddConflictParticipants,
   AdvanceRound,
   ApplyCompromise,
   AssignHp,

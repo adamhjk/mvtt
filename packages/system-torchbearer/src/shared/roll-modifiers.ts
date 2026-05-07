@@ -80,19 +80,30 @@ export const TB_DISPOSITION_CONTRIB_KIND = "tb-disposition" as const;
 
 /**
  * `addTo` says which ability rating is added to the rolled successes
- * to form the team's starting disposition (SG p.63-64 / LM p.106):
+ * to form the team's starting disposition. PCs (SG p.63-64 / LM p.106):
  * Kill / Drive Off / Flee / Pursue add Health; Convince / Capture /
- * Trick add Will. The skill drives the dice pool; the ability is the
- * additive base. Without `addTo` the chat row falls back to the
- * roll's own base dice — correct for Will-check / Health-check
- * rollables (where `baseDice` IS the ability rating) and wrong for
- * skill rolls. The pending-roll panel surfaces a Will / Health
- * picker so the captain commits the right value.
+ * Trick add Will. Monsters (SG p.172): every conflict adds Nature.
+ *
+ * `pool` is monster-only and selects the dice pool scaling: `"within"`
+ * rolls full Nature (conflict matches Nature descriptors); `"outside"`
+ * rolls half Nature rounded up (conflict outside Nature descriptors).
+ * Both modes still add the full Nature rating to the successes for
+ * the disposition total. PC rolls leave `pool` absent — the dice pool
+ * is always the skill or ability rating in those cases.
+ *
+ * Without `addTo` the chat row falls back to the roll's own base dice
+ * — correct for Will-check / Health-check rollables (where `baseDice`
+ * IS the ability rating) and wrong for skill rolls. The pending-roll
+ * panel surfaces a picker so the captain commits the right value.
  */
 const DispositionContributionPayloadSchema = z.object({
   enabled: z.boolean(),
-  addTo: z.enum(["will", "health"]).nullable().optional(),
+  addTo: z.enum(["will", "health", "nature"]).nullable().optional(),
+  pool: z.enum(["within", "outside"]).optional(),
 });
+
+export type DispoAddTo = "will" | "health" | "nature";
+export type DispoMonsterPool = "within" | "outside";
 
 /**
  * Convention: `kind: "tb-versus"` with payload
@@ -266,19 +277,39 @@ export function dispositionFromContributions(
 
 /**
  * Read the most recent `tb-disposition` `addTo` selection — which
- * ability ("will" / "health") is added to successes for the dispo
- * total. Returns `undefined` if the panel never picked one (caller
- * decides the fallback); `null` if explicitly cleared.
+ * ability ("will" / "health" / "nature") is added to successes for
+ * the dispo total. Returns `undefined` if the panel never picked one
+ * (caller decides the fallback); `null` if explicitly cleared.
  */
 export function dispositionAddToFromContributions(
   contributions: ReadonlyArray<Contribution> | undefined,
-): "will" | "health" | null | undefined {
+): DispoAddTo | null | undefined {
   if (!contributions || contributions.length === 0) return undefined;
-  let latest: "will" | "health" | null | undefined;
+  let latest: DispoAddTo | null | undefined;
   for (const c of contributions) {
     if (c.kind !== TB_DISPOSITION_CONTRIB_KIND) continue;
     const parsed = DispositionContributionPayloadSchema.safeParse(c.payload);
     if (parsed.success) latest = parsed.data.addTo ?? null;
+  }
+  return latest;
+}
+
+/**
+ * Read the most recent `tb-disposition` `pool` selection — used for
+ * monster disposition rolls (SG p.172) to pick "within" Nature
+ * descriptors (full Nature pool) vs "outside" them (half Nature,
+ * rounded up). Returns `undefined` when the panel never selected
+ * one — callers default to "within" for monster rolls.
+ */
+export function dispositionMonsterPoolFromContributions(
+  contributions: ReadonlyArray<Contribution> | undefined,
+): DispoMonsterPool | undefined {
+  if (!contributions || contributions.length === 0) return undefined;
+  let latest: DispoMonsterPool | undefined;
+  for (const c of contributions) {
+    if (c.kind !== TB_DISPOSITION_CONTRIB_KIND) continue;
+    const parsed = DispositionContributionPayloadSchema.safeParse(c.payload);
+    if (parsed.success && parsed.data.pool) latest = parsed.data.pool;
   }
   return latest;
 }

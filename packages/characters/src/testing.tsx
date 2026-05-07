@@ -63,7 +63,10 @@ import {
   PendingRollContributionSystem,
   PendingRollSpawnSystem,
 } from "./server/systems.js";
-import { PendingRollContributorsSlot } from "./shared/slot.js";
+import {
+  CharacterListExclusionSlot,
+  PendingRollContributorsSlot,
+} from "./shared/slot.js";
 
 /**
  * Test harness for plugin views and kit components that bind to a
@@ -165,7 +168,7 @@ const charactersTestInfra = definePlugin({
     PendingRollCommitSystem,
     PendingRollCancelSystem,
   ],
-  slots: [PendingRollContributorsSlot],
+  slots: [CharacterListExclusionSlot, PendingRollContributorsSlot],
 });
 
 export function buildCharacterHarness(

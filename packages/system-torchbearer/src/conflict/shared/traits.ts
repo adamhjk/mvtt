@@ -30,9 +30,11 @@ import { ScriptSlotSchema } from "./resolution.js";
 const RevealedSlotEntrySchema = z
   .object({
     partyAction: ConflictActionEnum,
+    partyPerformerParticipantEntityId: EntityId,
     partyPerformerCharacterId: EntityId,
     partyWeaponItemId: EntityId.nullable(),
     enemyAction: ConflictActionEnum,
+    enemyPerformerParticipantEntityId: EntityId,
     enemyPerformerCharacterId: EntityId,
     enemyWeaponItemId: EntityId.nullable(),
   })
@@ -97,10 +99,19 @@ export const TbConflict = defineTrait({
 
 /**
  * One per PC or NPC in a conflict. Only conflict-local state lives
- * here — HP this round, knocked-out flag. Everything else (name,
- * conditions, equipped items, abilities, skills) is read **live**
- * from the bound `characterId`'s own traits, so the conflict panel
- * reacts when the underlying character changes.
+ * here — HP this round, knocked-out flag, optional display label.
+ * Everything else (name, conditions, equipped items, abilities,
+ * skills) is read **live** from the bound `characterId`'s own
+ * traits, so the conflict panel reacts when the underlying
+ * character changes.
+ *
+ * `label` is the per-instance display name. When the GM adds four
+ * goblins to a conflict, each row gets a distinct label — "Goblin 1",
+ * "Goblin 2", … — so the table can disambiguate them in the HP
+ * stepper / weapon dropdown / armor row. Single instances (count===1)
+ * leave it absent and fall back to the character's own name. Both
+ * `WeaponPanel` and `ArmorPanel` read this in preference to
+ * `Character.name` when present.
  */
 export const TbConflictParticipant = defineTrait({
   name: "@vtt/system-torchbearer/TbConflictParticipant",
@@ -111,6 +122,7 @@ export const TbConflictParticipant = defineTrait({
     hp: z.number().int().min(0),
     hpMax: z.number().int().min(0),
     knockedOut: z.boolean().default(false),
+    label: z.string().min(1).max(120).optional(),
   }),
 });
 
@@ -119,12 +131,19 @@ export const TbConflictParticipant = defineTrait({
  * is set when a weapon-with-choose-an-action (Sword, some convince
  * weapons) first locks its bonus to a specific action — sticky for
  * the rest of the conflict.
+ *
+ * Keyed by `participantEntityId` (one TbConflictParticipant entity)
+ * rather than `characterId` so multiple instances of the same
+ * character — four goblins, two stone spiders — can each pick a
+ * different weapon. The hook `useWeaponBindings` indexes by
+ * `participantEntityId`; resolvers reading "what is Goblin 2
+ * wielding?" pass the participant id, not the character id.
  */
 export const TbConflictWeapon = defineTrait({
   name: "@vtt/system-torchbearer/TbConflictWeapon",
   schema: z.object({
     conflictId: EntityId,
-    characterId: EntityId,
+    participantEntityId: EntityId,
     weaponItemId: EntityId.nullable(),
     chosenAction: ConflictActionEnum.nullable().default(null),
   }),

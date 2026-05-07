@@ -32,12 +32,22 @@ export const ScriptSlotSchema = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("filled"),
     action: ConflictActionEnum,
+    /**
+     * The TbConflictParticipant entity performing this slot. Distinct
+     * from `performerCharacterId` so the script can disambiguate two
+     * copies of the same character — "Goblin 2 attacks" vs
+     * "Goblin 3 feints". The UI reads `participant.label` for the
+     * display name; chat row attribution stays at the character level
+     * (the user's call — see scope notes).
+     */
+    performerParticipantEntityId: EntityId,
     performerCharacterId: EntityId,
     weaponItemId: EntityId.nullable(),
   }),
   z.object({
     status: z.literal("revealed"),
     action: ConflictActionEnum,
+    performerParticipantEntityId: EntityId,
     performerCharacterId: EntityId,
     weaponItemId: EntityId.nullable(),
   }),

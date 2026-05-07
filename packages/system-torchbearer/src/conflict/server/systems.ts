@@ -35,6 +35,7 @@ import {
   CompromiseApplied,
   ConflictDeclared,
   ConflictEnded,
+  ConflictParticipantsAdded,
   ConflictWeaponChosen,
   DispositionRolled,
   HpAssigned,
@@ -156,6 +157,7 @@ export const ConflictDeclaredSystem = defineSystem({
           hp: 0,
           hpMax: 0,
           knockedOut: false,
+          label: p.label,
         }),
       ]);
     }
@@ -168,6 +170,7 @@ export const ConflictDeclaredSystem = defineSystem({
           hp: 0,
           hpMax: 0,
           knockedOut: false,
+          label: p.label,
         }),
       ]);
     }
@@ -184,6 +187,37 @@ export const CaptainElectedSystem = defineSystem({
     setConflict(world, event.conflictId, {
       captainCharacterId: event.captainCharacterId,
     });
+    return [];
+  },
+});
+
+/**
+ * Universal mirror for `ConflictParticipantsAdded`. Spawns each
+ * participant row at the server-allocated id (no per-side
+ * `world.spawn` — that would auto-allocate a different id and
+ * silently collide; CLAUDE.md "Entity ids are server-authoritative").
+ * `label` is recorded as-is — undefined for solos, "Goblin 1" /
+ * "Goblin 2" / … for multi-spawns.
+ */
+export const ParticipantsAddedSystem = defineSystem({
+  name: "@vtt/system-torchbearer/ParticipantsAddedSystem",
+  on: ConflictParticipantsAdded,
+  reads: [],
+  writes: [TbConflictParticipant],
+  run: ({ event, world }) => {
+    for (const p of event.participants) {
+      world.spawnAt(p.participantEntityId, [
+        TbConflictParticipant({
+          conflictId: event.conflictId,
+          side: event.side,
+          characterId: p.characterId,
+          hp: 0,
+          hpMax: 0,
+          knockedOut: false,
+          label: p.label,
+        }),
+      ]);
+    }
     return [];
   },
 });
@@ -279,7 +313,10 @@ export const WeaponChosenSystem = defineSystem({
   run: ({ event, world }) => {
     for (const row of world.query([TbConflictWeapon])) {
       const w = row.values.TbConflictWeapon as ReturnType<typeof TbConflictWeapon>["value"];
-      if (w.conflictId === event.conflictId && w.characterId === event.characterId) {
+      if (
+        w.conflictId === event.conflictId &&
+        w.participantEntityId === event.participantEntityId
+      ) {
         world.set(row.id, TbConflictWeapon, {
           ...w,
           weaponItemId: event.weaponItemId,
@@ -290,7 +327,7 @@ export const WeaponChosenSystem = defineSystem({
     world.spawn([
       TbConflictWeapon({
         conflictId: event.conflictId,
-        characterId: event.characterId,
+        participantEntityId: event.participantEntityId,
         weaponItemId: event.weaponItemId,
         chosenAction: null,
       }),
@@ -319,6 +356,7 @@ export const ScriptSlotSetSystem = defineSystem({
     slots[event.slotIndex] = {
       status: "filled",
       action: event.action,
+      performerParticipantEntityId: event.performerParticipantEntityId,
       performerCharacterId: event.performerCharacterId,
       weaponItemId: event.weaponItemId,
     };
@@ -435,9 +473,13 @@ export const SlotRevealedSystem = defineSystem({
       ];
       revealed[event.slotIndex] = {
         partyAction: event.partySlot.action,
+        partyPerformerParticipantEntityId:
+          event.partySlot.performerParticipantEntityId,
         partyPerformerCharacterId: event.partySlot.performerCharacterId,
         partyWeaponItemId: event.partySlot.weaponItemId,
         enemyAction: event.enemySlot.action,
+        enemyPerformerParticipantEntityId:
+          event.enemySlot.performerParticipantEntityId,
         enemyPerformerCharacterId: event.enemySlot.performerCharacterId,
         enemyWeaponItemId: event.enemySlot.weaponItemId,
       };
@@ -517,6 +559,7 @@ export const CompromiseAppliedSystem = defineSystem({
 
 export const ALL_CONFLICT_SYSTEMS = [
   ConflictDeclaredSystem,
+  ParticipantsAddedSystem,
   CaptainElectedSystem,
   DispositionRolledSystem,
   TeamDispositionSetSystem,

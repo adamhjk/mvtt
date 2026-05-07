@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { type CommandInstance } from "@vtt/substrate";
+import { type CommandInstance, type TraitMeta } from "@vtt/substrate";
 import { useClient, useQuery } from "@vtt/substrate/client";
 import { canWrite, Permissions } from "@vtt/permissions/shared";
 import {
@@ -29,10 +29,41 @@ import {
   RemoveCharacter,
 } from "../shared/commands.js";
 import { CharacterCreated } from "../shared/events.js";
+import {
+  CharacterListExclusionSlot,
+  type CharacterListExclusion,
+} from "../shared/slot.js";
 import { CharacterSheet } from "./CharacterSheet.js";
 import { useMe } from "./use-me.js";
 
 const CHARACTERS_KIND = "@vtt/characters/characters";
+
+/**
+ * Apply the registered list-exclusion markers to a base [Character]
+ * query. Used by both the page provider's `list` and the management
+ * hub's view query so monsters / NPCs / etc. show up in their own
+ * archetype-specific tabs and never the Characters list.
+ */
+function excludedTraits(
+  registry: import("@vtt/substrate").Registry,
+): TraitMeta[] {
+  const fills = registry.fillsForSlot(
+    CharacterListExclusionSlot,
+  ) as ReadonlyArray<CharacterListExclusion>;
+  return fills.map((f) => f.matchTrait);
+}
+
+function isExcluded(
+  world: import("@vtt/substrate").World,
+  characterId: string,
+  excluded: ReadonlyArray<TraitMeta>,
+): boolean {
+  if (excluded.length === 0) return false;
+  for (const trait of excluded) {
+    if (world.get(characterId as never, [trait])) return true;
+  }
+  return false;
+}
 
 /**
  * The Characters PageProvider. Each Character entity becomes one
@@ -45,14 +76,21 @@ export const CharactersPageProvider = definePageProvider({
   icon: "user",
   label: "Characters",
   reads: [Character],
-  list: ({ world }) => {
-    return world.query([Character]).map((row) => {
-      const c = row.values.Character as { name: string };
-      return { id: row.id, label: c.name };
-    });
+  list: ({ world, registry }) => {
+    const excluded = excludedTraits(registry);
+    return world
+      .query([Character])
+      .filter((row) => !isExcluded(world, row.id, excluded))
+      .map((row) => {
+        const c = row.values.Character as { name: string };
+        return { id: row.id, label: c.name };
+      });
   },
-  defaultEntity: ({ world }) => {
-    const first = world.query([Character])[0];
+  defaultEntity: ({ world, registry }) => {
+    const excluded = excludedTraits(registry);
+    const first = world
+      .query([Character])
+      .find((row) => !isExcluded(world, row.id, excluded));
     return first?.id ?? null;
   },
   render: ({ tabId, entityId }) => {
@@ -93,9 +131,11 @@ function CharactersHub(props: { tabId: string }): JSX.Element {
   const client = useClient();
   const me = useMe();
   const characterRows = useQuery([Character, Permissions]);
+  const excluded = createMemo(() => excludedTraits(client.registry));
 
   const characters = createMemo(() =>
     characterRows()
+      .filter((row) => !isExcluded(client.world, row.id, excluded()))
       .map((row) => ({
         id: row.id,
         name: (row.values.Character as { name: string }).name,

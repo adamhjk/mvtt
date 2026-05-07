@@ -111,6 +111,20 @@ async function dispatchAndCapture(opts: {
   return { world, pipeline, bus, registry, partyChar, enemyChar, conflictId };
 }
 
+function findParticipantId(
+  world: World,
+  characterId: EntityId,
+  side: "party" | "enemy",
+): EntityId {
+  for (const row of world.query([TbConflictParticipant])) {
+    const p = row.values.TbConflictParticipant as ReturnType<
+      typeof TbConflictParticipant
+    >["value"];
+    if (p.characterId === characterId && p.side === side) return row.id;
+  }
+  throw new Error(`no participant for ${characterId}/${side}`);
+}
+
 describe("conflict event visibility (side-scoping)", () => {
   it("ScriptSlotSet for party is scoped to party' userIds (+GM)", async () => {
     const captured: Captured = { events: [] };
@@ -125,7 +139,11 @@ describe("conflict event visibility (side-scoping)", () => {
         side: "party",
         slotIndex: 0,
         action: "attack",
-        performerCharacterId: ctx.partyChar,
+        performerParticipantEntityId: findParticipantId(
+          ctx.world,
+          ctx.partyChar,
+          "party",
+        ),
         weaponItemId: null,
       }),
       session: PLAYER,
@@ -154,7 +172,11 @@ describe("conflict event visibility (side-scoping)", () => {
         side: "enemy",
         slotIndex: 0,
         action: "defend",
-        performerCharacterId: ctx.enemyChar,
+        performerParticipantEntityId: findParticipantId(
+          ctx.world,
+          ctx.enemyChar,
+          "enemy",
+        ),
         weaponItemId: null,
       }),
       session: GM,
@@ -183,7 +205,11 @@ describe("conflict event visibility (side-scoping)", () => {
           side: "party",
           slotIndex: i,
           action: "attack",
-          performerCharacterId: ctx.partyChar,
+          performerParticipantEntityId: findParticipantId(
+            ctx.world,
+            ctx.partyChar,
+            "party",
+          ),
           weaponItemId: null,
         }),
         session: PLAYER,

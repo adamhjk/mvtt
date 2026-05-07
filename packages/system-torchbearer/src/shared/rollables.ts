@@ -28,12 +28,14 @@ import {
   Skills,
   TownAbilities,
 } from "./traits.js";
+import { TbMonster } from "./monster-traits.js";
 import { Team } from "@vtt/characters/shared";
 import {
   autoModifiersFromConditions,
   channelNatureFromContributions,
   dispositionAddToFromContributions,
   dispositionFromContributions,
+  dispositionMonsterPoolFromContributions,
   heroicFromContributions,
   modifiersFromContributions,
   obstacleFromContributions,
@@ -42,6 +44,8 @@ import {
   synergyDeclsFromContributions,
   teamPenaltiesForDisposition,
   versusFromContributions,
+  type DispoAddTo,
+  type DispoMonsterPool,
 } from "./roll-modifiers.js";
 import type { EntityId, World } from "@vtt/substrate";
 import {
@@ -161,13 +165,20 @@ interface TbRollableArgs {
    * chat row falls back to `baseDice` (correct only for Will/Health
    * rollables).
    */
-  dispoAddTo?: "will" | "health" | null;
+  dispoAddTo?: DispoAddTo | null;
   /**
    * In `dispositionMode`, the resolved additive-base value (the
-   * captain's Will or Health rating). Stamped onto the spec as
-   * `spec.dispoBase` when present.
+   * captain's Will / Health / Nature rating). Stamped onto the spec
+   * as `spec.dispoBase` when present.
    */
   dispoBase?: number;
+  /**
+   * For monster disposition rolls (SG p.172), which Nature scaling
+   * the dice pool used. `"within"` ⇒ full Nature; `"outside"` ⇒ half
+   * Nature, rounded up. Stamped onto the spec so the chat row can
+   * surface the distinction. Absent for PC dispo rolls.
+   */
+  dispoMonsterPool?: DispoMonsterPool;
   /**
    * Live World handle — needed to query party-tagged characters
    * for disposition team penalties. Threaded through from the
@@ -376,6 +387,10 @@ function buildSpec(
       args.dispositionMode && args.dispoAddTo !== undefined
         ? args.dispoAddTo
         : undefined,
+    dispoMonsterPool:
+      args.dispositionMode && args.dispoMonsterPool !== undefined
+        ? args.dispoMonsterPool
+        : undefined,
     personaDiceSpent: personaSpend,
     channelNature:
       channelDice > 0 && channelDecl !== null
@@ -435,6 +450,21 @@ const RollOptsBase = {
    * `tb-disposition` panel contribution and then to "normal test".
    */
   dispositionMode: z.boolean().optional(),
+
+  /**
+   * Per-roll disposition `addTo` override (which ability rating is
+   * added to successes). `null` clears any panel pick; `undefined`
+   * defers to the panel contribution.
+   */
+  dispositionAddTo: z.enum(["will", "health", "nature"]).nullable().optional(),
+
+  /**
+   * For monster disposition rolls (SG p.172): which dice-pool scaling
+   * to use. `"within"` rolls full Nature; `"outside"` rolls half
+   * Nature, rounded up. `undefined` defers to the panel contribution
+   * (which itself defaults to "within").
+   */
+  dispositionPool: z.enum(["within", "outside"]).optional(),
 } as const;
 
 /**
@@ -530,10 +560,10 @@ function resolveDispositionForOpts(opts: unknown): boolean {
  */
 function resolveDispositionAddToForOpts(
   opts: unknown,
-): "will" | "health" | null | undefined {
+): DispoAddTo | null | undefined {
   const o = opts as
     | {
-        dispositionAddTo?: "will" | "health" | null;
+        dispositionAddTo?: DispoAddTo | null;
         contributions?: unknown;
       }
     | undefined;
@@ -551,14 +581,55 @@ function resolveDispositionAddToForOpts(
  * `undefined` if the panel hasn't picked yet — caller may fall back to
  * `baseDice` for ability rollables (where they coincide) or leave the
  * spec without `dispoBase` so the chat row warns.
+ *
+ * Nature is the monster path (SG p.172): both within-Nature and
+ * outside-Nature dispo rolls add the full Nature rating.
  */
 function dispoBaseFromAbilities(
-  abilities: { will: { rating: number }; health: { rating: number } },
-  addTo: "will" | "health" | null | undefined,
+  abilities: {
+    will: { rating: number };
+    health: { rating: number };
+    nature: { rating: number };
+  },
+  addTo: DispoAddTo | null | undefined,
 ): number | undefined {
   if (addTo === "will") return abilities.will.rating;
   if (addTo === "health") return abilities.health.rating;
+  if (addTo === "nature") return abilities.nature.rating;
   return undefined;
+}
+
+/**
+ * Read the disposition pool selection from opts / panel contributions.
+ * `"within"` → full Nature; `"outside"` → half Nature, rounded up.
+ */
+function resolveDispositionPoolForOpts(
+  opts: unknown,
+): DispoMonsterPool | undefined {
+  const o = opts as
+    | {
+        dispositionPool?: DispoMonsterPool;
+        contributions?: unknown;
+      }
+    | undefined;
+  if (o?.dispositionPool !== undefined) return o.dispositionPool;
+  if (Array.isArray(o?.contributions)) {
+    return dispositionMonsterPoolFromContributions(
+      o.contributions as ReadonlyArray<z.infer<typeof ContributionSchema>>,
+    );
+  }
+  return undefined;
+}
+
+/**
+ * Apply the monster pool scaling — half-Nature rounds up per SG p.172
+ * ("roll half of its Nature… add the successes to the full Nature
+ * rating"). Caller decides whether to invoke (only when `addTo` is
+ * "nature" + pool === "outside").
+ */
+function natureDicePool(rating: number, pool: DispoMonsterPool): number {
+  if (pool === "outside") return Math.ceil(rating / 2);
+  return rating;
 }
 
 /**
@@ -734,20 +805,41 @@ export const NatureCheck = defineRollable({
     { opts, world, entityId },
   ): TbRollSpec => {
     const tap = opts?.tap === true;
-    const baseDice = tap ? abilities.nature.maximum : abilities.nature.rating;
     const obstacle = resolveObstacle({
       optsObstacle: opts?.obstacle,
       panelObstacle: panelObstacleFromOpts(opts?.contributions),
     });
-    const headline = tap ? "Nature (tap)" : "Nature";
-    const source = tap ? "Nature (tap)" : "Nature";
     const isHeroic = resolveHeroic({
       optsHeroic: opts?.heroic,
       panelHeroic: panelHeroicFromOpts(opts?.contributions),
       traitHeroic: traitHeroicFor(heroic, "ability", "nature"),
     });
     const natureDispoMode = resolveDispositionForOpts(opts);
-    const natureAddTo = resolveDispositionAddToForOpts(opts);
+    // Monster-aware addTo defaulting (SG p.172): when this entity has
+    // TbMonster + the panel toggled disposition mode but hasn't picked
+    // an `addTo`, force `nature` since every monster dispo adds Nature.
+    // PCs keep the explicit Will/Health pick.
+    const isMonster = world.get(entityId, [TbMonster]) !== undefined;
+    const explicitAddTo = resolveDispositionAddToForOpts(opts);
+    const natureAddTo: DispoAddTo | null | undefined =
+      natureDispoMode && isMonster && (explicitAddTo === undefined || explicitAddTo === null)
+        ? "nature"
+        : explicitAddTo;
+    const monsterPool: DispoMonsterPool =
+      resolveDispositionPoolForOpts(opts) ?? "within";
+    // Dice pool: tap → max Nature; monster outside-Nature dispo →
+    // half (rounded up); else current Nature rating.
+    const baseDice = tap
+      ? abilities.nature.maximum
+      : natureDispoMode && natureAddTo === "nature"
+        ? natureDicePool(abilities.nature.rating, monsterPool)
+        : abilities.nature.rating;
+    const headline = tap
+      ? "Nature (tap)"
+      : natureDispoMode && natureAddTo === "nature" && monsterPool === "outside"
+        ? "Nature (half)"
+        : "Nature";
+    const source = headline;
     const natureDispoBase = natureDispoMode
       ? dispoBaseFromAbilities(abilities, natureAddTo)
       : undefined;
@@ -762,6 +854,8 @@ export const NatureCheck = defineRollable({
         dispositionMode: natureDispoMode,
         dispoAddTo: natureAddTo,
         dispoBase: natureDispoBase,
+        dispoMonsterPool:
+          natureDispoMode && natureAddTo === "nature" ? monsterPool : undefined,
         world,
         entityId,
         headline,

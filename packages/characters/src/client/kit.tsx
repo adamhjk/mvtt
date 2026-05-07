@@ -1799,6 +1799,12 @@ export interface EntryColumnText<TEntry> extends EntryColumnBase<TEntry> {
   readonly type: "text";
   readonly placeholder?: string;
   readonly maxLength?: number;
+  /**
+   * Render the cell as a soft-wrapping textarea instead of a single
+   * line input. Used for long-form fields (rule bodies, descriptions)
+   * where line-clipping in a row is the wrong default.
+   */
+  readonly multiline?: boolean;
 }
 
 export interface EntryColumnNumber<TEntry> extends EntryColumnBase<TEntry> {
@@ -2023,6 +2029,7 @@ function EntryCell<TEntry extends Record<string, unknown>>(props: {
           value={typeof value() === "string" ? (value() as string) : ""}
           placeholder={col.placeholder}
           maxLength={col.maxLength}
+          multiline={col.multiline}
           canEdit={props.canEdit}
           onCommit={(v) => props.onCommit(v)}
         />
@@ -2079,6 +2086,7 @@ function CellText(props: {
   canEdit: boolean;
   placeholder?: string;
   maxLength?: number;
+  multiline?: boolean;
   onCommit: (value: string) => void;
 }): JSX.Element {
   const [local, setLocal] = createSignal<string>(props.value);
@@ -2092,31 +2100,138 @@ function CellText(props: {
     if (next !== props.value) props.onCommit(next);
   };
   return (
-    <input
-      type="text"
-      class="vk-input"
-      value={local()}
-      disabled={!props.canEdit}
+    <Show
+      when={props.multiline}
+      fallback={
+        <input
+          type="text"
+          class="vk-input"
+          value={local()}
+          disabled={!props.canEdit}
+          placeholder={props.placeholder}
+          maxLength={props.maxLength}
+          autocomplete="off"
+          spellcheck={false}
+          data-1p-ignore="true"
+          data-lpignore="true"
+          data-bwignore="true"
+          onFocus={() => setEditing(true)}
+          onInput={(e) => setLocal(e.currentTarget.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+              (e.currentTarget as HTMLInputElement).blur();
+            }
+            if (e.key === "Escape") {
+              setLocal(props.value);
+              setEditing(false);
+              (e.currentTarget as HTMLInputElement).blur();
+            }
+          }}
+        />
+      }
+    >
+      <AutoGrowTextarea
+        value={local()}
+        disabled={!props.canEdit}
+        placeholder={props.placeholder}
+        maxLength={props.maxLength}
+        onFocus={() => setEditing(true)}
+        onInput={(v) => setLocal(v)}
+        onBlur={commit}
+        onCancel={() => {
+          setLocal(props.value);
+          setEditing(false);
+        }}
+        onCommit={commit}
+      />
+    </Show>
+  );
+}
+
+/**
+ * Textarea that grows to fit its content — no scrollbars, no fixed
+ * `rows` cap, no manual drag-resize. The visible height tracks the
+ * scrollHeight on every input and whenever the bound value changes
+ * from outside (so trait writes from another tab don't leave a stale
+ * height behind).
+ *
+ * Used for the multiline variant of `EntryColumnText`. Keeping the
+ * resizing logic in one component keeps the cell render path tiny
+ * and lets future kit consumers reuse the behavior.
+ */
+function AutoGrowTextarea(props: {
+  value: string;
+  disabled: boolean;
+  placeholder?: string;
+  maxLength?: number;
+  onFocus: () => void;
+  onInput: (next: string) => void;
+  onBlur: () => void;
+  onCancel: () => void;
+  onCommit: () => void;
+}): JSX.Element {
+  let el: HTMLTextAreaElement | undefined;
+
+  const fit = (): void => {
+    if (!el) return;
+    // Setting `auto` first lets the next read pick up the natural
+    // content size; without this the textarea only grows, never
+    // shrinks back when the user deletes lines.
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
+  // External value change (initial mount + remote trait update) →
+  // re-fit. The local-edit path already calls fit() in onInput.
+  createEffect(() => {
+    void props.value;
+    queueMicrotask(fit);
+  });
+
+  return (
+    <textarea
+      ref={el}
+      class="vk-input vk-input--textarea"
+      value={props.value}
+      disabled={props.disabled}
       placeholder={props.placeholder}
       maxLength={props.maxLength}
+      rows={1}
       autocomplete="off"
       spellcheck={false}
       data-1p-ignore="true"
       data-lpignore="true"
       data-bwignore="true"
-      onFocus={() => setEditing(true)}
-      onInput={(e) => setLocal(e.currentTarget.value)}
-      onBlur={commit}
+      style={{
+        width: "100%",
+        "min-width": 0,
+        "white-space": "pre-wrap",
+        "word-wrap": "break-word",
+        "overflow-wrap": "break-word",
+        // Hide both scrollbars — height tracks scrollHeight so the
+        // content always fits without scrolling.
+        overflow: "hidden",
+        resize: "none",
+      }}
+      onFocus={props.onFocus}
+      onInput={(e) => {
+        props.onInput(e.currentTarget.value);
+        fit();
+      }}
+      onBlur={props.onBlur}
       onKeyDown={(e) => {
-        if (e.key === "Enter") {
+        // Ctrl/Cmd+Enter commits; plain Enter inserts a newline.
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
           e.preventDefault();
-          commit();
-          (e.currentTarget as HTMLInputElement).blur();
+          props.onCommit();
+          (e.currentTarget as HTMLTextAreaElement).blur();
         }
         if (e.key === "Escape") {
-          setLocal(props.value);
-          setEditing(false);
-          (e.currentTarget as HTMLInputElement).blur();
+          props.onCancel();
+          (e.currentTarget as HTMLTextAreaElement).blur();
         }
       }}
     />

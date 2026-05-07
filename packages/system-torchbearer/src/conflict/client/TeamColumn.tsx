@@ -18,8 +18,9 @@
 import type { CommandInstance, EntityId } from "@vtt/substrate";
 import { useClient, useTrait, useQuery } from "@vtt/substrate/client";
 import { createMemo, For, Show, type JSX } from "solid-js";
-import { ItemIdentity } from "@vtt/items/shared";
-import { TbCarries, TbWeapon } from "../../shared/index.js";
+import { ItemDerivedFrom, ItemIdentity } from "@vtt/items/shared";
+import { canWrite, Permissions } from "@vtt/permissions/shared";
+import { TbCarries, TbConflictResource, TbWeapon } from "../../shared/index.js";
 import {
   ChooseWeapon,
   SetParticipantHp,
@@ -32,6 +33,7 @@ import {
 import {
   useCharacterName,
   useConflict,
+  useGloballyCarriedItemIds,
   useParticipants,
   useScript,
   useWeaponBindings,
@@ -109,6 +111,7 @@ export function TeamColumn(props: {
                   side={props.side}
                   participantEntityId={p.entityId}
                   characterId={p.characterId}
+                  label={p.label}
                   hp={p.hp}
                   hpMax={p.hpMax}
                   knockedOut={p.knockedOut}
@@ -332,6 +335,7 @@ function ParticipantRow(props: {
   side: ConflictSide;
   participantEntityId: EntityId;
   characterId: EntityId;
+  label: string | undefined;
   hp: number;
   hpMax: number;
   knockedOut: boolean;
@@ -340,33 +344,115 @@ function ParticipantRow(props: {
   dispoMax: number;
 }): JSX.Element {
   const client = useClient();
-  const name = useCharacterName(props.characterId);
+  const me = useMe();
+  const characterName = useCharacterName(props.characterId);
+  const name = createMemo(() => props.label ?? characterName());
   const bindings = useWeaponBindings(props.conflictId);
   const currentWeapon = createMemo(
-    () => bindings().get(props.characterId)?.weaponItemId ?? null,
+    () => bindings().get(props.participantEntityId)?.weaponItemId ?? null,
   );
+
+  // Weapon-pick permission is broader than HP edit:
+  //   - GMs can always pick (covered by props.canEdit).
+  //   - The character's owner can pick their own weapon (party
+  //     members shouldn't have to ask the GM what to wield).
+  // HP / knock-out / dispo math stays GM-only via props.canEdit
+  // because they're conflict-scoring concerns, not character
+  // expression. Server-side ChooseWeapon already accepts non-GMs;
+  // this gate just unhides the dropdown for them.
+  const characterPermissions = useTrait(props.characterId, Permissions);
+  const canEditWeapon = createMemo(() => {
+    if (props.canEdit) return true;
+    return canWrite(
+      me(),
+      characterPermissions() as Parameters<typeof canWrite>[1],
+    );
+  });
 
   const carries = useTrait(props.characterId, TbCarries) as () =>
     | ReturnType<typeof TbCarries>["value"]
     | undefined;
   const allItems = useQuery([TbWeapon]);
+  // For the dropdown's shared pool we restrict to catalog-derived
+  // resources — monster weapons (no ItemDerivedFrom) stay with their
+  // owner via the per-character carries branch only.
+  const conflictResources = useQuery([
+    TbWeapon,
+    TbConflictResource,
+    ItemDerivedFrom,
+  ]);
+  // The per-character branch still uses the unrestricted resource
+  // index so a monster's own dropdown picks up its monstrous weapons
+  // (which lack ItemDerivedFrom). Reads are O(1) by id.
+  const allConflictResources = useQuery([TbWeapon, TbConflictResource]);
+  const conflict = useConflict(props.conflictId);
+  const globallyCarried = useGloballyCarriedItemIds();
 
   const weaponChoices = createMemo<EntityId[]>(() => {
-    const c = carries();
-    if (!c) return [];
-    // Every weapon the character carries — hand, pack, belt — not
-    // just hand-slotted. The captain may grab a stowed weapon for
-    // this fight; resolution still enforces wield rules at roll
-    // time. Filtering to "currently in hand" leaves a fresh character
-    // with nothing to pick from, which reads as broken UI.
-    const carriedItemIds = new Set(c.entries.map((e) => e.itemId as string));
-    const out: EntityId[] = [];
+    // Filter weapons to those relevant for the current conflict type
+    // AND that this character can actually wield:
+    //
+    //   1. Weapons this character carries — generic items (no
+    //      `TbConflictResource`, e.g. a sword) always qualify;
+    //      conflict-bound items only when their `applicableConflicts`
+    //      covers the conflict type. Spawned monster weapons live
+    //      here for the monster they belong to.
+    //   2. Shared catalog conflict-resources (Blackmail, Hostage,
+    //      True Name, …) — entities that *no character carries*,
+    //      filtered by conflict type. The Vampire Lord's Hideous Bite
+    //      is carried by the lord and so excluded from anyone else's
+    //      pool, even though it has a `TbConflictResource`.
+    const ct = conflict()?.type;
+    const carried = new Set(
+      (carries()?.entries ?? []).map((e) => e.itemId as string),
+    );
+    const ownedByAnyone = globallyCarried();
+    const matchesConflict = (cr: {
+      applicableConflicts: ReadonlyArray<string>;
+    }): boolean => {
+      if (cr.applicableConflicts.length === 0) return true;
+      if (!ct) return true;
+      return cr.applicableConflicts.includes(ct);
+    };
+    const crById = new Map<
+      string,
+      { applicableConflicts: ReadonlyArray<string>; kind: string }
+    >();
+    for (const row of allConflictResources()) {
+      crById.set(
+        row.id as string,
+        row.values.TbConflictResource as {
+          applicableConflicts: ReadonlyArray<string>;
+          kind: string;
+        },
+      );
+    }
+    const ids = new Set<string>();
     for (const row of allItems()) {
-      if (carriedItemIds.has(row.id as string)) {
-        out.push(row.id as EntityId);
+      if (!carried.has(row.id as string)) continue;
+      const cr = crById.get(row.id as string);
+      if (!cr) {
+        ids.add(row.id as string);
+      } else if (cr.kind === "weapon" && matchesConflict(cr)) {
+        ids.add(row.id as string);
       }
     }
-    return out;
+    for (const row of conflictResources()) {
+      const id = row.id as string;
+      if (ownedByAnyone.has(id)) continue; // already covered by per-character carries
+      const cr = row.values.TbConflictResource as {
+        applicableConflicts: ReadonlyArray<string>;
+        kind: string;
+        ownerCharacterId?: string | null;
+      };
+      // Owned-by-monster resources stay out of the shared pool even
+      // when the local user can't read the owner's TbCarries.
+      if (cr.ownerCharacterId) continue;
+      if (cr.kind !== "weapon") continue;
+      if (!matchesConflict(cr)) continue;
+      ids.add(id);
+    }
+    return Array.from(ids) as EntityId[];
   });
 
   const setHp = (hp: number, hpMax: number): void => {
@@ -384,7 +470,7 @@ function ParticipantRow(props: {
     client.dispatch(
       ChooseWeapon({
         conflictId: props.conflictId,
-        characterId: props.characterId,
+        participantEntityId: props.participantEntityId,
         weaponItemId: id,
       }) as CommandInstance,
     );
@@ -520,7 +606,7 @@ function ParticipantRow(props: {
       </Show>
 
       <Show
-        when={props.canEdit}
+        when={canEditWeapon()}
         fallback={
           <Show
             when={currentWeapon()}

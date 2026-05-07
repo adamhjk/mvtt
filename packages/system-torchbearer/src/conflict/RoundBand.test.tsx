@@ -86,7 +86,7 @@ function makeHarness(opts: {
           winner: null, endedAt: null, partyLocked: false, enemyLocked: false, revealedSlots: [null, null, null] as const,
         }),
       ]);
-      world.spawn([
+      const partyParticipantId = world.spawn([
         TbConflictParticipant({
           conflictId,
           side: "party",
@@ -110,6 +110,7 @@ function makeHarness(opts: {
         ? {
             status: "revealed" as const,
             action: "attack" as const,
+            performerParticipantEntityId: partyParticipantId,
             performerCharacterId: partyChar,
             weaponItemId: null,
           }
@@ -117,6 +118,7 @@ function makeHarness(opts: {
           ? {
               status: "filled" as const,
               action: "attack" as const,
+              performerParticipantEntityId: partyParticipantId,
               performerCharacterId: partyChar,
               weaponItemId: null,
             }

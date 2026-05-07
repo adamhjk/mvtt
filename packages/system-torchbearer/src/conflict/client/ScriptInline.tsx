@@ -138,14 +138,15 @@ function ScriptRow(props: {
     return null;
   });
   const performerEntityId = createMemo<EntityId | null>(() => {
-    // The slot stores the performer's *character* id; we surface the
-    // matching participant entity id in the dropdown so the user picks
-    // by participant (the row is per-participant, not per-character —
-    // identical characters on opposing sides are technically possible).
+    // Slot now records the performer's participant entity id directly,
+    // so the dropdown / label display read by participant. Two
+    // copies of the same character — Goblin 1 vs Goblin 2 — stay
+    // distinct.
     if (!filledOrRevealed()) return null;
-    const charId = (props.slot as { performerCharacterId: EntityId }).performerCharacterId;
-    const p = participants().find((q) => q.characterId === charId);
-    return p?.entityId ?? null;
+    const slot = props.slot as {
+      performerParticipantEntityId: EntityId;
+    };
+    return slot.performerParticipantEntityId ?? null;
   });
 
   const performerChoices = createMemo(() =>
@@ -156,15 +157,13 @@ function ScriptRow(props: {
     nextAction: ConflictAction,
     nextPerformer: EntityId,
   ): void => {
-    const performer = participants().find((p) => p.entityId === nextPerformer);
-    if (!performer) return;
     client.dispatch(
       SetScriptSlot({
         conflictId: props.conflictId,
         side: props.side,
         slotIndex: props.slotIndex,
         action: nextAction,
-        performerCharacterId: performer.characterId,
+        performerParticipantEntityId: nextPerformer,
         weaponItemId: null,
       }) as CommandInstance,
     );
@@ -243,10 +242,15 @@ function ScriptRow(props: {
               }
             >
               <PerformerName
+                participantEntityId={
+                  (props.slot as { performerParticipantEntityId: EntityId })
+                    .performerParticipantEntityId
+                }
                 characterId={
                   (props.slot as { performerCharacterId: EntityId })
                     .performerCharacterId
                 }
+                participants={participants()}
               />
             </Show>
           </span>
@@ -274,15 +278,38 @@ function ScriptRow(props: {
 }
 
 function PerformerOption(props: {
-  participant: { entityId: EntityId; characterId: EntityId };
+  participant: {
+    entityId: EntityId;
+    characterId: EntityId;
+    label?: string;
+  };
 }): JSX.Element {
-  const name = useCharacterName(props.participant.characterId);
-  return <option value={props.participant.entityId}>{name()}</option>;
+  const characterName = useCharacterName(props.participant.characterId);
+  // Per-instance label wins ("Goblin 2") so multi-spawn rosters
+  // disambiguate in the dropdown. Singletons fall back to the live
+  // character name.
+  const display = createMemo(
+    () => props.participant.label ?? characterName(),
+  );
+  return <option value={props.participant.entityId}>{display()}</option>;
 }
 
-function PerformerName(props: { characterId: EntityId }): JSX.Element {
-  const name = useCharacterName(props.characterId);
-  return <>{name()}</>;
+function PerformerName(props: {
+  participantEntityId: EntityId;
+  characterId: EntityId;
+  participants: ReadonlyArray<{
+    entityId: EntityId;
+    label?: string;
+  }>;
+}): JSX.Element {
+  const characterName = useCharacterName(props.characterId);
+  const display = createMemo(() => {
+    const p = props.participants.find(
+      (q) => q.entityId === props.participantEntityId,
+    );
+    return p?.label ?? characterName();
+  });
+  return <>{display()}</>;
 }
 
 /* -------------------------------------------------------------------------
