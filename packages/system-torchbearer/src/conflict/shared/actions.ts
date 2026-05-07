@@ -139,7 +139,7 @@ export const TB_ACTION_INDEP_OB: Readonly<Record<ConflictAction, number>> = {
 export const TB_ACTION_SUMMARIES: Readonly<Record<ConflictAction, string>> = {
   attack: "dmg = MoS",
   defend: "heal = MoS+1 (indep) or MoS (versus); self first, whole-by-whole",
-  feint: "dmg = MoS; ignores the defender if vs Defend",
+  feint: "dmg = MoS; vs Defend the defender forfeits and does not test",
   maneuver: "spend MoS on impede / position / disarm / rearm",
 };
 
@@ -179,7 +179,7 @@ export const TB_ACTION_RULES: Readonly<Record<ConflictAction, ActionRules>> = {
     label: "Feint",
     summary: TB_ACTION_SUMMARIES.feint,
     description:
-      "Feint is a deceptive attack — risky but effective. Reduces opponent's HP by margin of success. Vs Defend: defender forfeits, feinter rolls indep Ob 0. Vs Attack: feinter forfeits. Vs Feint: versus. Vs Maneuver: feinter rolls indep Ob 0; maneuver tests as normal.",
+      "Feint is a deceptive attack — risky but effective. Reduces opponent's HP by margin of success. Vs Defend: defender forfeits and does not test; feinter rolls independent Ob 0. Vs Attack: the feinter is drawn out of position and does not test; the Attack rolls as independent Ob 0. Vs Feint: versus test. Vs Maneuver: feinter rolls independent Ob 0; maneuver tests as normal.",
     independentObstacle: 0,
   },
   maneuver: {

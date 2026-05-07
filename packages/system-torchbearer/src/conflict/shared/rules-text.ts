@@ -238,32 +238,40 @@ export const TB_MATCHUP_NOTES: Readonly<
   Record<ConflictAction, Readonly<Record<ConflictAction, string>>>
 > = {
   attack: {
-    attack: "Both roll independent. Both can hit; no test cancels the other.",
-    defend: "Versus. Defender's MoS heals the side; attacker's MoS damages it.",
-    feint: "Feinter forfeits; attacker rolls independent Ob 0 vs HP.",
-    maneuver: "Versus. Loser eats damage; winner cancels or repositions.",
+    attack: "Both roll independent at Ob 0. Either side that passes deals MoS damage.",
+    defend:
+      "Versus. Only the winner's MoS counts: Attack wins → MoS damage; Defend wins → Regroup heals MoS.",
+    feint:
+      "Feinter is drawn out of position and does not test. You roll independent Ob 0; MoS damages.",
+    maneuver:
+      "Versus. Only the winner's MoS counts: Attack wins → MoS damage; Maneuver wins → MoS spent on effects.",
   },
   defend: {
-    attack: "Versus. Defender's MoS heals; attacker's MoS damages.",
-    defend: "Both roll independent. Heal pool = 1 + MoS each (if passes).",
-    feint: "Defender forfeits and does not test. Feinter rolls Ob 0 vs HP.",
+    attack:
+      "Versus. Only the winner's MoS counts: Defend wins → Regroup heals MoS; Attack wins → MoS damage.",
+    defend: "Both roll independent at Ob 3. Each side that passes Regroups (heal = MoS + 1).",
+    feint:
+      "Feint surprises you. You forfeit and do not test; the feinter rolls independent Ob 0.",
     maneuver:
-      "Versus. Defender restores HP; maneuver winner spends MoS on effects.",
+      "Versus. Only the winner's MoS counts: Defend wins → Regroup heals MoS; Maneuver wins → MoS spent on effects.",
   },
   feint: {
-    attack: "Feinter forfeits and does not test. Attacker rolls Ob 0 vs HP.",
-    defend: "Defender forfeits and does not test. Feinter rolls Ob 0 vs HP.",
-    feint: "Versus. Winner's MoS damages.",
+    attack:
+      "You're drawn out of position and do not test. The Attack rolls independent Ob 0; their MoS damages.",
+    defend:
+      "Defender forfeits and does not test. You roll independent Ob 0; MoS damages.",
+    feint: "Versus. Winner's MoS damages the loser.",
     maneuver:
-      "Both roll independent at Ob 0; feinter damages, maneuver effects apply.",
+      "Both roll independent at Ob 0. Feint MoS damages; Maneuver MoS spent on effects.",
   },
   maneuver: {
     attack:
-      "Versus. Maneuver MoS spent on impede/disarm/etc.; loser eats damage.",
+      "Versus. Only the winner's MoS counts: Maneuver wins → MoS spent on effects; Attack wins → MoS damage.",
     defend:
-      "Versus. Defender heals; maneuver winner spends MoS on effects.",
+      "Versus. Only the winner's MoS counts: Maneuver wins → MoS spent on effects; Defend wins → Regroup heals MoS.",
     feint:
-      "Both roll independent at Ob 0; maneuver effects, feint may damage.",
-    maneuver: "Versus. Position trades; winner spends MoS on effects.",
+      "Both roll independent at Ob 0. Maneuver MoS spent on effects; Feint MoS damages.",
+    maneuver:
+      "Both roll independent at Ob 0. Each side that passes spends its own MoS on effects.",
   },
 };
