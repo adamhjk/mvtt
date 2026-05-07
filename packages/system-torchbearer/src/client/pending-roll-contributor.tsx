@@ -49,6 +49,7 @@ import {
   TB_VERSUS_CONTRIB_KIND,
   UseTraitOnRoll,
   channelNatureFromContributions,
+  dispositionAddToFromContributions,
   dispositionFromContributions,
   eligibleHelpFor,
   getSkill,
@@ -175,6 +176,20 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
     const fromOpts = (pr()?.opts as { dispositionMode?: unknown } | undefined)
       ?.dispositionMode;
     return typeof fromOpts === "boolean" ? fromOpts : false;
+  });
+
+  // Active disposition addTo — which ability ("will"/"health") is the
+  // additive base for the dispo total. Panel contribution > opts; null
+  // when explicitly cleared, undefined when never set.
+  const activeDispositionAddTo = createMemo<"will" | "health" | null>(() => {
+    const fromPanel = dispositionAddToFromContributions(
+      (pr()?.contributions ?? []) as Contribution[],
+    );
+    if (fromPanel !== undefined) return fromPanel;
+    const fromOpts = (
+      pr()?.opts as { dispositionAddTo?: "will" | "health" | null } | undefined
+    )?.dispositionAddTo;
+    return fromOpts ?? null;
   });
 
   // Currently-paired versusTestId (panel contribution wins; opts.versusTestId
@@ -467,7 +482,8 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
   /**
    * Toggle disposition mode. Posts a tb-disposition contribution
    * with `replaces: "tb:disposition"` so subsequent toggles
-   * supersede the previous setting cleanly.
+   * supersede the previous setting cleanly. When toggling off, also
+   * clears the addTo selection.
    */
   const toggleDisposition = (next: boolean) => {
     const m = me();
@@ -475,11 +491,32 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
     props.contribute({
       kind: TB_DISPOSITION_CONTRIB_KIND,
       label: next
-        ? "Disposition roll (DH p.254)"
+        ? "Disposition roll (SG p.63)"
         : "Disposition off",
       fromUserId: m.userId,
       fromCharacterId: props.initiatorCharacterId,
-      payload: { enabled: next },
+      payload: { enabled: next, addTo: next ? activeDispositionAddTo() : null },
+      replaces: "tb:disposition",
+    });
+  };
+
+  /**
+   * Pick the Will or Health additive base for the disposition roll.
+   * Per SG p.63-64 / LM p.106 the conflict type pins which ability is
+   * added: Kill / Drive Off / Flee / Pursue → Health; Convince /
+   * Capture / Trick → Will. The pending-roll panel needs an explicit
+   * pick so skill rolls (where the dice pool ≠ the additive base)
+   * compute correctly.
+   */
+  const pickDispositionAddTo = (next: "will" | "health") => {
+    const m = me();
+    if (!m) return;
+    props.contribute({
+      kind: TB_DISPOSITION_CONTRIB_KIND,
+      label: `Disposition: + ${next === "will" ? "Will" : "Health"}`,
+      fromUserId: m.userId,
+      fromCharacterId: props.initiatorCharacterId,
+      payload: { enabled: true, addTo: next },
       replaces: "tb:disposition",
     });
   };
@@ -942,9 +979,56 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
           {activeDisposition() ? "disposition (on)" : "switch to disposition"}
         </button>
         <Show when={activeDisposition()}>
+          <div
+            class="flex items-center gap-1 mt-0.5"
+            data-testid="tb-pending-roll-disposition-addto"
+          >
+            <span class="text-[0.6rem] text-fg-subtle uppercase tracking-[0.14em]">
+              add to
+            </span>
+            <button
+              type="button"
+              class="rounded-(--radius-control) border px-1.5 py-0.5 text-[0.65rem] transition"
+              classList={{
+                "border-accent bg-accent text-accent-fg":
+                  activeDispositionAddTo() === "will",
+                "border-border bg-surface text-fg-muted hover:border-accent":
+                  activeDispositionAddTo() !== "will",
+              }}
+              onClick={() => pickDispositionAddTo("will")}
+              data-testid="tb-pending-roll-disposition-addto-will"
+              title="Add Will rating to successes (Convince / Capture / Trick conflicts)"
+            >
+              Will
+            </button>
+            <button
+              type="button"
+              class="rounded-(--radius-control) border px-1.5 py-0.5 text-[0.65rem] transition"
+              classList={{
+                "border-accent bg-accent text-accent-fg":
+                  activeDispositionAddTo() === "health",
+                "border-border bg-surface text-fg-muted hover:border-accent":
+                  activeDispositionAddTo() !== "health",
+              }}
+              onClick={() => pickDispositionAddTo("health")}
+              data-testid="tb-pending-roll-disposition-addto-health"
+              title="Add Health rating to successes (Kill / Drive Off / Flee / Pursue conflicts)"
+            >
+              Health
+            </button>
+          </div>
           <span class="text-[0.65rem] text-fg-subtle">
-            disposition: base + successes − team penalties (no obstacle)
+            disposition = (Will or Health) + successes − team penalties
           </span>
+          <Show when={activeDispositionAddTo() === null}>
+            <span
+              class="text-[0.65rem] italic"
+              style={{ color: "var(--color-warning, #C9A227)" }}
+              data-testid="tb-pending-roll-disposition-addto-warning"
+            >
+              pick Will or Health — required for the dispo math
+            </span>
+          </Show>
         </Show>
       </div>
 

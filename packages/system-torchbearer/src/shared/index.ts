@@ -136,6 +136,7 @@ export {
   TB_VERSUS_CONTRIB_KIND,
   autoModifiersFromConditions,
   channelNatureFromContributions,
+  dispositionAddToFromContributions,
   dispositionFromContributions,
   formatModifier,
   heroicFromContributions,

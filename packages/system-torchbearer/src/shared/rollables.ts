@@ -32,6 +32,7 @@ import { Team } from "@vtt/characters/shared";
 import {
   autoModifiersFromConditions,
   channelNatureFromContributions,
+  dispositionAddToFromContributions,
   dispositionFromContributions,
   heroicFromContributions,
   modifiersFromContributions,
@@ -151,6 +152,22 @@ interface TbRollableArgs {
    * `spec.dispositionMode`.
    */
   dispositionMode: boolean;
+  /**
+   * In `dispositionMode`, which ability is added to successes for the
+   * dispo total — the panel's `addTo` selection. The compute path
+   * looks up `RawAbilities.{will|health}.rating` and supplies the
+   * matching `dispoBase`. `null`/undefined means the panel hasn't
+   * selected one; buildSpec leaves `spec.dispoBase` absent and the
+   * chat row falls back to `baseDice` (correct only for Will/Health
+   * rollables).
+   */
+  dispoAddTo?: "will" | "health" | null;
+  /**
+   * In `dispositionMode`, the resolved additive-base value (the
+   * captain's Will or Health rating). Stamped onto the spec as
+   * `spec.dispoBase` when present.
+   */
+  dispoBase?: number;
   /**
    * Live World handle — needed to query party-tagged characters
    * for disposition team penalties. Threaded through from the
@@ -351,6 +368,14 @@ function buildSpec(
     modifiers,
     versusTestId: effectiveVersusId,
     dispositionMode: args.dispositionMode ? true : undefined,
+    dispoBase:
+      args.dispositionMode && args.dispoBase !== undefined
+        ? args.dispoBase
+        : undefined,
+    dispoAddTo:
+      args.dispositionMode && args.dispoAddTo !== undefined
+        ? args.dispoAddTo
+        : undefined,
     personaDiceSpent: personaSpend,
     channelNature:
       channelDice > 0 && channelDecl !== null
@@ -500,6 +525,43 @@ function resolveDispositionForOpts(opts: unknown): boolean {
 }
 
 /**
+ * Resolve the dispo `addTo` selection from opts / panel contributions.
+ * Returns `null` when explicitly cleared, `undefined` when never set.
+ */
+function resolveDispositionAddToForOpts(
+  opts: unknown,
+): "will" | "health" | null | undefined {
+  const o = opts as
+    | {
+        dispositionAddTo?: "will" | "health" | null;
+        contributions?: unknown;
+      }
+    | undefined;
+  if (o?.dispositionAddTo !== undefined) return o.dispositionAddTo;
+  if (Array.isArray(o?.contributions)) {
+    return dispositionAddToFromContributions(
+      o.contributions as ReadonlyArray<z.infer<typeof ContributionSchema>>,
+    );
+  }
+  return undefined;
+}
+
+/**
+ * Look up the `addTo` ability rating off `RawAbilities`. Returns
+ * `undefined` if the panel hasn't picked yet — caller may fall back to
+ * `baseDice` for ability rollables (where they coincide) or leave the
+ * spec without `dispoBase` so the chat row warns.
+ */
+function dispoBaseFromAbilities(
+  abilities: { will: { rating: number }; health: { rating: number } },
+  addTo: "will" | "health" | null | undefined,
+): number | undefined {
+  if (addTo === "will") return abilities.will.rating;
+  if (addTo === "health") return abilities.health.rating;
+  return undefined;
+}
+
+/**
  * Resolve the obstacle for a roll. Priority (highest wins):
  *   1. `opts.obstacle` — caller-side override (rare; e.g. a system
  *      mechanic forcing a specific Ob).
@@ -567,6 +629,16 @@ export const WillCheck = defineRollable({
       panelHeroic: panelHeroicFromOpts(opts?.contributions),
       traitHeroic: traitHeroicFor(heroic, "ability", "will"),
     });
+    const willDispoMode = resolveDispositionForOpts(opts);
+    const willAddTo = resolveDispositionAddToForOpts(opts);
+    // Will-check in dispo mode: even if the panel didn't explicitly
+    // pick "will" via the addTo selector, the ability rating IS the
+    // additive base. Default the addTo + dispoBase from this rollable's
+    // own ability.
+    const willResolvedAddTo = willAddTo ?? "will";
+    const willDispoBase = willDispoMode
+      ? dispoBaseFromAbilities(abilities, willResolvedAddTo)
+      : undefined;
     return buildSpec(
       {
         baseDice: abilities.will.rating,
@@ -575,7 +647,9 @@ export const WillCheck = defineRollable({
         kind: "ability",
         heroic: isHeroic,
         versusTestId: resolveVersusForOpts(opts),
-        dispositionMode: resolveDispositionForOpts(opts),
+        dispositionMode: willDispoMode,
+        dispoAddTo: willDispoMode ? willResolvedAddTo : undefined,
+        dispoBase: willDispoBase,
         world,
         entityId,
         headline,
@@ -609,6 +683,12 @@ export const HealthCheck = defineRollable({
       panelHeroic: panelHeroicFromOpts(opts?.contributions),
       traitHeroic: traitHeroicFor(heroic, "ability", "health"),
     });
+    const healthDispoMode = resolveDispositionForOpts(opts);
+    const healthAddTo = resolveDispositionAddToForOpts(opts);
+    const healthResolvedAddTo = healthAddTo ?? "health";
+    const healthDispoBase = healthDispoMode
+      ? dispoBaseFromAbilities(abilities, healthResolvedAddTo)
+      : undefined;
     return buildSpec(
       {
         baseDice: abilities.health.rating,
@@ -617,7 +697,9 @@ export const HealthCheck = defineRollable({
         kind: "ability",
         heroic: isHeroic,
         versusTestId: resolveVersusForOpts(opts),
-        dispositionMode: resolveDispositionForOpts(opts),
+        dispositionMode: healthDispoMode,
+        dispoAddTo: healthDispoMode ? healthResolvedAddTo : undefined,
+        dispoBase: healthDispoBase,
         world,
         entityId,
         headline: "Health",
@@ -664,6 +746,11 @@ export const NatureCheck = defineRollable({
       panelHeroic: panelHeroicFromOpts(opts?.contributions),
       traitHeroic: traitHeroicFor(heroic, "ability", "nature"),
     });
+    const natureDispoMode = resolveDispositionForOpts(opts);
+    const natureAddTo = resolveDispositionAddToForOpts(opts);
+    const natureDispoBase = natureDispoMode
+      ? dispoBaseFromAbilities(abilities, natureAddTo)
+      : undefined;
     return buildSpec(
       {
         baseDice,
@@ -672,7 +759,9 @@ export const NatureCheck = defineRollable({
         kind: "ability",
         heroic: isHeroic,
         versusTestId: resolveVersusForOpts(opts),
-        dispositionMode: resolveDispositionForOpts(opts),
+        dispositionMode: natureDispoMode,
+        dispoAddTo: natureAddTo,
+        dispoBase: natureDispoBase,
         world,
         entityId,
         headline,
@@ -840,6 +929,11 @@ export const SkillCheck = defineRollable({
         panelHeroic,
         traitHeroic: traitHeroicFor(heroic, "skill", opts.skillId),
       });
+      const dispoMode = resolveDispositionForOpts(opts);
+      const addTo = resolveDispositionAddToForOpts(opts);
+      const dispoBase = dispoMode
+        ? dispoBaseFromAbilities(abilities, addTo)
+        : undefined;
       return buildSpec(
         {
           baseDice: rating,
@@ -848,7 +942,9 @@ export const SkillCheck = defineRollable({
           kind: "skill",
           heroic: isHeroic,
           versusTestId: resolveVersusForOpts(opts),
-          dispositionMode: resolveDispositionForOpts(opts),
+          dispositionMode: dispoMode,
+          dispoAddTo: addTo,
+          dispoBase,
           world,
           entityId,
           headline: skillName,
@@ -875,6 +971,11 @@ export const SkillCheck = defineRollable({
       panelHeroic,
       traitHeroic: traitHeroicFor(heroic, "skill-bl", opts.skillId),
     });
+    const blDispoMode = resolveDispositionForOpts(opts);
+    const blAddTo = resolveDispositionAddToForOpts(opts);
+    const blDispoBase = blDispoMode
+      ? dispoBaseFromAbilities(abilities, blAddTo)
+      : undefined;
     return buildSpec(
       {
         baseDice: blRating,
@@ -883,7 +984,9 @@ export const SkillCheck = defineRollable({
         kind: "skill-bl",
         heroic: isHeroic,
         versusTestId: resolveVersusForOpts(opts),
-        dispositionMode: resolveDispositionForOpts(opts),
+        dispositionMode: blDispoMode,
+        dispoAddTo: blAddTo,
+        dispoBase: blDispoBase,
         world,
         entityId,
         headline: blLabel,

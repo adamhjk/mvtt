@@ -140,23 +140,29 @@ export function TbRollRow(props: TbRollRowProps): JSX.Element {
   });
 
   /**
-   * Disposition value (DH p.254): base rating + rolled successes -
-   * per-team penalties. Team penalties are already folded into
-   * `spec.bonusSuccesses` as -1s modifiers, so summing
-   * `baseDice + rawSuccesses + always` gives the same result.
-   * Conditional `on-success`/`on-fail` modifiers don't apply to
-   * disposition (no pass/fail to gate them on); we exclude them
-   * from the disposition count even though `summary.final` would
-   * fold them in.
+   * Disposition value (SG p.63-64 / LM p.106 / DH p.254):
+   *     final dispo = additive base + rolled successes − per-team
+   *                   penalties (floored at 1 per SG p.47).
    *
-   * Floored at 1 per SG p.47 — "Minimum starting disposition is 1".
-   * Returns null when this isn't a disposition roll.
+   * The additive base is the captain's **Will** or **Health** rating,
+   * picked per conflict type — distinct from the dice pool, which is
+   * the skill rating. `spec.dispoBase` carries that ability rating
+   * when the panel's "switch to disposition" toggle has resolved a
+   * Will/Health choice. If absent (legacy contributions or unspecified),
+   * we fall back to `spec.baseDice` — correct for Will-check /
+   * Health-check rollables but wrong for skill rolls (the panel's
+   * dispo toggle now requires Will/Health to be picked).
+   *
+   * Team penalties (Hungry & Thirsty, Exhausted) are folded into
+   * `summary.always` as -1s modifiers; conditional on-pass/on-fail
+   * modifiers don't apply (no pass/fail to gate them on).
    */
   const dispositionValue = createMemo<number | null>(() => {
     const s = spec();
     const sum = summary();
     if (!s?.dispositionMode || !sum) return null;
-    return Math.max(1, s.baseDice + sum.rawSuccesses + sum.always);
+    const base = s.dispoBase ?? s.baseDice;
+    return Math.max(1, base + sum.rawSuccesses + sum.always);
   });
 
   return (

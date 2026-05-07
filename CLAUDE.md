@@ -95,6 +95,18 @@ Only **commands** cross client → server. Only **events** cross server → clie
 
 Every entity id is allocated by the server in a command's `apply` via `world.allocateId()` and embedded in the emitted event. Universal-mirror systems on every side then call `world.spawnAt(event.<id>, traits)` — never `world.spawn(...)`. Predicting ids by running a per-side counter "in lockstep" with the server is silently broken under per-recipient event filtering, secondary-event timing differences, and any future per-side codepath difference; the counters drift and clients reference entities the server never allocated. See "Entity ids are server-authoritative" in `design/basics.md`.
 
+### Real-time reactivity is essential — never snapshot derivable state
+
+mvtt is a live, multi-player VTT. Every UI surface must update in real time as the underlying world changes — players renaming characters, equipping armor mid-fight, taking conditions, dropping weapons, all of it should propagate to every other player's screen with no manual refresh. **Treat snapshotting as a bug.**
+
+Concretely:
+
+- **Don't copy character data into derived entities.** A conflict participant doesn't need a `displayName` field copied off `Character.name` — read the character's name live via `useTrait(characterId, Character)` at the leaf component. A "currently equipped armor" reference doesn't need to be cached on a conflict-armor-state entity at declare time — derive it live from the holder's `TbCarries` trait. Snapshots inevitably drift from the source of truth and break the "real-time" promise.
+- **Conflict-local state legitimately exists separately.** HP this round, scripted actions for this round, weapon binding for this round, armor degradation this fight — these aren't snapshots of character state, they're new facts created by the conflict. Store those.
+- **Pass entity ids down through props, not snapshotted values.** `<TopStripe conflictId={c.id} />` not `<TopStripe conflict={c} />`. The leaf calls `useTrait` / `useQuery` and subscribes to its own slice. Solid only re-runs the leaf when its slice changes — and the snapshot pattern (`const c = cAcc(); return <Comp v={c} />`) silently breaks reactivity because `c` is captured at first render and never updates.
+- **Server-side resolvers should also read live.** Don't cache "what armor was equipped at conflict-declare" — read the character's `TbCarries` at slot-resolve time so a mid-fight equip is reflected immediately.
+- **The server is the source of truth; the world's traits are the canonical view.** Anything you'd be tempted to "save for safety" lives on its owning entity already — stop, look it up, and read it live.
+
 ### Password managers stay out of the in-app UI
 
 The signed-in shell is wrapped in `data-1p-ignore` / `data-lpignore` / `data-bwignore` / `data-form-type="other"` (see `packages/shell-default/src/client/Chrome.tsx`) so password managers don't autofill or pop suggestions over plugin forms — game-content forms (dice notation, chat input, character sheets later) routinely look like login forms to those extensions. The auth gate (`packages/client/src/AuthGate.tsx`) is mounted *outside* this wrapper and intentionally still gets password manager support.

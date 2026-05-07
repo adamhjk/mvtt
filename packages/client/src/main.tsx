@@ -39,6 +39,7 @@ import { items } from "@vtt/items";
 import { itemsPages } from "@vtt/items/pages";
 import { systemSimple } from "@vtt/system-simple";
 import { systemTorchbearer } from "@vtt/system-torchbearer";
+import { systemTorchbearerPages } from "@vtt/system-torchbearer/pages";
 import { App } from "./App";
 import { AuthGate } from "./AuthGate";
 import { WorldGate } from "./WorldGate";
@@ -74,6 +75,7 @@ const ALL_PLUGINS: ReadonlyArray<PluginDef> = [
   itemsPages,
   systemSimple,
   systemTorchbearer,
+  systemTorchbearerPages,
 ];
 
 function Root() {

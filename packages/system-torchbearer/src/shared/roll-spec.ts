@@ -290,6 +290,27 @@ export const TbRollSpecSchema = z.object({
   dispositionMode: z.boolean().optional(),
 
   /**
+   * In `dispositionMode`, the additive base used to compute the
+   * team's starting disposition (SG p.63-64 / LM p.106): the captain's
+   * **Will** or **Health** rating, depending on conflict type. Skill
+   * rolls in dispositionMode require this — the skill rating sets the
+   * dice pool, but the ability rating is what's added to successes.
+   *
+   * For Will-check / Health-check rollables in dispositionMode, this
+   * matches `baseDice` (the ability is both pool and additive base).
+   *
+   * Absent on non-disposition rolls. Absent on disposition rolls where
+   * the panel never specified `addTo` — the chat row falls back to
+   * `baseDice`, which preserves legacy behavior for ability rolls but
+   * is wrong for skill rolls (the pending-roll panel surfaces a
+   * picker to keep the captain honest).
+   */
+  dispoBase: z.number().int().min(0).max(20).optional(),
+
+  /** When `dispositionMode`, which ability the panel selected to add. */
+  dispoAddTo: z.enum(["will", "health"]).nullable().optional(),
+
+  /**
    * Pre-roll persona-advantage declared in the panel (DH p.8 sheet,
    * p.250 reference card). 0–3 inclusive, capped per RAW. The dice
    * are folded into `pool` via a `+ND Persona` modifier; the count

@@ -169,6 +169,12 @@ import { PendingRollContributorsSlot } from "@vtt/characters/shared";
 import { RollActionsSlot } from "@vtt/resolution/shared";
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { tbItemsSeed } from "./data/seed.js";
+import {
+  ALL_CONFLICT_COMMANDS,
+  ALL_CONFLICT_EVENTS,
+  ALL_CONFLICT_TRAITS,
+} from "./conflict/shared/index.js";
+import { ALL_CONFLICT_SYSTEMS } from "./conflict/server/index.js";
 
 /**
  * Torchbearer 2nd Edition game system. Shape-only first pass:
@@ -204,6 +210,12 @@ export const systemTorchbearer = definePlugin({
     "@vtt/scene@^0",
     "@vtt/resolution@^0",
     "@vtt/shell-workbench@^0",
+    // The conflict Reference Board page provider lives in a sibling
+    // plugin (mirrors @vtt/items-pages) so the core trait/event/
+    // command/system surface stays loadable without shell-workbench
+    // in unit tests. Listed here so the per-world plugin resolver
+    // walks it transitively when this game system is chosen.
+    "@vtt/system-torchbearer-pages@^0",
   ],
   gameSystem: true,
   traits: [
@@ -239,6 +251,7 @@ export const systemTorchbearer = definePlugin({
     Grind,
     LightWentOutNotice,
     GrindToll,
+    ...ALL_CONFLICT_TRAITS,
   ],
   events: [
     AdvancementLogged,
@@ -266,6 +279,7 @@ export const systemTorchbearer = definePlugin({
     NoticeDismissed,
     GrindTollOpened,
     GrindTollRowApplied,
+    ...ALL_CONFLICT_EVENTS,
   ],
   commands: [
     ImproveSkill,
@@ -292,6 +306,7 @@ export const systemTorchbearer = definePlugin({
     SetGrindExtreme,
     DismissLightWentOut,
     MarkGrindToll,
+    ...ALL_CONFLICT_COMMANDS,
   ],
   slots: [TbRollModifierProvidersSlot],
   systems: [
@@ -328,6 +343,7 @@ export const systemTorchbearer = definePlugin({
     NoticeDismissSystem,
     GrindTollOpenedSystem,
     GrindTollRowAppliedSystem,
+    ...ALL_CONFLICT_SYSTEMS,
   ],
   rollables: [
     WillCheck,

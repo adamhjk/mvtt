@@ -54,7 +54,7 @@ export const CharacterSpawningSystem = defineSystem({
       Character({ name: event.name }),
       Permissions(ownedBy(event.ownerUserId)),
       // Default every new character to the party. NPCs get switched
-      // to "gm" later via SetField (or future GM-side tooling).
+      // to "enemy" later via SetField (or future GM-side tooling).
       Team({ kind: "party" }),
     ]);
     return [];

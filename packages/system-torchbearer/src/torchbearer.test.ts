@@ -609,7 +609,7 @@ const SpawnTb = defineCommand({
     exhausted: z.boolean().default(false),
     injured: z.boolean().default(false),
     sick: z.boolean().default(false),
-    team: z.enum(["party", "gm"]).default("party"),
+    team: z.enum(["party", "enemy"]).default("party"),
   }),
   validate: () => ok(),
   apply: ({ cmd, world }) => {
@@ -858,6 +858,7 @@ import {
   buildTbNotation,
   channelNatureFromContributions,
   countSuccesses,
+  dispositionAddToFromContributions,
   dispositionFromContributions,
   foldBlModifiers,
   foldModifiers,
@@ -1982,12 +1983,15 @@ describe("TbRollSpec schema — versusTestId", () => {
 });
 
 describe("dispositionFromContributions", () => {
-  function tbDispositionC(enabled: boolean): Contribution {
+  function tbDispositionC(
+    enabled: boolean,
+    addTo?: "will" | "health" | null,
+  ): Contribution {
     return {
       kind: TB_DISPOSITION_CONTRIB_KIND,
       label: enabled ? "disposition on" : "disposition off",
       fromUserId: "u1",
-      payload: { enabled },
+      payload: addTo === undefined ? { enabled } : { enabled, addTo },
     };
   }
 
@@ -2003,6 +2007,23 @@ describe("dispositionFromContributions", () => {
     expect(
       dispositionFromContributions([tbDispositionC(false), tbDispositionC(true)]),
     ).toBe(true);
+  });
+
+  it("dispositionAddToFromContributions returns the latest addTo selection", () => {
+    expect(dispositionAddToFromContributions(undefined)).toBeUndefined();
+    expect(dispositionAddToFromContributions([])).toBeUndefined();
+    // Toggle on with no addTo → null (caller's fallback territory).
+    expect(dispositionAddToFromContributions([tbDispositionC(true)])).toBeNull();
+    // Pick Will → Will. Pick Health → Health. Last wins.
+    expect(
+      dispositionAddToFromContributions([tbDispositionC(true, "will")]),
+    ).toBe("will");
+    expect(
+      dispositionAddToFromContributions([
+        tbDispositionC(true, "will"),
+        tbDispositionC(true, "health"),
+      ]),
+    ).toBe("health");
   });
 });
 
@@ -2997,7 +3018,7 @@ describe("Rollables — integration with conditions and panel contributions", ()
     // A GM-flagged NPC who's hungry & thirsty — shouldn't affect us.
     await spawn(
       h.pipeline,
-      { name: "Goblin", team: "gm", hungryThirsty: true, exhausted: true },
+      { name: "Goblin", team: "enemy", hungryThirsty: true, exhausted: true },
       h.registry,
     );
     const r = invokeRollable(
@@ -3055,6 +3076,136 @@ describe("Rollables — integration with conditions and panel contributions", ()
     );
     const spec = r!.spec as TbRollSpec;
     expect(spec.dispositionMode).toBe(true);
+  });
+
+  /* -------------------------------------------------------------------
+   * dispoBase: skill rolls in disposition mode use the captain's
+   * Will or Health rating as the additive base, NOT the skill rating.
+   * SG p.63-64 / LM p.106. The previous implementation conflated the
+   * two and silently produced the wrong dispo for skills like
+   * Manipulator (Trick) where skill ≠ ability.
+   * ----------------------------------------------------------------- */
+
+  it("SkillCheck dispo: addTo=will → spec.dispoBase = will rating (NOT skill rating)", async () => {
+    const h = buildRollableHarness();
+    // Bryn: Will 5, Manipulator skill 3. Trick conflict adds Will.
+    await spawn(
+      h.pipeline,
+      { name: "Bryn", will: 5, skills: { manipulator: 3 } },
+      h.registry,
+    );
+    const rollerId = h.world.query([Identity])[0]!.id;
+    const r = invokeRollable(
+      h.registry.rollables.get(SkillCheck.name)!,
+      h.world,
+      rollerId,
+      {
+        skillId: "manipulator",
+        contributions: [
+          {
+            kind: TB_DISPOSITION_CONTRIB_KIND,
+            label: "disposition: + Will",
+            fromUserId: "u1",
+            payload: { enabled: true, addTo: "will" },
+          },
+        ],
+      },
+    );
+    const spec = r!.spec as TbRollSpec;
+    expect(spec.dispositionMode).toBe(true);
+    expect(spec.baseDice).toBe(3); // skill rating drives the pool
+    expect(spec.dispoBase).toBe(5); // Will rating is the additive base
+    expect(spec.dispoAddTo).toBe("will");
+  });
+
+  it("SkillCheck dispo: addTo=health → spec.dispoBase = health rating", async () => {
+    const h = buildRollableHarness();
+    // Bryn: Health 6, Fighter skill 4. Kill conflict adds Health.
+    await spawn(
+      h.pipeline,
+      { name: "Bryn", health: 6, skills: { fighter: 4 } },
+      h.registry,
+    );
+    const rollerId = h.world.query([Identity])[0]!.id;
+    const r = invokeRollable(
+      h.registry.rollables.get(SkillCheck.name)!,
+      h.world,
+      rollerId,
+      {
+        skillId: "fighter",
+        contributions: [
+          {
+            kind: TB_DISPOSITION_CONTRIB_KIND,
+            label: "disposition: + Health",
+            fromUserId: "u1",
+            payload: { enabled: true, addTo: "health" },
+          },
+        ],
+      },
+    );
+    const spec = r!.spec as TbRollSpec;
+    expect(spec.baseDice).toBe(4); // pool = Fighter rating
+    expect(spec.dispoBase).toBe(6); // additive base = Health rating
+    expect(spec.dispoAddTo).toBe("health");
+  });
+
+  it("SkillCheck dispo without addTo: spec.dispoBase undefined (legacy fallback)", async () => {
+    const h = buildRollableHarness();
+    await spawn(
+      h.pipeline,
+      { name: "Bryn", will: 5, skills: { manipulator: 3 } },
+      h.registry,
+    );
+    const rollerId = h.world.query([Identity])[0]!.id;
+    const r = invokeRollable(
+      h.registry.rollables.get(SkillCheck.name)!,
+      h.world,
+      rollerId,
+      {
+        skillId: "manipulator",
+        contributions: [
+          {
+            kind: TB_DISPOSITION_CONTRIB_KIND,
+            label: "disposition on",
+            fromUserId: "u1",
+            payload: { enabled: true },
+          },
+        ],
+      },
+    );
+    const spec = r!.spec as TbRollSpec;
+    expect(spec.dispositionMode).toBe(true);
+    // dispoBase absent → chat row falls back to baseDice (legacy);
+    // panel UI surfaces a warning to nudge the user to pick.
+    expect(spec.dispoBase).toBeUndefined();
+    expect(spec.dispoAddTo).toBeNull();
+  });
+
+  it("WillCheck dispo without addTo: defaults to will (ability IS the base)", async () => {
+    const h = buildRollableHarness();
+    await spawn(h.pipeline, { name: "Bryn", will: 4 }, h.registry);
+    const rollerId = h.world.query([Identity])[0]!.id;
+    const r = invokeRollable(
+      h.registry.rollables.get(WillCheck.name)!,
+      h.world,
+      rollerId,
+      {
+        contributions: [
+          {
+            kind: TB_DISPOSITION_CONTRIB_KIND,
+            label: "disposition on",
+            fromUserId: "u1",
+            payload: { enabled: true },
+          },
+        ],
+      },
+    );
+    const spec = r!.spec as TbRollSpec;
+    expect(spec.baseDice).toBe(4);
+    // WillCheck auto-fills addTo to "will" (its own ability) when the
+    // panel didn't specify, since baseDice and dispoBase coincide.
+    expect(spec.dispoBase).toBe(4);
+    expect(spec.dispoAddTo).toBe("will");
   });
 });
 

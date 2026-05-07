@@ -62,6 +62,7 @@ import { items } from "@vtt/items";
 import { itemsPages } from "@vtt/items/pages";
 import { systemSimple } from "@vtt/system-simple";
 import { systemTorchbearer } from "@vtt/system-torchbearer";
+import { systemTorchbearerPages } from "@vtt/system-torchbearer/pages";
 import { createAuth } from "@vtt/auth/server";
 import { parseAuthSession, type AuthSession } from "@vtt/auth";
 import { SqlitePersistence, SqliteWorldsRepository } from "@vtt/persistence-sqlite";
@@ -183,6 +184,7 @@ const optionalPlugins = [
   itemsPages,
   systemSimple,
   systemTorchbearer,
+  systemTorchbearerPages,
 ];
 
 const authHandler = toNodeHandler(auth.auth.handler);

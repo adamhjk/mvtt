@@ -78,8 +78,20 @@ const ObstacleContributionPayloadSchema = z.object({
  */
 export const TB_DISPOSITION_CONTRIB_KIND = "tb-disposition" as const;
 
+/**
+ * `addTo` says which ability rating is added to the rolled successes
+ * to form the team's starting disposition (SG p.63-64 / LM p.106):
+ * Kill / Drive Off / Flee / Pursue add Health; Convince / Capture /
+ * Trick add Will. The skill drives the dice pool; the ability is the
+ * additive base. Without `addTo` the chat row falls back to the
+ * roll's own base dice — correct for Will-check / Health-check
+ * rollables (where `baseDice` IS the ability rating) and wrong for
+ * skill rolls. The pending-roll panel surfaces a Will / Health
+ * picker so the captain commits the right value.
+ */
 const DispositionContributionPayloadSchema = z.object({
   enabled: z.boolean(),
+  addTo: z.enum(["will", "health"]).nullable().optional(),
 });
 
 /**
@@ -248,6 +260,25 @@ export function dispositionFromContributions(
     if (c.kind !== TB_DISPOSITION_CONTRIB_KIND) continue;
     const parsed = DispositionContributionPayloadSchema.safeParse(c.payload);
     if (parsed.success) latest = parsed.data.enabled;
+  }
+  return latest;
+}
+
+/**
+ * Read the most recent `tb-disposition` `addTo` selection — which
+ * ability ("will" / "health") is added to successes for the dispo
+ * total. Returns `undefined` if the panel never picked one (caller
+ * decides the fallback); `null` if explicitly cleared.
+ */
+export function dispositionAddToFromContributions(
+  contributions: ReadonlyArray<Contribution> | undefined,
+): "will" | "health" | null | undefined {
+  if (!contributions || contributions.length === 0) return undefined;
+  let latest: "will" | "health" | null | undefined;
+  for (const c of contributions) {
+    if (c.kind !== TB_DISPOSITION_CONTRIB_KIND) continue;
+    const parsed = DispositionContributionPayloadSchema.safeParse(c.payload);
+    if (parsed.success) latest = parsed.data.addTo ?? null;
   }
   return latest;
 }
@@ -636,7 +667,7 @@ export interface TbSuggestedQuickModifier {
  * job, not the modifier list's.
  *
  * "Team" is determined by the `@vtt/characters/Team` trait —
- * `kind: "party"` flags a party-side character, `"gm"` flags the
+ * `kind: "party"` flags a party-side character, `"enemy"` flags the
  * antagonist side. For a player rolling disposition, we sum across
  * every party-tagged character (including themself).
  */

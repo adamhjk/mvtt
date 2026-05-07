@@ -5,8 +5,12 @@
   "type": "module",
   "exports": {
     ".": "./src/manifest.ts",
+    "./pages": "./src/pages-manifest.ts",
     "./shared": "./src/shared/index.ts",
-    "./client": "./src/client/index.ts"
+    "./client": "./src/client/index.ts",
+    "./conflict": "./src/conflict/shared/index.ts",
+    "./conflict-server": "./src/conflict/server/index.ts",
+    "./conflict-client": "./src/conflict/client/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
