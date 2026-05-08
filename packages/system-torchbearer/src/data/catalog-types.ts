@@ -82,5 +82,20 @@ export interface TbItemTemplate {
         lit: boolean;
         nameSingular: string;
       }
-    | { type: "container"; containerType: string; containerSlots: number };
+    | { type: "container"; containerType: string; containerSlots: number }
+    | {
+        type: "spellbook";
+        /** Folio capacity, canonically 5 (DH p.92). */
+        folios: number;
+      }
+    | {
+        type: "scroll";
+        /**
+         * Plugin-namespaced spell template id this scroll holds, or
+         * null for a blank scroll (writable medium). The seed resolves
+         * `spellTemplateId` to the actual spell entity id at world
+         * boot via SpellCatalogIndex.
+         */
+        spellTemplateId: string | null;
+      };
 }

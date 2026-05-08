@@ -47,9 +47,36 @@ function usage() {
 }
 
 function discoverCorpora(dataDir) {
-  const root = resolve(dataDir, "plugin-data");
-  if (!existsSync(root)) return [];
   const corpora = [];
+
+  // Permanent reference corpora — hand-extracted via tools/rules-extract,
+  // gitignored under /data/, kept around even when worlds get reset.
+  // Layout: data/rules-corpus-permanent/<assetId>/manifest.json
+  const permanentRoot = resolve(dataDir, "rules-corpus-permanent");
+  if (existsSync(permanentRoot)) {
+    for (const assetEntry of safeReaddir(permanentRoot)) {
+      const corpusDir = resolve(permanentRoot, assetEntry);
+      const manifestPath = resolve(corpusDir, "manifest.json");
+      const chunksPath = resolve(corpusDir, "chunks.jsonl");
+      if (!existsSync(manifestPath) || !existsSync(chunksPath)) continue;
+      try {
+        const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+        corpora.push({
+          dir: corpusDir,
+          worldId: "(permanent)",
+          assetId: assetEntry,
+          manifest,
+        });
+      } catch {
+        // ignore malformed
+      }
+    }
+  }
+
+  // Per-world corpora — uploaded via the in-app Books page; live until
+  // the world is reset.
+  const root = resolve(dataDir, "plugin-data");
+  if (!existsSync(root)) return corpora;
   for (const worldEntry of safeReaddir(root)) {
     const worldDir = resolve(root, worldEntry);
     if (!isDir(worldDir)) continue;

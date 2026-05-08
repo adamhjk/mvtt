@@ -178,6 +178,14 @@ export function TbRollRow(props: TbRollRowProps): JSX.Element {
               <span class="text-fg">{rolledBy()!.displayName}</span>{" "}
               <span class="text-fg-subtle">rolled</span>{" "}
               <span class="text-fg">{spec()!.source}</span>
+              <Show when={spec()!.spellCast?.spellName}>
+                {(name) => (
+                  <>
+                    <span class="text-fg-subtle"> for </span>
+                    <span class="text-fg">{name()}</span>
+                  </>
+                )}
+              </Show>
               <Show when={spec()!.obstacle !== null}>
                 <span class="text-fg-subtle"> vs Ob {spec()!.obstacle}</span>
                 <Show

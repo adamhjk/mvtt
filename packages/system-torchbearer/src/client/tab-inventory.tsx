@@ -2870,6 +2870,6 @@ void PickUpItem;
 export const TbInventoryTabFill: CharacterSheetTab = {
   id: qualifiedName("@vtt/system-torchbearer/tab-inventory") as CharacterSheetTab["id"],
   label: "Inventory",
-  priority: 50,
+  priority: 60,
   render: ({ characterId }) => InventoryTab({ characterId }),
 };

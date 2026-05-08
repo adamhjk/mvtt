@@ -33,6 +33,18 @@ import {
   TbSupply,
   TbWeapon,
   ItemPosition,
+  SpellCatalogIndex,
+  SpellDerivedFrom,
+  SpellIdentity,
+  TbScroll,
+  TbSpellBook,
+  TbSpellCasting,
+  TbSpellLearning,
+  InvocationCatalogIndex,
+  InvocationDerivedFrom,
+  InvocationIdentity,
+  TbInvocationPerforming,
+  TbInvocationRelicLink,
   EquipItem,
   MoveItem,
   SetEntryState,
@@ -63,11 +75,23 @@ import {
   templateToTraitBag,
 } from "./data/seed.js";
 import { TB_CONFLICT_RESOURCE_TEMPLATES } from "./data/tb-conflict-resources.generated.js";
+import { TB_ARCANE_ITEM_TEMPLATES } from "./data/tb-arcane-items.generated.js";
+import { TB_INVOCATION_TEMPLATES } from "./data/tb-invocations.generated.js";
 import { TbConflictResource } from "./shared/monster-traits.js";
 import type { TbItemTemplate } from "./data/catalog-types.js";
 
+// Relics are seeded as catalog items (one per invocation that has a
+// non-empty `relicName`). Match the seed's filter so the count
+// remains stable as new invocations land.
+const RELIC_TEMPLATE_COUNT = TB_INVOCATION_TEMPLATES.filter(
+  (t) => t.performing.relicName.trim().length > 0,
+).length;
+
 const TOTAL_SEED_TEMPLATE_COUNT =
-  TB_ITEM_TEMPLATES.length + TB_CONFLICT_RESOURCE_TEMPLATES.length;
+  TB_ITEM_TEMPLATES.length +
+  TB_CONFLICT_RESOURCE_TEMPLATES.length +
+  TB_ARCANE_ITEM_TEMPLATES.length +
+  RELIC_TEMPLATE_COUNT;
 
 // A bare-bones plugin that registers the TB items schema (so the
 // merge engine can parse the catalog values) without dragging in
@@ -87,6 +111,21 @@ const tbItemsTestPlugin = definePlugin({
     TbCarries,
     TbConflictResource,
     ItemPosition,
+    // Arcane catalog targets:
+    SpellIdentity,
+    TbSpellCasting,
+    TbSpellLearning,
+    SpellDerivedFrom,
+    SpellCatalogIndex,
+    TbSpellBook,
+    TbScroll,
+    // Invocation catalog targets — relic items seed alongside, with
+    // a TbInvocationRelicLink back to the matching invocation.
+    InvocationIdentity,
+    TbInvocationPerforming,
+    InvocationDerivedFrom,
+    InvocationCatalogIndex,
+    TbInvocationRelicLink,
   ],
   events: [
     ItemEquipped,

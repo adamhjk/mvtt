@@ -399,42 +399,13 @@ export const Wises = defineTrait({
 
 
 /* -------------------------------------------------------------------------
- * Arcane — Spells, Relics, Memory Palace, Urðr / Burden
+ * Arcane — Relics, Urðr / Burden
+ *
+ * Spells, spell books, scrolls, the memory palace, and the at-home
+ * library all live on dedicated entities and traits in `./spells/`,
+ * which together replace the flat `Spells` trait this section used
+ * to host. See `design/torchbearer-spells.md`.
  * ----------------------------------------------------------------------- */
-
-/**
- * Arcane spells (DH "Spells" chapter). Each spell tracks where it
- * lives (library / spellbook / memorized / cast / scroll) and whether
- * it has the supplies needed to cast. Free-text effect summary for
- * fast at-the-table reading.
- */
-export const Spells = defineTrait({
-  name: "@vtt/system-torchbearer/Spells",
-  schema: z
-    .object({
-      entries: z
-        .array(
-          z.object({
-            name: z.string().min(1).max(80),
-            ob: z.number().int().min(0).max(10).default(0),
-            library: z.boolean().default(false),
-            spellbook: z.boolean().default(false),
-            memorized: z.boolean().default(false),
-            cast: z.boolean().default(false),
-            scroll: z.boolean().default(false),
-            supplies: z.boolean().default(false),
-            effect: z.string().max(240).default(""),
-          }),
-        )
-        .default([]),
-      /**
-       * Memory palace slots — how many spells the caster can hold
-       * memorized at once. Six dots on the printed sheet (DH p.96).
-       */
-      memoryPalace: z.number().int().min(0).max(6).default(0),
-    })
-    .default({ entries: [], memoryPalace: 0 }),
-});
 
 /**
  * Relics for theurges, shamans, and other relic-bearing classes.
@@ -460,6 +431,35 @@ export const Relics = defineTrait({
       burden: z.number().int().min(0).max(6).default(0),
     })
     .default({ entries: [], urdr: 1, burden: 0 }),
+});
+
+/* -------------------------------------------------------------------------
+ * LevelBenefits — per-level free-text notes (DH p.112)
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Free-text record of which level benefit the character chose at each
+ * of the 10 levels (DH p.112). The fate / persona spend thresholds
+ * and the Additional Benefits column are pure rule-text and live on
+ * the sheet UI; this trait stores only the player's typed-in
+ * description ("Soft Step", "Fire Forged", a sentence or two of
+ * memory aid) so they don't have to flip to the rulebook every time
+ * the GM asks "what'd you take at L4?".
+ *
+ * Indexed 0..9 for levels 1..10. Always exactly 10 entries — the
+ * default seeds with empty strings so the table renders cleanly on a
+ * brand-new character.
+ */
+export const LevelBenefits = defineTrait({
+  name: "@vtt/system-torchbearer/LevelBenefits",
+  schema: z
+    .object({
+      benefits: z
+        .array(z.string().max(240))
+        .length(10)
+        .default(() => Array.from({ length: 10 }, () => "")),
+    })
+    .default({ benefits: Array.from({ length: 10 }, () => "") }),
 });
 
 /* -------------------------------------------------------------------------

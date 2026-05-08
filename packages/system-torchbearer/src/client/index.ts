@@ -22,6 +22,7 @@ export { TbVitalsFill } from "./vitals-conditions.js";
 export { TbAbilitiesSkillsTabFill } from "./tab-abilities-skills.js";
 export { TbArcaneTabFill } from "./tab-arcane.js";
 export { TbInventoryTabFill } from "./tab-inventory.js";
+export { TbInvocationsTabFill } from "./tab-invocations.js";
 export { TbTraitsWisesTabFill } from "./tab-traits-wises.js";
 export { TbWhatYouFightForTabFill } from "./tab-what-you-fight-for.js";
 export { TbWhoYouAreTabFill } from "./tab-who-you-are.js";

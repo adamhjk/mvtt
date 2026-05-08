@@ -36,15 +36,20 @@ import {
   type JSX,
 } from "solid-js";
 import {
+  SpellIdentity,
   TbArmor,
   TbContainer,
   TbItemSlotOptions,
   TbItemSpecialRules,
+  TbScroll,
   TbSkillBonuses,
+  TbSpellBook,
   TbSupply,
   TbWeapon,
   TB_BODY_SLOTS,
 } from "../shared/index.js";
+import { tbCanonicalBookAbbreviation } from "../data/seed.js";
+import { BookCitation } from "@vtt/books/client";
 import type { ItemDetailSection } from "@vtt/items/shared";
 
 /**
@@ -137,6 +142,26 @@ export const TbBundleDetailSection: ItemDetailSection = {
   ),
 };
 
+export const TbSpellBookDetailSection: ItemDetailSection = {
+  id: "@vtt/system-torchbearer/spellbook",
+  label: "Spell Book",
+  priority: 75,
+  appliesWhen: ({ traitsOnItem }) => traitsOnItem.has(TbSpellBook.name),
+  render: ({ itemId, canEdit }) => (
+    <SpellBookDetail itemId={itemId as EntityId} canEdit={canEdit} />
+  ),
+};
+
+export const TbScrollDetailSection: ItemDetailSection = {
+  id: "@vtt/system-torchbearer/scroll",
+  label: "Scroll",
+  priority: 76,
+  appliesWhen: ({ traitsOnItem }) => traitsOnItem.has(TbScroll.name),
+  render: ({ itemId, canEdit }) => (
+    <ScrollDetail itemId={itemId as EntityId} canEdit={canEdit} />
+  ),
+};
+
 /**
  * Manage Subtypes — always-visible affordance for adding or
  * removing TB subtype traits on an item. New items start with
@@ -162,6 +187,8 @@ export const TB_ITEM_DETAIL_SECTIONS: ReadonlyArray<ItemDetailSection> = [
   TbArmorDetailSection,
   TbSupplyDetailSection,
   TbContainerDetailSection,
+  TbSpellBookDetailSection,
+  TbScrollDetailSection,
   TbBundleDetailSection,
   TbSlotOptionsDetailSection,
   TbSkillBonusesDetailSection,
@@ -983,5 +1010,140 @@ function BundleSection(props: { itemId: EntityId; canEdit: boolean }): JSX.Eleme
         </div>
       </Show>
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------
+ * Spell Book / Scroll detail sections
+ *
+ * Lightweight read-only views — the canonical place to manage spells
+ * is the Arcane tab on the carrying character's sheet, where the
+ * cast/copy/scribe action buttons live alongside the rest of the
+ * arcane state. Here we just summarise the contents and surface a
+ * deep-link to the spell's rulebook citation.
+ * ----------------------------------------------------------------------- */
+
+function SpellBookDetail(props: {
+  itemId: EntityId;
+  canEdit: boolean;
+}): JSX.Element {
+  void props.canEdit;
+  const book = useTrait(props.itemId, TbSpellBook);
+  const folios = createMemo(() => book()?.folios ?? 5);
+  const contents = createMemo(() => book()?.contents ?? []);
+  return (
+    <div
+      data-testid={`item-spellbook-${props.itemId}`}
+      style={{
+        display: "flex",
+        "flex-direction": "column",
+        gap: "0.4rem",
+        "font-size": "0.8rem",
+      }}
+    >
+      <div style={{ color: "var(--color-fg-muted)" }}>
+        Folio capacity: {folios()} · Spells: {contents().length}
+      </div>
+      <Show
+        when={contents().length > 0}
+        fallback={
+          <span style={{ "font-style": "italic", color: "var(--color-fg-muted)" }}>
+            (empty book)
+          </span>
+        }
+      >
+        <ul
+          style={{
+            "list-style": "none",
+            padding: 0,
+            margin: 0,
+            display: "flex",
+            "flex-direction": "column",
+            gap: "0.2rem",
+          }}
+        >
+          <For each={contents()}>
+            {(sid) => <SpellSummaryRow spellId={sid} />}
+          </For>
+        </ul>
+      </Show>
+    </div>
+  );
+}
+
+function ScrollDetail(props: {
+  itemId: EntityId;
+  canEdit: boolean;
+}): JSX.Element {
+  void props.canEdit;
+  const scroll = useTrait(props.itemId, TbScroll);
+  const sid = createMemo(() => scroll()?.spellId ?? null);
+  const consumed = createMemo(() => scroll()?.consumed ?? false);
+  return (
+    <div
+      data-testid={`item-scroll-${props.itemId}`}
+      style={{
+        display: "flex",
+        "flex-direction": "column",
+        gap: "0.4rem",
+        "font-size": "0.8rem",
+      }}
+    >
+      <Show
+        when={sid()}
+        fallback={
+          <span style={{ "font-style": "italic", color: "var(--color-fg-muted)" }}>
+            blank scroll — scribe a spell to fill it
+          </span>
+        }
+      >
+        {(spellId) => <SpellSummaryRow spellId={spellId()} />}
+      </Show>
+      <Show when={consumed()}>
+        <span style={{ color: "var(--color-fg-error)", "font-style": "italic" }}>
+          consumed
+        </span>
+      </Show>
+    </div>
+  );
+}
+
+function SpellSummaryRow(props: { spellId: string }): JSX.Element {
+  const ident = useTrait(props.spellId, SpellIdentity);
+  return (
+    <li
+      style={{
+        display: "flex",
+        "align-items": "center",
+        gap: "0.5rem",
+        padding: "0.25rem 0.4rem",
+        "border-radius": "var(--radius-control)",
+        background: "var(--color-surface-elevated)",
+        border: "1px solid var(--color-border-muted)",
+      }}
+    >
+      <span style={{ "font-weight": "500" }}>{ident()?.name ?? "Unknown"}</span>
+      <span style={{ color: "var(--color-fg-muted)", "font-size": "0.7rem" }}>
+        circle {ident()?.circle ?? "?"}
+      </span>
+      <span style={{ color: "var(--color-fg-muted)", "font-size": "0.7rem" }}>
+        {ident()?.school ?? "Other"}
+      </span>
+      <span style={{ "margin-left": "auto" }}>
+        <Show when={ident()?.pageRef}>
+          {(ref) => (
+            <BookCitation
+              canonicalId={ref().canonicalId}
+              page={ref().page}
+              label={
+                tbCanonicalBookAbbreviation(ref().canonicalId)
+                  ? `${tbCanonicalBookAbbreviation(ref().canonicalId)} p.${ref().page}`
+                  : `p.${ref().page}`
+              }
+            />
+          )}
+        </Show>
+      </span>
+    </li>
   );
 }

@@ -52,6 +52,8 @@ import {
 } from "../shared/index.js";
 import { Character } from "@vtt/characters/shared";
 import { canWrite, Permissions } from "@vtt/permissions/shared";
+import { SpellCastActions } from "./spell-cast-actions.js";
+import { InvocationPerformActions } from "./invocation-perform-actions.js";
 
 /**
  * Post-roll action panel for a TB roll's chat card.
@@ -534,6 +536,8 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
 
   return (
     <>
+      <SpellCastActions rollId={props.rollId} />
+      <InvocationPerformActions rollId={props.rollId} />
       <Show when={showLogAdvancement() || showLogTraitUsage()}>
         <div
           class="flex flex-wrap items-center justify-end gap-1.5"

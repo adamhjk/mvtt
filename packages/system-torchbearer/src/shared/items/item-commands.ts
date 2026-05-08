@@ -40,6 +40,7 @@ import {
   TbCarries,
   TbContainer,
 } from "./item-traits.js";
+import { TbScroll, TbSpellBook } from "../spells/spell-traits.js";
 import { checkPlacementKind } from "./capacity.js";
 
 /**
@@ -92,7 +93,16 @@ export const EquipItem = defineCommand({
     let finalItemId = cmd.itemId;
     const isContainer = world.get(cmd.itemId, [TbContainer]) !== undefined;
     const isBundle = world.get(cmd.itemId, [ItemBundle]) !== undefined;
-    if ((isContainer || isBundle) && isCatalogEntity(world, cmd.itemId)) {
+    // Spell books and scrolls also carry per-instance state (book
+    // contents, scribed spell, consumed flag) — so equipping or
+    // placing one from the catalog must auto-fork. Same rule as
+    // containers and bundles.
+    const isSpellBook = world.get(cmd.itemId, [TbSpellBook]) !== undefined;
+    const isScroll = world.get(cmd.itemId, [TbScroll]) !== undefined;
+    if (
+      (isContainer || isBundle || isSpellBook || isScroll) &&
+      isCatalogEntity(world, cmd.itemId)
+    ) {
       finalItemId = world.allocateId();
       events.push(
         ItemForked({
@@ -320,7 +330,16 @@ export const PlaceOnGround = defineCommand({
     let finalId = cmd.itemId;
     const isContainer = world.get(cmd.itemId, [TbContainer]) !== undefined;
     const isBundle = world.get(cmd.itemId, [ItemBundle]) !== undefined;
-    if ((isContainer || isBundle) && isCatalogEntity(world, cmd.itemId)) {
+    // Spell books and scrolls also carry per-instance state (book
+    // contents, scribed spell, consumed flag) — so equipping or
+    // placing one from the catalog must auto-fork. Same rule as
+    // containers and bundles.
+    const isSpellBook = world.get(cmd.itemId, [TbSpellBook]) !== undefined;
+    const isScroll = world.get(cmd.itemId, [TbScroll]) !== undefined;
+    if (
+      (isContainer || isBundle || isSpellBook || isScroll) &&
+      isCatalogEntity(world, cmd.itemId)
+    ) {
       finalId = world.allocateId();
       events.push(
         ItemForked({ sourceItemId: cmd.itemId, newItemId: finalId }),

@@ -18,6 +18,7 @@
 import { definePlugin } from "@vtt/substrate";
 import { PagesSlot } from "@vtt/shell-workbench/shared";
 import { ConflictPageProvider } from "./conflict/client/index.js";
+import { ArcanePageProvider } from "./client/arcane-page.js";
 import { BestiaryPageProvider } from "./client/bestiary-page.js";
 
 /**
@@ -41,7 +42,11 @@ export const systemTorchbearerPages = definePlugin({
     "@vtt/shell-workbench@^0",
   ],
   fills: {
-    [PagesSlot.name]: [ConflictPageProvider, BestiaryPageProvider],
+    [PagesSlot.name]: [
+      ConflictPageProvider,
+      BestiaryPageProvider,
+      ArcanePageProvider,
+    ],
   },
 });
 

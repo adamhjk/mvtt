@@ -159,7 +159,7 @@ function harness(
       world.set(characterId, Identity, {
         name: "Bryn",
         stock: "Human",
-        class: "Theologian",
+        class: "Theurge",
         level: 3,
         age: 23,
         home: "Highvale",
@@ -201,11 +201,11 @@ describe("Torchbearer sheet shell", () => {
     mountWithClient(h, () => <SheetShell characterId={h.characterId} />);
 
     // Identity sub-line is read-only "Stock · Class · Lvl N".
-    expect(screen.getByText("Human · Theologian · Lvl 3")).toBeInTheDocument();
+    expect(screen.getByText("Human · Theurge · Lvl 3")).toBeInTheDocument();
     // The Who You Are tab body is mounted by default (highest priority);
-    // its inputs surface the same trait values.
+    // its stock + class dropdowns each show the matched value.
     expect(screen.getByDisplayValue("Human")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("Theologian")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Theurge")).toBeInTheDocument();
 
     // Vitals — conditions ladder header + the 8 condition labels in order.
     expect(screen.getByText("Conditions")).toBeInTheDocument();
@@ -222,15 +222,16 @@ describe("Torchbearer sheet shell", () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
 
-    // Tab bar — six tabs, in printed-sheet order.
+    // Tab bar — seven tabs, in printed-sheet order.
     const tabs = screen.getAllByRole("tab").map((b) => b.textContent);
     expect(tabs).toEqual([
       "Who You Are",
       "What You Fight For",
       "Abilities & Skills",
       "Traits & Wises",
-      "Arcane",
       "Inventory",
+      "Arcane",
+      "Invocations",
     ]);
 
     // Action bar — the four sticky-bottom roll buttons.
@@ -620,6 +621,23 @@ describe("Tab body — Traits & Wises", () => {
     expect(screen.getAllByText(/no (traits|wises) yet/i).length).toBe(2);
   });
 
+  it("surfaces RAW page-reference chips for the trait + wise rules and lists", () => {
+    const h = harness();
+    mountFillBody(h, TbTraitsWisesTabFill.render);
+    // Trait rules span DH p.79–81; the Trait List sits at DH p.177
+    // with additional traits in LMM p.29.
+    expect(screen.getByText("DH p.79")).toBeInTheDocument();
+    expect(screen.getByText("DH p.80")).toBeInTheDocument();
+    expect(screen.getByText("DH p.81")).toBeInTheDocument();
+    expect(screen.getByText("DH p.177")).toBeInTheDocument();
+    expect(screen.getByText("LMM p.29")).toBeInTheDocument();
+    // Wise rules sit at DH p.76–78; new wises arrive in respite (SG p.126).
+    expect(screen.getByText("DH p.76")).toBeInTheDocument();
+    expect(screen.getByText("DH p.77")).toBeInTheDocument();
+    expect(screen.getByText("DH p.78")).toBeInTheDocument();
+    expect(screen.getByText("SG p.126")).toBeInTheDocument();
+  });
+
   it("renders entries as editable rows with their column values", () => {
     const h = harness(({ world, characterId }) => {
       world.set(characterId, CharacterTraits, {
@@ -873,15 +891,17 @@ describe("Tab body — Traits & Wises", () => {
 });
 
 describe("Tab body — Arcane", () => {
-  it("mounts both Spells and Relics sub-sections with their tracks", () => {
+  it("mounts the Memory Palace, Spell Books, Scrolls, and Library sections", () => {
     const h = harness();
     mountFillBody(h, TbArcaneTabFill.render);
 
-    expect(screen.getByText("Arcane Spells")).toBeInTheDocument();
-    expect(screen.getByText("Relics")).toBeInTheDocument();
-    expect(screen.getByText(/Memory Palace/i)).toBeInTheDocument();
-    expect(screen.getByText(/Urðr/i)).toBeInTheDocument();
-    expect(screen.getByText(/Burden/i)).toBeInTheDocument();
+    // Section headers from the redesigned tab.
+    expect(screen.getAllByText("Memory Palace")[0]).toBeInTheDocument();
+    expect(screen.getByText("Spell Books")).toBeInTheDocument();
+    expect(screen.getByText("Scrolls")).toBeInTheDocument();
+    expect(screen.getByText("Library")).toBeInTheDocument();
+    // Relics moved to the Invocations tab.
+    expect(screen.queryByText("Relics")).not.toBeInTheDocument();
   });
 });
 
@@ -1316,7 +1336,7 @@ describe("Identity sub-line", () => {
     });
     // Expected text: "Human · Theologian · Lvl 3" — single text node,
     // not editable inputs (those live on the Who You Are tab now).
-    expect(screen.getByText("Human · Theologian · Lvl 3")).toBeInTheDocument();
+    expect(screen.getByText("Human · Theurge · Lvl 3")).toBeInTheDocument();
   });
 
   it("falls back to just 'Lvl N' when stock and class are unset", () => {

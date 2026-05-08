@@ -271,6 +271,23 @@ function PendingRollPanel(props: { pendingRollId: string }): JSX.Element {
     return name.split("/").pop() ?? name;
   });
 
+  /**
+   * Optional subject the panel renders after the source label
+   * ("rolling Arcanist *for Wayfinder's Friend*"). Today the only
+   * convention is `spec.spellCast.spellName` (set by the TB
+   * SpellCastRollable). Other systems can read here later without
+   * forcing a generic field on the spec — the panel just inspects
+   * known structured contexts.
+   */
+  const subjectLabel = createMemo<string | null>(() => {
+    const spec = previewSpec() as
+      | { spellCast?: { spellName?: unknown } }
+      | undefined;
+    const name = spec?.spellCast?.spellName;
+    if (typeof name === "string" && name.length > 0) return name;
+    return null;
+  });
+
   const commit = () => {
     const value = pr();
     if (!value) return;
@@ -338,6 +355,14 @@ function PendingRollPanel(props: { pendingRollId: string }): JSX.Element {
           <span class="text-fg">{initiator()?.name ?? "someone"}</span>
           <span class="text-fg-muted"> is rolling </span>
           <span class="text-fg">{sourceLabel()}</span>
+          <Show when={subjectLabel()}>
+            {(subj) => (
+              <>
+                <span class="text-fg-muted"> for </span>
+                <span class="text-fg">{subj()}</span>
+              </>
+            )}
+          </Show>
         </p>
 
         {/* Live formula breakdown: dice pool, success target, and

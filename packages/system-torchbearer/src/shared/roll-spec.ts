@@ -376,6 +376,55 @@ export const TbRollSpecSchema = z.object({
    * for the generic fallback path).
    */
   caption: z.string().min(1).max(240),
+
+  /**
+   * Spell-cast context — populated when this roll was opened to cast
+   * a spell. The chat row's `TbRollActionsFill` reads this field and
+   * renders the post-roll commit buttons (Consume from palace / Burn
+   * folio / Burn scroll). Absent on every other TB roll. Lives on the
+   * spec (rather than the meta sibling) so it rides through the
+   * standard rollable plumbing — the pending-roll panel preserves and
+   * forwards `opts.spellCast` into the spec on every preview rebuild.
+   */
+  spellCast: z
+    .object({
+      characterId: z.string().min(1),
+      spellId: z.string().min(1),
+      spellName: z.string().min(1).max(120),
+      spellCircle: z.number().int().min(1).max(5),
+      source: z.discriminatedUnion("kind", [
+        z.object({ kind: z.literal("palace") }),
+        z.object({
+          kind: z.literal("spellbook"),
+          bookId: z.string().min(1),
+          bookName: z.string().min(1).max(120),
+        }),
+        z.object({
+          kind: z.literal("scroll"),
+          scrollId: z.string().min(1),
+        }),
+      ]),
+    })
+    .optional(),
+
+  /**
+   * Invocation-perform context — populated when this roll was opened
+   * to perform an invocation. Mirrors `spellCast` for the parallel
+   * Ritualist-driven invocation subsystem (DH p.98 ff.). The chat
+   * row's `TbRollActionsFill` mounts an `[Apply burden]` post-roll
+   * commit button that increments the character's Immortal burden by
+   * `burdenAdded`.
+   */
+  invocationPerform: z
+    .object({
+      characterId: z.string().min(1),
+      invocationId: z.string().min(1),
+      invocationName: z.string().min(1).max(120),
+      invocationCircle: z.number().int().min(1).max(5),
+      withRelic: z.boolean(),
+      burdenAdded: z.number().int().min(0).max(20),
+    })
+    .optional(),
 });
 
 export type TbRollSpec = z.infer<typeof TbRollSpecSchema>;
@@ -385,6 +434,53 @@ export type TbRollSpec = z.infer<typeof TbRollSpecSchema>;
  * is owned by a game-system contributor; skip the generic render."
  */
 export const TB_ROLL_META_SYSTEM = "@vtt/system-torchbearer" as const;
+
+/**
+ * Standalone spell-cast context type — extracted from the spec for
+ * convenience in non-spec consumers (e.g. the rollable opts). The
+ * actual storage lives on `TbRollSpec.spellCast`; this is a re-export
+ * of the same shape for use sites that need to build it before the
+ * full spec exists.
+ */
+export const SpellCastContextSchema = z.object({
+  characterId: z.string().min(1),
+  spellId: z.string().min(1),
+  spellName: z.string().min(1).max(120),
+  spellCircle: z.number().int().min(1).max(5),
+  source: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("palace") }),
+    z.object({
+      kind: z.literal("spellbook"),
+      bookId: z.string().min(1),
+      bookName: z.string().min(1).max(120),
+    }),
+    z.object({
+      kind: z.literal("scroll"),
+      scrollId: z.string().min(1),
+    }),
+  ]),
+});
+
+export type SpellCastContext = z.infer<typeof SpellCastContextSchema>;
+
+/**
+ * Standalone invocation-perform context — mirrors `SpellCastContext`
+ * for the Ritualist-driven invocation rollable. Lives on
+ * `TbRollSpec.invocationPerform`; this is a re-export for use sites
+ * that need to build it before the full spec exists.
+ */
+export const InvocationPerformContextSchema = z.object({
+  characterId: z.string().min(1),
+  invocationId: z.string().min(1),
+  invocationName: z.string().min(1).max(120),
+  invocationCircle: z.number().int().min(1).max(5),
+  withRelic: z.boolean(),
+  burdenAdded: z.number().int().min(0).max(20),
+});
+
+export type InvocationPerformContext = z.infer<
+  typeof InvocationPerformContextSchema
+>;
 
 export const TbRollMetaSchema = z.object({
   system: z.literal(TB_ROLL_META_SYSTEM),

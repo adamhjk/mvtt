@@ -42,6 +42,22 @@ import {
   TbMonsterSpecialRules,
   TbMonsterWeapons,
   TownAbilities,
+  // Arcane traits — needed by the test plugin since the seed now
+  // also runs the arcane catalog merge.
+  SpellCatalogIndex,
+  SpellDerivedFrom,
+  SpellIdentity,
+  TbScroll,
+  TbSpellBook,
+  TbSpellCasting,
+  TbSpellLearning,
+  // Invocation traits — the seed also runs the invocation catalog
+  // merge and seeds a relic item per invocation.
+  InvocationCatalogIndex,
+  InvocationDerivedFrom,
+  InvocationIdentity,
+  TbInvocationPerforming,
+  TbInvocationRelicLink,
 } from "./shared/index.js";
 import { TbCarries } from "./shared/items/index.js";
 import {
@@ -92,6 +108,23 @@ const monstersTestPlugin = definePlugin({
     TbSkillBonuses,
     TbSupply,
     TbWeapon,
+    // Arcane catalog targets — the seed under test now also seeds
+    // spellbooks and scrolls, so the registry needs their traits.
+    SpellIdentity,
+    TbSpellCasting,
+    TbSpellLearning,
+    SpellDerivedFrom,
+    SpellCatalogIndex,
+    TbSpellBook,
+    TbScroll,
+    // Invocation catalog targets — the seed also seeds invocation
+    // entities and a relic item per invocation, both of which need
+    // their traits registered.
+    InvocationIdentity,
+    TbInvocationPerforming,
+    InvocationDerivedFrom,
+    InvocationCatalogIndex,
+    TbInvocationRelicLink,
   ],
   events: [MonsterCreated, MonsterRemoved],
   commands: [CreateBlankMonster, CreateMonsterFromCatalog, RemoveMonster],

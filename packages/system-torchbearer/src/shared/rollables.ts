@@ -54,10 +54,26 @@ import {
   foldModifiers,
   TB_ROLL_META_SYSTEM,
   TbRollSpecSchema,
+  type InvocationPerformContext,
+  type SpellCastContext,
   type TbRollKind,
   type TbRollModifier,
   type TbRollSpec,
 } from "./roll-spec.js";
+import {
+  SpellIdentity,
+  TbLibrary,
+  TbMemoryPalace,
+  TbScroll,
+  TbSpellBook,
+  TbSpellCasting,
+} from "./spells/spell-traits.js";
+import {
+  InvocationIdentity,
+  TbInvocationPerforming,
+  TbInvocationRelics,
+} from "./invocations/invocation-traits.js";
+import { ItemIdentity } from "@vtt/items/shared";
 
 /**
  * Defensive read of the rolling character's current Nature rating.
@@ -185,6 +201,20 @@ interface TbRollableArgs {
    * rollable's compute via `ctx.world`.
    */
   world: World;
+  /**
+   * Optional spell-cast context. When set, the resulting spec carries
+   * `spec.spellCast = ...` so the chat row's post-roll commit buttons
+   * can fire AND the pending-roll panel reads
+   * `spec.spellCast.spellName` to render "rolling Arcanist for X".
+   * Only the SpellCastRollable populates this.
+   */
+  spellCast?: SpellCastContext;
+  /**
+   * Optional invocation-perform context — populated by the
+   * InvocationPerformRollable. Drives the chat row's `[Apply burden]`
+   * post-roll commit and the panel's "rolling Ritualist for X" caption.
+   */
+  invocationPerform?: InvocationPerformContext;
 }
 
 /**
@@ -401,6 +431,10 @@ function buildSpec(
         : null,
     synergyHelpers,
     caption,
+    ...(args.spellCast ? { spellCast: args.spellCast } : {}),
+    ...(args.invocationPerform
+      ? { invocationPerform: args.invocationPerform }
+      : {}),
   };
   // Round-trip through the schema so `apply`/`source` defaults are
   // populated and downstream consumers always see the canonical
@@ -1096,6 +1130,365 @@ export const SkillCheck = defineRollable({
 });
 
 /* -------------------------------------------------------------------------
+ * SpellCastRollable — Arcanist roll opened by a [Cast] button
+ *
+ * Identical infrastructure to SkillCheck-for-arcanist. The pending-
+ * roll panel opens, the player adds Help / wises / persona dice /
+ * channel-nature / etc. exactly like any other roll. The only
+ * difference is `opts.spellCast`, which the rollable injects into
+ * `spec.spellCast` so the chat row's post-roll commit buttons fire
+ * (Consume from palace / Burn folio / Burn scroll).
+ *
+ * The fixed obstacle (when the spell has one) is auto-set on the
+ * spec from `TbSpellCasting.fixedOb` if the player hasn't entered
+ * one in the panel. Factors / versus spells leave the obstacle
+ * blank for the GM/player to set per-cast.
+ * ----------------------------------------------------------------------- */
+
+const SpellCastSourceSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("palace") }),
+  z.object({ kind: z.literal("spellbook"), bookId: z.string().min(1) }),
+  z.object({ kind: z.literal("scroll"), scrollId: z.string().min(1) }),
+]);
+
+type SpellCastSource = z.infer<typeof SpellCastSourceSchema>;
+
+/**
+ * Resolve the human-friendly book name for a spellbook source. Falls
+ * back to "Spell book" if the item has no ItemIdentity (defensive —
+ * every catalog item carries one).
+ */
+function readBookName(world: World, bookId: string): string {
+  const got = world.get(bookId, [ItemIdentity]) as
+    | { ItemIdentity: { name: string } }
+    | undefined;
+  return got?.ItemIdentity.name ?? "Spell book";
+}
+
+/**
+ * Build the rollable's spell-cast context from its opts. Looks up
+ * the spell entity to denormalise name + circle into the context;
+ * for spellbook sources, also resolves the book's display name.
+ */
+function buildSpellCastContext(
+  world: World,
+  characterId: EntityId,
+  spellId: string,
+  source: SpellCastSource,
+): SpellCastContext | null {
+  const ident = world.get(spellId as EntityId, [SpellIdentity]) as
+    | { SpellIdentity: { name: string; circle: 1 | 2 | 3 | 4 | 5 } }
+    | undefined;
+  if (!ident) return null;
+  const ctx: SpellCastContext = {
+    characterId,
+    spellId,
+    spellName: ident.SpellIdentity.name,
+    spellCircle: ident.SpellIdentity.circle,
+    source:
+      source.kind === "palace"
+        ? { kind: "palace" }
+        : source.kind === "spellbook"
+          ? {
+              kind: "spellbook",
+              bookId: source.bookId,
+              bookName: readBookName(world, source.bookId),
+            }
+          : { kind: "scroll", scrollId: source.scrollId },
+  };
+  return ctx;
+}
+
+/**
+ * Resolve the obstacle for a spell cast: opts override → panel
+ * contribution → spell's fixed Ob (when `casting.kind === "fixed"`
+ * and `fixedOb` is non-null). Factors and versus spells leave the
+ * obstacle blank when no override is set.
+ */
+function resolveSpellObstacle(args: {
+  world: World;
+  spellId: string;
+  optsObstacle: number | undefined;
+  panelObstacle: number | null | undefined;
+}): number | null {
+  if (args.optsObstacle !== undefined) return args.optsObstacle;
+  if (args.panelObstacle !== undefined && args.panelObstacle !== null) return args.panelObstacle;
+  if (args.panelObstacle === null) return null;
+  const got = args.world.get(args.spellId as EntityId, [TbSpellCasting]) as
+    | {
+        TbSpellCasting: {
+          kind: "fixed" | "factors" | "versus";
+          fixedOb: number | null;
+        };
+      }
+    | undefined;
+  if (!got) return null;
+  if (got.TbSpellCasting.kind !== "fixed") return null;
+  return got.TbSpellCasting.fixedOb;
+}
+
+export const SpellCastRollable = defineRollable({
+  name: "@vtt/system-torchbearer/spell-cast",
+  inputs: [Skills, Identity, Character, Conditions, Heroic] as const,
+  ambientInputs: [Team, Conditions],
+  command: RequestRoll,
+  interactive: true,
+  opts: z.object({
+    spellId: z.string().min(1),
+    source: SpellCastSourceSchema,
+    ...RollOptsBase,
+  }),
+  compute: (
+    [skills, identity, character, conditions, heroic],
+    { opts, world, entityId },
+  ): TbRollSpec => {
+    const entry = skills.entries.arcanist;
+    const rating = entry?.rating ?? 0;
+    const obstacle = resolveSpellObstacle({
+      world,
+      spellId: opts.spellId,
+      optsObstacle: opts.obstacle,
+      panelObstacle: panelObstacleFromOpts(opts.contributions),
+    });
+    const extraAuto: TbRollModifier[] = [];
+    if (entry?.taxed) {
+      extraAuto.push({
+        id: "auto:skill:taxed",
+        kind: "dice",
+        value: -1,
+        label: "Arcanist taxed",
+        apply: "always",
+        source: "condition",
+        providedBy: "skill:arcanist:taxed",
+      });
+    }
+    void identity;
+    const spellCast = buildSpellCastContext(
+      world,
+      entityId as EntityId,
+      opts.spellId,
+      opts.source,
+    );
+    const ident = world.get(opts.spellId as EntityId, [SpellIdentity]) as
+      | { SpellIdentity: { name: string } }
+      | undefined;
+    // The buildSpec helper composes the caption as
+    // "<characterName> — <headline> vs Ob N". Phrase the headline so
+    // the resulting caption reads "<Character> — Arcanist for
+    // <SpellName> vs Ob N" both in the pending-roll panel preview
+    // and on the resolved chat row.
+    const headline = ident?.SpellIdentity.name
+      ? `Arcanist for ${ident.SpellIdentity.name}`
+      : "Arcanist (spell)";
+    const isHeroic = resolveHeroic({
+      optsHeroic: opts.heroic,
+      panelHeroic: panelHeroicFromOpts(opts.contributions),
+      traitHeroic: traitHeroicFor(heroic, "skill", "arcanist"),
+    });
+    return buildSpec(
+      {
+        baseDice: rating,
+        source: "Arcanist",
+        sourceId: "arcanist",
+        kind: "skill",
+        heroic: isHeroic,
+        versusTestId: resolveVersusForOpts(opts),
+        // Casting can't double as a disposition action — the spell
+        // would have its own conflict use.
+        dispositionMode: false,
+        world,
+        entityId,
+        headline,
+        characterName: character.name,
+        extraAuto,
+        spellCast: spellCast ?? undefined,
+      },
+      conditions,
+      opts.contributions,
+      obstacle,
+    );
+  },
+  toPayload: (spec, { entityId }) => makePayload(spec, entityId),
+});
+
+/* -------------------------------------------------------------------------
+ * InvocationPerformRollable — Ritualist roll opened by a [Perform] button
+ *
+ * Mirrors `SpellCastRollable` for the parallel Ritualist-driven
+ * invocation subsystem (DH p.98 ff., DH p.209-231 for the theurge
+ * list, LMM p.41-58 for the shaman list). The pending-roll panel
+ * opens against the character's Ritualist skill exactly like any
+ * other skill check; the only differences are:
+ *
+ *   - source skill is Ritualist (not Arcanist)
+ *   - `opts.invocationPerform` rides the spec so the chat row can
+ *     mount an `[Apply burden]` post-roll commit button
+ *   - the obstacle defaults from `TbInvocationPerforming.fixedOb` for
+ *     fixed-Ob invocations; factors / versus / skill-swap leave it
+ *     blank for the GM/player to set per-perform
+ *   - a "with relic" flag gates the immortal-burden cost: presence of
+ *     the invocation's id in `TbInvocationRelics.invocationIds` on the
+ *     character flips the spec's burden delta from no-relic to
+ *     with-relic (DH p.99-100).
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Resolve the obstacle for an invocation perform: opts override →
+ * panel contribution → invocation's fixed Ob (when ritualKind ===
+ * "fixed" and fixedOb is non-null). Other ritual kinds leave the
+ * obstacle blank when no override is set — same shape as
+ * `resolveSpellObstacle`.
+ */
+function resolveInvocationObstacle(args: {
+  world: World;
+  invocationId: string;
+  optsObstacle: number | undefined;
+  panelObstacle: number | null | undefined;
+}): number | null {
+  if (args.optsObstacle !== undefined) return args.optsObstacle;
+  if (args.panelObstacle !== undefined && args.panelObstacle !== null)
+    return args.panelObstacle;
+  if (args.panelObstacle === null) return null;
+  const got = args.world.get(args.invocationId as EntityId, [
+    TbInvocationPerforming,
+  ]) as
+    | {
+        TbInvocationPerforming: {
+          ritualKind: "fixed" | "factors" | "versus" | "skill-swap";
+          fixedOb: number | null;
+        };
+      }
+    | undefined;
+  if (!got) return null;
+  if (got.TbInvocationPerforming.ritualKind !== "fixed") return null;
+  return got.TbInvocationPerforming.fixedOb;
+}
+
+/**
+ * Build the rollable's invocation-perform context from its opts. Reads
+ * the invocation entity for name + circle and the rolling character's
+ * `TbInvocationRelics` to decide whether the with-relic burden + time
+ * applies.
+ */
+function buildInvocationPerformContext(
+  world: World,
+  characterId: EntityId,
+  invocationId: string,
+): InvocationPerformContext | null {
+  const ident = world.get(invocationId as EntityId, [InvocationIdentity]) as
+    | {
+        InvocationIdentity: {
+          name: string;
+          circle: 1 | 2 | 3 | 4 | 5;
+        };
+      }
+    | undefined;
+  if (!ident) return null;
+  const performing = world.get(invocationId as EntityId, [
+    TbInvocationPerforming,
+  ]) as
+    | {
+        TbInvocationPerforming: {
+          immortalBurden: { noRelic: number; withRelic: number };
+        };
+      }
+    | undefined;
+  const relics = world.get(characterId, [TbInvocationRelics]) as
+    | { TbInvocationRelics: { invocationIds: string[] } }
+    | undefined;
+  const withRelic =
+    relics?.TbInvocationRelics.invocationIds.includes(invocationId) ?? false;
+  const burden = performing?.TbInvocationPerforming.immortalBurden ?? {
+    noRelic: 2,
+    withRelic: 1,
+  };
+  return {
+    characterId,
+    invocationId,
+    invocationName: ident.InvocationIdentity.name,
+    invocationCircle: ident.InvocationIdentity.circle,
+    withRelic,
+    burdenAdded: withRelic ? burden.withRelic : burden.noRelic,
+  };
+}
+
+export const InvocationPerformRollable = defineRollable({
+  name: "@vtt/system-torchbearer/invocation-perform",
+  inputs: [Skills, Identity, Character, Conditions, Heroic] as const,
+  ambientInputs: [Team, Conditions],
+  command: RequestRoll,
+  interactive: true,
+  opts: z.object({
+    invocationId: z.string().min(1),
+    ...RollOptsBase,
+  }),
+  compute: (
+    [skills, identity, character, conditions, heroic],
+    { opts, world, entityId },
+  ): TbRollSpec => {
+    const entry = skills.entries.ritualist;
+    const rating = entry?.rating ?? 0;
+    const obstacle = resolveInvocationObstacle({
+      world,
+      invocationId: opts.invocationId,
+      optsObstacle: opts.obstacle,
+      panelObstacle: panelObstacleFromOpts(opts.contributions),
+    });
+    const extraAuto: TbRollModifier[] = [];
+    if (entry?.taxed) {
+      extraAuto.push({
+        id: "auto:skill:taxed",
+        kind: "dice",
+        value: -1,
+        label: "Ritualist taxed",
+        apply: "always",
+        source: "condition",
+        providedBy: "skill:ritualist:taxed",
+      });
+    }
+    void identity;
+    const invocationPerform = buildInvocationPerformContext(
+      world,
+      entityId as EntityId,
+      opts.invocationId,
+    );
+    const ident = world.get(opts.invocationId as EntityId, [
+      InvocationIdentity,
+    ]) as { InvocationIdentity: { name: string } } | undefined;
+    const headline = ident?.InvocationIdentity.name
+      ? `Ritualist for ${ident.InvocationIdentity.name}`
+      : "Ritualist (invocation)";
+    const isHeroic = resolveHeroic({
+      optsHeroic: opts.heroic,
+      panelHeroic: panelHeroicFromOpts(opts.contributions),
+      traitHeroic: traitHeroicFor(heroic, "skill", "ritualist"),
+    });
+    return buildSpec(
+      {
+        baseDice: rating,
+        source: "Ritualist",
+        sourceId: "ritualist",
+        kind: "skill",
+        heroic: isHeroic,
+        versusTestId: resolveVersusForOpts(opts),
+        // Performing an invocation isn't a disposition action.
+        dispositionMode: false,
+        world,
+        entityId,
+        headline,
+        characterName: character.name,
+        extraAuto,
+        invocationPerform: invocationPerform ?? undefined,
+      },
+      conditions,
+      opts.contributions,
+      obstacle,
+    );
+  },
+  toPayload: (spec, { entityId }) => makePayload(spec, entityId),
+});
+
+/* -------------------------------------------------------------------------
  * The full registered set, exported for the manifest
  * ----------------------------------------------------------------------- */
 
@@ -1110,4 +1503,6 @@ export const ALL_TB_ROLLABLES = [
   ResourcesCheck,
   CirclesCheck,
   SkillCheck,
+  SpellCastRollable,
+  InvocationPerformRollable,
 ] as const;

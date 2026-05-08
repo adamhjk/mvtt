@@ -22,6 +22,7 @@ export {
   Conditions,
   Heroic,
   Identity,
+  LevelBenefits,
   Pools,
   RawAbilities,
   Relics,
@@ -29,7 +30,6 @@ export {
   SkillImprovementOpportunity,
   SkillLearningOpportunity,
   Skills,
-  Spells,
   SynergyAdvancementLogged as SynergyAdvancementLoggedTrait,
   TownAbilities,
   TraitUsageLogged as TraitUsageLoggedTrait,
@@ -89,9 +89,11 @@ export {
   ALL_TB_ROLLABLES,
   CirclesCheck,
   HealthCheck,
+  InvocationPerformRollable,
   NatureCheck,
   ResourcesCheck,
   SkillCheck,
+  SpellCastRollable,
   WillCheck,
 } from "./rollables.js";
 export {
@@ -162,6 +164,12 @@ export {
   TbRollModifierProvidersSlot,
   type TbRollModifierProvider,
 } from "./roll-providers.js";
+export {
+  InvocationPerformContextSchema,
+  SpellCastContextSchema,
+  type InvocationPerformContext,
+  type SpellCastContext,
+} from "./roll-spec.js";
 export * from "./items/index.js";
 export {
   TbConflictResource,
@@ -202,3 +210,5 @@ export {
   tollCadence,
   type GrindCondition,
 } from "./grind.js";
+export * from "./spells/index.js";
+export * from "./invocations/index.js";

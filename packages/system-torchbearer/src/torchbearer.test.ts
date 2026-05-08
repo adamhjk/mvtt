@@ -79,7 +79,6 @@ import {
   SkillLearningOpened,
   SkillLearningOpportunity,
   Skills,
-  Spells,
   TOWN_SKILLS,
   TownAbilities,
   TraitUsageLogged,
@@ -141,7 +140,6 @@ describe("@vtt/system-torchbearer manifest", () => {
       Skills,
       CharacterTraits,
       Wises,
-      Spells,
       Relics,
       AlliesEnemies,
     ]) {
@@ -178,13 +176,13 @@ describe("@vtt/system-torchbearer manifest", () => {
     expect(filled).not.toContain("@vtt/characters/sheet-status");
   });
 
-  it("registers six tabs in printed-sheet order", () => {
+  it("registers seven tabs in printed-sheet order — inventory before arcane and invocations", () => {
     const tabs = systemTorchbearer.fills["@vtt/characters/sheet-tabs"] as Array<{
       id: string;
       label: string;
       priority: number;
     }>;
-    expect(tabs).toHaveLength(6);
+    expect(tabs).toHaveLength(7);
     // Higher priority renders leftmost — so descending priority is the
     // expected display order. Verify that and the labels.
     const sorted = [...tabs].sort((a, b) => b.priority - a.priority);
@@ -193,8 +191,9 @@ describe("@vtt/system-torchbearer manifest", () => {
       "What You Fight For",
       "Abilities & Skills",
       "Traits & Wises",
-      "Arcane",
       "Inventory",
+      "Arcane",
+      "Invocations",
     ]);
   });
 });
@@ -527,26 +526,6 @@ describe("Trait schemas", () => {
     expect(v.entries[0]!.fate).toBe(true);
   });
 
-
-  it("Spells defaults memoryPalace to 0 and accepts a spell entry", () => {
-    const v = Spells.schema.parse({
-      entries: [
-        {
-          name: "Light",
-          ob: 1,
-          library: false,
-          spellbook: true,
-          memorized: true,
-          cast: false,
-          scroll: false,
-          supplies: true,
-          effect: "Conjure light",
-        },
-      ],
-    });
-    expect(v.memoryPalace).toBe(0);
-    expect(v.entries[0]!.name).toBe("Light");
-  });
 
   it("Relics tracks Urðr and Burden", () => {
     const v = Relics.schema.parse({});
