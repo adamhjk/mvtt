@@ -31,6 +31,10 @@ import { Identity, Name, Online } from "@vtt/identity/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { notes } from "@vtt/notes";
+import {
+  WorkspaceOwner,
+  WorkspaceState,
+} from "@vtt/shell-workbench/shared";
 import { books } from "./manifest.js";
 import { BookCanonical } from "./shared/index.js";
 import {
@@ -138,7 +142,7 @@ describe("BookCitation", () => {
     expect(btn.textContent).toContain("LMM p.261");
   });
 
-  it("bound click: dispatches OpenPage with the bookId and publishes a pending page-nav", () => {
+  it("bound click (no existing tab): opens the book in a NEW tab and publishes a pending page-nav", () => {
     const h = harness();
     const bookId = h.world.spawn([]);
     h.world.set(bookId, BookCanonical, {
@@ -155,10 +159,88 @@ describe("BookCitation", () => {
     ));
     fireEvent.click(screen.getByRole("button"));
     expect(h.dispatched).toHaveLength(1);
-    expect(h.dispatched[0]!.type).toBe("@vtt/shell-workbench/OpenPage");
+    // OpenPageInNewTab — never OpenPage. Citations must not yank the
+    // active tab away from whatever the reader was looking at; if no
+    // book tab exists yet, a fresh one is added to the active pane.
+    expect(h.dispatched[0]!.type).toBe(
+      "@vtt/shell-workbench/OpenPageInNewTab",
+    );
     expect(h.dispatched[0]!.payload).toMatchObject({
       pageKind: "@vtt/books/books",
       entityId: bookId,
+    });
+    const nav = pendingBookNav();
+    expect(nav).not.toBeNull();
+    expect(nav!.bookId).toBe(bookId);
+    expect(nav!.page).toBe(261);
+  });
+
+  it("bound click (existing tab): focuses the existing tab via FocusTab and publishes the page-nav", () => {
+    const h = harness();
+    const bookId = h.world.spawn([]);
+    h.world.set(bookId, BookCanonical, {
+      canonicalId: "tb/book/loremasters-manual",
+    });
+    // Seed a workspace owner + state with the book tab in the
+    // *non-active* pane so the test exercises both the per-pane
+    // activeTabId flip and the workspace-level activePaneId flip
+    // that FocusTab performs.
+    const ownerId = h.world.spawn([WorkspaceOwner({ userId: ME })]);
+    h.world.set(ownerId, WorkspaceState, {
+      tabs: {
+        "tab-conflict": {
+          id: "tab-conflict",
+          pageKind: "@vtt/test/conflict",
+          entityId: null,
+        },
+        "tab-existing-book": {
+          id: "tab-existing-book",
+          pageKind: "@vtt/books/books",
+          entityId: bookId,
+        },
+      },
+      panes: {
+        "pane-1": {
+          paneId: "pane-1",
+          tabIds: ["tab-conflict"],
+          activeTabId: "tab-conflict",
+        },
+        "pane-2": {
+          paneId: "pane-2",
+          tabIds: ["tab-existing-book"],
+          activeTabId: "tab-existing-book",
+        },
+      },
+      tree: {
+        kind: "split",
+        axis: "row",
+        children: [
+          { kind: "pane", paneId: "pane-1" },
+          { kind: "pane", paneId: "pane-2" },
+        ],
+        proportions: [1, 1],
+      },
+      activePaneId: "pane-1",
+      zenPaneId: null,
+      lastInteractedAt: 0,
+      schemaVersion: 1,
+      openDrawers: {},
+    });
+    render(() => (
+      <ClientProvider value={h.client}>
+        <BookCitation
+          canonicalId="tb/book/loremasters-manual"
+          page={261}
+          label="LMM p.261"
+        />
+      </ClientProvider>
+    ));
+    fireEvent.click(screen.getByRole("button"));
+    expect(h.dispatched).toHaveLength(1);
+    expect(h.dispatched[0]!.type).toBe("@vtt/shell-workbench/FocusTab");
+    expect(h.dispatched[0]!.payload).toMatchObject({
+      paneId: "pane-2",
+      tabId: "tab-existing-book",
     });
     const nav = pendingBookNav();
     expect(nav).not.toBeNull();

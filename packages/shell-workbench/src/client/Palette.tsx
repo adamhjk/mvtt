@@ -132,7 +132,20 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
         });
       }
     }
+    const m = me();
     for (const c of commands()) {
+      // Honour the optional `visibleTo` predicate. Verbs that fail
+      // the check are skipped entirely so they don't clutter the
+      // result list with options the user can't act on (e.g. GM-only
+      // spawn verbs in a player session).
+      if (c.visibleTo && m) {
+        const visible = c.visibleTo({
+          userId: m.userId,
+          role: m.role,
+          client,
+        });
+        if (!visible) continue;
+      }
       out.push({
         kind: "command",
         id: c.id,
@@ -279,7 +292,7 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
       const c = commands().find((x) => x.id === hit.id);
       const m = me();
       if (c && m) {
-        const out = c.run({ userId: m.userId, role: m.role });
+        const out = c.run({ userId: m.userId, role: m.role, client });
         if (out) client.dispatch(out);
       }
     }

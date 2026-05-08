@@ -116,8 +116,14 @@ export const CreateMonsterFromCatalog = defineCommand({
         templateId: tmpl.id,
         name: cmd.name ?? tmpl.name,
         type: tmpl.type,
-        instinct: tmpl.instinct,
-        armorDescription: tmpl.armorDescription,
+        // Canon monsters carry a deep-link to the rulebook; the sheet
+        // renders <BookCitation> next to the prose-bearing sections.
+        // The free-text instinct/armorDescription stay empty so the
+        // GM doesn't see a paraphrased blurb — they click through to
+        // the book instead. Homebrew monsters (CreateBlankMonster)
+        // get null pageRef and writeable prose fields.
+        instinct: "",
+        armorDescription: "",
         nature: {
           rating: tmpl.nature.rating,
           descriptors: [...tmpl.nature.descriptors],
@@ -136,7 +142,12 @@ export const CreateMonsterFromCatalog = defineCommand({
           },
         })),
         weaponItemIds,
-        specialRules: tmpl.specialRules.map((r) => ({ ...r })),
+        specialRules: tmpl.specialRules.map((r) => ({
+          name: r.name,
+          text: "",
+          pageRef: { canonicalId: r.pageRef.canonicalId, page: r.pageRef.page },
+        })),
+        pageRef: { canonicalId: tmpl.pageRef.canonicalId, page: tmpl.pageRef.page },
         armorItemId,
         createdByUserId: auth.userId,
       }),
@@ -187,6 +198,10 @@ export const CreateBlankMonster = defineCommand({
         weapons: [],
         weaponItemIds: [],
         specialRules: [],
+        // Homebrew monster — no rulebook reference. The GM fills
+        // in instinct/armorDescription/special-rule text directly
+        // on the sheet.
+        pageRef: null,
         armorItemId: null,
         createdByUserId: auth.userId,
       }),

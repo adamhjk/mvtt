@@ -17,8 +17,11 @@ coverage/
 .env.*
 !.env.example
 
-# local data (auth db, world snapshots)
-data/
+# local data (auth db, world snapshots) — runtime state at the repo
+# root only. Anchored with a leading slash so it does NOT swallow
+# in-tree directories named "data" (e.g. packages/*/src/data, where
+# generated catalogs and curated content live).
+/data/
 *.db
 *.db-journal
 *.db-shm

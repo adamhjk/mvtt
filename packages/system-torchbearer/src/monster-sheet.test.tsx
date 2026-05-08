@@ -34,7 +34,10 @@ import {
 } from "@vtt/characters/testing";
 import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
-import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
+import {
+  PaletteCommandsSlot,
+  WorkbenchChatRailSurface,
+} from "@vtt/shell-workbench/shared";
 import {
   Formula,
   RequestRoll,
@@ -67,6 +70,7 @@ const sheetSlotsTestInfra = definePlugin({
     ChatTimelineContributorSlot,
     RollActionsSlot,
     ItemDetailSectionsSlot,
+    PaletteCommandsSlot,
   ],
   surfaces: [WorkbenchChatRailSurface],
   traits: [Formula, RollResult, RolledBy],
@@ -121,11 +125,20 @@ function harness(): CharacterHarness {
           { conflictType: "capture", value: 10 },
           { conflictType: "convince", value: 6 },
         ],
+        pageRef: { canonicalId: "tb/book/loremasters-manual", page: 261 },
       });
       world.set(characterId, TbMonsterSpecialRules, {
         entries: [
-          { name: "Dominant mind", text: "Cannot be charmed." },
-          { name: "Vampirism", text: "Bite curses victim." },
+          {
+            name: "Dominant mind",
+            text: "Cannot be charmed.",
+            pageRef: { canonicalId: "tb/book/loremasters-manual", page: 261 },
+          },
+          {
+            name: "Vampirism",
+            text: "Bite curses victim.",
+            pageRef: { canonicalId: "tb/book/loremasters-manual", page: 261 },
+          },
         ],
       });
       world.set(characterId, TbMonsterWeapons, {
@@ -230,6 +243,46 @@ describe("MonsterSheet", () => {
     expect(screen.getByDisplayValue("Vampirism")).toBeInTheDocument();
   });
 
+  it("renders BookCitation pills for the monster header, instinct, armor, and each special rule", () => {
+    const h = harness();
+    mountWithClient(h, () => <MonsterSheet characterId={h.characterId} />);
+    // Header citation lives next to the type pill — click takes the
+    // GM to LMM p.261 in the bound rulebook (when bound; here no
+    // Book is bound so the citation renders as plain text).
+    const headerCite = screen
+      .getByTestId("monster-type-pill")
+      .parentElement!.querySelector('[data-canonical-id]');
+    expect(headerCite).not.toBeNull();
+    expect(headerCite!.getAttribute("data-canonical-id")).toBe(
+      "tb/book/loremasters-manual",
+    );
+    expect(headerCite!.getAttribute("data-canonical-page")).toBe("261");
+    expect(headerCite!.textContent).toContain("LMM p.261");
+
+    const armorCite = screen
+      .getByTestId("monster-armor-citation")
+      .querySelector("[data-canonical-id]");
+    expect(armorCite!.getAttribute("data-canonical-page")).toBe("261");
+    const instinctCite = screen
+      .getByTestId("monster-instinct-citation")
+      .querySelector("[data-canonical-id]");
+    expect(instinctCite!.getAttribute("data-canonical-page")).toBe("261");
+
+    // One citation per special rule. Both vampire-lord rules in the
+    // harness sit on LMM p.261.
+    const ruleRows = [
+      screen.getByTestId("monster-rule-row-0"),
+      screen.getByTestId("monster-rule-row-1"),
+    ];
+    for (const row of ruleRows) {
+      const cite = row.querySelector("[data-canonical-id]");
+      expect(cite!.getAttribute("data-canonical-id")).toBe(
+        "tb/book/loremasters-manual",
+      );
+      expect(cite!.getAttribute("data-canonical-page")).toBe("261");
+    }
+  });
+
   it("renders the weapon row's name + bonus value inputs", () => {
     const h = harness();
     mountWithClient(h, () => <MonsterSheet characterId={h.characterId} />);
@@ -292,6 +345,7 @@ describe("MonsterSheet", () => {
           instinct: "",
           armorDescription: "",
           dispositions: [],
+          pageRef: null,
         });
         world.set(characterId, TbMonsterSpecialRules, { entries: [] });
         world.set(characterId, TbMonsterWeapons, { entries: [] });

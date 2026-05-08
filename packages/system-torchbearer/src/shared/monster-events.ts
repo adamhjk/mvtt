@@ -23,6 +23,11 @@ const MonstrousActionBonus = z.object({
   value: z.number().int(),
 });
 
+const BookPageRef = z.object({
+  canonicalId: z.string().min(1).max(120),
+  page: z.number().int().min(1).max(2000),
+});
+
 /**
  * A monster entity was created from a catalog template (or ad-hoc by
  * the GM). `monsterId` is server-allocated in the command's `apply`
@@ -89,9 +94,15 @@ export const MonsterCreated = defineEvent({
         z.object({
           name: z.string().min(1).max(80),
           text: z.string().max(2000),
+          pageRef: BookPageRef.nullable(),
         }),
       )
       .max(20),
+    /**
+     * Canonical-book deep-link for the printed stat block. Null for
+     * ad-hoc / homebrew monsters created via `CreateBlankMonster`.
+     */
+    pageRef: BookPageRef.nullable(),
     /**
      * Catalog armor entity id resolved at command-apply time, or null
      * for monsters with no equipped armor. The mirror system equips

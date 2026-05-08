@@ -136,6 +136,9 @@ export const MonsterSpawningSystem = defineSystem({
         instinct: event.instinct,
         armorDescription: event.armorDescription,
         dispositions: event.dispositions.map((d) => ({ ...d })),
+        pageRef: event.pageRef
+          ? { canonicalId: event.pageRef.canonicalId, page: event.pageRef.page }
+          : null,
       }),
       TbMonsterWeapons({
         entries: event.weapons.map((w) => ({
@@ -150,7 +153,13 @@ export const MonsterSpawningSystem = defineSystem({
         })),
       }),
       TbMonsterSpecialRules({
-        entries: event.specialRules.map((r) => ({ ...r })),
+        entries: event.specialRules.map((r) => ({
+          name: r.name,
+          text: r.text,
+          pageRef: r.pageRef
+            ? { canonicalId: r.pageRef.canonicalId, page: r.pageRef.page }
+            : null,
+        })),
       }),
     ];
     if (event.templateId) {
@@ -213,11 +222,21 @@ export const MonsterSpawningSystem = defineSystem({
         TbConflictResource({
           applicableConflicts: [...w.conflicts],
           kind: "weapon",
-          note: "Monstrous weapon",
+          // No paraphrased rules text — the conflict UI renders a
+          // `<BookCitation>` against `pageRef` instead. Empty string
+          // keeps the WeaponRow's specialText fallback a no-op so
+          // the cell stays clean.
+          note: "",
           // Stamp the lord-of-this-claw publicly so the shared
           // "Conflict Weapons" reference can exclude it without
           // peeking at the monster's GM-only `TbCarries`.
           ownerCharacterId: event.monsterId,
+          // Inherit the monster's stat-block pageRef so each weapon
+          // deep-links to the same printed page as the parent (the
+          // weapon table sits inside the monster's stat block).
+          pageRef: event.pageRef
+            ? { canonicalId: event.pageRef.canonicalId, page: event.pageRef.page }
+            : null,
         }),
       ]);
       carryEntries.push({

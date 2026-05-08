@@ -191,12 +191,21 @@ const PaletteCommandSchema = z.object({
   label: z.string().min(1),
   hint: z.string().optional(),
   run: z.any(),
+  visibleTo: z.any().optional(),
   priority: z.number().optional(),
 });
 
 export interface PaletteCommandContext {
   readonly userId: string;
   readonly role: string;
+  /**
+   * The client handle for the current connection. Used by verbs that
+   * need to subscribe to bus events (e.g. wait for a server-allocated
+   * id to land) or dispatch follow-up commands beyond the single
+   * return value of `run`. Most verbs only need `userId` / `role`
+   * and can ignore this.
+   */
+  readonly client: import("@vtt/substrate/client").ClientHandle;
 }
 
 export type PaletteCommand = {
@@ -204,6 +213,13 @@ export type PaletteCommand = {
   label: string;
   hint?: string;
   run: (ctx: PaletteCommandContext) => CommandInstance | null | void;
+  /**
+   * Optional visibility predicate. Returning false hides the verb
+   * from the palette for this user. Useful for GM-only spawn verbs
+   * that would just fail server-side validation in a player session.
+   * Defaults to "always visible".
+   */
+  visibleTo?: (ctx: PaletteCommandContext) => boolean;
   priority?: number;
 };
 

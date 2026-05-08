@@ -55,7 +55,13 @@ import {
   TbItemUnequipSystem,
 } from "./server/index.js";
 import { runCatalogMerge } from "@vtt/items/shared";
-import { tbItemsSeed, TB_ITEM_TEMPLATES, templateToTraitBag } from "./data/seed.js";
+import { CanonicalBookCatalog } from "@vtt/books/shared";
+import {
+  tbItemsSeed,
+  TB_ITEM_TEMPLATES,
+  TB_CANONICAL_BOOKS,
+  templateToTraitBag,
+} from "./data/seed.js";
 import { TB_CONFLICT_RESOURCE_TEMPLATES } from "./data/tb-conflict-resources.generated.js";
 import { TbConflictResource } from "./shared/monster-traits.js";
 import type { TbItemTemplate } from "./data/catalog-types.js";
@@ -190,6 +196,36 @@ describe("TB items catalog → seed", () => {
       expect(got.ItemDerivedFrom.templateId).toBe(t.id);
       expect(got.ItemDerivedFrom.pluginName).toBe("@vtt/system-torchbearer");
     }
+  });
+
+  it("seed registers the canonical TB2 book ids in a CanonicalBookCatalog sentinel", () => {
+    const registry = buildRegistry();
+    const world = new World();
+    tbItemsSeed({ world, registry });
+    const sentinels = world.query([CanonicalBookCatalog]);
+    expect(sentinels).toHaveLength(1);
+    const v = sentinels[0]!.values.CanonicalBookCatalog as {
+      pluginName: string;
+      entries: ReadonlyArray<{ id: string; name: string }>;
+    };
+    expect(v.pluginName).toBe("@vtt/system-torchbearer");
+    expect(v.entries.map((e) => e.id)).toEqual([
+      "tb/book/scholars-guide",
+      "tb/book/loremasters-manual",
+      "tb/book/dungeoneers-handbook",
+    ]);
+    expect(v.entries.map((e) => e.name)).toEqual(
+      TB_CANONICAL_BOOKS.map((b) => b.name),
+    );
+  });
+
+  it("re-running the seed leaves the canonical book sentinel unchanged (idempotent)", () => {
+    const registry = buildRegistry();
+    const world = new World();
+    tbItemsSeed({ world, registry });
+    tbItemsSeed({ world, registry });
+    const sentinels = world.query([CanonicalBookCatalog]);
+    expect(sentinels).toHaveLength(1);
   });
 
   it("upstream change to a template's name flows into the entity (no override)", () => {

@@ -17,10 +17,13 @@
 
 import type { CommandInstance, EntityId } from "@vtt/substrate";
 import { useClient, useTrait, useQuery } from "@vtt/substrate/client";
+import { BookCitation } from "@vtt/books/client";
 import { createMemo, For, Show, type JSX } from "solid-js";
 import { ItemDerivedFrom, ItemIdentity } from "@vtt/items/shared";
 import { canWrite, Permissions } from "@vtt/permissions/shared";
 import { TbCarries, TbConflictResource, TbWeapon } from "../../shared/index.js";
+import { TbMonster } from "../../shared/monster-traits.js";
+import { tbCanonicalBookAbbreviation } from "../../data/seed.js";
 import {
   ChooseWeapon,
   SetParticipantHp,
@@ -40,6 +43,16 @@ import {
 } from "./hooks.js";
 import { useMe } from "./use-me.js";
 import { ScriptInline } from "./ScriptInline.js";
+
+/**
+ * Render label for a `<BookCitation>` from a TB pageRef. Resolves the
+ * canonicalId to a TB abbreviation when known (`"LMM p.261"`); falls
+ * back to a generic `"p.<page>"` for unknown books.
+ */
+function citationLabel(canonicalId: string, page: number): string {
+  const abbrev = tbCanonicalBookAbbreviation(canonicalId);
+  return abbrev !== null ? `${abbrev} p.${page}` : `p.${page}`;
+}
 
 /**
  * One full per-side column: editable dispo box at the top, roster
@@ -347,6 +360,12 @@ function ParticipantRow(props: {
   const me = useMe();
   const characterName = useCharacterName(props.characterId);
   const name = createMemo(() => props.label ?? characterName());
+  // Monster's printed-stat-block citation. Read live so the pill
+  // updates when the GM (re)binds the canonical book or edits the
+  // template's pageRef. Null for PCs / homebrew monsters with no
+  // rulebook reference — the row falls back to just the name.
+  const monster = useTrait(props.characterId, TbMonster);
+  const monsterPageRef = createMemo(() => monster()?.pageRef ?? null);
   const bindings = useWeaponBindings(props.conflictId);
   const currentWeapon = createMemo(
     () => bindings().get(props.participantEntityId)?.weaponItemId ?? null,
@@ -526,8 +545,18 @@ function ParticipantRow(props: {
       classList={{ "opacity-50": props.knockedOut }}
       data-testid={`participant-row-${props.participantEntityId}`}
     >
-      <span class="font-display text-sm text-fg truncate flex-1 min-w-0">
-        {name()}
+      <span class="font-display text-sm text-fg truncate flex-1 min-w-0 inline-flex items-baseline gap-1.5">
+        <span class="truncate">{name()}</span>
+        <Show when={monsterPageRef()}>
+          {(ref) => (
+            <BookCitation
+              canonicalId={ref().canonicalId}
+              page={ref().page}
+              label={citationLabel(ref().canonicalId, ref().page)}
+              ariaLabel={`open ${name()} stat block in ${ref().canonicalId} at page ${ref().page}`}
+            />
+          )}
+        </Show>
         <Show when={props.knockedOut}>
           <span class="ml-1 text-[0.6rem] uppercase tracking-wider text-danger">
             ko

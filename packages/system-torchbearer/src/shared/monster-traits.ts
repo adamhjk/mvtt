@@ -47,6 +47,17 @@ const MonstrousActionBonuses = z
   });
 
 /**
+ * Reference into a canonical TB2 rulebook (`canonicalId` + printed
+ * `page`). Drives `<BookCitation>` rendering on the monster sheet —
+ * for canon monsters the GM clicks through to the actual rulebook
+ * page rather than reading prose copied into plugin data.
+ */
+const BookPageRef = z.object({
+  canonicalId: z.string().min(1).max(120),
+  page: z.number().int().min(1).max(2000),
+});
+
+/**
  * TbMonster — the monster-specific stat block (SG p.171-177). Sits
  * alongside the universal `Character` (name) and TB's `RawAbilities`
  * (Nature) / `TownAbilities` (Might + Precedence) so existing rolling
@@ -58,10 +69,20 @@ const MonstrousActionBonuses = z
  * is computed at conflict-declare time per SG p.172 (Within Nature ⇒
  * roll Nature; Outside Nature ⇒ roll half) and is NOT stored here.
  *
- * `armorDescription` is the free-text armor line ("Chain or plate
- * armor (in combat as appropriate)"). The actual equipped armor item,
- * if any, lives on `TbCarries` so disarmable / breakable / shield-of-
- * choice mechanics work identically to PC armor.
+ * Two co-existing surfaces describe the monster's "Always X" instinct
+ * and worn armor:
+ *   - `pageRef` (header), `instinct`, `armorDescription` are
+ *     editable free-text the GM can fill in for *homebrew* monsters
+ *     where there's no rulebook to deep-link.
+ *   - `pageRef` deep-links the printed stat block for *canon* monsters.
+ *     The sheet renders a `<BookCitation>` next to each prose section
+ *     so the GM can click through to the rulebook PDF — but the
+ *     prose fields stay editable in case the GM wants to add a
+ *     custom note alongside the citation.
+ *
+ * The actual equipped armor item, if any, lives on `TbCarries` so
+ * disarmable / breakable / shield-of-choice mechanics work identically
+ * to PC armor.
  *
  * Presence of this trait is the load-bearing marker for "this entity
  * is a monster": the bestiary page provider lists by `[Character,
@@ -79,14 +100,18 @@ export const TbMonster = defineTrait({
      */
     type: z.string().min(1).max(40).default("beast"),
     /**
-     * One-line "always X" instinct (SG p.174). Surfaced on the sheet
-     * as a header strip so the GM can read it at-a-glance.
+     * One-line "always X" instinct (SG p.174). Free-text so homebrew
+     * monsters can describe their own instinct; for canon monsters it
+     * defaults to empty and the sheet shows the rulebook citation.
      */
     instinct: z.string().max(280).default(""),
     /**
-     * Free-text armor description from the stat block. The actual
-     * equipped armor (chain mail, plate, etc.) lives in TbCarries
-     * so it can be disarmed / damaged / shared with other systems.
+     * Free-text armor description ("Chain or plate armor (in combat as
+     * appropriate)"). For canon monsters the prose stays in the
+     * rulebook (deep-linked via `pageRef`); homebrew monsters use
+     * this field to describe their own armor. The actual equipped
+     * armor (chain mail, plate, etc.) lives in TbCarries so it can
+     * be disarmed / damaged / shared with other systems.
      */
     armorDescription: z.string().max(240).default(""),
     /**
@@ -104,6 +129,13 @@ export const TbMonster = defineTrait({
       )
       .max(8)
       .default([]),
+    /**
+     * Canonical-book deep-link to the printed stat block, or null for
+     * homebrew monsters with no rulebook reference. When set, the
+     * sheet renders a `<BookCitation>` next to the header / instinct
+     * / armor lines.
+     */
+    pageRef: BookPageRef.nullable().default(null),
   }),
 });
 
@@ -164,7 +196,19 @@ export const TbMonsterSpecialRules = defineTrait({
       .array(
         z.object({
           name: z.string().min(1).max(80),
+          /**
+           * Free-text rule body. Empty for canon monsters seeded from
+           * the catalog (the sheet renders a `<BookCitation>` against
+           * `pageRef` instead of reproducing the rulebook prose).
+           * Homebrew monsters — and GMs who want to add a custom
+           * note alongside a canon rule — fill this in directly.
+           */
           text: z.string().max(2000).default(""),
+          /**
+           * Canonical-book deep-link for this rule, or null. The sheet
+           * renders a `<BookCitation>` next to the rule name when set.
+           */
+          pageRef: BookPageRef.nullable().default(null),
         }),
       )
       .max(20)
@@ -236,5 +280,13 @@ export const TbConflictResource = defineTrait({
      * to the monster's `TbCarries` for the filter to work.
      */
     ownerCharacterId: EntityId.nullable().optional(),
+    /**
+     * Canonical-book deep-link for the printed stat block this
+     * resource was lifted from. Set on spawned monster weapons (so
+     * the conflict UI can render a `<BookCitation>` next to the
+     * weapon name); null for homebrew or for catalog items whose
+     * citation lives elsewhere.
+     */
+    pageRef: BookPageRef.nullable().default(null),
   }),
 });

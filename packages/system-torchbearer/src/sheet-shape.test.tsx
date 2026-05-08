@@ -74,7 +74,10 @@ import {
   RolledBy,
   RollResult,
 } from "@vtt/resolution/shared";
-import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
+import {
+  PaletteCommandsSlot,
+  WorkbenchChatRailSurface,
+} from "@vtt/shell-workbench/shared";
 import {
   AdvancementLoggedTrait,
   LogAdvancement,
@@ -113,6 +116,11 @@ const sheetSlotsTestInfra = definePlugin({
     // Items-side slot torchbearer fills with its per-subtype
     // workbench-page sections (TbWeapon stats, TbArmor stats, etc.).
     ItemDetailSectionsSlot,
+    // Shell-workbench slot torchbearer fills with one
+    // "Spawn <Monster>" verb per catalog template (palette quick
+    // lookup). Declared here so the TB fill resolves without
+    // pulling the full shell-workbench package into the harness.
+    PaletteCommandsSlot,
   ],
   // The grind tracker view targets the workbench's chat-rail
   // surface. The harness doesn't load shell-workbench; declare the

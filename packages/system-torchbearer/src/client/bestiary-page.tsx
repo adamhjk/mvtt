@@ -32,6 +32,11 @@ import {
 } from "../shared/monsters.js";
 import { MonsterCreated } from "../shared/monster-events.js";
 import { TbMonster } from "../shared/monster-traits.js";
+import {
+  BestiaryRack,
+  BestiarySearchInput,
+  filterCatalogByQuery,
+} from "./bestiary-picker.js";
 import { MonsterSheet } from "./monster-sheet.js";
 
 const BESTIARY_KIND = "@vtt/system-torchbearer/bestiary";
@@ -213,36 +218,50 @@ function BestiaryHub(props: { tabId: string }): JSX.Element {
 }
 
 /**
- * Catalog picker — dropdown listing every `TbMonsterTemplate` plus a
- * "Blank monster" sentinel value. The Spawn button dispatches either
- * `CreateMonsterFromCatalog` or `CreateBlankMonster` depending on the
- * selection. Either way the picker subscribes to `MonsterCreated`
- * once before dispatch, diffs the monster list on the event, and
- * retargets this tab onto the freshly-spawned entity.
+ * Catalog picker — fuzzy-search rack listing every `TbMonsterTemplate`
+ * plus an inline blank-monster affordance below. The Spawn button
+ * dispatches either `CreateMonsterFromCatalog` (for the picked
+ * template) or `CreateBlankMonster` (for the homebrew name). Either
+ * way the picker subscribes to `MonsterCreated` once before dispatch,
+ * diffs the monster list on the event, and retargets this tab onto
+ * the freshly-spawned entity.
+ *
+ * Uses the same `BestiaryRack` + fuzzy matcher as the conflict-declare
+ * inline picker — typing filters in place, ↑/↓ moves the highlight,
+ * Enter spawns. Shares the `bestiary-picker` module so a future
+ * catalog change shows up in both places without drift.
  */
-const BLANK_TEMPLATE_VALUE = "__blank__";
-
 function CatalogPicker(props: { tabId: string }): JSX.Element {
   const client = useClient();
-  const [templateId, setTemplateId] = createSignal(
-    TB_MONSTER_TEMPLATES[0]?.id ?? BLANK_TEMPLATE_VALUE,
+  const [query, setQuery] = createSignal("");
+  const [selected, setSelected] = createSignal<string | null>(
+    TB_MONSTER_TEMPLATES[0]?.id ?? null,
   );
   const [blankName, setBlankName] = createSignal("New Monster");
   const [busy, setBusy] = createSignal(false);
 
-  const isBlank = () => templateId() === BLANK_TEMPLATE_VALUE;
+  const candidates = createMemo(() => filterCatalogByQuery(query()));
 
-  const submit = (e: SubmitEvent) => {
-    e.preventDefault();
-    if (busy()) return;
-    if (!templateId()) return;
-    if (isBlank() && blankName().trim().length === 0) return;
-    setBusy(true);
+  // Selection auto-heals when the search trims it out — without this
+  // the user can type a query that excludes the current selection and
+  // the spawn button stays "armed" with a creature they can't see.
+  // Mirrors the conflict-page rack's heal pattern.
+  createMemo(() => {
+    const list = candidates();
+    const cur = selected();
+    if (list.length === 0) return;
+    if (cur && list.some((t) => t.id === cur)) return;
+    setSelected(list[0]!.id);
+  });
 
+  const selectedTemplate = createMemo(() =>
+    TB_MONSTER_TEMPLATES.find((t) => t.id === selected()) ?? null,
+  );
+
+  const subscribeAndRetarget = () => {
     const beforeIds = new Set(
       client.world.query([Character, TbMonster]).map((r) => r.id),
     );
-
     const off = client.bus.on(MonsterCreated.name, () => {
       off();
       const fresh = client.world
@@ -259,57 +278,102 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
       }
       setBusy(false);
     });
+  };
 
-    if (isBlank()) {
-      client.dispatch(
-        CreateBlankMonster({ name: blankName().trim() }) as CommandInstance,
-      );
-    } else {
-      client.dispatch(
-        CreateMonsterFromCatalog({
-          templateId: templateId(),
-        }) as CommandInstance,
-      );
-    }
+  const spawnFromCatalog = () => {
+    if (busy()) return;
+    const tmplId = selected();
+    if (!tmplId) return;
+    setBusy(true);
+    subscribeAndRetarget();
+    client.dispatch(
+      CreateMonsterFromCatalog({ templateId: tmplId }) as CommandInstance,
+    );
+  };
+
+  const spawnBlank = () => {
+    if (busy()) return;
+    const name = blankName().trim();
+    if (name.length === 0) return;
+    setBusy(true);
+    subscribeAndRetarget();
+    client.dispatch(CreateBlankMonster({ name }) as CommandInstance);
   };
 
   return (
-    <form
-      onSubmit={submit}
+    <div
       class="flex w-full flex-col gap-3"
-      autocomplete="off"
-      data-form-type="other"
-      data-1p-ignore="true"
-      data-lpignore="true"
-      data-bwignore="true"
+      data-testid="bestiary-catalog-picker"
     >
-      <label class="flex flex-col gap-1 text-left">
-        <span class="font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle">
-          Template
-        </span>
-        <select
-          value={templateId()}
-          onChange={(e) => setTemplateId(e.currentTarget.value)}
-          class="rounded-(--radius-control) border border-border bg-surface px-3 py-2 font-display text-base text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
-          data-testid="monster-template-select"
+      <BestiarySearchInput
+        query={query}
+        setQuery={setQuery}
+        selected={selected}
+        setSelected={setSelected}
+        candidates={candidates}
+        onCommit={spawnFromCatalog}
+        busy={busy}
+        testid="monster-template-search"
+      />
+      <Show
+        when={candidates().length > 0}
+        fallback={
+          <div
+            class="flex items-center justify-center text-center py-4"
+            style={{
+              border: "1px dashed var(--color-border-muted)",
+              "border-radius": "var(--radius-control)",
+              "background-color":
+                "var(--color-surface-sunken, var(--color-surface))",
+            }}
+            data-testid="monster-template-empty"
+          >
+            <span
+              style={{
+                "font-family": "var(--font-display)",
+                "font-size": "0.78rem",
+                color: "var(--color-fg-subtle)",
+                "font-style": "italic",
+              }}
+            >
+              no creature matches “{query()}”
+            </span>
+          </div>
+        }
+      >
+        <BestiaryRack
+          candidates={candidates}
+          selected={selected}
+          setSelected={setSelected}
+          query={query}
+          testid="monster-template-options"
+          rowTestidPrefix="monster-template-option"
+        />
+      </Show>
+      <button
+        type="button"
+        onClick={spawnFromCatalog}
+        disabled={busy() || !selected() || candidates().length === 0}
+        class="rounded-(--radius-control) bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover transition disabled:opacity-50"
+        data-testid="monster-spawn-submit"
+      >
+        <Show when={!busy()} fallback={<span>Spawning…</span>}>
+          <Show
+            when={selectedTemplate() && candidates().length > 0}
+            fallback={<span>Pick a creature</span>}
+          >
+            <span>Spawn {selectedTemplate()!.name}</span>
+          </Show>
+        </Show>
+      </button>
+      <details class="mt-1">
+        <summary class="cursor-pointer font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle hover:text-fg transition">
+          or spawn a blank homebrew monster
+        </summary>
+        <div
+          class="mt-2 flex flex-col gap-2"
+          data-testid="monster-blank-form"
         >
-          <For each={TB_MONSTER_TEMPLATES}>
-            {(t) => (
-              <option value={t.id}>
-                {t.name} (N{t.nature.rating}/M{t.might})
-              </option>
-            )}
-          </For>
-          <option value={BLANK_TEMPLATE_VALUE}>
-            — Blank monster (homebrew) —
-          </option>
-        </select>
-      </label>
-      <Show when={isBlank()}>
-        <label class="flex flex-col gap-1 text-left">
-          <span class="font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle">
-            Name
-          </span>
           <input
             type="text"
             name="blank-monster-name"
@@ -325,16 +389,17 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
             class="rounded-(--radius-control) border border-border bg-surface px-3 py-2 font-display text-base text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
             data-testid="monster-blank-name-input"
           />
-        </label>
-      </Show>
-      <button
-        type="submit"
-        disabled={busy() || !templateId()}
-        class="rounded-(--radius-control) bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover transition disabled:opacity-50"
-        data-testid="monster-spawn-submit"
-      >
-        {busy() ? "Spawning…" : "Spawn"}
-      </button>
-    </form>
+          <button
+            type="button"
+            onClick={spawnBlank}
+            disabled={busy() || blankName().trim().length === 0}
+            class="rounded-(--radius-control) border border-border bg-surface px-4 py-2 text-sm text-fg-muted hover:border-accent hover:text-fg transition disabled:opacity-50"
+            data-testid="monster-blank-submit"
+          >
+            {busy() ? "Spawning…" : "Spawn blank monster"}
+          </button>
+        </div>
+      </details>
+    </div>
   );
 }

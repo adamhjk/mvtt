@@ -17,6 +17,7 @@
 
 import { type CommandInstance } from "@vtt/substrate";
 import { useClient, useTrait } from "@vtt/substrate/client";
+import { BookCitation } from "@vtt/books/client";
 import { kit } from "@vtt/characters/client";
 import { Character, SetField } from "@vtt/characters/shared";
 import { ItemIdentity } from "@vtt/items/shared";
@@ -38,6 +39,17 @@ import {
   TB_CONFLICT_TYPES,
   type ConflictType,
 } from "../conflict/shared/conflict-types.js";
+import { tbCanonicalBookAbbreviation } from "../data/seed.js";
+
+/**
+ * Render label for a `<BookCitation>` from a TB pageRef. Resolves the
+ * canonicalId to a TB abbreviation when known (`"LMM p.261"`); falls
+ * back to a generic `"p.<page>"` for unknown books.
+ */
+function citationLabel(canonicalId: string, page: number): string {
+  const abbrev = tbCanonicalBookAbbreviation(canonicalId);
+  return abbrev !== null ? `${abbrev} p.${page}` : `p.${page}`;
+}
 
 const MONSTER_SHEET_STYLE_ID = "tb-monster-sheet-styles";
 
@@ -338,6 +350,15 @@ function IdentitySection(props: { characterId: string }): JSX.Element {
           <span class="tb-monster-sheet__type-pill" data-testid="monster-type-pill">
             {(monster()!.type ?? "").toUpperCase()}
           </span>
+          <Show when={monster()!.pageRef}>
+            {(ref) => (
+              <BookCitation
+                canonicalId={ref().canonicalId}
+                page={ref().page}
+                label={citationLabel(ref().canonicalId, ref().page)}
+              />
+            )}
+          </Show>
         </div>
       </Show>
     </kit.SheetSection>
@@ -582,8 +603,21 @@ function ConditionsSection(props: { characterId: string }): JSX.Element {
 }
 
 function ArmorSection(props: { characterId: string }): JSX.Element {
+  const monster = useTrait(props.characterId, TbMonster);
   return (
     <kit.SheetSection title="Armor">
+      <Show when={monster()?.pageRef}>
+        {(ref) => (
+          <div data-testid="monster-armor-citation">
+            <BookCitation
+              canonicalId={ref().canonicalId}
+              page={ref().page}
+              label={citationLabel(ref().canonicalId, ref().page)}
+              ariaLabel={`open armor entry in ${ref().canonicalId} at page ${ref().page}`}
+            />
+          </div>
+        )}
+      </Show>
       <kit.FieldRow label="Worn">
         <kit.TextField
           characterId={props.characterId}
@@ -888,34 +922,114 @@ function ActionBonusCell(props: {
 }
 
 function SpecialRulesSection(props: { characterId: string }): JSX.Element {
+  const client = useClient();
+  const rules = useTrait(props.characterId, TbMonsterSpecialRules);
+  const canEdit = kit.useCanEdit(props.characterId);
+  const entries = createMemo(() => rules()?.entries ?? []);
+
+  const writeEntries = (next: ReadonlyArray<unknown>) => {
+    client.dispatch(
+      SetField({
+        characterId: props.characterId,
+        trait: TbMonsterSpecialRules.name as unknown as string,
+        path: ["entries"],
+        value: next,
+      }) as CommandInstance,
+    );
+  };
+
+  const addRow = () => {
+    writeEntries([
+      ...entries(),
+      { name: "New Rule", text: "", pageRef: null },
+    ]);
+  };
+
+  const removeRow = (i: number) => {
+    writeEntries(entries().filter((_, idx) => idx !== i));
+  };
+
   return (
     <kit.SheetSection title="Special Rules">
-      <kit.EntryRowsField
-        characterId={props.characterId}
-        trait={TbMonsterSpecialRules}
-        path={["entries"]}
-        emptyHint="no special rules"
-        addPlaceholder="rule name (e.g. Vampirism)"
-        seedEntry={(primary) => ({ name: primary, text: "" })}
-        columns={[
-          {
-            type: "text",
-            key: "name",
-            label: "Rule",
-            width: "minmax(8rem, 0.6fr)",
-            maxLength: 80,
-          },
-          {
-            type: "text",
-            key: "text",
-            label: "Effect",
-            width: "minmax(0, 1fr)",
-            maxLength: 2000,
-            placeholder: "free-text rule body…",
-            multiline: true,
-          },
-        ]}
-      />
+      <Show
+        when={entries().length > 0}
+        fallback={
+          <div
+            class="tb-monster-sheet__inv-empty"
+            data-testid="monster-rules-empty"
+          >
+            no special rules
+          </div>
+        }
+      >
+        <For each={entries()}>
+          {(rule, i) => (
+            <div
+              class="tb-monster-sheet__rule"
+              data-testid={`monster-rule-row-${i()}`}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  "flex-direction": "row",
+                  "align-items": "center",
+                  gap: "0.5rem",
+                  "flex-wrap": "wrap",
+                }}
+              >
+                <div style={{ flex: "1 1 8rem", "min-width": "0" }}>
+                  <kit.TextField
+                    characterId={props.characterId}
+                    trait={TbMonsterSpecialRules}
+                    path={["entries", i(), "name"]}
+                    maxLength={80}
+                  />
+                </div>
+                <Show when={rule.pageRef}>
+                  {(ref) => (
+                    <BookCitation
+                      canonicalId={ref().canonicalId}
+                      page={ref().page}
+                      label={citationLabel(ref().canonicalId, ref().page)}
+                      ariaLabel={`open ${rule.name} entry in ${ref().canonicalId} at page ${ref().page}`}
+                    />
+                  )}
+                </Show>
+                <Show when={canEdit()}>
+                  <button
+                    type="button"
+                    class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-[0.65rem] text-fg-subtle hover:border-danger hover:text-danger transition"
+                    onClick={() => removeRow(i())}
+                    aria-label={`remove rule ${i() + 1}`}
+                    data-testid={`monster-rule-remove-${i()}`}
+                  >
+                    ×
+                  </button>
+                </Show>
+              </div>
+              <kit.TextField
+                characterId={props.characterId}
+                trait={TbMonsterSpecialRules}
+                path={["entries", i(), "text"]}
+                maxLength={2000}
+                placeholder="free-text rule body (homebrew or notes alongside the citation)"
+              />
+            </div>
+          )}
+        </For>
+      </Show>
+      <Show when={canEdit()}>
+        <div style={{ display: "flex", "justify-content": "flex-end" }}>
+          <button
+            type="button"
+            onClick={addRow}
+            class="rounded-(--radius-control) border border-border bg-surface px-3 py-1 text-xs text-fg-muted hover:border-accent hover:text-fg transition"
+            data-testid="monster-rule-add"
+          >
+            + add rule
+          </button>
+        </div>
+      </Show>
     </kit.SheetSection>
   );
 }
@@ -924,6 +1038,18 @@ function InstinctSection(props: { characterId: string }): JSX.Element {
   const monster = useTrait(props.characterId, TbMonster);
   return (
     <kit.SheetSection title="Instinct">
+      <Show when={monster()?.pageRef}>
+        {(ref) => (
+          <div data-testid="monster-instinct-citation">
+            <BookCitation
+              canonicalId={ref().canonicalId}
+              page={ref().page}
+              label={citationLabel(ref().canonicalId, ref().page)}
+              ariaLabel={`open instinct entry in ${ref().canonicalId} at page ${ref().page}`}
+            />
+          </div>
+        )}
+      </Show>
       <Show
         when={(monster()?.instinct ?? "").trim().length > 0}
         fallback={null}

@@ -195,14 +195,22 @@ export const RawAbilities = defineTrait({
       health: RatedAbility,
       nature: z
         .object({
-          rating: z.number().int().min(0).max(7).default(0),
+          // Nature spans the full PC + monster range. PCs cap at 7
+          // (DH p.69), but monsters routinely reach 9–14 (SG p.171
+          // "Nature ratings...for the most powerful, mythic monsters
+          // this can climb to 14 or higher"). The trait is the
+          // universal Character ability shape, so the cap is loose
+          // enough to fit a Vampire Lord's 7, a Red Dragon's 12, and
+          // Halja's 14 — game-mechanic constraints on PCs are
+          // enforced elsewhere (advancement rules, level-up gates).
+          rating: z.number().int().min(0).max(20).default(0),
           /**
            * Maximum Nature rating. The current `rating` can be taxed
            * (reduced) by tapping; `maximum` is the ceiling and is what
            * drives advancement requirements (DH p.69) and skill-
            * learning thresholds (DH p.78).
            */
-          maximum: z.number().int().min(0).max(7).default(0),
+          maximum: z.number().int().min(0).max(20).default(0),
           advancement: Advancement,
           descriptors: z.array(z.string().min(1).max(40)).default([]),
         })

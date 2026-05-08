@@ -199,10 +199,25 @@ describe("@vtt/system-torchbearer monsters", () => {
         | undefined;
       expect(team?.Team.kind).toBe("enemy");
       const monster = setup.world.get(monsterId, [TbMonster]) as
-        | { TbMonster: { type: string; instinct: string; dispositions: { conflictType: string; value: number }[] } }
+        | {
+            TbMonster: {
+              type: string;
+              instinct: string;
+              armorDescription: string;
+              dispositions: { conflictType: string; value: number }[];
+              pageRef: { canonicalId: string; page: number } | null;
+            };
+          }
         | undefined;
       expect(monster?.TbMonster.type).toBe("undead");
-      expect(monster?.TbMonster.instinct).toBe("Always drink the blood of my prey.");
+      // Catalog spawns ship empty prose — the sheet shows the
+      // BookCitation deep-link, not paraphrased rulebook text.
+      expect(monster?.TbMonster.instinct).toBe("");
+      expect(monster?.TbMonster.armorDescription).toBe("");
+      expect(monster?.TbMonster.pageRef).toEqual({
+        canonicalId: "tb/book/loremasters-manual",
+        page: 261,
+      });
       expect(monster?.TbMonster.dispositions).toEqual(
         expect.arrayContaining([
           { conflictType: "kill", value: 17 },
@@ -225,7 +240,15 @@ describe("@vtt/system-torchbearer monsters", () => {
       expect(town?.TownAbilities.might).toBe(5);
       expect(town?.TownAbilities.precedence).toBe(4);
       const rules = setup.world.get(monsterId, [TbMonsterSpecialRules]) as
-        | { TbMonsterSpecialRules: { entries: { name: string; text: string }[] } }
+        | {
+            TbMonsterSpecialRules: {
+              entries: {
+                name: string;
+                text: string;
+                pageRef: { canonicalId: string; page: number } | null;
+              }[];
+            };
+          }
         | undefined;
       expect(rules?.TbMonsterSpecialRules.entries.map((r) => r.name)).toEqual([
         "Dominant mind",
@@ -234,6 +257,15 @@ describe("@vtt/system-torchbearer monsters", () => {
         "Night walker",
         "Vulnerabilities",
       ]);
+      // Every canon special rule deep-links to its rulebook page; the
+      // body is empty (the sheet shows the citation, not the prose).
+      for (const r of rules!.TbMonsterSpecialRules.entries) {
+        expect(r.text).toBe("");
+        expect(r.pageRef).toEqual({
+          canonicalId: "tb/book/loremasters-manual",
+          page: 261,
+        });
+      }
       const weapons = setup.world.get(monsterId, [TbMonsterWeapons]) as
         | {
             TbMonsterWeapons: {
@@ -263,6 +295,121 @@ describe("@vtt/system-torchbearer monsters", () => {
         | { TbMonsterDerivedFrom: { templateId: string; overrides: string[] } }
         | undefined;
       expect(derived?.TbMonsterDerivedFrom.templateId).toBe("tb/monster/vampire-lord");
+    });
+
+    it("Black Dragon (SG p.179) — numeric stats and citations match the printed stat block", async () => {
+      const res = await dispatchAsGm(
+        setup,
+        CreateMonsterFromCatalog({ templateId: "tb/monster/black-dragon" }),
+      );
+      expect(res.result.ok).toBe(true);
+      const monsterId = setup.world.query([Character, TbMonster])[0]!.id;
+      const monster = setup.world.get(monsterId, [TbMonster]) as
+        | {
+            TbMonster: {
+              type: string;
+              dispositions: { conflictType: string; value: number }[];
+              pageRef: { canonicalId: string; page: number } | null;
+            };
+          }
+        | undefined;
+      expect(monster?.TbMonster.type).toBe("dragon");
+      expect(monster?.TbMonster.pageRef).toEqual({
+        canonicalId: "tb/book/scholars-guide",
+        page: 179,
+      });
+      expect(monster?.TbMonster.dispositions).toEqual(
+        expect.arrayContaining([
+          { conflictType: "capture", value: 20 },
+          { conflictType: "kill", value: 11 },
+          { conflictType: "driveOff", value: 7 },
+        ]),
+      );
+      const abilities = setup.world.get(monsterId, [RawAbilities]) as
+        | { RawAbilities: { nature: { rating: number } } }
+        | undefined;
+      expect(abilities?.RawAbilities.nature.rating).toBe(9);
+      const town = setup.world.get(monsterId, [TownAbilities]) as
+        | { TownAbilities: { might: number; precedence: number } }
+        | undefined;
+      expect(town?.TownAbilities.might).toBe(6);
+      expect(town?.TownAbilities.precedence).toBe(6);
+    });
+
+    it("Goblin (SG p.187) — citation deep-links the SG and weapon table is preserved", async () => {
+      const res = await dispatchAsGm(
+        setup,
+        CreateMonsterFromCatalog({ templateId: "tb/monster/goblin" }),
+      );
+      expect(res.result.ok).toBe(true);
+      const monsterId = setup.world.query([Character, TbMonster])[0]!.id;
+      const monster = setup.world.get(monsterId, [TbMonster]) as
+        | { TbMonster: { pageRef: { canonicalId: string; page: number } | null } }
+        | undefined;
+      expect(monster?.TbMonster.pageRef).toEqual({
+        canonicalId: "tb/book/scholars-guide",
+        page: 187,
+      });
+      const weapons = setup.world.get(monsterId, [TbMonsterWeapons]) as
+        | {
+            TbMonsterWeapons: {
+              entries: ReadonlyArray<{ name: string; conflicts: string[] }>;
+            };
+          }
+        | undefined;
+      // Short Sword applies to all three of kill/capture/driveOff
+      // (printed K, Cap, D/O row).
+      const shortSword = weapons!.TbMonsterWeapons.entries.find(
+        (w) => w.name === "Short Sword",
+      );
+      expect(shortSword).toBeDefined();
+      expect(shortSword!.conflicts).toEqual(
+        expect.arrayContaining(["kill", "capture", "driveOff"]),
+      );
+      const rules = setup.world.get(monsterId, [TbMonsterSpecialRules]) as
+        | {
+            TbMonsterSpecialRules: {
+              entries: ReadonlyArray<{
+                name: string;
+                pageRef: { canonicalId: string; page: number } | null;
+              }>;
+            };
+          }
+        | undefined;
+      expect(rules!.TbMonsterSpecialRules.entries.map((r) => r.name)).toEqual([
+        "Dark sight",
+        "Enemy of the sun",
+        "Pointy ends",
+        "Czar",
+      ]);
+      for (const r of rules!.TbMonsterSpecialRules.entries) {
+        expect(r.pageRef).toEqual({
+          canonicalId: "tb/book/scholars-guide",
+          page: 187,
+        });
+      }
+    });
+
+    it("Aptrgangr (LMM p.246) — opens the catalog into the LMM book", async () => {
+      const res = await dispatchAsGm(
+        setup,
+        CreateMonsterFromCatalog({ templateId: "tb/monster/aptrgangr" }),
+      );
+      expect(res.result.ok).toBe(true);
+      const monsterId = setup.world.query([Character, TbMonster])[0]!.id;
+      const monster = setup.world.get(monsterId, [TbMonster]) as
+        | {
+            TbMonster: {
+              type: string;
+              pageRef: { canonicalId: string; page: number } | null;
+            };
+          }
+        | undefined;
+      expect(monster?.TbMonster.type).toBe("undead");
+      expect(monster?.TbMonster.pageRef).toEqual({
+        canonicalId: "tb/book/loremasters-manual",
+        page: 246,
+      });
     });
 
     it("equips the catalog armor when the items catalog has been seeded", async () => {
@@ -386,9 +533,22 @@ describe("@vtt/system-torchbearer monsters", () => {
         | undefined;
       expect(character?.Character.name).toBe("Cinderclaw");
       const monster = setup.world.get(monsterId, [TbMonster]) as
-        | { TbMonster: { dispositions: unknown[] } }
+        | {
+            TbMonster: {
+              dispositions: unknown[];
+              pageRef: unknown;
+              instinct: string;
+              armorDescription: string;
+            };
+          }
         | undefined;
       expect(monster?.TbMonster.dispositions).toEqual([]);
+      // Homebrew monsters carry no rulebook reference; the GM is free
+      // to fill in instinct / armorDescription / special-rule bodies
+      // by hand without ever seeing a BookCitation.
+      expect(monster?.TbMonster.pageRef).toBeNull();
+      expect(monster?.TbMonster.instinct).toBe("");
+      expect(monster?.TbMonster.armorDescription).toBe("");
       // No TbMonsterDerivedFrom on a blank monster — it didn't come
       // from a template.
       const derived = setup.world.get(monsterId, [TbMonsterDerivedFrom]);

@@ -17,6 +17,7 @@
 
 import type { EntityId } from "@vtt/substrate";
 import { useQuery, useTrait } from "@vtt/substrate/client";
+import { BookCitation } from "@vtt/books/client";
 import { createMemo, For, Show, type JSX } from "solid-js";
 import { ItemDerivedFrom, ItemIdentity } from "@vtt/items/shared";
 import {
@@ -25,6 +26,7 @@ import {
   TbWeapon,
 } from "../../shared/items/index.js";
 import { TbConflictResource } from "../../shared/monster-traits.js";
+import { tbCanonicalBookAbbreviation } from "../../data/seed.js";
 import {
   ALL_ACTIONS,
   type ConflictAction,
@@ -41,6 +43,11 @@ import {
   TB_CONFLICT_TYPES,
   type ConflictType,
 } from "../shared/index.js";
+
+function citationLabel(canonicalId: string, page: number): string {
+  const abbrev = tbCanonicalBookAbbreviation(canonicalId);
+  return abbrev !== null ? `${abbrev} p.${page}` : `p.${page}`;
+}
 
 /**
  * Per-side weapon possibility table — every weapon each participant
@@ -226,8 +233,13 @@ function WeaponRow(props: {
     | { text: string }
     | undefined;
   const conflictRes = useTrait(props.itemId, TbConflictResource) as () =>
-    | { note: string; applicableConflicts: ReadonlyArray<string> }
+    | {
+        note: string;
+        applicableConflicts: ReadonlyArray<string>;
+        pageRef?: { canonicalId: string; page: number } | null;
+      }
     | undefined;
+  const weaponPageRef = createMemo(() => conflictRes()?.pageRef ?? null);
   const bonusFor = (action: ConflictAction): string => {
     const b = weapon()?.conflictBonuses?.[action];
     if (!b || b.value === 0) return "—";
@@ -267,7 +279,21 @@ function WeaponRow(props: {
         class="py-1 pl-2 text-[0.65rem] text-fg-subtle leading-snug"
         title={specialText()}
       >
-        {specialText()}
+        <span class="inline-flex flex-wrap items-baseline gap-1.5">
+          <Show when={specialText().length > 0}>
+            <span>{specialText()}</span>
+          </Show>
+          <Show when={weaponPageRef()}>
+            {(ref) => (
+              <BookCitation
+                canonicalId={ref().canonicalId}
+                page={ref().page}
+                label={citationLabel(ref().canonicalId, ref().page)}
+                ariaLabel={`open ${ident()?.name ?? "weapon"} entry in ${ref().canonicalId} at page ${ref().page}`}
+              />
+            )}
+          </Show>
+        </span>
       </td>
     </tr>
   );

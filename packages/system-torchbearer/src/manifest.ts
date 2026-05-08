@@ -183,6 +183,8 @@ import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
 import { PendingRollContributorsSlot } from "@vtt/characters/shared";
 import { RollActionsSlot } from "@vtt/resolution/shared";
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
+import { PaletteCommandsSlot } from "@vtt/shell-workbench/shared";
+import { TB_SPAWN_MONSTER_PALETTE_COMMANDS } from "./client/spawn-monster-palette.js";
 import { tbItemsSeed } from "./data/seed.js";
 import {
   ALL_CONFLICT_COMMANDS,
@@ -420,6 +422,7 @@ export const systemTorchbearer = definePlugin({
     [RollActionsSlot.name]: [TbRollActionsFill],
     [ItemDetailSectionsSlot.name]: [...TB_ITEM_DETAIL_SECTIONS],
     [CharacterListExclusionSlot.name]: [tbMonsterListExclusion],
+    [PaletteCommandsSlot.name]: [...TB_SPAWN_MONSTER_PALETTE_COMMANDS],
   },
   seed: tbItemsSeed,
 });
