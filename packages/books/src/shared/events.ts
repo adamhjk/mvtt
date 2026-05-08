@@ -51,3 +51,16 @@ export const BookUpdated = defineEvent({
     name: z.string().min(1).max(160).optional(),
   }),
 });
+
+/**
+ * The GM bound a canonicalId to (or unbound it from) a Book entity.
+ * `canonicalId: null` means "this Book is no longer the canonical X"
+ * (the universal-mirror system removes the BookCanonical trait).
+ */
+export const BookCanonicalChanged = defineEvent({
+  name: "@vtt/books/BookCanonicalChanged",
+  schema: z.object({
+    bookId: EntityId,
+    canonicalId: z.string().min(1).max(240).nullable(),
+  }),
+});

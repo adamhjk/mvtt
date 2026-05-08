@@ -36,3 +36,54 @@ export const Book = defineTrait({
     name: z.string().min(1).max(160),
   }),
 });
+
+/**
+ * Lazily attached to a Book entity once the GM declares "this is *the*
+ * Loremaster's Manual for this world" (or whichever canonical book id
+ * a plugin has registered). At most one Book per world may carry any
+ * given canonicalId — uniqueness is enforced by SetBookCanonical's
+ * validate step.
+ *
+ * `canonicalId` is a plugin-namespaced shorthand like
+ * "tb/book/scholars-guide". The space of valid ids is contributed by
+ * plugin manifests via `seedCanonicalBookCatalog` (a sentinel trait
+ * the dropdown reads at config time). Plugin content (a monster, a
+ * spell, a class ability) references the canonicalId as a constant in
+ * code; resolution to a concrete Book entity happens at view time so
+ * the same content survives a different GM uploading the same
+ * rulebook in a different world.
+ */
+export const BookCanonical = defineTrait({
+  name: "@vtt/books/BookCanonical",
+  schema: z.object({
+    canonicalId: z.string().min(1).max(240),
+  }),
+});
+
+/**
+ * Sentinel trait — exactly one entity per registering plugin per
+ * world — listing the canonical book ids that plugin contributes.
+ * Drives the Config-tab dropdown (entries the GM may pick from) and
+ * SetBookCanonical's validate step (rejects ids that no plugin has
+ * registered).
+ *
+ * The trait is intentionally inert metadata: spawning the sentinel is
+ * the responsibility of each plugin's `seed` (or any other write
+ * path), via `seedCanonicalBookCatalog`. Mirroring `ItemCatalogIndex`,
+ * this trait is plain world data — no substrate-level support
+ * required.
+ */
+export const CanonicalBookCatalog = defineTrait({
+  name: "@vtt/books/CanonicalBookCatalog",
+  schema: z.object({
+    pluginName: z.string().min(1).max(120),
+    entries: z
+      .array(
+        z.object({
+          id: z.string().min(1).max(240),
+          name: z.string().min(1).max(240),
+        }),
+      )
+      .default([]),
+  }),
+});

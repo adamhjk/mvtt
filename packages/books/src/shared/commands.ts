@@ -25,10 +25,12 @@ import {
 import { requireSession } from "@vtt/identity/shared";
 import { requireWrite } from "@vtt/permissions/shared";
 import {
+  BookCanonicalChanged,
   BookCreated,
   BookRemoved,
   BookUpdated,
 } from "./events.js";
+import { BookCanonical, CanonicalBookCatalog } from "./traits.js";
 
 /**
  * Any authenticated user may create a book. Recording system spawns
@@ -77,6 +79,74 @@ export const RemoveBook = defineCommand({
     return requireWrite(ctx, ctx.cmd.bookId);
   },
   apply: ({ cmd }) => [BookRemoved({ bookId: cmd.bookId })],
+});
+
+/**
+ * GM-only: bind (or unbind) a canonicalId to a Book entity. The
+ * canonicalId is a plugin-namespaced shorthand a plugin's content uses
+ * to deep-link into the GM's PDF (e.g. a TB monster's special-rule row
+ * citing "tb/book/scholars-guide" page 178).
+ *
+ * Validation:
+ *   - GM-only (canonicals are world-shaping, not per-Book ownership).
+ *   - Book must exist.
+ *   - When canonicalId is non-null:
+ *     - It must be present in some plugin's CanonicalBookCatalog
+ *       sentinel (no inventing arbitrary ids).
+ *     - No other Book in the world may already hold the same id.
+ *   - When canonicalId is null, the binding is cleared (the
+ *     universal-mirror system removes the BookCanonical trait).
+ *
+ * Note: re-binding to the *same* id this Book already holds is a
+ * no-op pass-through (the validate step skips the uniqueness scan
+ * when the only holder is this Book).
+ */
+export const SetBookCanonical = defineCommand({
+  name: "@vtt/books/SetBookCanonical",
+  schema: z.object({
+    bookId: EntityId,
+    canonicalId: z.string().min(1).max(240).nullable(),
+  }),
+  validate: (ctx) => {
+    const session = requireSession(ctx);
+    if (!session) return fail("not authenticated");
+    if (session.role !== "gm") {
+      return fail("only a GM can bind canonical books");
+    }
+    if (!ctx.world.has(ctx.cmd.bookId)) {
+      return fail(`book ${ctx.cmd.bookId} does not exist`);
+    }
+    const next = ctx.cmd.canonicalId;
+    if (next !== null) {
+      let registered = false;
+      for (const row of ctx.world.query([CanonicalBookCatalog])) {
+        const v = row.values.CanonicalBookCatalog as {
+          entries: ReadonlyArray<{ id: string; name: string }>;
+        };
+        if (v.entries.some((e) => e.id === next)) {
+          registered = true;
+          break;
+        }
+      }
+      if (!registered) {
+        return fail(`unknown canonical book id: ${next}`);
+      }
+      for (const row of ctx.world.query([BookCanonical])) {
+        if (row.id === ctx.cmd.bookId) continue;
+        const v = row.values.BookCanonical as { canonicalId: string };
+        if (v.canonicalId === next) {
+          return fail(`canonical book ${next} is already bound to ${row.id}`);
+        }
+      }
+    }
+    return ok();
+  },
+  apply: ({ cmd }) => [
+    BookCanonicalChanged({
+      bookId: cmd.bookId,
+      canonicalId: cmd.canonicalId,
+    }),
+  ],
 });
 
 /**

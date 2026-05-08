@@ -18,3 +18,5 @@
 export { BooksPageProvider } from "./BookPage.js";
 export { ConfigOverlayTab } from "./ConfigOverlayTab.js";
 export { BookCanvasFallbackView } from "./BookCanvasFallbackView.js";
+export { BookCanonicalConfigSection } from "./BookCanonicalConfigSection.js";
+export { BookCitation, useCanonicalBook } from "./BookCitation.js";

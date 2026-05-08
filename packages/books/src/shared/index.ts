@@ -15,8 +15,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-export { Book } from "./traits.js";
+export { Book, BookCanonical, CanonicalBookCatalog } from "./traits.js";
 export {
+  BookCanonicalChanged,
   BookCreated,
   BookRemoved,
   BookUpdated,
@@ -24,8 +25,16 @@ export {
 export {
   CreateBook,
   RemoveBook,
+  SetBookCanonical,
   UpdateBook,
 } from "./commands.js";
+export {
+  seedCanonicalBookCatalog,
+  getCanonicalBook,
+  getBookCanonicalId,
+  listCanonicalBookCatalogs,
+  type CanonicalBookEntry,
+} from "./canonical.js";
 export {
   BooksUiState,
   BooksUiStateChanged,

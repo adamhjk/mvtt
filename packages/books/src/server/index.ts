@@ -19,4 +19,5 @@ export {
   BookSpawningSystem,
   BookRemovalSystem,
   BookUpdateSystem,
+  BookCanonicalSystem,
 } from "./systems.js";

@@ -18,11 +18,12 @@
 import { defineSystem } from "@vtt/substrate";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import {
+  BookCanonicalChanged,
   BookCreated,
   BookRemoved,
   BookUpdated,
 } from "../shared/events.js";
-import { Book } from "../shared/traits.js";
+import { Book, BookCanonical } from "../shared/traits.js";
 
 /**
  * Universal mirror system: spawns the Book entity on every side
@@ -83,6 +84,36 @@ export const BookUpdateSystem = defineSystem({
     if (!got) return [];
     world.set(event.bookId, Book, {
       name: event.name ?? got.Book.name,
+    });
+    return [];
+  },
+});
+
+/**
+ * Universal mirror: adds, replaces, or removes the BookCanonical trait
+ * on the bound Book entity. The validate step in SetBookCanonical
+ * already enforces uniqueness, so a single set/remove call is enough —
+ * any prior holder of the same canonicalId would have been unbound
+ * first by a prior command.
+ *
+ * No-op if the book id has been despawned between dispatch and
+ * application (the BookCanonical trait simply never gets attached).
+ */
+export const BookCanonicalSystem = defineSystem({
+  name: "BookCanonical",
+  on: BookCanonicalChanged,
+  reads: [],
+  writes: [BookCanonical],
+  run: ({ event, world }) => {
+    if (!world.has(event.bookId)) return [];
+    if (event.canonicalId === null) {
+      if (world.get(event.bookId, [BookCanonical])) {
+        world.remove(event.bookId, BookCanonical);
+      }
+      return [];
+    }
+    world.set(event.bookId, BookCanonical, {
+      canonicalId: event.canonicalId,
     });
     return [];
   },

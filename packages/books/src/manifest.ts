@@ -18,9 +18,14 @@
 import { definePlugin } from "@vtt/substrate";
 import { PagesSlot } from "@vtt/shell-workbench/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
-import { Book } from "./shared/traits.js";
+import {
+  Book,
+  BookCanonical,
+  CanonicalBookCatalog,
+} from "./shared/traits.js";
 import { bookLinkKind } from "./shared/book-link-kind.js";
 import {
+  BookCanonicalChanged,
   BookCreated,
   BookRemoved,
   BookUpdated,
@@ -28,6 +33,7 @@ import {
 import {
   CreateBook,
   RemoveBook,
+  SetBookCanonical,
   UpdateBook,
 } from "./shared/commands.js";
 import {
@@ -42,11 +48,13 @@ import {
   BookSpawningSystem,
   BookRemovalSystem,
   BookUpdateSystem,
+  BookCanonicalSystem,
 } from "./server/systems.js";
 import {
   BooksPageProvider,
   ConfigOverlayTab,
   BookCanvasFallbackView,
+  BookCanonicalConfigSection,
 } from "./client/index.js";
 
 export const books = definePlugin({
@@ -59,13 +67,26 @@ export const books = definePlugin({
     "@vtt/shell-workbench@^0",
     "@vtt/notes@^0",
   ],
-  traits: [Book, BooksUiState],
-  events: [BookCreated, BookRemoved, BookUpdated, BooksUiStateChanged],
-  commands: [CreateBook, RemoveBook, UpdateBook, SetBooksUiState],
+  traits: [Book, BookCanonical, CanonicalBookCatalog, BooksUiState],
+  events: [
+    BookCreated,
+    BookRemoved,
+    BookUpdated,
+    BookCanonicalChanged,
+    BooksUiStateChanged,
+  ],
+  commands: [
+    CreateBook,
+    RemoveBook,
+    UpdateBook,
+    SetBookCanonical,
+    SetBooksUiState,
+  ],
   systems: [
     BookSpawningSystem,
     BookRemovalSystem,
     BookUpdateSystem,
+    BookCanonicalSystem,
     BooksUiStateMirror,
   ],
   surfaces: [BookCanvasSurface],
@@ -74,6 +95,7 @@ export const books = definePlugin({
   fills: {
     [PagesSlot.name]: [BooksPageProvider],
     [BookOverlayTabsSlot.name]: [ConfigOverlayTab],
+    [BookConfigSectionsSlot.name]: [BookCanonicalConfigSection],
     [LinkKindsSlot.name]: [bookLinkKind],
   },
 });
