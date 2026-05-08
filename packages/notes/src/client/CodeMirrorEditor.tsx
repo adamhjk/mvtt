@@ -177,7 +177,7 @@ export function CodeMirrorEditor(props: {
           if (kind.name === "note") continue;
           let suggestions: ReturnType<typeof kind.autocomplete>;
           try {
-            suggestions = kind.autocomplete(segText, world);
+            suggestions = kind.autocomplete(segText, world, props.registry);
           } catch {
             continue;
           }
@@ -366,102 +366,111 @@ export function CodeMirrorEditor(props: {
 }
 
 /**
- * Dark editor chrome with high-contrast caret and selection. Uses
- * design-token-flavoured colours so it sits inside the surrounding
- * shell without clashing.
+ * Editor chrome that follows the design tokens — `light-dark()` on
+ * the underlying tokens means the same theme works in both light and
+ * dark modes. The `dark: true` flag is *not* set here: passing a
+ * theme as light/dark would need a reactive re-mount on theme change,
+ * and since every property below resolves through tokens we don't
+ * need CodeMirror's internal dark/light branching.
+ *
+ * Selection and accent colors blend the accent token with low alpha
+ * via `color-mix` so the same value reads on both surfaces — a fixed
+ * tint like GitHub's `#264f78` washed out badly on a white surface.
  */
-const editorTheme = EditorView.theme(
-  {
-    "&": {
-      fontSize: "14px",
-      height: "100%",
-      color: "#e6edf3",
-      backgroundColor: "#0d1117",
-    },
-    "&.cm-focused": {
-      outline: "none",
-    },
-    ".cm-content": {
-      fontFamily:
-        "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace)",
-      padding: "10px 12px",
-      caretColor: "#f78166",
-      lineHeight: "1.55",
-    },
-    ".cm-scroller": {
-      overflow: "auto",
-    },
-    ".cm-cursor, .cm-dropCursor": {
-      borderLeft: "2px solid #f78166",
-    },
-    "&.cm-focused .cm-cursor": {
-      borderLeftColor: "#f78166",
-    },
-    "&.cm-focused .cm-selectionBackground, ::selection, .cm-selectionBackground": {
-      backgroundColor: "#264f78",
-    },
-    ".cm-activeLine": {
-      backgroundColor: "#161b22",
-    },
-    ".cm-gutters": {
-      backgroundColor: "#0d1117",
-      color: "#484f58",
-      borderRight: "1px solid #21262d",
-    },
-    ".cm-activeLineGutter": {
-      backgroundColor: "#161b22",
-      color: "#8b949e",
-    },
-    ".cm-tooltip.cm-tooltip-autocomplete": {
-      backgroundColor: "#161b22",
-      border: "1px solid #30363d",
-      color: "#e6edf3",
-    },
-    ".cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]": {
-      backgroundColor: "#264f78",
-      color: "#ffffff",
-    },
-    ".cm-tooltip.cm-tooltip-autocomplete > ul > li .cm-completionDetail": {
-      color: "#7d8590",
-      fontStyle: "italic",
-      marginLeft: "8px",
-    },
-    ".cm-matchingBracket": {
-      backgroundColor: "#3a3f4d",
-      color: "#e6edf3",
-    },
+const editorTheme = EditorView.theme({
+  "&": {
+    fontSize: "14px",
+    height: "100%",
+    color: "var(--color-fg)",
+    backgroundColor: "var(--color-surface)",
   },
-  { dark: true },
-);
+  "&.cm-focused": {
+    outline: "none",
+  },
+  ".cm-content": {
+    fontFamily:
+      "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace)",
+    padding: "10px 12px",
+    caretColor: "var(--color-accent)",
+    lineHeight: "1.55",
+  },
+  ".cm-scroller": {
+    overflow: "auto",
+  },
+  ".cm-cursor, .cm-dropCursor": {
+    borderLeft: "2px solid var(--color-accent)",
+  },
+  "&.cm-focused .cm-cursor": {
+    borderLeftColor: "var(--color-accent)",
+  },
+  "&.cm-focused .cm-selectionBackground, ::selection, .cm-selectionBackground": {
+    backgroundColor: "color-mix(in srgb, var(--color-accent) 28%, transparent)",
+  },
+  ".cm-activeLine": {
+    backgroundColor: "var(--color-surface-elevated)",
+  },
+  ".cm-gutters": {
+    backgroundColor: "var(--color-surface)",
+    color: "var(--color-fg-subtle)",
+    borderRight: "1px solid var(--color-border-muted)",
+  },
+  ".cm-activeLineGutter": {
+    backgroundColor: "var(--color-surface-elevated)",
+    color: "var(--color-fg-muted)",
+  },
+  ".cm-tooltip.cm-tooltip-autocomplete": {
+    backgroundColor: "var(--color-surface-elevated)",
+    border: "1px solid var(--color-border)",
+    color: "var(--color-fg)",
+  },
+  ".cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]": {
+    backgroundColor: "var(--color-accent)",
+    color: "var(--color-accent-fg)",
+  },
+  ".cm-tooltip.cm-tooltip-autocomplete > ul > li .cm-completionDetail": {
+    color: "var(--color-fg-subtle)",
+    fontStyle: "italic",
+    marginLeft: "8px",
+  },
+  ".cm-matchingBracket": {
+    backgroundColor: "color-mix(in srgb, var(--color-accent) 22%, transparent)",
+    color: "var(--color-fg)",
+  },
+});
 
 /**
- * Markdown syntax highlighting. Token colours echo the GitHub Dark
- * palette — high contrast against the editor background, with
- * heading sizes scaled to mirror the rendered output.
+ * Markdown syntax highlighting. Tokens-only — colors resolve through
+ * `var(--color-*)` so the same highlight palette reads on light and
+ * dark surfaces. Heading sizes scale to mirror the rendered output.
+ *
+ * Foreground tags like `strong` / `emphasis` use the body color with
+ * weight or italic so plain text and emphasized text share the same
+ * legibility baseline; the markdown markers themselves (`#`, `*`,
+ * etc.) get the muted-subtle color so they recede.
  */
 const markdownHighlightStyle = HighlightStyle.define([
-  { tag: t.heading1, color: "#f0883e", fontSize: "1.5em", fontWeight: "700" },
-  { tag: t.heading2, color: "#f0883e", fontSize: "1.3em", fontWeight: "700" },
-  { tag: t.heading3, color: "#f0883e", fontSize: "1.15em", fontWeight: "700" },
-  { tag: t.heading4, color: "#f0883e", fontWeight: "700" },
-  { tag: t.heading5, color: "#f0883e", fontWeight: "700" },
-  { tag: t.heading6, color: "#f0883e", fontWeight: "700" },
-  { tag: t.strong, color: "#e6edf3", fontWeight: "700" },
-  { tag: t.emphasis, color: "#e6edf3", fontStyle: "italic" },
-  { tag: t.strikethrough, color: "#7d8590", textDecoration: "line-through" },
-  { tag: t.link, color: "#58a6ff", textDecoration: "underline" },
-  { tag: t.url, color: "#58a6ff" },
-  { tag: t.monospace, color: "#a5d6ff", backgroundColor: "#161b22" },
-  { tag: [t.literal, t.string], color: "#a5d6ff" },
-  { tag: t.quote, color: "#7d8590", fontStyle: "italic" },
-  { tag: t.list, color: "#f78166" },
-  { tag: t.processingInstruction, color: "#7d8590" },
-  { tag: t.contentSeparator, color: "#30363d" },
-  { tag: t.meta, color: "#7d8590" },
+  { tag: t.heading1, color: "var(--color-accent)", fontSize: "1.5em", fontWeight: "700" },
+  { tag: t.heading2, color: "var(--color-accent)", fontSize: "1.3em", fontWeight: "700" },
+  { tag: t.heading3, color: "var(--color-accent)", fontSize: "1.15em", fontWeight: "700" },
+  { tag: t.heading4, color: "var(--color-accent)", fontWeight: "700" },
+  { tag: t.heading5, color: "var(--color-accent)", fontWeight: "700" },
+  { tag: t.heading6, color: "var(--color-accent)", fontWeight: "700" },
+  { tag: t.strong, color: "var(--color-fg)", fontWeight: "700" },
+  { tag: t.emphasis, color: "var(--color-fg)", fontStyle: "italic" },
+  { tag: t.strikethrough, color: "var(--color-fg-subtle)", textDecoration: "line-through" },
+  { tag: t.link, color: "var(--color-accent)", textDecoration: "underline" },
+  { tag: t.url, color: "var(--color-accent)" },
+  { tag: t.monospace, color: "var(--color-fg)", backgroundColor: "var(--color-surface-sunken)" },
+  { tag: [t.literal, t.string], color: "var(--color-fg)" },
+  { tag: t.quote, color: "var(--color-fg-muted)", fontStyle: "italic" },
+  { tag: t.list, color: "var(--color-fg-muted)" },
+  { tag: t.processingInstruction, color: "var(--color-fg-subtle)" },
+  { tag: t.contentSeparator, color: "var(--color-border)" },
+  { tag: t.meta, color: "var(--color-fg-subtle)" },
   // Markdown markers (`#`, `*`, `_`, ``` ` ``` etc.)
-  { tag: t.punctuation, color: "#7d8590" },
-  { tag: t.atom, color: "#79c0ff" },
-  { tag: t.tagName, color: "#7ee787" },
+  { tag: t.punctuation, color: "var(--color-fg-subtle)" },
+  { tag: t.atom, color: "var(--color-accent)" },
+  { tag: t.tagName, color: "var(--color-accent)" },
 ]);
 
 function resolveNoteByName(

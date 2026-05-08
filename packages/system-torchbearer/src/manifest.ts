@@ -24,6 +24,8 @@ import {
   CharacterSheetVitalsSlot,
   type CharacterListExclusion,
 } from "@vtt/characters/shared";
+import { LinkKindsSlot } from "@vtt/notes/shared";
+import { monsterLinkKind } from "./shared/monster-link-kind.js";
 import {
   AdvancementLogged,
   AdvancementLoggedTrait,
@@ -422,6 +424,7 @@ export const systemTorchbearer = definePlugin({
     [RollActionsSlot.name]: [TbRollActionsFill],
     [ItemDetailSectionsSlot.name]: [...TB_ITEM_DETAIL_SECTIONS],
     [CharacterListExclusionSlot.name]: [tbMonsterListExclusion],
+    [LinkKindsSlot.name]: [monsterLinkKind],
     [PaletteCommandsSlot.name]: [...TB_SPAWN_MONSTER_PALETTE_COMMANDS],
   },
   seed: tbItemsSeed,

@@ -488,8 +488,8 @@ function PerformerName(props: {
   return (
     <button
       type="button"
-      onClick={() => openSheet(props.characterId)}
-      title={`Open ${characterName()}`}
+      onClick={(e) => openSheet(props.characterId, e)}
+      title={`Open ${characterName()} — ⇧ split · ⌘ new tab`}
       class="cursor-pointer underline-offset-2 decoration-transparent hover:decoration-current decoration-1 underline hover:text-accent transition-colors"
     >
       {display()}

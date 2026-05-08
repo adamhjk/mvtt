@@ -22,6 +22,7 @@
     "@vtt/dice-tray": "workspace:*",
     "@vtt/identity": "workspace:*",
     "@vtt/items": "workspace:*",
+    "@vtt/notes": "workspace:*",
     "@vtt/pdf-book": "workspace:*",
     "@vtt/permissions": "workspace:*",
     "@vtt/resolution": "workspace:*",

@@ -17,12 +17,10 @@
 
 import {
   qualifiedName,
-  type CommandInstance,
   type EntityId,
 } from "@vtt/substrate";
-import { useClient, useQuery } from "@vtt/substrate/client";
-import { FocusTab, OpenPageInNewTab } from "@vtt/shell-workbench/shared";
-import { useWorkspace } from "@vtt/shell-workbench/client";
+import { useQuery } from "@vtt/substrate/client";
+import { useFollowLink } from "@vtt/shell-workbench/client";
 import { type Accessor, createMemo, Show, type JSX } from "solid-js";
 import { BookCanonical } from "../shared/traits.js";
 import { publishBookNav } from "../shared/pending-nav.js";
@@ -54,29 +52,21 @@ export function useCanonicalBook(
 }
 
 /**
- * Inline citation for plugin content. Click navigates a bound Book to
- * the cited page and focuses the resulting tab so the GM can read the
- * rule immediately:
+ * Inline citation for plugin content. Click navigates the workbench
+ * to the bound Book at the cited page using the standard wikilink
+ * verb (`useFollowLink`):
  *
- *   - If a tab is already open for this Book in any pane, the page
- *     hint is published through `pendingBookNav` so the existing
- *     projection view jumps to the cited page in place, and a
- *     `FocusTab` command makes that tab + its pane active. The
- *     citation-source tab is preserved (still in `pane.tabIds`) so
- *     the reader can flip back; only the active-tab focus shifts.
- *   - If no tab is open for this Book, a *new* tab is added to the
- *     active pane (`OpenPageInNewTab`, which sets the new tab as
- *     active in the pane). The page hint follows so the freshly-
- *     mounted projection lands on the cited page.
+ *   - plain click  → smart retarget. Focus an exact-match Book tab
+ *                    if one's open, else flip the best same-kind
+ *                    (Books) tab in another pane to this book, else
+ *                    open new in the active pane.
+ *   - Cmd/Ctrl     → force new tab in the active pane.
+ *   - Shift        → force new split (book lands beside the source).
  *
- * The blanket "find-or-create dedup" behaviour of `OpenPage` is
- * avoided in favour of `FocusTab` for the existing-tab case. The
- * difference matters when the existing book tab is in a *different*
- * pane than the citation: `FocusTab` shifts pane focus to that
- * existing pane, leaving the citation-source pane's other tabs
- * untouched (`OpenPage` would do the same here, so the practical
- * delta lives in clearer intent — the citation's job is "go look at
- * the book," not "ensure-tab-exists").
+ * The page hint is published through `pendingBookNav` *before* the
+ * dispatch so the projection view (whether mounted fresh or
+ * already on screen) consumes the signal in its own createEffect when
+ * its renderer is ready.
  *
  * When the canonicalId isn't bound to any Book in the current world,
  * the component renders the label as plain text — no link, no
@@ -96,65 +86,23 @@ export function BookCitation(props: {
   /** Pass-through className for callers that want their own styling. */
   className?: string;
 }): JSX.Element {
-  const client = useClient();
   const bookId = useCanonicalBook(() => props.canonicalId);
-  const workspace = useWorkspace();
+  const follow = useFollowLink();
 
   const text = () => props.label ?? `p.${props.page}`;
   const aria = () =>
     props.ariaLabel ?? `open ${props.canonicalId} at page ${props.page}`;
 
-  /**
-   * Find an existing tab targeting this Book. Walks `state.tabs` (a
-   * flat record) and `state.panes` (also flat) to recover the
-   * containing `paneId` so we can dispatch `FocusTab`. Cheap: a
-   * workspace has a handful of tabs and panes.
-   */
-  const findExistingBookTab = (
-    id: EntityId,
-  ): { paneId: string; tabId: string } | null => {
-    const ws = workspace.state();
-    if (!ws) return null;
-    for (const tab of Object.values(ws.tabs)) {
-      if (tab.pageKind !== BOOKS_PAGE_KIND || tab.entityId !== id) continue;
-      for (const pane of Object.values(ws.panes)) {
-        if (pane.tabIds.includes(tab.id)) {
-          return { paneId: pane.paneId, tabId: tab.id };
-        }
-      }
-    }
-    return null;
-  };
-
-  const open = () => {
-    const id = bookId();
+  const open = (e: MouseEvent) => {
+    const id: EntityId | null = bookId();
     if (id === null) return;
     // Order matters: publish the page hint *before* dispatching any
-    // tab command so the projection view (mounted fresh by
-    // OpenPageInNewTab or already on screen for an existing tab)
-    // picks the signal up in its own createEffect when its renderer
-    // is ready.
+    // tab command so the projection view (mounted fresh by a new
+    // tab/split, retargeted in place, or already on screen) picks
+    // the signal up in its own createEffect when its renderer is
+    // ready.
     publishBookNav({ bookId: id, page: props.page });
-    const existing = findExistingBookTab(id);
-    if (existing) {
-      // Flip focus to the existing book tab — both within its pane
-      // and at the workspace level. The `pendingBookNav` signal that
-      // just fired will be consumed by the projection's effect once
-      // the tab gains focus and renders.
-      client.dispatch(
-        FocusTab({
-          paneId: existing.paneId,
-          tabId: existing.tabId,
-        }) as CommandInstance,
-      );
-      return;
-    }
-    client.dispatch(
-      OpenPageInNewTab({
-        pageKind: BOOKS_PAGE_KIND,
-        entityId: id,
-      }) as CommandInstance,
-    );
+    follow({ pageKind: BOOKS_PAGE_KIND, entityId: id }, e);
   };
 
   return (

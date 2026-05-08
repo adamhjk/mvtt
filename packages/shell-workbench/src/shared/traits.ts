@@ -22,6 +22,12 @@ import { defineTrait, EntityId, QualifiedNameSchema, z } from "@vtt/substrate";
  * by qualified name; `entityId` may be null for "kind picked, entity not yet
  * chosen" — providers render an empty/picker state in that case.
  *
+ * `lastFocusedAt` is the timestamp the tab last became the active tab in
+ * its pane (or was created). Used by `OpenPage`'s smart-retarget step
+ * to pick the most-recently-interacted same-kind tab when there's
+ * more than one candidate. Bumped by every command that sets
+ * `pane.activeTabId`.
+ *
  * Per-tab UI state (active page in a note, dock state on a scene/book,
  * PDF reader state, etc.) lives on the per-tab sentinel entity (see
  * `TabSentinel` and `design/optimistic-ui-state.md`), NOT on this tab
@@ -31,6 +37,7 @@ const TabSchema = z.object({
   id: z.string().min(1),
   pageKind: QualifiedNameSchema,
   entityId: EntityId.nullable(),
+  lastFocusedAt: z.number(),
 });
 export type WorkspaceTab = z.infer<typeof TabSchema>;
 

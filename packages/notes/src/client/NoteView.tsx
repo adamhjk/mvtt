@@ -55,12 +55,8 @@ import {
   buildLinkKindIndex,
   type WikiLinkRef,
 } from "../shared/index.js";
-import {
-  OpenPage,
-  OpenPageInNewTab,
-  RetargetTab,
-} from "@vtt/shell-workbench/shared";
-import { useTabSentinel } from "@vtt/shell-workbench/client";
+import { RetargetTab } from "@vtt/shell-workbench/shared";
+import { useFollowLink, useTabSentinel } from "@vtt/shell-workbench/client";
 import { NOTES_KIND } from "./NotesPage.jsx";
 import { useMe } from "./use-me.js";
 import { useBacklinks } from "./use-backlinks.js";
@@ -560,6 +556,7 @@ function PageContent(props: {
   armScroll: (pageId: EntityId, anchor: string) => void;
 }): JSX.Element {
   const client = useClient();
+  const followLink = useFollowLink();
   const page = useTrait(props.pageId, Page);
   const draft = useTrait(props.pageId, PageDraft);
   const lock = useTrait(props.pageId, EditorLock);
@@ -574,11 +571,12 @@ function PageContent(props: {
    * (uiState for cross-mount cases, local signal for same-page).
    *
    * For other kinds (character, scene, asset, …), a `navigate`
-   * activation dispatches `OpenPage`: focuses an already-open tab
-   * pointed at the same `(pageKind, entityId)`, or opens a new tab in
-   * the active pane if none exists. Cmd/Ctrl-click forces a new tab.
-   * The notes tab is left alone — cross-kind links should not clobber
-   * the user's place in the note.
+   * activation goes through `useFollowLink` — the canonical wikilink
+   * verb. Plain click smart-retargets (focus exact match, else flip
+   * the best same-kind tab in another pane, else open new); Cmd/Ctrl
+   * forces a new tab; Shift forces a new split. The notes tab itself
+   * is left alone — cross-kind links should not clobber the user's
+   * place in the note.
    *
    * v1: peek activations are a no-op (no peek infrastructure yet).
    */
@@ -588,7 +586,7 @@ function PageContent(props: {
     if (!kind) return;
     let resolved: unknown;
     try {
-      resolved = kind.parse(ref.body, ref.anchor, client.world);
+      resolved = kind.parse(ref.body, ref.anchor, client.world, client.registry);
     } catch {
       resolved = null;
     }
@@ -644,22 +642,27 @@ function PageContent(props: {
       return;
     }
 
-    const meta = e.metaKey || e.ctrlKey;
     const activation = kind.activate(resolved, {
       modifiers: {
-        meta,
+        meta: e.metaKey || e.ctrlKey,
         shift: e.shiftKey,
         alt: e.altKey,
       },
     });
     if (activation.type === "navigate") {
       e.preventDefault();
-      const payload = {
-        pageKind: activation.pageKind,
-        entityId: activation.entityId,
-      };
-      const cmd = meta ? OpenPageInNewTab(payload) : OpenPage(payload);
-      client.dispatch(cmd as CommandInstance);
+      // `LinkActivation.pageKind` is the unbranded string surfaced by
+      // a link-kind plugin; `useFollowLink` expects the brand. The
+      // QualifiedName brand is structural / nominal-only — runtime is
+      // a plain string — so we widen via `as` here. The link-kind
+      // plugin is responsible for emitting a real qualified name.
+      followLink(
+        {
+          pageKind: activation.pageKind as Parameters<typeof followLink>[0]["pageKind"],
+          entityId: activation.entityId,
+        },
+        e,
+      );
     }
   };
 

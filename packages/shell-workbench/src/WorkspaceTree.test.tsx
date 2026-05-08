@@ -66,7 +66,10 @@ const noteProvider: PageProvider = definePageProvider({
 interface HarnessOpts {
   tree: TreeShape;
   panes: Record<string, WorkspacePane>;
-  tabs?: Record<string, { id: string; pageKind: string; entityId: string | null }>;
+  tabs?: Record<
+    string,
+    { id: string; pageKind: string; entityId: string | null; lastFocusedAt?: number }
+  >;
   activePaneId?: string;
   zenPaneId?: string | null;
 }
@@ -93,11 +96,22 @@ function harness(opts: HarnessOpts) {
         Name({ value: "Me" }),
         Online({ clientId: ME_CLIENT, since: Date.now() }),
       ]);
+      // Backfill `lastFocusedAt` on any test-supplied tab that omits
+      // it — the schema requires it but the per-test inline tab
+      // literals predate the field and shouldn't have to repeat it.
+      const tabsIn = opts.tabs ?? {};
+      const tabs: Record<string, never> = {};
+      for (const [k, t] of Object.entries(tabsIn)) {
+        (tabs as Record<string, unknown>)[k] = {
+          ...t,
+          lastFocusedAt: t.lastFocusedAt ?? 0,
+        };
+      }
       world.spawn([
         WorkspaceOwner({ userId: ME }),
         Permissions({ read: actors([ME]), write: actors([ME]) }),
         WorkspaceState({
-          tabs: opts.tabs as Record<string, never> ?? {},
+          tabs,
           panes: opts.panes,
           tree: opts.tree,
           activePaneId: opts.activePaneId ?? Object.keys(opts.panes)[0]!,

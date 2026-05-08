@@ -125,6 +125,7 @@ describe("shell-workbench TabPicker", () => {
             id: "tab-1",
             pageKind: noteProvider.kind as never,
             entityId: noteId,
+            lastFocusedAt: 0,
           }}
         />
       </ClientProvider>
@@ -169,6 +170,7 @@ describe("shell-workbench TabPicker", () => {
             id: "tab-1",
             pageKind: noteProvider.kind as never,
             entityId: null,
+            lastFocusedAt: 0,
           }}
         />
       </ClientProvider>

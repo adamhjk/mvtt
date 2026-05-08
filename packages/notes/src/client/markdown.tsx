@@ -165,9 +165,31 @@ export function MarkdownView(props: {
       onClick={onContainerClick}
       // `prose` (Tailwind typography plugin) handles lists, headings,
       // paragraph spacing, bold/italic/strikethrough, tables, code,
-      // blockquote out of the box. `prose-invert` flips colours for
-      // dark theme. `max-w-none` undoes typography's 65ch cap.
-      class="prose prose-invert max-w-none"
+      // blockquote out of the box. `max-w-none` undoes typography's
+      // 65ch cap. We *don't* use `prose-invert` — that's a hard flip
+      // to dark colors regardless of theme. Instead the `style`
+      // prop wires the typography plugin's CSS variables to our
+      // design tokens (which already use `light-dark()`), so the
+      // rendered note tracks the active theme automatically.
+      class="prose max-w-none"
+      style={{
+        "--tw-prose-body": "var(--color-fg)",
+        "--tw-prose-headings": "var(--color-fg)",
+        "--tw-prose-lead": "var(--color-fg-muted)",
+        "--tw-prose-links": "var(--color-accent)",
+        "--tw-prose-bold": "var(--color-fg)",
+        "--tw-prose-counters": "var(--color-fg-subtle)",
+        "--tw-prose-bullets": "var(--color-fg-subtle)",
+        "--tw-prose-hr": "var(--color-border)",
+        "--tw-prose-quotes": "var(--color-fg)",
+        "--tw-prose-quote-borders": "var(--color-border)",
+        "--tw-prose-captions": "var(--color-fg-muted)",
+        "--tw-prose-code": "var(--color-fg)",
+        "--tw-prose-pre-code": "var(--color-fg)",
+        "--tw-prose-pre-bg": "var(--color-surface-sunken)",
+        "--tw-prose-th-borders": "var(--color-border)",
+        "--tw-prose-td-borders": "var(--color-border-muted)",
+      }}
       // eslint-disable-next-line solid/no-innerhtml -- compiled by our trusted unified pipeline; user-supplied raw HTML is dropped via remark-rehype's allowDangerousHtml: false.
       innerHTML={html()}
     />
@@ -315,7 +337,7 @@ function rehypeWikiLinks(ctx: RenderCtx) {
       let display = ref.alias ?? ref.body;
       if (kind) {
         try {
-          resolved = kind.parse(ref.body, ref.anchor, ctx.world);
+          resolved = kind.parse(ref.body, ref.anchor, ctx.world, ctx.registry);
         } catch {
           resolved = null;
         }

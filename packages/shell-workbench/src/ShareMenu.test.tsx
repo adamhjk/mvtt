@@ -51,6 +51,7 @@ const TAB = {
   id: "tab-share-test",
   pageKind: KIND,
   entityId: null,
+  lastFocusedAt: Date.now(),
 };
 
 interface OtherUser { userId: string; name: string }

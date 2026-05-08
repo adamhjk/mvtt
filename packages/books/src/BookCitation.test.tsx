@@ -142,7 +142,7 @@ describe("BookCitation", () => {
     expect(btn.textContent).toContain("LMM p.261");
   });
 
-  it("bound click (no existing tab): opens the book in a NEW tab and publishes a pending page-nav", () => {
+  it("bound click (no existing tab): dispatches OpenPage (smart) and publishes a pending page-nav", () => {
     const h = harness();
     const bookId = h.world.spawn([]);
     h.world.set(bookId, BookCanonical, {
@@ -159,12 +159,12 @@ describe("BookCitation", () => {
     ));
     fireEvent.click(screen.getByRole("button"));
     expect(h.dispatched).toHaveLength(1);
-    // OpenPageInNewTab — never OpenPage. Citations must not yank the
-    // active tab away from whatever the reader was looking at; if no
-    // book tab exists yet, a fresh one is added to the active pane.
-    expect(h.dispatched[0]!.type).toBe(
-      "@vtt/shell-workbench/OpenPageInNewTab",
-    );
+    // BookCitation now goes through `useFollowLink` — plain click
+    // resolves to `OpenPage` (smart retarget). With no existing
+    // Books-kind tab anywhere, OpenPage's third rung opens a fresh
+    // tab in the active pane. Cmd/Ctrl-click would force `OpenPageInNewTab`,
+    // Shift-click would force `OpenPageAsSplit`.
+    expect(h.dispatched[0]!.type).toBe("@vtt/shell-workbench/OpenPage");
     expect(h.dispatched[0]!.payload).toMatchObject({
       pageKind: "@vtt/books/books",
       entityId: bookId,
@@ -175,7 +175,7 @@ describe("BookCitation", () => {
     expect(nav!.page).toBe(261);
   });
 
-  it("bound click (existing tab): focuses the existing tab via FocusTab and publishes the page-nav", () => {
+  it("bound click (existing tab): dispatches OpenPage (which focuses the existing tab via smart retarget) and publishes the page-nav", () => {
     const h = harness();
     const bookId = h.world.spawn([]);
     h.world.set(bookId, BookCanonical, {
@@ -192,11 +192,13 @@ describe("BookCitation", () => {
           id: "tab-conflict",
           pageKind: "@vtt/test/conflict",
           entityId: null,
+          lastFocusedAt: 0,
         },
         "tab-existing-book": {
           id: "tab-existing-book",
           pageKind: "@vtt/books/books",
           entityId: bookId,
+          lastFocusedAt: 0,
         },
       },
       panes: {
@@ -237,10 +239,15 @@ describe("BookCitation", () => {
     ));
     fireEvent.click(screen.getByRole("button"));
     expect(h.dispatched).toHaveLength(1);
-    expect(h.dispatched[0]!.type).toBe("@vtt/shell-workbench/FocusTab");
+    // BookCitation dispatches `OpenPage` (the smart-retarget verb).
+    // Internally OpenPage's exact-match path focuses
+    // `tab-existing-book` in `pane-2` — no separate `FocusTab` is
+    // emitted; the focus flip is part of the `WorkspaceState`
+    // mutation that `OpenPage`'s apply produces.
+    expect(h.dispatched[0]!.type).toBe("@vtt/shell-workbench/OpenPage");
     expect(h.dispatched[0]!.payload).toMatchObject({
-      paneId: "pane-2",
-      tabId: "tab-existing-book",
+      pageKind: "@vtt/books/books",
+      entityId: bookId,
     });
     const nav = pendingBookNav();
     expect(nav).not.toBeNull();

@@ -41,6 +41,7 @@ import { definePlugin, type EntityId } from "@vtt/substrate";
 import { RequestRoll, RollActionsSlot } from "@vtt/resolution/shared";
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
+import { LinkKindsSlot } from "@vtt/notes/shared";
 import { type JSX } from "solid-js";
 import { systemTorchbearer } from "./manifest.js";
 import {
@@ -121,6 +122,10 @@ const sheetSlotsTestInfra = definePlugin({
     // lookup). Declared here so the TB fill resolves without
     // pulling the full shell-workbench package into the harness.
     PaletteCommandsSlot,
+    // Notes-side slot torchbearer fills with `monsterLinkKind` (the
+    // `!` wikilink → bestiary route). Declared here so the TB fill
+    // resolves without pulling the full @vtt/notes package in.
+    LinkKindsSlot,
   ],
   // The grind tracker view targets the workbench's chat-rail
   // surface. The harness doesn't load shell-workbench; declare the

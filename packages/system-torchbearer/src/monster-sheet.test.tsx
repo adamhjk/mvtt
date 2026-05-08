@@ -34,6 +34,7 @@ import {
 } from "@vtt/characters/testing";
 import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
+import { LinkKindsSlot } from "@vtt/notes/shared";
 import {
   PaletteCommandsSlot,
   WorkbenchChatRailSurface,
@@ -71,6 +72,7 @@ const sheetSlotsTestInfra = definePlugin({
     RollActionsSlot,
     ItemDetailSectionsSlot,
     PaletteCommandsSlot,
+    LinkKindsSlot,
   ],
   surfaces: [WorkbenchChatRailSurface],
   traits: [Formula, RollResult, RolledBy],

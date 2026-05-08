@@ -197,6 +197,51 @@ function findExistingTab(
   return null;
 }
 
+/**
+ * Find the best same-`pageKind` tab to retarget when the user follows
+ * a deep link (`OpenPage` smart-retarget). Returns null if no
+ * same-kind tab exists. Ranking, in priority order:
+ *
+ *   1. Same kind, in a pane *other than* the currently-focused pane —
+ *      side-by-side beats in-place navigation.
+ *   2. Same kind, in the currently-focused pane.
+ *
+ * Within each category the most-recently-focused tab wins (per
+ * `tab.lastFocusedAt`). Hub tabs (entityId === null) are eligible
+ * candidates — they're the same-kind page, just on the hub view.
+ */
+function findRetargetCandidate(
+  state: z.infer<typeof WorkspaceState.schema>,
+  pageKind: string,
+): { paneId: string; tabId: string } | null {
+  // Index tabId → paneId once; multiple lookups would otherwise be O(panes·tabs).
+  const tabPane = new Map<string, string>();
+  for (const pane of Object.values(state.panes)) {
+    for (const tabId of pane.tabIds) tabPane.set(tabId, pane.paneId);
+  }
+  const otherPane: { tab: WorkspaceTab; paneId: string }[] = [];
+  const samePane: { tab: WorkspaceTab; paneId: string }[] = [];
+  for (const tab of Object.values(state.tabs)) {
+    if (tab.pageKind !== pageKind) continue;
+    const paneId = tabPane.get(tab.id);
+    if (!paneId) continue; // orphan tab — should never happen, but skip
+    if (paneId === state.activePaneId) samePane.push({ tab, paneId });
+    else otherPane.push({ tab, paneId });
+  }
+  const pick = (
+    bucket: { tab: WorkspaceTab; paneId: string }[],
+  ): { paneId: string; tabId: string } | null => {
+    if (bucket.length === 0) return null;
+    let best = bucket[0]!;
+    for (let i = 1; i < bucket.length; i++) {
+      const cand = bucket[i]!;
+      if (cand.tab.lastFocusedAt > best.tab.lastFocusedAt) best = cand;
+    }
+    return { paneId: best.paneId, tabId: best.tab.id };
+  };
+  return pick(otherPane) ?? pick(samePane);
+}
+
 function clone(
   state: z.infer<typeof WorkspaceState.schema>,
 ): z.infer<typeof WorkspaceState.schema> {
@@ -219,6 +264,23 @@ function bumpInteracted(
   return { ...state, lastInteractedAt: Date.now() };
 }
 
+/**
+ * Stamp `lastFocusedAt = now` on a tab. Call this on a freshly-cloned
+ * `state` (so we mutate in place) wherever a tab is becoming the
+ * active tab in its pane — this is what feeds the recency tiebreaker
+ * in `findRetargetCandidate`. No-ops gracefully if the tab id is
+ * missing or null (e.g. when a pane just emptied).
+ */
+function bumpTabFocus(
+  state: z.infer<typeof WorkspaceState.schema>,
+  tabId: string | null,
+): void {
+  if (!tabId) return;
+  const tab = state.tabs[tabId];
+  if (!tab) return;
+  state.tabs[tabId] = { ...tab, lastFocusedAt: Date.now() };
+}
+
 // — commands —————————————————————————————————————————————————————
 
 const PageRefSchema = z.object({
@@ -227,9 +289,24 @@ const PageRefSchema = z.object({
 });
 
 /**
- * Open a page. If a tab for `(pageKind, entityId)` already exists, focus
- * it (and the pane it lives in). Otherwise open it as a new tab in the
- * **active** pane.
+ * Smart "follow this link" verb. Resolves in priority:
+ *
+ *   1. **Exact match.** A tab for `(pageKind, entityId)` already
+ *      exists somewhere → focus it (and activate its pane). Done.
+ *   2. **Smart retarget.** No exact match, but a same-`pageKind` tab
+ *      exists somewhere → flip that tab's `entityId` to the new
+ *      target and focus it. Picks the candidate per
+ *      `findRetargetCandidate`: a tab in a pane other than the
+ *      active pane wins over one in the active pane (side-by-side
+ *      beats in-place); within each bucket the most-recently-focused
+ *      tab wins. Hub tabs (`entityId === null`) count as same-kind.
+ *   3. **Open new.** No same-kind tab anywhere → open a fresh tab in
+ *      the active pane.
+ *
+ * This is the canonical wikilink / deep-link verb. For the always-new
+ * variant use `OpenPageInNewTab`; for always-split use `OpenPageAsSplit`.
+ * The client helper `useFollowLink` picks among the three based on
+ * keyboard modifiers.
  */
 export const OpenPage = defineCommand({
   name: "@vtt/shell-workbench/OpenPage",
@@ -246,19 +323,37 @@ export const OpenPage = defineCommand({
     }
     const owned = r.owned;
     const entityId = ctx.cmd.entityId ?? null;
-    const existing = findExistingTab(owned.state, ctx.cmd.pageKind, entityId);
     const next = clone(owned.state);
+
+    // 1. Exact match → focus the existing tab.
+    const existing = findExistingTab(owned.state, ctx.cmd.pageKind, entityId);
     if (existing) {
       const pane = next.panes[existing.paneId]!;
       pane.activeTabId = existing.tabId;
       next.activePaneId = existing.paneId;
+      bumpTabFocus(next, existing.tabId);
       return emit(owned, bumpInteracted(next));
     }
+
+    // 2. Smart retarget → flip the best same-kind tab's entity.
+    const candidate = findRetargetCandidate(owned.state, ctx.cmd.pageKind);
+    if (candidate) {
+      const tab = next.tabs[candidate.tabId]!;
+      next.tabs[candidate.tabId] = { ...tab, entityId };
+      const pane = next.panes[candidate.paneId]!;
+      pane.activeTabId = candidate.tabId;
+      next.activePaneId = candidate.paneId;
+      bumpTabFocus(next, candidate.tabId);
+      return emit(owned, bumpInteracted(next));
+    }
+
+    // 3. Open new in the active pane.
     const tabId = newId("tab");
     const tab: WorkspaceTab = {
       id: tabId,
       pageKind: ctx.cmd.pageKind,
       entityId,
+      lastFocusedAt: Date.now(),
     };
     next.tabs[tabId] = tab;
     const pane = next.panes[next.activePaneId];
@@ -293,6 +388,7 @@ export const OpenPageInNewTab = defineCommand({
       id: tabId,
       pageKind: ctx.cmd.pageKind,
       entityId: ctx.cmd.entityId ?? null,
+      lastFocusedAt: Date.now(),
     };
     const pane = next.panes[next.activePaneId];
     if (!pane) throw new Error("active pane missing");
@@ -335,6 +431,7 @@ export const OpenPageAsSplit = defineCommand({
       id: tabId,
       pageKind: ctx.cmd.pageKind,
       entityId: ctx.cmd.entityId ?? null,
+      lastFocusedAt: Date.now(),
     };
     next.panes[newPaneId] = {
       paneId: newPaneId,
@@ -379,6 +476,7 @@ export const CloseTab = defineCommand({
     delete next.tabs[ctx.cmd.tabId];
     if (pane.activeTabId === ctx.cmd.tabId) {
       pane.activeTabId = pane.tabIds[pane.tabIds.length - 1] ?? null;
+      bumpTabFocus(next, pane.activeTabId);
     }
     if (pane.tabIds.length === 0 && countPanes(next.tree) > 1) {
       const collapsed = removePaneFromTree(next.tree, ctx.cmd.paneId);
@@ -460,6 +558,7 @@ export const FocusTab = defineCommand({
     const pane = next.panes[ctx.cmd.paneId]!;
     pane.activeTabId = ctx.cmd.tabId;
     next.activePaneId = ctx.cmd.paneId;
+    bumpTabFocus(next, ctx.cmd.tabId);
     return emit(owned, bumpInteracted(next));
   },
 });
@@ -544,10 +643,12 @@ export const MoveTab = defineCommand({
     from.tabIds = from.tabIds.filter((id) => id !== ctx.cmd.tabId);
     if (from.activeTabId === ctx.cmd.tabId) {
       from.activeTabId = from.tabIds[from.tabIds.length - 1] ?? null;
+      bumpTabFocus(next, from.activeTabId);
     }
     to.tabIds.push(ctx.cmd.tabId);
     to.activeTabId = ctx.cmd.tabId;
     next.activePaneId = ctx.cmd.toPaneId;
+    bumpTabFocus(next, ctx.cmd.tabId);
     return emit(owned, bumpInteracted(next));
   },
 });
@@ -911,6 +1012,7 @@ export const ShareTab = defineCommand({
         id: newTabId,
         pageKind: senderTab.pageKind,
         entityId: senderTab.entityId,
+        lastFocusedAt: Date.now(),
       };
       // Insert into the recipient's currently active pane in both modes;
       // forceFocus only changes whether we *also* activate the new tab.
@@ -922,7 +1024,10 @@ export const ShareTab = defineCommand({
         continue;
       }
       pane.tabIds.push(newTabId);
-      if (ctx.cmd.forceFocus) pane.activeTabId = newTabId;
+      if (ctx.cmd.forceFocus) {
+        pane.activeTabId = newTabId;
+        bumpTabFocus(recipientNext, newTabId);
+      }
       events.push(
         withVisibility(
           TabShared({

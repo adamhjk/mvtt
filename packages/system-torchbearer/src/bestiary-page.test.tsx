@@ -32,6 +32,7 @@ import {
 } from "@vtt/characters/shared";
 import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
+import { LinkKindsSlot } from "@vtt/notes/shared";
 import {
   PaletteCommandsSlot,
   WorkbenchChatRailSurface,
@@ -72,6 +73,10 @@ const sheetSlotsTestInfra = definePlugin({
     RollActionsSlot,
     ItemDetailSectionsSlot,
     PaletteCommandsSlot,
+    // Notes-side slot torchbearer fills with `monsterLinkKind`
+    // (the `!` wikilink → bestiary route). Declared here so the TB
+    // fill resolves without pulling the full @vtt/notes plugin.
+    LinkKindsSlot,
   ],
   surfaces: [WorkbenchChatRailSurface],
   traits: [Formula, RollResult, RolledBy],

@@ -26,3 +26,11 @@ export {
   useProviderTraitsVersion,
 } from "./use-providers.js";
 export { TabPicker } from "./TabPicker.js";
+export {
+  useFollowLink,
+  modeFromMouseEvent,
+  type FollowLinkHandler,
+  type FollowLinkMode,
+  type FollowLinkTarget,
+  type FollowLinkOptions,
+} from "./use-follow-link.js";

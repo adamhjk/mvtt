@@ -570,9 +570,9 @@ function ParticipantRow(props: {
             see "Barrow Wight 1" and want to open "Barrow Wight". */}
         <button
           type="button"
-          onClick={() => openSheet(props.characterId)}
+          onClick={(e) => openSheet(props.characterId, e)}
           data-testid={`participant-name-${props.participantEntityId}`}
-          title={`Open ${characterName()}`}
+          title={`Open ${characterName()} — ⇧ split · ⌘ new tab`}
           class="truncate text-left cursor-pointer underline-offset-2 decoration-transparent hover:decoration-current decoration-1 underline hover:text-accent transition-colors"
         >
           {name()}

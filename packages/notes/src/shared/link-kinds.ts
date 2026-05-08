@@ -92,11 +92,17 @@ export interface LinkKindDef<Ref = unknown> {
    * Resolve the typed-or-id body to a typed reference. Return `null`
    * when the body can't be resolved (e.g. typed name has no matching
    * entity). Resolved refs typically include the resolved `entityId`.
+   *
+   * `registry` is the live plugin registry; kinds that need to read
+   * slot fills (e.g. the `@`-character kind consulting
+   * `CharacterListExclusionSlot` to skip monsters / NPCs) use it.
+   * Optional so simpler kinds can ignore it.
    */
   readonly parse: (
     body: string,
     anchor: string | null,
     world: World,
+    registry?: Registry,
   ) => Ref | null;
   /** Display text for the chip / tooltip. Reactive over trait state. */
   readonly display: (ref: Ref, world: World) => string;
@@ -104,8 +110,16 @@ export interface LinkKindDef<Ref = unknown> {
   readonly target: (ref: Ref, world: World) => { entityId: EntityId } | null;
   /** Click semantics. */
   readonly activate: (ref: Ref, ctx: LinkActivationContext) => LinkActivation;
-  /** `[[` autocomplete contributions for a substring query. */
-  readonly autocomplete: (query: string, world: World) => LinkSuggestion[];
+  /**
+   * `[[` autocomplete contributions for a substring query. `registry`
+   * is provided so kinds can consult slot fills (e.g. exclusion
+   * markers); same optionality contract as `parse`.
+   */
+  readonly autocomplete: (
+    query: string,
+    world: World,
+    registry?: Registry,
+  ) => LinkSuggestion[];
   /**
    * Substrate event names this kind cares about for the
    * `LinkTargets` index. e.g. `["@vtt/notes/NoteCreated", "@vtt/notes/NoteRenamed"]`.

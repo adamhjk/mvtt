@@ -840,6 +840,9 @@ importers:
       '@vtt/items':
         specifier: workspace:*
         version: link:../items
+      '@vtt/notes':
+        specifier: workspace:*
+        version: link:../notes
       '@vtt/pdf-book':
         specifier: workspace:*
         version: link:../pdf-book

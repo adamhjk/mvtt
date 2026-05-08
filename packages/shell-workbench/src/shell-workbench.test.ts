@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   CommandPipeline,
   EventBus,
@@ -509,7 +509,7 @@ describe("WorkspaceStateApplySystem", () => {
     const tabId = "tab-race-test";
     const next = {
       ...before,
-      tabs: { [tabId]: { id: tabId, pageKind: KIND, entityId: null } },
+      tabs: { [tabId]: { id: tabId, pageKind: KIND, entityId: null, lastFocusedAt: Date.now() } },
     };
     // Hook the WorkspaceState write — when the trait fires its
     // subscribers, the sentinel MUST already exist. (In production
@@ -533,7 +533,7 @@ describe("WorkspaceStateApplySystem", () => {
     const tabId = "tab-X";
     const next = {
       ...before,
-      tabs: { [tabId]: { id: tabId, pageKind: KIND, entityId: null } },
+      tabs: { [tabId]: { id: tabId, pageKind: KIND, entityId: null, lastFocusedAt: Date.now() } },
     };
     runSystemsToFixpoint(registry, world, [
       WorkspaceStateChanged({ ownerEntityId: ownerId, userId: PLAYER.userId, next }),
@@ -618,6 +618,191 @@ describe("OpenPage", () => {
     const activeTab = after.tabs[pane.activeTabId!]!;
     expect(activeTab.pageKind).toBe(KIND);
     expect(activeTab.entityId).toBe("ent-1");
+  });
+});
+
+describe("OpenPage smart retarget", () => {
+  // The full priority ladder for the wikilink/deep-link verb is:
+  //   1. exact (kind, entity) match anywhere → focus.
+  //   2. else retarget the best same-kind tab. Preferred bucket:
+  //      "tab in a pane other than the active pane"; fallback bucket:
+  //      "tab in the active pane". Within each bucket the most-
+  //      recently-focused tab wins (per `tab.lastFocusedAt`).
+  //   3. else open new in the active pane.
+  // These tests pin each rung; rule 1 is covered by the "focuses an
+  // existing tab" test above, and rule 3 by "opens a fresh tab when
+  // no matching tab exists".
+
+  /**
+   * Set up a workspace with two panes side-by-side. Returns the
+   * pane ids and the tab-id allocated in the *original* pane (the
+   * one created by the bootstrap), so callers can FocusPane back to
+   * it deliberately.
+   */
+  async function twoPaneSetup(t: ReturnType<typeof setup>, ownerId: EntityId) {
+    const before = getState(t.world, ownerId);
+    const originalPaneId = before.activePaneId;
+    // First, drop a tab into the original pane so "active pane" has
+    // content; some tests need a same-kind tab there too.
+    await dispatch(
+      t.pipeline,
+      OpenPage({ pageKind: KIND, entityId: "seed" as EntityId }),
+    );
+    // Now split — the new pane becomes active.
+    await dispatch(
+      t.pipeline,
+      OpenPageAsSplit({
+        pageKind: KIND,
+        entityId: "ent-other" as EntityId,
+        direction: "right",
+      }),
+    );
+    const mid = getState(t.world, ownerId);
+    const otherPaneId = mid.activePaneId;
+    expect(otherPaneId).not.toBe(originalPaneId);
+    return { originalPaneId, otherPaneId };
+  }
+
+  it("rule 2a: retargets a same-kind tab in a different pane (preferred over the active pane)", async () => {
+    const t = setup();
+    const ownerId = bootstrap(t.registry, t.world);
+    const { originalPaneId, otherPaneId } = await twoPaneSetup(t, ownerId);
+
+    // Re-focus the original pane so "different pane" candidate is the
+    // tab living in `otherPaneId`. The active-pane tab ("seed") is
+    // also a same-kind candidate but should LOSE to the other-pane
+    // tab per rule 2a.
+    await dispatch(t.pipeline, FocusPane({ paneId: originalPaneId }));
+
+    // Follow a deep link to a third entity of the same kind. No exact
+    // match exists; smart retarget should hit `ent-other` (the tab in
+    // the OTHER pane), not the seed in the active pane.
+    await dispatch(
+      t.pipeline,
+      OpenPage({ pageKind: KIND, entityId: "ent-followed" as EntityId }),
+    );
+
+    const after = getState(t.world, ownerId);
+    // No new tab.
+    expect(Object.keys(after.tabs)).toHaveLength(2);
+    // The "other pane" tab now points to `ent-followed`.
+    const otherPane = after.panes[otherPaneId]!;
+    const retargeted = after.tabs[otherPane.activeTabId!]!;
+    expect(retargeted.entityId).toBe("ent-followed");
+    // The seed in the original pane is untouched.
+    const seedPane = after.panes[originalPaneId]!;
+    const seedTab = after.tabs[seedPane.activeTabId!]!;
+    expect(seedTab.entityId).toBe("seed");
+    // Focus follows the retarget — active pane is now the other pane.
+    expect(after.activePaneId).toBe(otherPaneId);
+  });
+
+  it("rule 2b: falls back to retargeting a same-kind tab in the active pane when no other-pane candidate exists", async () => {
+    const t = setup();
+    const ownerId = bootstrap(t.registry, t.world);
+    // One pane, one same-kind tab.
+    await dispatch(
+      t.pipeline,
+      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
+    );
+    // Follow a link to a different entity of the same kind. Only
+    // candidate is the active-pane tab — retarget it.
+    await dispatch(
+      t.pipeline,
+      OpenPage({ pageKind: KIND, entityId: "ent-2" as EntityId }),
+    );
+    const after = getState(t.world, ownerId);
+    expect(Object.keys(after.tabs)).toHaveLength(1);
+    const tab = Object.values(after.tabs)[0]!;
+    expect(tab.entityId).toBe("ent-2");
+  });
+
+  it("hub tabs (entityId === null) count as same-kind retarget candidates", async () => {
+    const t = setup();
+    const ownerId = bootstrap(t.registry, t.world);
+    // Open the hub view of KIND (no entity).
+    await dispatch(t.pipeline, OpenPage({ pageKind: KIND, entityId: null }));
+    expect(Object.keys(getState(t.world, ownerId).tabs)).toHaveLength(1);
+
+    // Following a link to a specific entity of the same kind should
+    // *retarget the hub tab*, not stack a second tab beside it.
+    await dispatch(
+      t.pipeline,
+      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
+    );
+    const after = getState(t.world, ownerId);
+    expect(Object.keys(after.tabs)).toHaveLength(1);
+    const tab = Object.values(after.tabs)[0]!;
+    expect(tab.entityId).toBe("ent-1");
+  });
+
+  it("does not retarget across page-kinds — different kind = open new", async () => {
+    const t = setup();
+    const ownerId = bootstrap(t.registry, t.world);
+    await dispatch(
+      t.pipeline,
+      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
+    );
+    await dispatch(
+      t.pipeline,
+      OpenPage({ pageKind: KIND_2, entityId: "ent-2" as EntityId }),
+    );
+    const after = getState(t.world, ownerId);
+    // KIND_2 has no same-kind candidate to retarget — opens new.
+    expect(Object.keys(after.tabs)).toHaveLength(2);
+  });
+
+  it("recency tiebreak: among same-kind candidates in the *other* pane, picks the most-recently-focused", async () => {
+    // The recency comparison uses `Date.now()` and on a fast machine
+    // adjacent dispatches can land in the same millisecond, leaving
+    // the tiebreaker undefined. Spy `Date.now` to advance one ms per
+    // call so each focus event gets a distinct timestamp.
+    let clock = 1_000_000;
+    const dateSpy = vi.spyOn(Date, "now").mockImplementation(() => ++clock);
+    try {
+      const t = setup();
+      const ownerId = bootstrap(t.registry, t.world);
+      const before = getState(t.world, ownerId);
+      const originalPaneId = before.activePaneId;
+      // Split off a 2nd pane — it becomes active.
+      await dispatch(
+        t.pipeline,
+        OpenPageAsSplit({
+          pageKind: KIND,
+          entityId: "old" as EntityId,
+          direction: "right",
+        }),
+      );
+      const otherPaneId = getState(t.world, ownerId).activePaneId;
+      // Add a second same-kind tab in the same pane. OpenPageInNewTab
+      // sets `activeTabId` to the new tab → it's the most-recent.
+      await dispatch(
+        t.pipeline,
+        OpenPageInNewTab({ pageKind: KIND, entityId: "new" as EntityId }),
+      );
+      // Refocus the original pane so the other pane is the "different"
+      // pane for the upcoming OpenPage.
+      await dispatch(t.pipeline, FocusPane({ paneId: originalPaneId }));
+
+      // Follow a deep link to a third entity of the same kind. Both
+      // tabs in the other pane are candidates; the recently-focused one
+      // ("new") should win.
+      await dispatch(
+        t.pipeline,
+        OpenPage({ pageKind: KIND, entityId: "followed" as EntityId }),
+      );
+      const after = getState(t.world, ownerId);
+      expect(Object.keys(after.tabs)).toHaveLength(2);
+      const otherPane = after.panes[otherPaneId]!;
+      // "old" stays "old"; the "new" tab got retargeted to "followed".
+      const tabsInOther = otherPane.tabIds.map((id) => after.tabs[id]!);
+      const entities = new Set(tabsInOther.map((tb) => tb.entityId));
+      expect(entities.has("old")).toBe(true);
+      expect(entities.has("followed")).toBe(true);
+      expect(entities.has("new")).toBe(false);
+    } finally {
+      dateSpy.mockRestore();
+    }
   });
 });
 

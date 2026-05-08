@@ -15,37 +15,49 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import type { CommandInstance, EntityId } from "@vtt/substrate";
+import type { EntityId, QualifiedName } from "@vtt/substrate";
 import { useClient } from "@vtt/substrate/client";
-import { OpenPage } from "@vtt/shell-workbench/shared";
+import { useFollowLink } from "@vtt/shell-workbench/client";
 import { TbMonster } from "../../shared/index.js";
 
 // Page-provider kinds the conflict surface routes to. Kept inline
 // (not imported) because the providers live in unrelated packages
 // and the kind strings are stable substrate-wide identifiers.
-const CHARACTERS_PAGE_KIND = "@vtt/characters/characters";
-const BESTIARY_PAGE_KIND = "@vtt/system-torchbearer/bestiary";
+const CHARACTERS_PAGE_KIND = "@vtt/characters/characters" as QualifiedName;
+const BESTIARY_PAGE_KIND = "@vtt/system-torchbearer/bestiary" as QualifiedName;
 
 /**
- * Returns a click handler that opens the right workbench page for a
- * character entity. Monsters (entities carrying `TbMonster`) route
- * to the Bestiary page; everything else to the Characters page.
+ * Returns a click handler that follows a deep link to a character or
+ * bestiary entry. Monsters (entities carrying `TbMonster`) route to
+ * the Bestiary page; everything else to the Characters page.
  *
- * `OpenPage` reuses an existing tab for the same `(pageKind,
- * entityId)` if one's already open (focuses it + its pane);
- * otherwise it opens a new tab in the active pane. So the handler
- * matches the user's mental model of "click a name, focus that
- * sheet" without ever stranding duplicate tabs.
+ * Powered by `useFollowLink`, so it inherits the canonical wikilink
+ * behavior:
+ *
+ *   - plain click → smart retarget (focus exact match if any, else
+ *                   flip the best same-kind tab to this entity, else
+ *                   open new in the active pane).
+ *   - Cmd/Ctrl    → always open new tab in the active pane.
+ *   - Shift       → always open in a new split (target lands beside).
+ *
+ * Pass the click event so modifiers are honored. Multi-spawn rosters
+ * (Barrow Wight 1/2/3) all share one `characterId`, so every variant
+ * resolves to the single shared bestiary entry.
  */
-export function useOpenCharacterSheet(): (characterId: EntityId) => void {
+export function useOpenCharacterSheet(): (
+  characterId: EntityId,
+  e?: MouseEvent | KeyboardEvent,
+) => void {
   const client = useClient();
-  return (characterId: EntityId): void => {
+  const follow = useFollowLink();
+  return (characterId, e) => {
     const isMonster = client.world.get(characterId, [TbMonster]) !== undefined;
-    client.dispatch(
-      OpenPage({
+    follow(
+      {
         pageKind: isMonster ? BESTIARY_PAGE_KIND : CHARACTERS_PAGE_KIND,
         entityId: characterId,
-      }) as CommandInstance,
+      },
+      e,
     );
   };
 }
