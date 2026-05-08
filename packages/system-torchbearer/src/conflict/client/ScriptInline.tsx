@@ -17,7 +17,7 @@
 
 import type { CommandInstance, EntityId } from "@vtt/substrate";
 import { useClient } from "@vtt/substrate/client";
-import { createMemo, For, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
   ALL_ACTIONS,
   LockScript,
@@ -27,7 +27,7 @@ import {
   type ConflictSide,
   type ScriptSlot,
 } from "../shared/index.js";
-import { useCharacterName, useParticipants, useScript } from "./hooks.js";
+import { useCharacterName, useConflict, useParticipants, useScript } from "./hooks.js";
 import { useMe } from "./use-me.js";
 import { ACTION_COLORS, ACTION_LABELS, ACTION_LETTERS } from "./styles.js";
 
@@ -49,6 +49,13 @@ export function ScriptInline(props: {
 }): JSX.Element {
   const me = useMe();
   const isGm = (): boolean => me()?.role === "gm";
+  // The GM scripts the enemy side; the captain (any non-GM party
+  // viewer with side permissions) scripts the party side. The GM
+  // intentionally does *not* see or edit the party script before
+  // reveal — the captain's plan stays hidden from the table runner
+  // so the reveal can land as a surprise. Server-side validators
+  // permit GM writes on either side, but the UI keeps the GM out of
+  // the party box on purpose.
   const canEdit = createMemo(() => {
     if (!me()) return false;
     return props.side === "enemy" ? isGm() : !isGm();
@@ -59,11 +66,40 @@ export function ScriptInline(props: {
   });
 
   const script = useScript(props.conflictId, props.side);
+  // The conflict sentinel publishes a `revealedSlots` mirror that's
+  // readable by everyone — that's the substrate's "this is now public
+  // information" channel for revealed actions. Merge it into the slot
+  // list so a party viewer can see revealed *enemy* actions in the
+  // enemy panel (their permission on the enemy script entity is none,
+  // so `useScript("enemy")` returns null for them and unrevealed
+  // slots stay empty / face-down — but the moment the GM clicks
+  // Reveal, that slot shows up here for them too).
+  const conflict = useConflict(props.conflictId);
   const isLocked = createMemo(() => script()?.locked ?? false);
   const slots = createMemo<ScriptSlot[]>(() => {
     const s = script();
-    if (!s) return [{ status: "empty" }, { status: "empty" }, { status: "empty" }];
-    return [...s.slots];
+    const revealed = conflict()?.revealedSlots ?? [null, null, null];
+    return [0, 1, 2].map<ScriptSlot>((i) => {
+      const r = revealed[i];
+      if (r) {
+        return props.side === "party"
+          ? {
+              status: "revealed",
+              action: r.partyAction,
+              performerParticipantEntityId: r.partyPerformerParticipantEntityId,
+              performerCharacterId: r.partyPerformerCharacterId,
+              weaponItemId: r.partyWeaponItemId,
+            }
+          : {
+              status: "revealed",
+              action: r.enemyAction,
+              performerParticipantEntityId: r.enemyPerformerParticipantEntityId,
+              performerCharacterId: r.enemyPerformerCharacterId,
+              weaponItemId: r.enemyWeaponItemId,
+            };
+      }
+      return s?.slots[i] ?? { status: "empty" };
+    });
   });
   const allFilled = createMemo(
     () => slots().every((sl) => sl.status !== "empty"),
@@ -153,6 +189,38 @@ function ScriptRow(props: {
     participants().filter((p) => !p.knockedOut),
   );
 
+  // SetScriptSlot requires BOTH an action and a performer atomically —
+  // the schema has no half-filled state. So when a user picks one
+  // half before the other, we hold it locally as `pending*` until its
+  // counterpart arrives, then dispatch. This lets the captain pick
+  // the performer first (from the dropdown) without us silently
+  // back-filling the first roster entry as the actor — which was the
+  // prior behavior, surprising for any roster of size > 1.
+  const [pendingAction, setPendingAction] = createSignal<ConflictAction | null>(
+    null,
+  );
+  const [pendingPerformer, setPendingPerformer] = createSignal<EntityId | null>(
+    null,
+  );
+
+  // Once the slot lands as filled/revealed (server echoed our dispatch
+  // or a remote edit), drop any pending halves — the slot is now the
+  // source of truth and pending state would just confuse the display.
+  createEffect(() => {
+    if (filledOrRevealed()) {
+      setPendingAction(null);
+      setPendingPerformer(null);
+    }
+  });
+
+  // What to display: prefer slot value, fall back to local pending.
+  const displayedAction = createMemo<ConflictAction | null>(
+    () => action() ?? pendingAction(),
+  );
+  const displayedPerformer = createMemo<EntityId | null>(
+    () => performerEntityId() ?? pendingPerformer(),
+  );
+
   const dispatchSet = (
     nextAction: ConflictAction,
     nextPerformer: EntityId,
@@ -167,19 +235,34 @@ function ScriptRow(props: {
         weaponItemId: null,
       }) as CommandInstance,
     );
+    setPendingAction(null);
+    setPendingPerformer(null);
   };
 
   const onPickAction = (a: ConflictAction): void => {
     if (!props.canEdit) return;
-    const perf = performerEntityId() ?? performerChoices()[0]?.entityId;
-    if (!perf) return;
-    dispatchSet(a, perf);
+    const perf = performerEntityId() ?? pendingPerformer();
+    if (perf) {
+      dispatchSet(a, perf);
+      return;
+    }
+    // No performer chosen yet — hold the action locally and wait for
+    // the user to pick a performer. The chip lights up via
+    // `displayedAction()` so they can see their pick was registered.
+    setPendingAction(a);
   };
-  const onPickPerformer = (entityId: EntityId): void => {
+  const onPickPerformer = (entityId: EntityId | null): void => {
     if (!props.canEdit) return;
-    const a = action();
-    if (!a) return;
-    dispatchSet(a, entityId);
+    if (entityId === null) {
+      setPendingPerformer(null);
+      return;
+    }
+    const a = action() ?? pendingAction();
+    if (a) {
+      dispatchSet(a, entityId);
+      return;
+    }
+    setPendingPerformer(entityId);
   };
 
   return (
@@ -195,7 +278,8 @@ function ScriptRow(props: {
         <For each={ALL_ACTIONS}>
           {(a) => {
             const showColor = (): boolean =>
-              (props.ownSide || props.slot.status === "revealed") && action() === a;
+              (props.ownSide || props.slot.status === "revealed") &&
+              displayedAction() === a;
             const showHidden = (): boolean =>
               !props.ownSide && filledOrRevealed() && props.slot.status !== "revealed";
             return (
@@ -206,7 +290,7 @@ function ScriptRow(props: {
                 data-testid={`action-button-${props.side}-${props.slotIndex}-${a}`}
                 aria-label={ACTION_LABELS[a]}
                 title={ACTION_LABELS[a]}
-                aria-pressed={action() === a}
+                aria-pressed={displayedAction() === a}
                 class="font-display font-bold w-6 h-6 rounded-sm border text-[0.7rem] transition disabled:cursor-default"
                 style={{
                   "background-color": showColor()
@@ -220,7 +304,7 @@ function ScriptRow(props: {
                   "border-color": showHidden()
                     ? "var(--color-border-muted, #ccc)"
                     : ACTION_COLORS[a],
-                  opacity: !props.canEdit && action() !== a ? 0.4 : 1,
+                  opacity: !props.canEdit && displayedAction() !== a ? 0.4 : 1,
                 }}
               >
                 {showHidden() ? "?" : ACTION_LETTERS[a]}
@@ -257,10 +341,10 @@ function ScriptRow(props: {
         }
       >
         <select
-          value={performerEntityId() ?? ""}
+          value={displayedPerformer() ?? ""}
           onChange={(e) => {
             const v = e.currentTarget.value;
-            if (v) onPickPerformer(v as EntityId);
+            onPickPerformer(v === "" ? null : (v as EntityId));
           }}
           disabled={!props.canEdit}
           class="rounded-(--radius-control) border border-border bg-surface px-2 py-0.5 text-[0.7rem] text-fg w-full"

@@ -35,6 +35,7 @@ import {
 } from "../shared/index.js";
 import { useCharacterName, useConflict, useScript } from "./hooks.js";
 import { useMe } from "./use-me.js";
+import { useOpenCharacterSheet } from "./use-open-character.js";
 import { ACTION_COLORS, ACTION_LABELS } from "./styles.js";
 
 /**
@@ -55,9 +56,13 @@ export function ResolutionRow(props: { conflictId: EntityId }): JSX.Element {
   const partyScript = useScript(props.conflictId, "party");
   const enemyScript = useScript(props.conflictId, "enemy");
 
-  // Use the publicly-readable mirror on the conflict sentinel, not
-  // the script entities — non-side viewers don't have read access to
-  // the opposing script.
+  // Use the publicly-readable mirror on the conflict sentinel. Non-
+  // side viewers don't have read access to the opposing script
+  // entity, so the mirror is the one source of truth that every role
+  // can see. `ScriptLockedSystem` writes the script's own `locked`
+  // field and this mirror in the same run on the same event, so
+  // they're always in sync — if you see them disagreeing, it's a
+  // substrate bug and the right fix is upstream, not a fallback here.
   const bothLocked = createMemo(
     () => (conflict()?.partyLocked ?? false) && (conflict()?.enemyLocked ?? false),
   );
@@ -479,7 +484,17 @@ function PerformerName(props: {
   const display = createMemo(
     () => participant()?.label ?? characterName(),
   );
-  return <>{display()}</>;
+  const openSheet = useOpenCharacterSheet();
+  return (
+    <button
+      type="button"
+      onClick={() => openSheet(props.characterId)}
+      title={`Open ${characterName()}`}
+      class="cursor-pointer underline-offset-2 decoration-transparent hover:decoration-current decoration-1 underline hover:text-accent transition-colors"
+    >
+      {display()}
+    </button>
+  );
 }
 
 function TestPrompt(props: {

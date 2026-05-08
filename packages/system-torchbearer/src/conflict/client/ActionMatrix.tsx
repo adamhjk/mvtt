@@ -201,19 +201,53 @@ export function ActionMatrix(props: {
         Find your action on the left and your opponent's action along the top
         row.
       </p>
-      <dl class="mt-2 grid grid-cols-[1.4rem,auto] gap-x-2 gap-y-0.5 text-[0.72rem] text-fg-subtle">
-        <dt class="font-mono font-semibold text-fg text-center">I</dt>
-        <dd>
+      {/* Legend keyed to the V / I / — symbols in the matrix body.
+          Inline-style grid template — Tailwind v4's bracketed
+          arbitrary value with comma separators (`grid-cols-[1.4rem,auto]`)
+          emits invalid CSS, so the column layout never lands and the
+          symbols drift to wherever the line happens to break. The
+          inline style is bulletproof. The chip column is fixed-width
+          so the descriptions align flush across rows; the description
+          column is `1fr` so it fills the section width without
+          overflowing the matrix above. */}
+      <dl
+        class="mt-2 text-[0.72rem]"
+        style={{
+          display: "grid",
+          "grid-template-columns": "1.25rem 1fr",
+          "column-gap": "0.6rem",
+          "row-gap": "0.2rem",
+          "align-items": "baseline",
+        }}
+      >
+        <dt
+          class="font-mono font-semibold text-center"
+          style={{ color: "var(--color-fg)" }}
+        >
+          I
+        </dt>
+        <dd class="text-fg-subtle">
           Independent test. Test both actions separately; both can succeed or
           fail.
         </dd>
-        <dt class="font-mono font-semibold text-fg text-center">V</dt>
-        <dd>
+        <dt
+          class="font-mono font-semibold text-center"
+          style={{ color: "var(--color-accent)" }}
+        >
+          V
+        </dt>
+        <dd class="text-fg-subtle">
           Versus test. Make a versus test between the indicated skills or
           abilities.
         </dd>
-        <dt class="font-mono font-semibold text-fg text-center">—</dt>
-        <dd>Do not roll for your action. Your opponent rolls, but you do not.</dd>
+        <dt
+          class="font-mono font-semibold text-center text-fg-subtle"
+        >
+          —
+        </dt>
+        <dd class="text-fg-subtle">
+          Do not roll for your action. Your opponent rolls, but you do not.
+        </dd>
       </dl>
       <Show when={expanded()}>
         {(actAcc) => {

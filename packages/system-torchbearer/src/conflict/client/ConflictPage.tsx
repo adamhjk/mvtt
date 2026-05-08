@@ -1199,9 +1199,19 @@ function ConflictBoard(props: { conflictId: EntityId }): JSX.Element {
     >
       <div class="flex h-full flex-col overflow-y-auto bg-surface text-fg">
         <TopStripe conflictId={props.conflictId} />
+        {/* Parent owns 4 row tracks — header, dispo, roster, script —
+            and each TeamColumn opts into them via `grid-template-rows:
+            subgrid`. Both columns share the same row heights, so
+            DISPOSITION, the roster band, and SCRIPT all line up across
+            sides even when one side has 1 participant and the other
+            has 7. The smaller side simply gets empty space below its
+            roster, which is the cost of alignment. */}
         <div
           class="grid"
-          style={{ "grid-template-columns": "1fr 1fr" }}
+          style={{
+            "grid-template-columns": "1fr 1fr",
+            "grid-template-rows": "auto auto auto auto",
+          }}
           data-testid="team-columns"
         >
           <TeamColumn

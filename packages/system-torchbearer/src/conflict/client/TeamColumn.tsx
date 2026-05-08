@@ -42,6 +42,7 @@ import {
   useWeaponBindings,
 } from "./hooks.js";
 import { useMe } from "./use-me.js";
+import { useOpenCharacterSheet } from "./use-open-character.js";
 import { ScriptInline } from "./ScriptInline.js";
 
 /**
@@ -84,7 +85,15 @@ export function TeamColumn(props: {
 
   return (
     <section
-      class="px-3 py-3 border-r border-border-muted last:border-r-0 flex flex-col gap-3"
+      class="px-3 py-3 border-r border-border-muted last:border-r-0 gap-3"
+      style={{
+        display: "grid",
+        // Inherit the parent's 4 row tracks (header, dispo, roster,
+        // script). Both team columns share the same row heights, so
+        // SCRIPT lines up across sides regardless of roster length.
+        "grid-template-rows": "subgrid",
+        "grid-row": "span 4",
+      }}
       data-testid={`team-column-${props.side}`}
     >
       <h2
@@ -109,34 +118,40 @@ export function TeamColumn(props: {
         conflictType={conflict()?.type ?? null}
       />
 
-      <Show
-        when={participants().length > 0}
-        fallback={
-          <p class="text-fg-subtle italic text-xs">No participants.</p>
-        }
-      >
-        <ul class="flex flex-col gap-1.5">
-          <For each={participants()}>
-            {(p) => (
-              <li>
-                <ParticipantRow
-                  conflictId={props.conflictId}
-                  side={props.side}
-                  participantEntityId={p.entityId}
-                  characterId={p.characterId}
-                  label={p.label}
-                  hp={p.hp}
-                  hpMax={p.hpMax}
-                  knockedOut={p.knockedOut}
-                  canEdit={isGm()}
-                  dispoCurrent={dispo().current}
-                  dispoMax={dispo().max}
-                />
-              </li>
-            )}
-          </For>
-        </ul>
-      </Show>
+      {/* Roster band — wrapped so we always emit exactly one grid
+          child for this row, populated or empty. The roster aligns to
+          the top of the row track; the larger side's count drives the
+          shared row height so SCRIPT below stays aligned. */}
+      <div>
+        <Show
+          when={participants().length > 0}
+          fallback={
+            <p class="text-fg-subtle italic text-xs">No participants.</p>
+          }
+        >
+          <ul class="flex flex-col gap-1.5">
+            <For each={participants()}>
+              {(p) => (
+                <li>
+                  <ParticipantRow
+                    conflictId={props.conflictId}
+                    side={props.side}
+                    participantEntityId={p.entityId}
+                    characterId={p.characterId}
+                    label={p.label}
+                    hp={p.hp}
+                    hpMax={p.hpMax}
+                    knockedOut={p.knockedOut}
+                    canEdit={isGm()}
+                    dispoCurrent={dispo().current}
+                    dispoMax={dispo().max}
+                  />
+                </li>
+              )}
+            </For>
+          </ul>
+        </Show>
+      </div>
 
       <ScriptInline conflictId={props.conflictId} side={props.side} />
     </section>
@@ -360,6 +375,7 @@ function ParticipantRow(props: {
   const me = useMe();
   const characterName = useCharacterName(props.characterId);
   const name = createMemo(() => props.label ?? characterName());
+  const openSheet = useOpenCharacterSheet();
   // Monster's printed-stat-block citation. Read live so the pill
   // updates when the GM (re)binds the canonical book or edits the
   // template's pageRef. Null for PCs / homebrew monsters with no
@@ -546,7 +562,21 @@ function ParticipantRow(props: {
       data-testid={`participant-row-${props.participantEntityId}`}
     >
       <span class="font-display text-sm text-fg truncate flex-1 min-w-0 inline-flex items-baseline gap-1.5">
-        <span class="truncate">{name()}</span>
+        {/* The display name is a button that opens the character /
+            bestiary sheet in the workbench. Multi-spawn monsters
+            (Barrow Wight 1/2/3) all share one underlying
+            `characterId`, so the click resolves to the shared
+            catalog entry — exactly what the user expects when they
+            see "Barrow Wight 1" and want to open "Barrow Wight". */}
+        <button
+          type="button"
+          onClick={() => openSheet(props.characterId)}
+          data-testid={`participant-name-${props.participantEntityId}`}
+          title={`Open ${characterName()}`}
+          class="truncate text-left cursor-pointer underline-offset-2 decoration-transparent hover:decoration-current decoration-1 underline hover:text-accent transition-colors"
+        >
+          {name()}
+        </button>
         <Show when={monsterPageRef()}>
           {(ref) => (
             <BookCitation
