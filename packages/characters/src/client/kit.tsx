@@ -1380,8 +1380,11 @@ export interface TabSpec {
 }
 
 /**
- * Generic tabbed container. The active tab id is local state — no
- * persistence; remounting starts at the first tab.
+ * Generic tabbed container. The active tab id defaults to local state
+ * (resets on remount), but callers can pass `activeId` + `onSelectTab`
+ * to drive selection from outside — `SheetShell` uses this to persist
+ * the selection through `createOptimisticTrait` on the per-tab sentinel
+ * so navigating away and back keeps the user's place.
  *
  * The body uses `<Show keyed>` so the rendered children re-mount when
  * the active tab changes. Without `keyed`, Solid only mounts the inner
@@ -1389,14 +1392,20 @@ export interface TabSpec {
  * clicking a tab updates `active()` but the body stays on tab 1.
  *
  * Reusable from any plugin: tab IDs are opaque strings, render fns
- * are unconstrained. Used by `SheetShell` for the character sheet
- * tabs slot, but applicable to any tabbed UI.
+ * are unconstrained.
  */
 export function Tabs(props: {
   tabs: ReadonlyArray<TabSpec>;
   ariaLabel?: string;
   /** Shown when the tabs list is empty. Defaults to nothing. */
   emptyState?: JSX.Element;
+  /**
+   * Controlled-mode active tab id. When set together with `onSelectTab`,
+   * the primitive defers selection to the caller and never reads from
+   * its internal signal. Either both are set or both are omitted.
+   */
+  activeId?: string | null;
+  onSelectTab?: (id: string) => void;
 }): JSX.Element {
   useKitStyles();
 
@@ -1411,11 +1420,17 @@ export function Tabs(props: {
     return list;
   });
 
-  const [activeId, setActiveId] = createSignal<string | null>(null);
+  const [localId, setLocalId] = createSignal<string | null>(null);
+  const isControlled = () => props.onSelectTab !== undefined;
+  const wantedId = () => (isControlled() ? props.activeId ?? null : localId());
+  const select = (id: string) => {
+    if (isControlled()) props.onSelectTab?.(id);
+    else setLocalId(id);
+  };
   const active = createMemo<TabSpec | null>(() => {
     const list = sorted();
     if (list.length === 0) return null;
-    const wanted = activeId();
+    const wanted = wantedId();
     const found = wanted ? list.find((t) => t.id === wanted) : null;
     return found ?? list[0]!;
   });
@@ -1438,7 +1453,7 @@ export function Tabs(props: {
                 class="vk-tabs__button"
                 role="tab"
                 aria-selected={active()?.id === tab.id}
-                onClick={() => setActiveId(tab.id)}
+                onClick={() => select(tab.id)}
               >
                 {tab.label}
               </button>

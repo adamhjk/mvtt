@@ -26,6 +26,12 @@ import { characterLinkKind } from "./shared/character-link-kind.js";
 import { Character, CharacterToken, Team } from "./shared/traits.js";
 import { PendingRoll } from "./shared/pending.js";
 import {
+  CharacterSheetUiState,
+  CharacterSheetUiStateChanged,
+  CharacterSheetUiStateMirror,
+  SetCharacterSheetUiState,
+} from "./shared/sheet-ui-state.js";
+import {
   CharacterCreated,
   CharacterFieldSet,
   CharacterRenamed,
@@ -111,7 +117,13 @@ export const characters = definePlugin({
     "@vtt/shell-workbench@^0",
     "@vtt/notes@^0",
   ],
-  traits: [Character, CharacterToken, PendingRoll, Team],
+  traits: [
+    Character,
+    CharacterToken,
+    PendingRoll,
+    Team,
+    CharacterSheetUiState,
+  ],
   events: [
     CharacterCreated,
     CharacterRenamed,
@@ -123,6 +135,7 @@ export const characters = definePlugin({
     PendingRollContributionRemoved,
     PendingRollCommitted,
     PendingRollCancelled,
+    CharacterSheetUiStateChanged,
   ],
   commands: [
     CreateCharacter,
@@ -135,6 +148,7 @@ export const characters = definePlugin({
     RemoveContribution,
     CommitPendingRoll,
     CancelPendingRoll,
+    SetCharacterSheetUiState,
   ],
   systems: [
     CharacterSpawningSystem,
@@ -147,6 +161,7 @@ export const characters = definePlugin({
     PendingRollContributionRemoveSystem,
     PendingRollCommitSystem,
     PendingRollCancelSystem,
+    CharacterSheetUiStateMirror,
   ],
   slots: [
     CharacterSheetIdentitySlot,

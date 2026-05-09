@@ -111,7 +111,7 @@ function CharactersPage(props: {
         </section>
       }
     >
-      {(idAcc) => <CharacterSheet characterId={idAcc()} />}
+      {(idAcc) => <CharacterSheet characterId={idAcc()} tabId={props.tabId} />}
     </Show>
   );
 }

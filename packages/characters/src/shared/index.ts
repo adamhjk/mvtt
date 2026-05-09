@@ -67,3 +67,9 @@ export {
   type Contribution,
   type PendingRollValue,
 } from "./pending.js";
+export {
+  CharacterSheetUiState,
+  CharacterSheetUiStateChanged,
+  CharacterSheetUiStateMirror,
+  SetCharacterSheetUiState,
+} from "./sheet-ui-state.js";

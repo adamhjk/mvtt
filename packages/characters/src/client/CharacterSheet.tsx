@@ -32,7 +32,16 @@ import { SheetShell } from "./SheetShell.js";
  * layout (monsters, NPCs, vehicles) ship their own page provider
  * instead of fighting the shell.
  */
-export function CharacterSheet(props: { characterId: string }): JSX.Element {
+export function CharacterSheet(props: {
+  characterId: string;
+  /**
+   * Workbench tab id hosting this sheet. Forwarded to `SheetShell` so
+   * the active sub-tab persists across remounts via the per-tab
+   * sentinel. Omit only in test contexts that mount the sheet outside
+   * a workbench tab.
+   */
+  tabId?: string;
+}): JSX.Element {
   const character = useTrait(props.characterId, Character);
   return (
     <Show
@@ -43,7 +52,7 @@ export function CharacterSheet(props: { characterId: string }): JSX.Element {
         </div>
       }
     >
-      <SheetShell characterId={props.characterId} />
+      <SheetShell characterId={props.characterId} tabId={props.tabId} />
     </Show>
   );
 }

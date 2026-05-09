@@ -15,8 +15,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { useClient } from "@vtt/substrate/client";
+import { createOptimisticTrait, useClient } from "@vtt/substrate/client";
 import { createMemo, For, onMount, Show, type JSX } from "solid-js";
+import { useTabSentinel } from "@vtt/shell-workbench/client";
+import type { CommandInstance } from "@vtt/substrate";
 import {
   CharacterSheetActionsSlot,
   CharacterSheetIdentitySlot,
@@ -26,6 +28,10 @@ import {
   type CharacterSheetRegion,
   type CharacterSheetTab,
 } from "../shared/slot.js";
+import {
+  CharacterSheetUiState,
+  SetCharacterSheetUiState,
+} from "../shared/sheet-ui-state.js";
 import { Tabs, type TabSpec } from "./kit.js";
 
 const SHEET_SHELL_STYLE_ID = "vtt-characters-sheet-shell-styles";
@@ -158,9 +164,30 @@ function injectSheetShellStyles(): void {
  * portrait that lived on the old sheet); systems extend it with their
  * own sub-lines (level/class) and contribute to the other four slots.
  */
-export function SheetShell(props: { characterId: string }): JSX.Element {
+export function SheetShell(props: {
+  characterId: string;
+  /**
+   * Workbench tab id hosting this sheet. When set, the active sub-tab
+   * survives sheet remounts (navigation away & back, retargeting onto
+   * a different character) by persisting through `createOptimisticTrait`
+   * on the tab's per-tab sentinel entity. Omit only in tests that mount
+   * `SheetShell` outside a workbench tab — selection then falls back to
+   * the kit's local-signal default.
+   */
+  tabId?: string;
+}): JSX.Element {
   onMount(injectSheetShellStyles);
   const client = useClient();
+  // Persistence only kicks in when the workbench has actually spawned
+  // the per-tab sentinel. In production the workbench guarantees this
+  // on tab open; in tests that mount SheetShell directly (without
+  // dispatching OpenPage), it's absent and we fall back to the kit's
+  // local-signal default — ephemeral but functional.
+  const sentinelId = props.tabId ? useTabSentinel(props.tabId) : null;
+  const persistence =
+    sentinelId !== null && client.world.has(sentinelId)
+      ? sheetTabPersistence(sentinelId)
+      : null;
 
   const identity = createMemo(() =>
     sortRegion(client.registry.fillsForSlot(CharacterSheetIdentitySlot)),
@@ -241,6 +268,8 @@ export function SheetShell(props: { characterId: string }): JSX.Element {
         <Tabs
           tabs={tabSpecs()}
           ariaLabel="Character sheet tabs"
+          activeId={persistence?.activeId() ?? null}
+          onSelectTab={persistence?.select}
           emptyState={
             <div
               style={{
@@ -291,4 +320,29 @@ function sortTabs(fills: ReadonlyArray<unknown>): CharacterSheetTab[] {
     return a.label.localeCompare(b.label);
   });
   return arr;
+}
+
+/**
+ * Bind the active sub-tab to the workbench's per-tab sentinel via
+ * `createOptimisticTrait`. Returns a reactive accessor + setter the
+ * `Tabs` primitive consumes in controlled mode. The store's value is
+ * the source of truth; `Tabs` falls back to the first available tab
+ * when the stored id isn't among the projected fills (handles tab
+ * fills appearing/disappearing across game-system swaps).
+ */
+function sheetTabPersistence(sentinelId: import("@vtt/substrate").EntityId): {
+  activeId: () => string | null;
+  select: (id: string) => void;
+} {
+  const [ui, setUi] = createOptimisticTrait(sentinelId, CharacterSheetUiState, {
+    write: (value) =>
+      SetCharacterSheetUiState({
+        entityId: sentinelId,
+        value,
+      }) as CommandInstance,
+  });
+  return {
+    activeId: () => ui.activeTabId,
+    select: (id) => setUi("activeTabId", id),
+  };
 }
