@@ -32,9 +32,9 @@
 
 export type BeginnersLuck = "will" | "health";
 
-export type SkillCategory = "adventuring" | "town" | "lmm";
+export type SkillCategory = "adventuring" | "town" | "lmm" | "npc";
 
-export type SkillSourceBook = "DH" | "LMM";
+export type SkillSourceBook = "DH" | "LMM" | "SG";
 
 export interface SkillEntry {
   /** Stable id used as the key in the Skills trait. */
@@ -126,14 +126,42 @@ export const LORE_MASTER_SKILLS: ReadonlyArray<SkillEntry> = [
 ];
 
 /**
+ * NPC-only skills from the Scholar's Guide "Beasts With Two Legs"
+ * chapter (SG p.201 — "there are a few skills and traits only found in
+ * this chapter without explanation because we like jokes"). NPCs in the
+ * Denizens chapter use these for their proper-noun craft (Beekeeper,
+ * Brewer, Glazier, Miller, Potter) and for the Noble's Popinjay skill
+ * (SG p.207). They aren't on the standard PC sheet but the GM can train
+ * a PC into one if the campaign goes there.
+ *
+ * BL assignments mirror the closest neighbouring craft: a Brewer uses
+ * Will (process / recipe judgement), a Potter uses Health (clay-shaping
+ * by hand), Glazier uses Will, Miller uses Health (heavy stones),
+ * Beekeeper uses Will (handling), Popinjay uses Will (showing off).
+ * No suggested-help table in the rulebook; the lists below are blank
+ * so the panel falls through to the generic "any skill the GM rules
+ * appropriate" affordance.
+ */
+export const NPC_SKILLS: ReadonlyArray<SkillEntry> = [
+  { id: "beekeeper", name: "Beekeeper", bl: "will",   category: "npc", source: { book: "SG", page: 202 }, suggestedHelp: [] },
+  { id: "brewer",    name: "Brewer",    bl: "will",   category: "npc", source: { book: "SG", page: 202 }, suggestedHelp: [] },
+  { id: "glazier",   name: "Glazier",   bl: "will",   category: "npc", source: { book: "SG", page: 205 }, suggestedHelp: [] },
+  { id: "miller",    name: "Miller",    bl: "health", category: "npc", source: { book: "SG", page: 207 }, suggestedHelp: [] },
+  { id: "popinjay",  name: "Popinjay",  bl: "will",   category: "npc", source: { book: "SG", page: 207 }, suggestedHelp: [] },
+  { id: "potter",    name: "Potter",    bl: "health", category: "npc", source: { book: "SG", page: 207 }, suggestedHelp: [] },
+];
+
+/**
  * Master skill list — concatenation of every defined skill across the
- * three player-facing books. Iterated by sheet rendering and by skill-
- * lookup helpers; the per-category arrays drive the UI's grouping.
+ * three player-facing books plus the NPC-only crafts from the Denizens
+ * chapter. Iterated by sheet rendering and by skill-lookup helpers;
+ * the per-category arrays drive the UI's grouping.
  */
 export const ALL_SKILLS: ReadonlyArray<SkillEntry> = [
   ...ADVENTURING_SKILLS,
   ...TOWN_SKILLS,
   ...LORE_MASTER_SKILLS,
+  ...NPC_SKILLS,
 ];
 
 const BY_ID: ReadonlyMap<string, SkillEntry> = new Map(

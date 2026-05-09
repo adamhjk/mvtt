@@ -73,6 +73,7 @@ export {
   ADVENTURING_SKILLS,
   TOWN_SKILLS,
   LORE_MASTER_SKILLS,
+  NPC_SKILLS,
   getSkill,
   isKnownSkillId,
   type SkillEntry,
@@ -191,6 +192,22 @@ export {
   MonsterCreated,
   MonsterRemoved,
 } from "./monster-events.js";
+export {
+  TbNpc,
+  TbNpcDerivedFrom,
+} from "./npc-traits.js";
+export {
+  CreateBlankNpc,
+  CreateNpcFromCatalog,
+  RemoveNpc,
+  npcTemplateById,
+  TB_NPC_TEMPLATES,
+  type TbNpcTemplate,
+} from "./npcs.js";
+export {
+  NpcCreated,
+  NpcRemoved,
+} from "./npc-events.js";
 export {
   DismissLightWentOut,
   GRIND_SENTINEL_ID,

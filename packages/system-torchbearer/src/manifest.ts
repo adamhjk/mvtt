@@ -144,6 +144,14 @@ import {
   TbMonsterDerivedFrom,
   TbMonsterSpecialRules,
   TbMonsterWeapons,
+  // NPCs:
+  CreateBlankNpc,
+  CreateNpcFromCatalog,
+  NpcCreated,
+  NpcRemoved,
+  RemoveNpc,
+  TbNpc,
+  TbNpcDerivedFrom,
   // Spells:
   AddSpellToBook,
   AddSpellToLibrary,
@@ -216,6 +224,8 @@ import {
   LightWentOutSystem,
   MonsterRemovalSystem,
   MonsterSpawningSystem,
+  NpcRemovalSystem,
+  NpcSpawningSystem,
   NoticeDismissSystem,
   TbBundleJoinSystem,
   TbBundleSplitSystem,
@@ -259,6 +269,7 @@ import { RollActionsSlot } from "@vtt/resolution/shared";
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { PaletteCommandsSlot } from "@vtt/shell-workbench/shared";
 import { TB_SPAWN_MONSTER_PALETTE_COMMANDS } from "./client/spawn-monster-palette.js";
+import { TB_SPAWN_NPC_PALETTE_COMMANDS } from "./client/spawn-npc-palette.js";
 import { tbItemsSeed } from "./data/seed.js";
 import {
   ALL_CONFLICT_COMMANDS,
@@ -277,6 +288,18 @@ const tbMonsterListExclusion: CharacterListExclusion = {
     "@vtt/system-torchbearer/exclude-monsters-from-characters-list",
   ) as CharacterListExclusion["id"],
   matchTrait: TbMonster,
+};
+
+/**
+ * Hide NPC entities from the Characters tab — they live on their own
+ * NPCs tab via `NpcsPageProvider`. The same trait powers the NPC
+ * sheet's existence check.
+ */
+const tbNpcListExclusion: CharacterListExclusion = {
+  id: qualifiedName(
+    "@vtt/system-torchbearer/exclude-npcs-from-characters-list",
+  ) as CharacterListExclusion["id"],
+  matchTrait: TbNpc,
 };
 
 /**
@@ -381,6 +404,9 @@ export const systemTorchbearer = definePlugin({
     TbMonsterSpecialRules,
     TbMonsterDerivedFrom,
     TbConflictResource,
+    // NPCs:
+    TbNpc,
+    TbNpcDerivedFrom,
     ...ALL_CONFLICT_TRAITS,
   ],
   events: [
@@ -412,6 +438,9 @@ export const systemTorchbearer = definePlugin({
     // Monsters:
     MonsterCreated,
     MonsterRemoved,
+    // NPCs:
+    NpcCreated,
+    NpcRemoved,
     // Arcane:
     SpellAddedToLibrary,
     SpellRemovedFromLibrary,
@@ -471,6 +500,10 @@ export const systemTorchbearer = definePlugin({
     CreateBlankMonster,
     CreateMonsterFromCatalog,
     RemoveMonster,
+    // NPCs:
+    CreateBlankNpc,
+    CreateNpcFromCatalog,
+    RemoveNpc,
     // Arcane:
     AddSpellToLibrary,
     RemoveSpellFromLibrary,
@@ -533,6 +566,9 @@ export const systemTorchbearer = definePlugin({
     // Monsters:
     MonsterSpawningSystem,
     MonsterRemovalSystem,
+    // NPCs:
+    NpcSpawningSystem,
+    NpcRemovalSystem,
     ...TB_SPELL_SYSTEMS,
     ...TB_INVOCATION_SYSTEMS,
     ...ALL_CONFLICT_SYSTEMS,
@@ -571,9 +607,15 @@ export const systemTorchbearer = definePlugin({
     [PendingRollContributorsSlot.name]: [TbPendingRollContributor],
     [RollActionsSlot.name]: [TbRollActionsFill],
     [ItemDetailSectionsSlot.name]: [...TB_ITEM_DETAIL_SECTIONS],
-    [CharacterListExclusionSlot.name]: [tbMonsterListExclusion],
+    [CharacterListExclusionSlot.name]: [
+      tbMonsterListExclusion,
+      tbNpcListExclusion,
+    ],
     [LinkKindsSlot.name]: [monsterLinkKind],
-    [PaletteCommandsSlot.name]: [...TB_SPAWN_MONSTER_PALETTE_COMMANDS],
+    [PaletteCommandsSlot.name]: [
+      ...TB_SPAWN_MONSTER_PALETTE_COMMANDS,
+      ...TB_SPAWN_NPC_PALETTE_COMMANDS,
+    ],
   },
   seed: tbItemsSeed,
 });

@@ -2873,3 +2873,13 @@ export const TbInventoryTabFill: CharacterSheetTab = {
   priority: 60,
   render: ({ characterId }) => InventoryTab({ characterId }),
 };
+
+/**
+ * Re-export the InventoryTab body so other surfaces (the NPC sheet
+ * in particular) can mount the same equip / unequip / catalog-quick-
+ * add UI inline rather than duplicating a lightweight equip picker.
+ * Same `{ characterId }` contract — works against any holder, PC or
+ * NPC. The NPC sheet wraps this in a section header so the visual
+ * rhythm matches the rest of the simplified sheet.
+ */
+export { InventoryTab as TbInventoryView };

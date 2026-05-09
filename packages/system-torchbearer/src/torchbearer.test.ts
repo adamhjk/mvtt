@@ -203,11 +203,13 @@ describe("@vtt/system-torchbearer manifest", () => {
  * ----------------------------------------------------------------------- */
 
 describe("Skill catalog", () => {
-  it("totals 41 skills (DH 33 + LMM 8)", () => {
+  it("totals 47 skills (DH 33 + LMM 8 + SG NPC 6)", () => {
     expect(ADVENTURING_SKILLS).toHaveLength(25);
     expect(TOWN_SKILLS).toHaveLength(8);
     expect(LORE_MASTER_SKILLS).toHaveLength(8);
-    expect(ALL_SKILLS).toHaveLength(41);
+    // 6 NPC-only crafts from the Beasts with Two Legs chapter (SG p.201)
+    // — Beekeeper, Brewer, Glazier, Miller, Popinjay, Potter.
+    expect(ALL_SKILLS).toHaveLength(47);
   });
 
   it("has unique skill ids and names", () => {

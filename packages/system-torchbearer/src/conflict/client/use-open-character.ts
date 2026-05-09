@@ -18,18 +18,20 @@
 import type { EntityId, QualifiedName } from "@vtt/substrate";
 import { useClient } from "@vtt/substrate/client";
 import { useFollowLink } from "@vtt/shell-workbench/client";
-import { TbMonster } from "../../shared/index.js";
+import { TbMonster, TbNpc } from "../../shared/index.js";
 
 // Page-provider kinds the conflict surface routes to. Kept inline
 // (not imported) because the providers live in unrelated packages
 // and the kind strings are stable substrate-wide identifiers.
 const CHARACTERS_PAGE_KIND = "@vtt/characters/characters" as QualifiedName;
 const BESTIARY_PAGE_KIND = "@vtt/system-torchbearer/bestiary" as QualifiedName;
+const NPCS_PAGE_KIND = "@vtt/system-torchbearer/npcs" as QualifiedName;
 
 /**
- * Returns a click handler that follows a deep link to a character or
- * bestiary entry. Monsters (entities carrying `TbMonster`) route to
- * the Bestiary page; everything else to the Characters page.
+ * Returns a click handler that follows a deep link to a character /
+ * bestiary / NPCs entry. Monsters (entities carrying `TbMonster`)
+ * route to the Bestiary page; NPCs (entities carrying `TbNpc`) route
+ * to the NPCs page; everything else to the Characters page.
  *
  * Powered by `useFollowLink`, so it inherits the canonical wikilink
  * behavior:
@@ -52,9 +54,15 @@ export function useOpenCharacterSheet(): (
   const follow = useFollowLink();
   return (characterId, e) => {
     const isMonster = client.world.get(characterId, [TbMonster]) !== undefined;
+    const isNpc = client.world.get(characterId, [TbNpc]) !== undefined;
+    const pageKind = isMonster
+      ? BESTIARY_PAGE_KIND
+      : isNpc
+        ? NPCS_PAGE_KIND
+        : CHARACTERS_PAGE_KIND;
     follow(
       {
-        pageKind: isMonster ? BESTIARY_PAGE_KIND : CHARACTERS_PAGE_KIND,
+        pageKind,
         entityId: characterId,
       },
       e,

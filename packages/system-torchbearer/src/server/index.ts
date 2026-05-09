@@ -58,5 +58,9 @@ export {
   MonsterRemovalSystem,
   MonsterSpawningSystem,
 } from "./monster-systems.js";
+export {
+  NpcRemovalSystem,
+  NpcSpawningSystem,
+} from "./npc-systems.js";
 export { TB_SPELL_SYSTEMS } from "./spells/spell-systems.js";
 export { TB_INVOCATION_SYSTEMS } from "./invocations/invocation-systems.js";

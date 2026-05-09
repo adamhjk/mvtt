@@ -28,10 +28,18 @@ import {
 import { Character, SetField, Team } from "@vtt/characters/shared";
 import {
   CreateMonsterFromCatalog,
+  CreateNpcFromCatalog,
   MonsterCreated,
+  NpcCreated,
   TB_MONSTER_TEMPLATES,
+  TB_NPC_TEMPLATES,
   TbMonster,
+  TbNpc,
 } from "../../shared/index.js";
+import {
+  NpcRack,
+  filterNpcCatalogByQuery,
+} from "../../client/npc-picker.js";
 import {
   ALL_CONFLICT_TYPES,
   DeclareConflict,
@@ -327,6 +335,19 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
   const bestiarySelectedTemplate = createMemo(() =>
     TB_MONSTER_TEMPLATES.find((t) => t.id === bestiarySelected()) ?? null,
   );
+
+  // NPC spawn-into-conflict state. Mirrors the bestiary state shape so
+  // the inline picker reads as a sibling of the BestiarySpawnRow.
+  const [npcQuery, setNpcQuery] = createSignal("");
+  const [npcSelected, setNpcSelected] = createSignal<string | null>(
+    TB_NPC_TEMPLATES[0]?.id ?? null,
+  );
+  const [npcCount, setNpcCount] = createSignal<number>(1);
+  const [npcBusy, setNpcBusy] = createSignal(false);
+  const npcCandidates = createMemo(() => filterNpcCatalogByQuery(npcQuery()));
+  const npcSelectedTemplate = createMemo(
+    () => TB_NPC_TEMPLATES.find((t) => t.id === npcSelected()) ?? null,
+  );
   // Enemy is a multimap — characterId → count. Selecting a chip adds
   // it with count=1; the +/- stepper next to the chip lets the GM
   // bump it to 4 goblins. Unselecting removes the entry entirely.
@@ -406,6 +427,40 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
     });
     client.dispatch(
       CreateMonsterFromCatalog({ templateId: tmplId }) as CommandInstance,
+    );
+  };
+
+  /**
+   * Spawn a fresh NPC from the catalog and pre-select it in the enemy
+   * list with the chosen count. Same shape as
+   * `spawnAndPickFromBestiary` — the only differences are the events
+   * we listen for, the trait we query, and the command we dispatch.
+   */
+  const spawnAndPickFromNpcCatalog = (): void => {
+    if (npcBusy()) return;
+    const tmplId = npcSelected();
+    if (!tmplId) return;
+    setNpcBusy(true);
+    const beforeIds = new Set(
+      client.world.query([Character, TbNpc]).map((r) => r.id as string),
+    );
+    const requestedCount = Math.max(1, Math.min(20, npcCount()));
+    const off = client.bus.on(NpcCreated.name, () => {
+      off();
+      const fresh = client.world
+        .query([Character, TbNpc])
+        .find((r) => !beforeIds.has(r.id as string));
+      if (fresh) {
+        setEnemyCounts((cur) => {
+          const next = new Map(cur);
+          next.set(fresh.id as EntityId, requestedCount);
+          return next;
+        });
+      }
+      setNpcBusy(false);
+    });
+    client.dispatch(
+      CreateNpcFromCatalog({ templateId: tmplId }) as CommandInstance,
     );
   };
 
@@ -609,6 +664,22 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
           setCount={setBestiaryCount}
           busy={bestiaryBusy}
           onSpawn={spawnAndPickFromBestiary}
+        />
+
+        {/* Spawn-from-NPC-catalog inline picker. Same shape as the
+            bestiary row above; lets the GM declare "two bandits and a
+            soldier" without leaving the conflict-declare form. */}
+        <NpcSpawnRow
+          query={npcQuery}
+          setQuery={setNpcQuery}
+          selected={npcSelected}
+          setSelected={setNpcSelected}
+          selectedTemplate={npcSelectedTemplate}
+          candidates={npcCandidates}
+          count={npcCount}
+          setCount={setNpcCount}
+          busy={npcBusy}
+          onSpawn={spawnAndPickFromNpcCatalog}
         />
       </fieldset>
 
@@ -1130,6 +1201,373 @@ function BestiarySpawnRow(props: {
       >
         Materializes one character on the bestiary; expanded into{" "}
         <span class="tabular-nums" style={{ "font-family": "var(--font-mono)", "font-style": "normal" }}>
+          {props.count()}
+        </span>{" "}
+        participant rows on declare.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Inline spawn-from-NPC-catalog picker. Mirrors `BestiarySpawnRow`
+ * exactly — same search input, same rack, same count stepper, same
+ * "Conjure N × Soldier →" verb-on-target footer button — but reads
+ * from `TB_NPC_TEMPLATES` and dispatches `CreateNpcFromCatalog`.
+ *
+ * Lets the GM declare "two bandits and a soldier" mid-declare without
+ * bouncing to the NPCs tab first. The freshly-spawned character is
+ * auto-selected on the enemy side with the requested count.
+ */
+function NpcSpawnRow(props: {
+  query: () => string;
+  setQuery: (next: string) => void;
+  selected: () => string | null;
+  setSelected: (next: string | null) => void;
+  selectedTemplate: () =>
+    | {
+        id: string;
+        name: string;
+        role: string;
+        sourceBook: string;
+        sourcePage: number | null;
+      }
+    | null;
+  candidates: () => ReadonlyArray<{
+    id: string;
+    name: string;
+    role: string;
+    sourceBook: "DH" | "LMM" | "SG" | "Unknown";
+    sourcePage: number | null;
+    pageRef: { canonicalId: string; page: number };
+  }>;
+  count: () => number;
+  setCount: (next: number) => void;
+  busy: () => boolean;
+  onSpawn: () => void;
+}): JSX.Element {
+  const moveSelection = (dir: 1 | -1): void => {
+    const list = props.candidates();
+    if (list.length === 0) return;
+    const cur = props.selected();
+    const idx = list.findIndex((t) => t.id === cur);
+    if (idx === -1) {
+      const next = dir === 1 ? list[0]! : list[list.length - 1]!;
+      props.setSelected(next.id);
+      return;
+    }
+    const nextIdx = (idx + dir + list.length) % list.length;
+    props.setSelected(list[nextIdx]!.id);
+  };
+
+  createMemo(() => {
+    const list = props.candidates();
+    const cur = props.selected();
+    if (list.length === 0) return;
+    if (cur && list.some((t) => t.id === cur)) return;
+    props.setSelected(list[0]!.id);
+  });
+
+  const stepCount = (delta: 1 | -1): void => {
+    const next = Math.max(1, Math.min(20, props.count() + delta));
+    if (next !== props.count()) props.setCount(next);
+  };
+
+  return (
+    <div
+      class="relative mt-2"
+      data-testid="declare-npc-picker"
+      style={{
+        "border-top": "1px solid var(--color-border-muted)",
+        "padding-top": "0.85rem",
+      }}
+    >
+      <div class="flex items-baseline justify-between mb-2">
+        <h3
+          class="flex items-baseline gap-2"
+          style={{
+            "font-family": "var(--font-display)",
+            "font-size": "0.68rem",
+            "letter-spacing": "0.22em",
+            "text-transform": "uppercase",
+            color: "var(--color-fg)",
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              color: "var(--color-accent)",
+              "font-size": "0.85rem",
+              transform: "translateY(-0.05em)",
+            }}
+          >
+            ❦
+          </span>
+          NPCs
+        </h3>
+        <span
+          class="tabular-nums"
+          style={{
+            "font-family": "var(--font-mono)",
+            "font-size": "0.65rem",
+            color: "var(--color-fg-subtle)",
+          }}
+        >
+          {props.candidates().length} / {TB_NPC_TEMPLATES.length}
+        </span>
+      </div>
+
+      <div class="relative mb-1.5">
+        <span
+          aria-hidden="true"
+          class="absolute left-2 top-1/2 -translate-y-1/2"
+          style={{
+            "font-family": "var(--font-mono)",
+            "font-size": "0.7rem",
+            color: "var(--color-fg-subtle)",
+            "letter-spacing": "0.05em",
+          }}
+        >
+          ▸
+        </span>
+        <input
+          type="text"
+          value={props.query()}
+          placeholder="filter NPCs by name or role…"
+          onInput={(e) => props.setQuery(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              moveSelection(1);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              moveSelection(-1);
+            } else if (e.key === "Enter" && props.selected()) {
+              e.preventDefault();
+              if (!props.busy()) props.onSpawn();
+            } else if (e.key === "Escape") {
+              props.setQuery("");
+            }
+          }}
+          class="w-full rounded-(--radius-control) outline-none transition-colors"
+          style={{
+            "padding-left": "1.6rem",
+            "padding-right": props.query().length > 0 ? "1.8rem" : "0.55rem",
+            "padding-top": "0.4rem",
+            "padding-bottom": "0.4rem",
+            "background-color":
+              "var(--color-surface-sunken, var(--color-surface))",
+            border: "1px solid var(--color-border-muted)",
+            "font-family": "var(--font-display)",
+            "font-size": "0.85rem",
+            color: "var(--color-fg)",
+          }}
+          onFocus={(e) => {
+            (e.currentTarget as HTMLInputElement).style.borderColor =
+              "var(--color-accent)";
+          }}
+          onBlur={(e) => {
+            (e.currentTarget as HTMLInputElement).style.borderColor =
+              "var(--color-border-muted)";
+          }}
+          data-testid="declare-npc-input"
+          autocomplete="off"
+          spellcheck={false}
+          name="conflict-npc"
+          data-1p-ignore="true"
+          data-lpignore="true"
+          data-bwignore="true"
+          data-form-type="other"
+          disabled={props.busy()}
+        />
+        <Show when={props.query().length > 0}>
+          <button
+            type="button"
+            onClick={() => props.setQuery("")}
+            aria-label="clear filter"
+            class="absolute right-1 top-1/2 -translate-y-1/2 rounded-sm px-1.5 py-0.5 hover:opacity-100 transition-opacity"
+            style={{
+              "font-family": "var(--font-mono)",
+              "font-size": "0.7rem",
+              color: "var(--color-fg-subtle)",
+              opacity: "0.6",
+            }}
+          >
+            ×
+          </button>
+        </Show>
+      </div>
+
+      <Show
+        when={props.candidates().length > 0}
+        fallback={
+          <div
+            class="flex items-center justify-center text-center py-4"
+            style={{
+              border: "1px dashed var(--color-border-muted)",
+              "border-radius": "var(--radius-control)",
+              "background-color":
+                "var(--color-surface-sunken, var(--color-surface))",
+            }}
+            data-testid="declare-npc-empty"
+          >
+            <span
+              style={{
+                "font-family": "var(--font-display)",
+                "font-size": "0.78rem",
+                color: "var(--color-fg-subtle)",
+                "font-style": "italic",
+              }}
+            >
+              no NPC matches “{props.query()}”
+            </span>
+          </div>
+        }
+      >
+        <NpcRack
+          candidates={props.candidates}
+          selected={props.selected}
+          setSelected={props.setSelected}
+          query={props.query}
+          testid="declare-npc-options"
+          rowTestidPrefix="declare-npc-option"
+        />
+      </Show>
+
+      <div
+        class="mt-2 flex items-stretch gap-1.5"
+        style={{ "min-height": "2.1rem" }}
+      >
+        <div
+          class="flex items-stretch overflow-hidden"
+          style={{
+            border: "1px solid var(--color-border-muted)",
+            "border-radius": "var(--radius-control)",
+            "background-color":
+              "var(--color-surface-sunken, var(--color-surface))",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => stepCount(-1)}
+            disabled={props.busy() || props.count() <= 1}
+            aria-label="decrement count"
+            class="px-2 transition-colors hover:text-fg disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{
+              "font-family": "var(--font-mono)",
+              "font-size": "0.95rem",
+              color: "var(--color-fg-muted)",
+              "border-right": "1px solid var(--color-border-muted)",
+            }}
+          >
+            −
+          </button>
+          <input
+            type="number"
+            min="1"
+            max="20"
+            value={props.count()}
+            onInput={(e) => {
+              const v = Number.parseInt(e.currentTarget.value, 10);
+              if (Number.isFinite(v)) {
+                props.setCount(Math.max(1, Math.min(20, v)));
+              }
+            }}
+            class="text-center bg-transparent outline-none tabular-nums"
+            style={{
+              "font-family": "var(--font-mono)",
+              "font-size": "0.85rem",
+              width: "2.4rem",
+              color: "var(--color-fg)",
+            }}
+            data-testid="declare-npc-count"
+            disabled={props.busy()}
+          />
+          <button
+            type="button"
+            onClick={() => stepCount(1)}
+            disabled={props.busy() || props.count() >= 20}
+            aria-label="increment count"
+            class="px-2 transition-colors hover:text-fg disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{
+              "font-family": "var(--font-mono)",
+              "font-size": "0.95rem",
+              color: "var(--color-fg-muted)",
+              "border-left": "1px solid var(--color-border-muted)",
+            }}
+          >
+            +
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => props.onSpawn()}
+          disabled={props.busy() || !props.selected()}
+          data-testid="declare-npc-spawn"
+          class="flex-1 transition-all rounded-(--radius-control) flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            "background-color": props.busy()
+              ? "var(--color-surface-elevated)"
+              : "var(--color-accent)",
+            color: "var(--color-accent-fg)",
+            "font-family": "var(--font-display)",
+            "font-size": "0.78rem",
+            "letter-spacing": "0.08em",
+            "text-transform": "uppercase",
+            "font-weight": 600,
+            padding: "0 0.9rem",
+            border: "1px solid var(--color-accent)",
+          }}
+          onMouseEnter={(e) => {
+            if (props.busy() || !props.selected()) return;
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+              "var(--color-accent-hover, var(--color-accent))";
+          }}
+          onMouseLeave={(e) => {
+            if (props.busy() || !props.selected()) return;
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+              "var(--color-accent)";
+          }}
+        >
+          <Show when={!props.busy()} fallback={<span>Conjuring…</span>}>
+            <Show
+              when={props.selectedTemplate()}
+              fallback={<span>Pick an NPC</span>}
+            >
+              <span>
+                Conjure{" "}
+                <span
+                  class="tabular-nums"
+                  style={{ "font-family": "var(--font-mono)" }}
+                >
+                  {props.count()}
+                </span>{" "}
+                ×{" "}
+                <span style={{ "letter-spacing": "0.04em" }}>
+                  {props.selectedTemplate()!.name}
+                </span>{" "}
+                →
+              </span>
+            </Show>
+          </Show>
+        </button>
+      </div>
+
+      <p
+        class="mt-1.5 text-[0.65rem]"
+        style={{
+          "font-family": "var(--font-display)",
+          "font-style": "italic",
+          color: "var(--color-fg-subtle)",
+          "letter-spacing": "0.02em",
+        }}
+      >
+        Materializes one character on the NPCs tab; expanded into{" "}
+        <span
+          class="tabular-nums"
+          style={{ "font-family": "var(--font-mono)", "font-style": "normal" }}
+        >
           {props.count()}
         </span>{" "}
         participant rows on declare.
