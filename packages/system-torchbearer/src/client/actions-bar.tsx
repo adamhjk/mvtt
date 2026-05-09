@@ -16,35 +16,118 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { qualifiedName } from "@vtt/substrate";
+import { useTrait } from "@vtt/substrate/client";
 import { kit } from "@vtt/characters/client";
 import type { CharacterSheetRegion } from "@vtt/characters/shared";
-import { type JSX } from "solid-js";
+import { createMemo, For, Show, type JSX } from "solid-js";
 import {
+  CirclesCheck,
   HealthCheck,
   NatureCheck,
+  PinnedRolls,
+  ResourcesCheck,
+  SkillCheck,
   WillCheck,
+  getSkill,
+  type PinnedRollEntryT,
 } from "../shared/index.js";
 
+interface AbilityDescriptor {
+  rollable: string;
+  label: string;
+}
+
+type PinnedAbility = Extract<PinnedRollEntryT, { kind: "ability" }>["ability"];
+
+const ABILITY_DESCRIPTORS: Record<PinnedAbility, AbilityDescriptor> = {
+  will: { rollable: WillCheck.name, label: "Roll Will" },
+  health: { rollable: HealthCheck.name, label: "Roll Health" },
+  nature: { rollable: NatureCheck.name, label: "Roll Nature" },
+  resources: { rollable: ResourcesCheck.name, label: "Roll Resources" },
+  circles: { rollable: CirclesCheck.name, label: "Roll Circles" },
+};
+
+const DEFAULT_ENTRIES: PinnedRollEntryT[] = [
+  { kind: "ability", ability: "will" },
+  { kind: "ability", ability: "health" },
+];
+
 /**
- * Sticky action bar — the three raw ability rolls every TB session
- * touches. Tap-Nature is exposed alongside Roll Nature because the
- * "tax untaxed Nature" branch is the most-frequent player decision at
- * the table. Actions for skills / town abilities live next to the
- * skill itself on the Skills tab — the bottom bar stays narrow.
+ * Sticky action bar — driven by the character's `PinnedRolls` trait.
+ * Defaults to Will + Health (the two ability rolls every TB session
+ * opens with). The player can pin / unpin abilities and skills from
+ * the row toggles on the Abilities & Skills tab.
+ *
+ * When Nature is pinned, the "Tap Nature" companion button is shown
+ * alongside the regular Roll Nature button — taxing untaxed Nature
+ * is the most-frequent player decision at the table and shouldn't
+ * cost an extra modal step.
  */
 function ActionsBar(props: { characterId: string }): JSX.Element {
+  const pinned = useTrait(props.characterId, PinnedRolls);
+  const entries = createMemo<PinnedRollEntryT[]>(() => {
+    const v = pinned();
+    if (!v) return DEFAULT_ENTRIES;
+    return v.entries;
+  });
+  return (
+    <For each={entries()}>
+      {(entry) => <PinnedButton characterId={props.characterId} entry={entry} />}
+    </For>
+  );
+}
+
+function PinnedButton(props: {
+  characterId: string;
+  entry: PinnedRollEntryT;
+}): JSX.Element {
+  return (
+    <Show
+      when={props.entry.kind === "ability"}
+      fallback={<SkillPinButton characterId={props.characterId} entry={props.entry as Extract<PinnedRollEntryT, { kind: "skill" }>} />}
+    >
+      <AbilityPinButtons characterId={props.characterId} entry={props.entry as Extract<PinnedRollEntryT, { kind: "ability" }>} />
+    </Show>
+  );
+}
+
+function AbilityPinButtons(props: {
+  characterId: string;
+  entry: Extract<PinnedRollEntryT, { kind: "ability" }>;
+}): JSX.Element {
+  const desc = ABILITY_DESCRIPTORS[props.entry.ability];
   return (
     <>
-      <kit.RollButton characterId={props.characterId} rollable={WillCheck.name} label="Roll Will" />
-      <kit.RollButton characterId={props.characterId} rollable={HealthCheck.name} label="Roll Health" />
-      <kit.RollButton characterId={props.characterId} rollable={NatureCheck.name} label="Roll Nature" />
       <kit.RollButton
         characterId={props.characterId}
-        rollable={NatureCheck.name}
-        opts={{ tap: true }}
-        label="Tap Nature"
+        rollable={desc.rollable}
+        label={desc.label}
       />
+      <Show when={props.entry.ability === "nature"}>
+        <kit.RollButton
+          characterId={props.characterId}
+          rollable={NatureCheck.name}
+          opts={{ tap: true }}
+          label="Tap Nature"
+        />
+      </Show>
     </>
+  );
+}
+
+function SkillPinButton(props: {
+  characterId: string;
+  entry: Extract<PinnedRollEntryT, { kind: "skill" }>;
+}): JSX.Element {
+  const skill = getSkill(props.entry.skillId);
+  if (!skill) return <></>;
+  return (
+    <kit.RollButton
+      characterId={props.characterId}
+      rollable={SkillCheck.name}
+      opts={{ skillId: props.entry.skillId }}
+      label={`Roll ${skill.name}`}
+    />
   );
 }
 

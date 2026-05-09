@@ -49,11 +49,14 @@ import {
   CharacterTraits,
   Conditions,
   Identity,
+  PinnedRolls,
   Pools,
   RawAbilities,
+  SetSpecialtySkill,
   SkillCheck,
   SkillImprovementOpportunity,
   Skills,
+  TogglePinnedRoll,
   Wises,
 } from "./shared/index.js";
 import {
@@ -234,11 +237,14 @@ describe("Torchbearer sheet shell", () => {
       "Invocations",
     ]);
 
-    // Action bar — the four sticky-bottom roll buttons.
+    // Action bar — defaults to the two ability rolls every TB session
+    // opens with (Will + Health). Nature / Tap Nature / skills appear
+    // here only after the player pins them on the Abilities & Skills
+    // tab (TogglePinnedRoll).
     expect(screen.getByRole("button", { name: /Roll Will/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Roll Health/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Roll Nature/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Tap Nature/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Roll Nature/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Tap Nature/i })).toBeNull();
   });
 
   it("clicking a tab switches the body to that tab's content", () => {
@@ -462,9 +468,6 @@ describe("Tab body — Abilities & Skills", () => {
     expect(
       screen.getAllByText((_, el) => /^Strategist\(/.test(el?.textContent ?? "")).length,
     ).toBeGreaterThanOrEqual(1);
-
-    // Levels & Benefits is folded in as a labeled sub-section.
-    expect(screen.getByText("Levels & Benefits")).toBeInTheDocument();
   });
 
   it("orders skills alphabetically by display name", () => {
@@ -1376,14 +1379,176 @@ function mountTbIdentityFill(h: CharacterHarness): JSX.Element {
   return fill!.render({ characterId: h.characterId }) as JSX.Element;
 }
 
+/* -------------------------------------------------------------------------
+ * Skill row — specialty toggle (★)
+ * ----------------------------------------------------------------------- */
+
+describe("Skill row — specialty toggle", () => {
+  it("clicking the ☆ on a skill dispatches SetSpecialtySkill with that skill id", () => {
+    const h = harness();
+    mountFillBody(h, TbAbilitiesSkillsTabFill.render);
+
+    fireEvent.click(screen.getByTestId("tb-specialty-toggle-scout"));
+
+    const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
+    const sets = dispatched.filter((d) => d.type === SetSpecialtySkill.name);
+    expect(sets.length).toBe(1);
+    const p = sets[0]!.payload as { skillId: string | null };
+    expect(p.skillId).toBe("scout");
+  });
+
+  it("the marked skill renders as ★, every other as ☆", () => {
+    const h = harness(({ world, characterId }) => {
+      world.set(characterId, Skills, {
+        entries: Object.fromEntries(
+          [
+            "alchemist",
+            "fighter",
+            "scout",
+          ].map((id) => [
+            id,
+            {
+              rating: 1,
+              advancement: { pass: 0, fail: 0 },
+              taxed: false,
+              learningTests: 0,
+            },
+          ]),
+        ),
+        specialtySkillId: "scout",
+      });
+    });
+    mountFillBody(h, TbAbilitiesSkillsTabFill.render);
+
+    expect(screen.getByTestId("tb-specialty-toggle-scout").textContent).toBe("★");
+    expect(screen.getByTestId("tb-specialty-toggle-fighter").textContent).toBe("☆");
+    expect(
+      screen.getByTestId("tb-specialty-toggle-scout").getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      screen.getByTestId("tb-specialty-toggle-fighter").getAttribute("aria-pressed"),
+    ).toBe("false");
+  });
+
+  it("clicking the currently-marked skill clears the specialty (skillId: null)", () => {
+    const h = harness(({ world, characterId }) => {
+      world.set(characterId, Skills, {
+        entries: Object.fromEntries(
+          [
+            "scout",
+          ].map((id) => [
+            id,
+            {
+              rating: 1,
+              advancement: { pass: 0, fail: 0 },
+              taxed: false,
+              learningTests: 0,
+            },
+          ]),
+        ),
+        specialtySkillId: "scout",
+      });
+    });
+    mountFillBody(h, TbAbilitiesSkillsTabFill.render);
+
+    fireEvent.click(screen.getByTestId("tb-specialty-toggle-scout"));
+
+    const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
+    const sets = dispatched.filter((d) => d.type === SetSpecialtySkill.name);
+    expect(sets.length).toBe(1);
+    expect((sets[0]!.payload as { skillId: string | null }).skillId).toBeNull();
+  });
+});
+
+/* -------------------------------------------------------------------------
+ * Pin-to-actions-bar toggle (□ / ■)
+ * ----------------------------------------------------------------------- */
+
+describe("Pin-to-actions-bar toggle", () => {
+  it("clicking on a skill row dispatches TogglePinnedRoll with kind:skill", () => {
+    const h = harness();
+    mountFillBody(h, TbAbilitiesSkillsTabFill.render);
+
+    fireEvent.click(screen.getByTestId("tb-pin-toggle-skill-scout"));
+
+    const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
+    const pins = dispatched.filter((d) => d.type === TogglePinnedRoll.name);
+    expect(pins.length).toBe(1);
+    expect(pins[0]!.payload).toEqual({
+      characterId: h.characterId,
+      entry: { kind: "skill", skillId: "scout" },
+    });
+  });
+
+  it("clicking on Will dispatches TogglePinnedRoll with kind:ability ability:will", () => {
+    const h = harness();
+    mountFillBody(h, TbAbilitiesSkillsTabFill.render);
+
+    fireEvent.click(screen.getByTestId("tb-pin-toggle-ability-will"));
+
+    const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
+    const pins = dispatched.filter((d) => d.type === TogglePinnedRoll.name);
+    expect(pins.length).toBe(1);
+    expect(pins[0]!.payload).toEqual({
+      characterId: h.characterId,
+      entry: { kind: "ability", ability: "will" },
+    });
+  });
+
+  it("renders ■ for pinned entries and □ for unpinned (defaults: Will + Health pinned)", () => {
+    const h = harness();
+    mountFillBody(h, TbAbilitiesSkillsTabFill.render);
+
+    expect(
+      screen.getByTestId("tb-pin-toggle-ability-will").textContent,
+    ).toBe("■");
+    expect(
+      screen.getByTestId("tb-pin-toggle-ability-health").textContent,
+    ).toBe("■");
+    expect(
+      screen.getByTestId("tb-pin-toggle-ability-nature").textContent,
+    ).toBe("□");
+    expect(
+      screen.getByTestId("tb-pin-toggle-skill-scout").textContent,
+    ).toBe("□");
+  });
+
+  it("reflects PinnedRolls trait state after a write", () => {
+    const h = harness(({ world, characterId }) => {
+      world.set(characterId, PinnedRolls, {
+        entries: [
+          { kind: "ability", ability: "nature" },
+          { kind: "skill", skillId: "scout" },
+        ],
+      });
+    });
+    mountFillBody(h, TbAbilitiesSkillsTabFill.render);
+
+    expect(
+      screen.getByTestId("tb-pin-toggle-ability-will").textContent,
+    ).toBe("□");
+    expect(
+      screen.getByTestId("tb-pin-toggle-ability-health").textContent,
+    ).toBe("□");
+    expect(
+      screen.getByTestId("tb-pin-toggle-ability-nature").textContent,
+    ).toBe("■");
+    expect(
+      screen.getByTestId("tb-pin-toggle-skill-scout").textContent,
+    ).toBe("■");
+  });
+});
+
 describe("Actions bar", () => {
-  it("renders the four sticky roll buttons", () => {
+  it("renders the default sticky roll buttons (Will + Health)", () => {
     const h = harness();
     mountFillBody(h, TbActionsFill.render);
     expect(screen.getByRole("button", { name: "Roll Will" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Roll Health" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Roll Nature" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Tap Nature" })).toBeInTheDocument();
+    // Nature is not pinned by default — it shows up here only when the
+    // player pins it on the Abilities & Skills tab.
+    expect(screen.queryByRole("button", { name: "Roll Nature" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tap Nature" })).toBeNull();
   });
 
   it("clicking Roll Will dispatches OpenPendingRoll for the WillCheck rollable", () => {
@@ -1402,12 +1567,21 @@ describe("Actions bar", () => {
     );
   });
 
-  it("Tap Nature passes opts.tap=true to the rollable", () => {
-    const h = harness();
+  it("renders Roll Nature + Tap Nature when Nature is pinned", () => {
+    const h = harness(({ world, characterId }) => {
+      world.set(characterId, PinnedRolls, {
+        entries: [
+          { kind: "ability", ability: "will" },
+          { kind: "ability", ability: "health" },
+          { kind: "ability", ability: "nature" },
+        ],
+      });
+    });
     mountFillBody(h, TbActionsFill.render);
+    expect(screen.getByRole("button", { name: "Roll Nature" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tap Nature" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Tap Nature" }));
-
     const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
     const opens = dispatched.filter(
       (d) => d.type === "@vtt/characters/OpenPendingRoll",
@@ -1419,6 +1593,28 @@ describe("Actions bar", () => {
       );
     });
     expect(tap).toBeDefined();
+  });
+
+  it("renders a per-skill Roll button when a skill is pinned", () => {
+    const h = harness(({ world, characterId }) => {
+      world.set(characterId, PinnedRolls, {
+        entries: [{ kind: "skill", skillId: "scout" }],
+      });
+    });
+    mountFillBody(h, TbActionsFill.render);
+    fireEvent.click(screen.getByRole("button", { name: "Roll Scout" }));
+    const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
+    const opens = dispatched.filter(
+      (d) => d.type === "@vtt/characters/OpenPendingRoll",
+    );
+    const scoutRoll = opens.find((d) => {
+      const p = d.payload as { rollableName: string; opts: { skillId?: string } };
+      return (
+        p.rollableName === "@vtt/system-torchbearer/skill-check"
+        && p.opts.skillId === "scout"
+      );
+    });
+    expect(scoutRoll).toBeDefined();
   });
 });
 

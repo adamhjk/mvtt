@@ -298,14 +298,21 @@ const SkillEntry = z
  * can render the table without conditional null checks. New skills
  * (e.g. when the LMM additions or future books are catalogued) light
  * up automatically by being added to ALL_SKILLS.
+ *
+ * `specialtySkillId` is the (single) skill the player marked as their
+ * specialty during burning. Null means none chosen. The pick is
+ * single-select — setting one replaces any prior choice. Stored on
+ * Skills (rather than its own trait) because it's intrinsically
+ * skill-list-scoped: only one of the entries here can be referenced.
  */
 export const Skills = defineTrait({
   name: "@vtt/system-torchbearer/Skills",
   schema: z
     .object({
       entries: z.record(z.string(), SkillEntry).default({}),
+      specialtySkillId: z.string().min(1).max(60).nullable().default(null),
     })
-    .default({ entries: defaultSkillsRecord() }),
+    .default({ entries: defaultSkillsRecord(), specialtySkillId: null }),
 });
 
 function defaultSkillsRecord(): Record<string, z.infer<typeof SkillEntry>> {
@@ -783,3 +790,80 @@ export const Heroic = defineTrait({
     })
     .default({ abilities: [], townAbilities: [], skills: [] }),
 });
+
+/* -------------------------------------------------------------------------
+ * PinnedRolls — which abilities/skills surface in the bottom actions bar
+ * ----------------------------------------------------------------------- */
+
+/**
+ * One pinnable target. The discriminated union mirrors the things a
+ * player can roll from the sheet's quick bar:
+ *
+ *   - `kind: "ability"` — one of the three raw abilities (`will`,
+ *     `health`, `nature`) or the two town-rated abilities
+ *     (`resources`, `circles`). Pinning Nature implicitly also
+ *     surfaces the "Tap Nature" companion button so the most-frequent
+ *     player decision (tax untaxed Nature) stays one click away.
+ *   - `kind: "skill"` — any skill from the canonical catalog
+ *     (`./skills.ts`), keyed by id. Lets a Pathfinder pin Pathfinder,
+ *     a Scholar pin Scholar, etc., without needing to open the
+ *     Abilities & Skills tab to roll.
+ *
+ * Stored on the character (not on a per-tab sentinel) so the pin
+ * follows the character across sessions and is visible to any user
+ * loading the sheet — same reason ratings live on the character.
+ */
+export const PinnedRollAbility = z.enum([
+  "will",
+  "health",
+  "nature",
+  "resources",
+  "circles",
+]);
+
+export const PinnedRollEntry = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("ability"),
+    ability: PinnedRollAbility,
+  }),
+  z.object({
+    kind: z.literal("skill"),
+    skillId: z.string().min(1).max(60),
+  }),
+]);
+
+export type PinnedRollEntryT = z.infer<typeof PinnedRollEntry>;
+
+const DEFAULT_PINNED_ROLLS: PinnedRollEntryT[] = [
+  { kind: "ability", ability: "will" },
+  { kind: "ability", ability: "health" },
+];
+
+/**
+ * Drives the sticky bottom actions bar on the character sheet. The
+ * default — Will + Health — covers the two ability rolls every TB
+ * session opens with; players can pin / unpin from the row's "📌"
+ * toggle on the Abilities & Skills tab.
+ *
+ * Order is preserved so pins render in the order the player added
+ * them (toggle off, toggle back on → moves to the end).
+ */
+export const PinnedRolls = defineTrait({
+  name: "@vtt/system-torchbearer/PinnedRolls",
+  schema: z
+    .object({
+      entries: z.array(PinnedRollEntry).default(DEFAULT_PINNED_ROLLS),
+    })
+    .default({ entries: DEFAULT_PINNED_ROLLS }),
+});
+
+/**
+ * Stable equality test for two pinned-roll entries — used by the
+ * toggle command to find an existing match before deciding whether
+ * to add or remove. Pulled out so the command and the UI can both
+ * use the same key shape.
+ */
+export function pinnedRollKey(e: PinnedRollEntryT): string {
+  if (e.kind === "ability") return `ability:${e.ability}`;
+  return `skill:${e.skillId}`;
+}

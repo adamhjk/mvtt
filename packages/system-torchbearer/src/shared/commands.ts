@@ -34,19 +34,25 @@ import { isKnownSkillId, getSkill } from "./skills.js";
 import {
   AdvancementLogged as AdvancementLoggedTrait,
   CharacterTraits,
+  PinnedRolls,
+  PinnedRollEntry,
+  pinnedRollKey,
   RawAbilities,
   SkillImprovementOpportunity,
   SkillLearningOpportunity,
   Skills,
   TownAbilities,
   TraitUsageLogged as TraitUsageLoggedTrait,
+  type PinnedRollEntryT,
 } from "./traits.js";
 import {
   AdvancementLogged,
+  PinnedRollToggled,
   SkillImproved,
   SkillImprovementOpened,
   SkillLearned,
   SkillLearningOpened,
+  SpecialtySkillSet,
   TraitUsageLogged,
 } from "./events.js";
 import { TbRollMetaSchema, type TbRollModifier, type TbRollSpec } from "./roll-spec.js";
@@ -1083,3 +1089,92 @@ function parseTraitProvidedBy(
   }
   return null;
 }
+
+/**
+ * Editor-gated: pick (or clear) the character's specialty skill. The
+ * pick is single-select — `skillId: null` clears, any valid skill id
+ * replaces the prior choice. The validator only confirms the skill id
+ * is from the canonical catalog so a malicious client can't store
+ * garbage. The mirror system is what actually writes the trait.
+ */
+export const SetSpecialtySkill = defineCommand({
+  name: "@vtt/system-torchbearer/SetSpecialtySkill",
+  schema: z.object({
+    characterId: EntityId,
+    skillId: z.string().min(1).max(60).nullable(),
+  }),
+  validate: (ctx) => {
+    if (!requireSession(ctx)) return fail("not authenticated");
+    if (!ctx.world.has(ctx.cmd.characterId)) {
+      return fail(`character ${ctx.cmd.characterId} does not exist`);
+    }
+    if (!ctx.world.get(ctx.cmd.characterId, [Character])) {
+      return fail(`entity ${ctx.cmd.characterId} is not a character`);
+    }
+    if (ctx.cmd.skillId !== null && !isKnownSkillId(ctx.cmd.skillId)) {
+      return fail(`unknown skill: ${ctx.cmd.skillId}`);
+    }
+    return requireWrite(ctx, ctx.cmd.characterId);
+  },
+  apply: ({ cmd }) => [
+    SpecialtySkillSet({
+      characterId: cmd.characterId,
+      skillId: cmd.skillId,
+      setAt: Date.now(),
+    }),
+  ],
+});
+
+/**
+ * Editor-gated: flip pin state for one ability/skill on the bottom
+ * actions bar. Reads the current `PinnedRolls` to decide whether the
+ * toggle is an add or a remove and emits the resolved `pinned`
+ * boolean on the event so the mirror system stays read-free.
+ *
+ * Validator rejects unknown skill ids (catalog drift safety) and
+ * unknown abilities (the schema's enum already enforces this for
+ * `kind: "ability"`, but defending again here makes the failure
+ * mode explicit instead of a generic schema parse error).
+ */
+export const TogglePinnedRoll = defineCommand({
+  name: "@vtt/system-torchbearer/TogglePinnedRoll",
+  schema: z.object({
+    characterId: EntityId,
+    entry: PinnedRollEntry,
+  }),
+  validate: (ctx) => {
+    if (!requireSession(ctx)) return fail("not authenticated");
+    if (!ctx.world.has(ctx.cmd.characterId)) {
+      return fail(`character ${ctx.cmd.characterId} does not exist`);
+    }
+    if (!ctx.world.get(ctx.cmd.characterId, [Character])) {
+      return fail(`entity ${ctx.cmd.characterId} is not a character`);
+    }
+    if (
+      ctx.cmd.entry.kind === "skill"
+      && !isKnownSkillId(ctx.cmd.entry.skillId)
+    ) {
+      return fail(`unknown skill: ${ctx.cmd.entry.skillId}`);
+    }
+    return requireWrite(ctx, ctx.cmd.characterId);
+  },
+  apply: ({ cmd, world }) => {
+    const got = world.get(cmd.characterId as EntityId, [PinnedRolls]) as
+      | { PinnedRolls: { entries: PinnedRollEntryT[] } }
+      | undefined;
+    const current = got?.PinnedRolls.entries ?? [
+      { kind: "ability", ability: "will" } as PinnedRollEntryT,
+      { kind: "ability", ability: "health" } as PinnedRollEntryT,
+    ];
+    const targetKey = pinnedRollKey(cmd.entry);
+    const isPinned = current.some((e) => pinnedRollKey(e) === targetKey);
+    return [
+      PinnedRollToggled({
+        characterId: cmd.characterId,
+        entry: cmd.entry,
+        pinned: !isPinned,
+        toggledAt: Date.now(),
+      }),
+    ];
+  },
+});

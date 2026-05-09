@@ -16,7 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { qualifiedName, type CommandInstance } from "@vtt/substrate";
-import { useClient } from "@vtt/substrate/client";
+import { useClient, useTrait } from "@vtt/substrate/client";
 import { kit } from "@vtt/characters/client";
 import { useTraitPath } from "@vtt/substrate/client";
 import type { CharacterSheetTab } from "@vtt/characters/shared";
@@ -28,14 +28,19 @@ import {
   LearnSkill,
   OpenSkillImprovement,
   OpenSkillLearning,
+  PinnedRolls,
+  pinnedRollKey,
   RawAbilities,
   ResourcesCheck,
   CirclesCheck,
+  SetSpecialtySkill,
   SkillCheck,
   Skills,
+  TogglePinnedRoll,
   TownAbilities,
   WillCheck,
   NatureCheck,
+  type PinnedRollEntryT,
   type SkillEntry,
 } from "../shared/index.js";
 
@@ -44,10 +49,6 @@ import {
  * raw abilities (Will / Health / Nature) with rating + advancement,
  * then the four town abilities, then the full alphabetical skill list
  * (DH 33 + LMM 8 = 41 skills, no source-book sub-headers).
- *
- * Levels & Benefits is folded in as a labeled sub-section at the
- * bottom — it's the per-character advancement reference and belongs
- * adjacent to the per-skill P/F tracks.
  *
  * Each row's P/F bubbles come from the `kit.AdvancementTrack`
  * primitive: bubble counts are derived from the rating via the
@@ -91,13 +92,6 @@ function AbilitiesSkillsTab(props: { characterId: string }): JSX.Element {
           </For>
         </kit.SheetGroup>
       </kit.SheetSection>
-
-      <kit.SheetSection title="Levels & Benefits">
-        <p style={{ "font-size": "0.85rem", color: "var(--color-fg-muted)", margin: 0 }}>
-          Per-level benefits and F/P advancement totals (DH p.89). Fills with the
-          live-tracked-per-level UI in the next pass.
-        </p>
-      </kit.SheetSection>
     </div>
   );
 }
@@ -125,6 +119,10 @@ function AbilityRow(props: {
         "min-width": 0,
       }}
     >
+      <PinToggleButton
+        characterId={props.characterId}
+        entry={{ kind: "ability", ability: props.kind }}
+      />
       <kit.RollableLabel
         characterId={props.characterId}
         rollable={props.rollable}
@@ -174,6 +172,10 @@ function NatureRow(props: { characterId: string }): JSX.Element {
         "min-width": 0,
       }}
     >
+      <PinToggleButton
+        characterId={props.characterId}
+        entry={{ kind: "ability", ability: "nature" }}
+      />
       <kit.RollableLabel characterId={props.characterId} rollable={NatureCheck.name}>
         <span
           style={{
@@ -241,6 +243,10 @@ function TownRatedRow(props: {
         "min-width": 0,
       }}
     >
+      <PinToggleButton
+        characterId={props.characterId}
+        entry={{ kind: "ability", ability: props.kind }}
+      />
       <kit.RollableLabel
         characterId={props.characterId}
         rollable={props.rollable}
@@ -420,6 +426,15 @@ function SkillRow(props: { characterId: string; skill: SkillEntry }): JSX.Elemen
         "min-width": 0,
       }}
     >
+      <PinToggleButton
+        characterId={props.characterId}
+        entry={{ kind: "skill", skillId: props.skill.id }}
+      />
+      <SpecialtyToggleButton
+        characterId={props.characterId}
+        skillId={props.skill.id}
+        skillName={props.skill.name}
+      />
       <kit.RollableLabel
         characterId={props.characterId}
         rollable={SkillCheck.name}
@@ -552,6 +567,127 @@ function LearningTrack(props: {
         </button>
       </Show>
     </div>
+  );
+}
+
+/**
+ * Pin / unpin toggle for one ability or skill. Reads the live
+ * `PinnedRolls` trait to decide visual state (filled vs outline) and
+ * dispatches `TogglePinnedRoll` on click. Hidden for non-editors so
+ * non-owners don't think they can rearrange another player's bar.
+ */
+function PinToggleButton(props: {
+  characterId: string;
+  entry: PinnedRollEntryT;
+}): JSX.Element {
+  const client = useClient();
+  const canEdit = kit.useCanEdit(props.characterId);
+  const pinned = useTrait(props.characterId, PinnedRolls);
+  const isPinned = createMemo<boolean>(() => {
+    const v = pinned();
+    const entries = v?.entries ?? [
+      { kind: "ability", ability: "will" } as PinnedRollEntryT,
+      { kind: "ability", ability: "health" } as PinnedRollEntryT,
+    ];
+    const targetKey = pinnedRollKey(props.entry);
+    return entries.some((e) => pinnedRollKey(e) === targetKey);
+  });
+  const labelFor = (entry: PinnedRollEntryT): string =>
+    entry.kind === "ability" ? entry.ability : entry.skillId;
+  const toggle = () => {
+    if (!canEdit()) return;
+    client.dispatch(
+      TogglePinnedRoll({
+        characterId: props.characterId,
+        entry: props.entry,
+      }) as CommandInstance,
+    );
+  };
+  return (
+    <Show when={canEdit()}>
+      <button
+        type="button"
+        title={isPinned() ? `Unpin ${labelFor(props.entry)} from actions bar` : `Pin ${labelFor(props.entry)} to actions bar`}
+        aria-label={isPinned() ? `Unpin ${labelFor(props.entry)}` : `Pin ${labelFor(props.entry)}`}
+        aria-pressed={isPinned()}
+        data-testid={`tb-pin-toggle-${props.entry.kind}-${labelFor(props.entry)}`}
+        onClick={toggle}
+        style={{
+          display: "inline-flex",
+          "align-items": "center",
+          "justify-content": "center",
+          "min-width": "1.2rem",
+          height: "1.2rem",
+          padding: 0,
+          border: "none",
+          background: "transparent",
+          cursor: "pointer",
+          "font-family": "var(--font-display)",
+          "font-size": "0.85rem",
+          "font-weight": "600",
+          "line-height": 1,
+          color: isPinned() ? "var(--color-fg)" : "var(--color-fg-muted)",
+          opacity: isPinned() ? 1 : 0.4,
+        }}
+      >
+        {isPinned() ? "■" : "□"}
+      </button>
+    </Show>
+  );
+}
+
+/**
+ * Specialty toggle for one skill. Single-select across the character's
+ * skill list — clicking a different skill's button replaces the
+ * previous specialty automatically (the command sets, doesn't add).
+ * Hidden for non-editors.
+ */
+function SpecialtyToggleButton(props: {
+  characterId: string;
+  skillId: string;
+  skillName: string;
+}): JSX.Element {
+  const client = useClient();
+  const canEdit = kit.useCanEdit(props.characterId);
+  const specialty = useTraitPath(props.characterId, Skills, ["specialtySkillId"]);
+  const isSpecialty = createMemo<boolean>(() => specialty() === props.skillId);
+  const toggle = () => {
+    if (!canEdit()) return;
+    client.dispatch(
+      SetSpecialtySkill({
+        characterId: props.characterId,
+        skillId: isSpecialty() ? null : props.skillId,
+      }) as CommandInstance,
+    );
+  };
+  return (
+    <Show when={canEdit()}>
+      <button
+        type="button"
+        title={isSpecialty() ? `Clear ${props.skillName} as specialty` : `Mark ${props.skillName} as specialty`}
+        aria-label={isSpecialty() ? `Clear ${props.skillName} specialty` : `Mark ${props.skillName} specialty`}
+        aria-pressed={isSpecialty()}
+        data-testid={`tb-specialty-toggle-${props.skillId}`}
+        onClick={toggle}
+        style={{
+          display: "inline-flex",
+          "align-items": "center",
+          "justify-content": "center",
+          "min-width": "1.2rem",
+          height: "1.2rem",
+          padding: 0,
+          border: "none",
+          background: "transparent",
+          cursor: "pointer",
+          "font-size": "0.95rem",
+          "line-height": 1,
+          color: isSpecialty() ? "var(--color-fg)" : "var(--color-fg-muted)",
+          opacity: isSpecialty() ? 1 : 0.4,
+        }}
+      >
+        {isSpecialty() ? "★" : "☆"}
+      </button>
+    </Show>
   );
 }
 

@@ -16,6 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineEvent, EntityId, z } from "@vtt/substrate";
+import { PinnedRollEntry } from "./traits.js";
 
 /**
  * Emitted by `OpenSkillImprovement` once the validator confirmed the
@@ -279,3 +280,39 @@ export const OfCourseSpent = defineEvent({
   }),
 });
 
+/* -------------------------------------------------------------------------
+ * SpecialtySkillSet — emitted when a player picks (or clears) the
+ * single skill marked as their specialty (DH burning step).
+ * ----------------------------------------------------------------------- */
+
+export const SpecialtySkillSet = defineEvent({
+  name: "@vtt/system-torchbearer/SpecialtySkillSet",
+  schema: z.object({
+    characterId: EntityId,
+    /** Null clears the specialty. Strings are validated as known skill ids. */
+    skillId: z.string().min(1).max(60).nullable(),
+    /** Unix millis stamped by the command's apply. */
+    setAt: z.number(),
+  }),
+});
+
+/* -------------------------------------------------------------------------
+ * PinnedRollToggled — emitted by `TogglePinnedRoll` when the player
+ * pins or unpins an ability/skill in the bottom actions bar.
+ * ----------------------------------------------------------------------- */
+
+export const PinnedRollToggled = defineEvent({
+  name: "@vtt/system-torchbearer/PinnedRollToggled",
+  schema: z.object({
+    characterId: EntityId,
+    entry: PinnedRollEntry,
+    /**
+     * Resolved at apply-time by the command (it reads the current pin
+     * state to decide). Carrying it on the event keeps the system
+     * deterministic without needing the system to re-read.
+     */
+    pinned: z.boolean(),
+    /** Unix millis stamped by the command's apply. */
+    toggledAt: z.number(),
+  }),
+});

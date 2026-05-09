@@ -18,12 +18,14 @@
 export {
   AdvancementLoggedSystem,
   FreshCancellationSystem,
+  PinnedRollToggledSystem,
   SkillImprovedSystem,
   SkillImprovementOpenedSystem,
   SkillLearnedSystem,
   SkillLearningOpenedSystem,
   SkillLearningSweepSystem,
   SkillOpportunitySweepSystem,
+  SpecialtySkillSetSystem,
   TraitUsageLoggedSystem,
 } from "./systems.js";
 export {

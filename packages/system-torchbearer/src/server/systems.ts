@@ -20,22 +20,27 @@ import { Permissions, everyone, gmOnly } from "@vtt/permissions/shared";
 import { Character, CharacterFieldSet } from "@vtt/characters/shared";
 import {
   AdvancementLogged,
+  PinnedRollToggled,
   SkillImproved,
   SkillImprovementOpened,
   SkillLearned,
   SkillLearningOpened,
+  SpecialtySkillSet,
   TraitUsageLogged,
 } from "../shared/events.js";
 import {
   AdvancementLogged as AdvancementLoggedTrait,
   CharacterTraits,
   Conditions,
+  PinnedRolls,
+  pinnedRollKey,
   RawAbilities,
   SkillImprovementOpportunity,
   SkillLearningOpportunity,
   Skills,
   TownAbilities,
   TraitUsageLogged as TraitUsageLoggedTrait,
+  type PinnedRollEntryT,
 } from "../shared/traits.js";
 import { getSkill } from "../shared/skills.js";
 
@@ -732,6 +737,85 @@ export const TraitUsageLoggedSystem = defineSystem({
         : e,
     );
     world.set(event.characterId, CharacterTraits, { entries: nextEntries });
+    return [];
+  },
+});
+
+/**
+ * Universal mirror: write the character's specialty skill onto Skills.
+ * Single-select — the new value just replaces the old one. Reads the
+ * current Skills trait so other fields (entries, advancement, etc.)
+ * survive the update.
+ */
+export const SpecialtySkillSetSystem = defineSystem({
+  name: "SpecialtySkillSet",
+  on: SpecialtySkillSet,
+  reads: [Character, Skills],
+  writes: [Skills],
+  run: ({ event, world }) => {
+    if (!world.has(event.characterId)) return [];
+    const got = world.get(event.characterId, [Skills]) as
+      | {
+          Skills: {
+            entries: Record<
+              string,
+              {
+                rating: number;
+                advancement: { pass: number; fail: number };
+                taxed: boolean;
+                learningTests: number;
+              }
+            >;
+            specialtySkillId: string | null;
+          };
+        }
+      | undefined;
+    if (!got) return [];
+    if (got.Skills.specialtySkillId === event.skillId) return [];
+    world.set(event.characterId, Skills, {
+      entries: got.Skills.entries,
+      specialtySkillId: event.skillId,
+    });
+    return [];
+  },
+});
+
+/**
+ * Universal mirror: add or remove a pinned-roll entry from PinnedRolls
+ * based on the event's `pinned` flag. The command's apply already
+ * resolved which way the toggle should go (against the world it saw),
+ * so the system trusts that signal and computes the next array
+ * directly: pin → append (after stripping any duplicate), unpin →
+ * filter out by key. New characters with no PinnedRolls trait get
+ * seeded from the schema default before the toggle is applied.
+ */
+const DEFAULT_PINNED_FOR_TOGGLE: PinnedRollEntryT[] = [
+  { kind: "ability", ability: "will" },
+  { kind: "ability", ability: "health" },
+];
+
+export const PinnedRollToggledSystem = defineSystem({
+  name: "PinnedRollToggled",
+  on: PinnedRollToggled,
+  reads: [Character, PinnedRolls],
+  writes: [PinnedRolls],
+  run: ({ event, world }) => {
+    if (!world.has(event.characterId)) return [];
+    if (!world.get(event.characterId, [Character])) return [];
+    const got = world.get(event.characterId, [PinnedRolls]) as
+      | { PinnedRolls: { entries: PinnedRollEntryT[] } }
+      | undefined;
+    const current = got?.PinnedRolls.entries ?? DEFAULT_PINNED_FOR_TOGGLE;
+    const targetKey = pinnedRollKey(event.entry);
+    const without = current.filter((e) => pinnedRollKey(e) !== targetKey);
+    const next = event.pinned ? [...without, event.entry] : without;
+    if (
+      next.length === current.length
+      && next.every((e, i) => pinnedRollKey(e) === pinnedRollKey(current[i]!))
+    ) {
+      return [];
+    }
+    world.set(event.characterId, PinnedRolls, { entries: next });
     return [];
   },
 });

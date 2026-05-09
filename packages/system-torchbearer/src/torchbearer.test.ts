@@ -65,10 +65,12 @@ import {
   LORE_MASTER_SKILLS,
   NatureCheck,
   OpenSkillImprovement,
+  PinnedRolls,
   Pools,
   RawAbilities,
   Relics,
   ResourcesCheck,
+  SetSpecialtySkill,
   SkillCheck,
   SkillImproved,
   SkillImprovementOpened,
@@ -79,6 +81,7 @@ import {
   SkillLearningOpened,
   SkillLearningOpportunity,
   Skills,
+  TogglePinnedRoll,
   TOWN_SKILLS,
   TownAbilities,
   TraitUsageLogged,
@@ -6407,4 +6410,208 @@ describe("Pre-roll spend → commit-time debit", () => {
     const spends = got!.RollSpends.entries;
     expect(spends.find((e) => e.kind === "persona-dice")?.cost).toBe(2);
   });
+});
+
+/* -------------------------------------------------------------------------
+ * SetSpecialtySkill — single-select specialty marker on Skills trait
+ * ----------------------------------------------------------------------- */
+
+describe("SetSpecialtySkill command", () => {
+  it("sets specialtySkillId on Skills when given a known skill id", async () => {
+    const h = buildImprovementHarness();
+    await spawnImproveCharacter(h.pipeline, h.registry, { skillId: "scout" });
+    const id = h.world.query([Character])[0]!.id;
+    const r = await h.pipeline.dispatch({
+      id: "c-spec-1",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: SetSpecialtySkill({ characterId: id, skillId: "scout" }) as CommandInstance,
+    });
+    expect(r.result.ok).toBe(true);
+    const got = h.world.get(id, [Skills]) as
+      | { Skills: { specialtySkillId: string | null } }
+      | undefined;
+    expect(got?.Skills.specialtySkillId).toBe("scout");
+  });
+
+  it("replaces a prior pick when called with a different skill", async () => {
+    const h = buildImprovementHarness();
+    await spawnImproveCharacter(h.pipeline, h.registry, { skillId: "scout" });
+    const id = h.world.query([Character])[0]!.id;
+    await h.pipeline.dispatch({
+      id: "c-spec-2a",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: SetSpecialtySkill({ characterId: id, skillId: "scout" }) as CommandInstance,
+    });
+    await h.pipeline.dispatch({
+      id: "c-spec-2b",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: SetSpecialtySkill({
+        characterId: id,
+        skillId: "fighter",
+      }) as CommandInstance,
+    });
+    const got = h.world.get(id, [Skills]) as
+      | { Skills: { specialtySkillId: string | null } }
+      | undefined;
+    expect(got?.Skills.specialtySkillId).toBe("fighter");
+  });
+
+  it("clears specialtySkillId when given null", async () => {
+    const h = buildImprovementHarness();
+    await spawnImproveCharacter(h.pipeline, h.registry, { skillId: "scout" });
+    const id = h.world.query([Character])[0]!.id;
+    await h.pipeline.dispatch({
+      id: "c-spec-3a",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: SetSpecialtySkill({ characterId: id, skillId: "scout" }) as CommandInstance,
+    });
+    await h.pipeline.dispatch({
+      id: "c-spec-3b",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: SetSpecialtySkill({ characterId: id, skillId: null }) as CommandInstance,
+    });
+    const got = h.world.get(id, [Skills]) as
+      | { Skills: { specialtySkillId: string | null } }
+      | undefined;
+    expect(got?.Skills.specialtySkillId).toBeNull();
+  });
+
+  it("rejects an unknown skill id", async () => {
+    const h = buildImprovementHarness();
+    await spawnImproveCharacter(h.pipeline, h.registry);
+    const id = h.world.query([Character])[0]!.id;
+    const r = await h.pipeline.dispatch({
+      id: "c-spec-4",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: SetSpecialtySkill({
+        characterId: id,
+        skillId: "not-a-real-skill",
+      }) as CommandInstance,
+    });
+    expect(r.result.ok).toBe(false);
+    expect((r.result as { ok: false; reason: string }).reason).toMatch(/unknown skill/);
+  });
+
+});
+
+/* -------------------------------------------------------------------------
+ * TogglePinnedRoll — pin / unpin abilities or skills on the actions bar
+ * ----------------------------------------------------------------------- */
+
+describe("TogglePinnedRoll command", () => {
+  function readPinned(world: World, id: string): Array<{ kind: string }> {
+    const got = world.get(id as Parameters<World["get"]>[0], [PinnedRolls]) as
+      | { PinnedRolls: { entries: Array<{ kind: string }> } }
+      | undefined;
+    return got?.PinnedRolls.entries ?? [];
+  }
+
+  it("pins a skill that wasn't previously pinned", async () => {
+    const h = buildImprovementHarness();
+    await spawnImproveCharacter(h.pipeline, h.registry);
+    const id = h.world.query([Character])[0]!.id;
+    const r = await h.pipeline.dispatch({
+      id: "c-pin-1",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: TogglePinnedRoll({
+        characterId: id,
+        entry: { kind: "skill", skillId: "scout" },
+      }) as CommandInstance,
+    });
+    expect(r.result.ok).toBe(true);
+    const entries = readPinned(h.world, id) as Array<
+      | { kind: "ability"; ability: string }
+      | { kind: "skill"; skillId: string }
+    >;
+    // Defaults (Will + Health) survive; Scout appears at the end.
+    expect(entries).toEqual([
+      { kind: "ability", ability: "will" },
+      { kind: "ability", ability: "health" },
+      { kind: "skill", skillId: "scout" },
+    ]);
+  });
+
+  it("unpins a default ability (Will → off)", async () => {
+    const h = buildImprovementHarness();
+    await spawnImproveCharacter(h.pipeline, h.registry);
+    const id = h.world.query([Character])[0]!.id;
+    const r = await h.pipeline.dispatch({
+      id: "c-pin-2",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: TogglePinnedRoll({
+        characterId: id,
+        entry: { kind: "ability", ability: "will" },
+      }) as CommandInstance,
+    });
+    expect(r.result.ok).toBe(true);
+    const entries = readPinned(h.world, id);
+    expect(entries).toEqual([{ kind: "ability", ability: "health" }]);
+  });
+
+  it("toggles cleanly: pin then unpin restores the default", async () => {
+    const h = buildImprovementHarness();
+    await spawnImproveCharacter(h.pipeline, h.registry);
+    const id = h.world.query([Character])[0]!.id;
+    await h.pipeline.dispatch({
+      id: "c-pin-3a",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: TogglePinnedRoll({
+        characterId: id,
+        entry: { kind: "ability", ability: "nature" },
+      }) as CommandInstance,
+    });
+    expect(readPinned(h.world, id)).toHaveLength(3);
+    await h.pipeline.dispatch({
+      id: "c-pin-3b",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: TogglePinnedRoll({
+        characterId: id,
+        entry: { kind: "ability", ability: "nature" },
+      }) as CommandInstance,
+    });
+    const entries = readPinned(h.world, id);
+    expect(entries).toEqual([
+      { kind: "ability", ability: "will" },
+      { kind: "ability", ability: "health" },
+    ]);
+  });
+
+  it("rejects an unknown skill id", async () => {
+    const h = buildImprovementHarness();
+    await spawnImproveCharacter(h.pipeline, h.registry);
+    const id = h.world.query([Character])[0]!.id;
+    const r = await h.pipeline.dispatch({
+      id: "c-pin-4",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: TogglePinnedRoll({
+        characterId: id,
+        entry: { kind: "skill", skillId: "not-a-real-skill" },
+      }) as CommandInstance,
+    });
+    expect(r.result.ok).toBe(false);
+    expect((r.result as { ok: false; reason: string }).reason).toMatch(/unknown skill/);
+  });
+
 });
