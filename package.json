@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "typecheck": "pnpm -r typecheck",
     "license:apply": "node scripts/apply-license-header.mjs",
+    "deploy": "deploy/deploy.sh",
     "reset": "rm -rf data && echo 'cleared local data — next start will prompt to create the Game Master'"
   },
   "devDependencies": {

@@ -1,0 +1,11 @@
+# Caddy reverse-proxy for mvtt.
+#
+# Drop this in /etc/caddy/Caddyfile (or import it from there) and
+# replace mvtt.example.com with your domain. Caddy will obtain and
+# renew a Let's Encrypt cert automatically. `reverse_proxy` upgrades
+# WebSocket connections out of the box, so /ws needs no special block.
+
+mvtt.example.com {
+	encode zstd gzip
+	reverse_proxy localhost:3001
+}
