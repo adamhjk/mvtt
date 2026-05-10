@@ -72,6 +72,20 @@ pnpm --filter @vtt/server start    # serves /, /assets/*, and /ws on :3001
 
 ## Conventions
 
+### Backwards compatibility — we have users now
+
+mvtt is in production. Real people have characters, scenes, rolls, and uploaded assets in their databases. **Their data must survive every change you make.** The old "if it breaks, `pnpm reset`" reflex is dead — that wipes someone's campaign.
+
+Three shape-change surfaces, each with a required pattern:
+
+- **Trait shape changes.** When you add, rename, or remove a field on a trait that's already in use, the world is full of values written under the old shape. `world.get` returns those values without re-parsing, so legacy data flows straight into your code. Either (a) write an upgrade pass — a one-shot system that reads old-shape values, normalizes them, and writes the new shape via `world.set` plus the appropriate event so replicas converge — or (b) make your readers defensively normalize at the point of use. Schema changes alone don't migrate anything.
+
+- **Event payload changes.** Events are persisted in `world_event` with a `payloadVersion` column (see `packages/persistence-sqlite/src/index.ts`). When you change a payload, bump the version on the event definer and accept both shapes during replay: the schema parser should upgrade old payloads to new-shape values, or your replay path should branch on `payloadVersion`. Old logs replay forever; new code must be able to read them.
+
+- **Database schema changes.** The `migrate()` methods in `packages/persistence-sqlite/src/{index,worlds}.ts` are the canonical pattern. New tables: `CREATE TABLE IF NOT EXISTS`. New columns: `ALTER TABLE ADD COLUMN` wrapped in a duplicate-column-error catch (STRICT tables). The `visibility` column rollout in `index.ts:91-100` is a working example. **Additive only.** Never drop a column or rewrite existing rows in place; if you need to backfill, ship the backfill as a separate forward-only step.
+
+Diagnose stale-shape errors as bugs, not as setup issues to be wiped. `pnpm reset` is still a developer convenience for *local* dev fixtures — never assume your users have that option.
+
 ### Plugin-namespaced names are branded
 
 Every trait, event, and command is named `@scope/plugin/Type` and the substrate brands the name into one of `TraitName`, `EventName`, `CommandName` — these are **not interchangeable** at the type level. Always go through the definers (`defineTrait`, `defineEvent`, `defineCommand`); never construct names by hand.
