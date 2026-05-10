@@ -15,70 +15,132 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { Show, type JSX } from "solid-js";
+import {
+  createEffect,
+  createSignal,
+  For,
+  onMount,
+  Show,
+  type JSX,
+} from "solid-js";
 
 export type MobileMode = "character" | "chat";
 
+export type NavTab = {
+  id: string;
+  label: string;
+  icon?: JSX.Element;
+  badge?: boolean;
+};
+
 /**
- * Bottom segmented control — two segments for Character and Chat.
- * `hasPendingRoll` shows a pulsing accent dot on the chat segment
- * to draw attention to an active roll.
+ * Bottom navigation bar with horizontally scrollable tabs.
+ *
+ * Renders tabs in a scrollable segmented control. When tabs overflow
+ * the container, subtle fade indicators appear on the edges that have
+ * more content. The active tab auto-scrolls into view on change.
  */
 export function MobileNav(props: {
-  mode: MobileMode;
-  onModeChange: (mode: MobileMode) => void;
-  hasPendingRoll: boolean;
+  tabs: NavTab[];
+  activeTab: string;
+  onTabChange: (id: string) => void;
 }): JSX.Element {
+  let scrollRef: HTMLDivElement | undefined;
+  const [showLeftFade, setShowLeftFade] = createSignal(false);
+  const [showRightFade, setShowRightFade] = createSignal(false);
+
+  const updateFades = () => {
+    if (!scrollRef) return;
+    const { scrollLeft, scrollWidth, clientWidth } = scrollRef;
+    setShowLeftFade(scrollLeft > 4);
+    setShowRightFade(scrollLeft + clientWidth < scrollWidth - 4);
+  };
+
+  onMount(updateFades);
+
+  // Auto-scroll active tab into view when it changes
+  createEffect(() => {
+    const activeId = props.activeTab;
+    if (!scrollRef) return;
+    const el = scrollRef.querySelector(
+      `[data-tab-id="${activeId}"]`,
+    ) as HTMLElement | null;
+    el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  });
+
   return (
     <nav
       class="flex shrink-0 items-center justify-center border-t border-border bg-surface px-4 py-2"
-      style={{ "padding-bottom": "calc(0.5rem + env(safe-area-inset-bottom, 0px))" }}
+      style={{
+        "padding-bottom": "calc(0.5rem + env(safe-area-inset-bottom, 0px))",
+      }}
     >
-      <div class="flex w-full max-w-xs rounded-(--radius-card) border border-border bg-surface-sunken p-1">
-        <button
-          type="button"
-          onClick={() => props.onModeChange("character")}
-          class="flex flex-1 items-center justify-center gap-2 rounded-(--radius-control) px-4 py-2 text-sm font-medium transition"
-          classList={{
-            "bg-surface-elevated text-fg shadow-sm": props.mode === "character",
-            "text-fg-muted hover:text-fg": props.mode !== "character",
+      <div class="relative w-full max-w-xs">
+        {/* Left fade indicator */}
+        <Show when={showLeftFade()}>
+          <div
+            class="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 rounded-l-(--radius-card)"
+            style={{
+              background:
+                "linear-gradient(to right, var(--color-surface-sunken), transparent)",
+            }}
+            data-testid="nav-fade-left"
+          />
+        </Show>
+
+        {/* Scrollable tab container */}
+        <div
+          ref={scrollRef}
+          class="mobile-nav-scroll flex rounded-(--radius-card) border border-border bg-surface-sunken p-1 overflow-x-auto"
+          style={{
+            "-webkit-overflow-scrolling": "touch",
+            "scrollbar-width": "none",
           }}
-          aria-pressed={props.mode === "character"}
+          onScroll={updateFades}
+          data-testid="nav-scroll-container"
         >
-          {/* Person icon */}
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-7 8a7 7 0 0114 0H3z" />
-          </svg>
-          <span>Character</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => props.onModeChange("chat")}
-          class="relative flex flex-1 items-center justify-center gap-2 rounded-(--radius-control) px-4 py-2 text-sm font-medium transition"
-          classList={{
-            "bg-surface-elevated text-fg shadow-sm": props.mode === "chat",
-            "text-fg-muted hover:text-fg": props.mode !== "chat",
-          }}
-          aria-pressed={props.mode === "chat"}
-        >
-          {/* Chat bubble icon */}
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fill-rule="evenodd"
-              d="M18 10c0 3.866-3.582 7-8 7a8.84 8.84 0 01-3.9-.9L2 18l1.338-3.123C2.493 13.587 2 12.33 2 11c0-3.866 3.582-7 8-7s8 3.134 8 7z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          <span>Chat</span>
-          {/* Pending roll indicator */}
-          <Show when={props.hasPendingRoll}>
-            <span
-              class="absolute right-3 top-1.5 h-2.5 w-2.5 rounded-full bg-accent"
-              style={{ animation: "mobile-shell-pulse 2s ease-in-out infinite" }}
-              aria-label="Pending roll active"
-            />
-          </Show>
-        </button>
+          <For each={props.tabs}>
+            {(tab) => (
+              <button
+                type="button"
+                data-tab-id={tab.id}
+                onClick={() => props.onTabChange(tab.id)}
+                class="relative flex shrink-0 flex-1 items-center justify-center gap-2 rounded-(--radius-control) px-4 py-2 text-sm font-medium transition"
+                classList={{
+                  "bg-surface-elevated text-fg shadow-sm":
+                    props.activeTab === tab.id,
+                  "text-fg-muted hover:text-fg": props.activeTab !== tab.id,
+                }}
+                aria-pressed={props.activeTab === tab.id}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+                {/* Badge indicator */}
+                <Show when={tab.badge}>
+                  <span
+                    class="absolute right-3 top-1.5 h-2.5 w-2.5 rounded-full bg-accent"
+                    style={{
+                      animation: "mobile-shell-pulse 2s ease-in-out infinite",
+                    }}
+                    aria-label="Badge active"
+                  />
+                </Show>
+              </button>
+            )}
+          </For>
+        </div>
+
+        {/* Right fade indicator */}
+        <Show when={showRightFade()}>
+          <div
+            class="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 rounded-r-(--radius-card)"
+            style={{
+              background:
+                "linear-gradient(to left, var(--color-surface-sunken), transparent)",
+            }}
+            data-testid="nav-fade-right"
+          />
+        </Show>
       </div>
     </nav>
   );

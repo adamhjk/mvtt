@@ -39,7 +39,7 @@ import {
 } from "solid-js";
 import { shouldUseMobileShell } from "./detect.js";
 import { MobileHeader } from "./MobileHeader.js";
-import { MobileNav, type MobileMode } from "./MobileNav.js";
+import { MobileNav, type MobileMode, type NavTab } from "./MobileNav.js";
 import { MobileMenu } from "./MobileMenu.js";
 import { PendingRollSheet } from "./PendingRollSheet.js";
 
@@ -48,6 +48,9 @@ const MOBILE_SHELL_CSS = `
 @keyframes mobile-shell-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(0.85); }
+}
+.mobile-nav-scroll::-webkit-scrollbar {
+  display: none;
 }
 `;
 
@@ -179,9 +182,33 @@ export const MobileShellView = defineView({
         </main>
 
         <MobileNav
-          mode={mode()}
-          onModeChange={setMode}
-          hasPendingRoll={hasPendingRoll()}
+          tabs={[
+            {
+              id: "character" as const,
+              label: "Character",
+              icon: (
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-7 8a7 7 0 0114 0H3z" />
+                </svg>
+              ),
+            },
+            {
+              id: "chat" as const,
+              label: "Chat",
+              icon: (
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fill-rule="evenodd"
+                    d="M18 10c0 3.866-3.582 7-8 7a8.84 8.84 0 01-3.9-.9L2 18l1.338-3.123C2.493 13.587 2 12.33 2 11c0-3.866 3.582-7 8-7s8 3.134 8 7z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              ),
+              badge: hasPendingRoll(),
+            },
+          ]}
+          activeTab={mode()}
+          onTabChange={(id) => setMode(id as MobileMode)}
         />
 
         {/* Overlays */}

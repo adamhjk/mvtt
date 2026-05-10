@@ -16,6 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 export { MobileShellView } from "./MobileShell.js";
+export { MobileNav, type NavTab, type MobileMode } from "./MobileNav.js";
 export {
   shouldUseMobileShell,
   getShellPreference,
