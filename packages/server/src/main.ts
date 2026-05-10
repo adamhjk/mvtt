@@ -33,6 +33,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { startServer, WorldsService } from "@vtt/substrate/server";
 import { listGameSystems, resolveActivePlugins, type EntityId, type WorldId, type WorldsRegistry } from "@vtt/substrate";
 import { shellWorkbench } from "@vtt/shell-workbench";
+import { shellMobile } from "@vtt/shell-mobile";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { comms } from "@vtt/comms";
@@ -166,6 +167,7 @@ const ASSETS_MAX_BYTES_BY_MIME: Readonly<Record<string, number>> = {
 // chosen game system's transitive dependsOn).
 const infrastructurePlugins = [
   shellWorkbench,
+  shellMobile,
   identity,
   permissions,
   comms,

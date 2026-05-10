@@ -195,6 +195,9 @@ importers:
       '@vtt/scene':
         specifier: workspace:*
         version: link:../scene
+      '@vtt/shell-mobile':
+        specifier: workspace:*
+        version: link:../shell-mobile
       '@vtt/shell-workbench':
         specifier: workspace:*
         version: link:../shell-workbench
@@ -691,6 +694,9 @@ importers:
       '@vtt/shell-default':
         specifier: workspace:*
         version: link:../shell-default
+      '@vtt/shell-mobile':
+        specifier: workspace:*
+        version: link:../shell-mobile
       '@vtt/shell-workbench':
         specifier: workspace:*
         version: link:../shell-workbench
@@ -728,6 +734,31 @@ importers:
 
   packages/shell-default:
     dependencies:
+      '@vtt/substrate':
+        specifier: workspace:*
+        version: link:../substrate
+      '@vtt/tokens':
+        specifier: workspace:*
+        version: link:../tokens
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      solid-js:
+        specifier: ^1.9.0
+        version: 1.9.12
+
+  packages/shell-mobile:
+    dependencies:
+      '@vtt/characters':
+        specifier: workspace:*
+        version: link:../characters
+      '@vtt/identity':
+        specifier: workspace:*
+        version: link:../identity
+      '@vtt/shell-workbench':
+        specifier: workspace:*
+        version: link:../shell-workbench
       '@vtt/substrate':
         specifier: workspace:*
         version: link:../substrate

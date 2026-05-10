@@ -23,6 +23,7 @@ import {
   type PluginDef,
 } from "@vtt/substrate/client";
 import { shellWorkbench } from "@vtt/shell-workbench";
+import { shellMobile } from "@vtt/shell-mobile";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { comms } from "@vtt/comms";
@@ -59,6 +60,7 @@ const wsProto = location.protocol === "https:" ? "wss" : "ws";
  */
 const ALL_PLUGINS: ReadonlyArray<PluginDef> = [
   shellWorkbench,
+  shellMobile,
   identity,
   permissions,
   comms,
