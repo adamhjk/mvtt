@@ -12,7 +12,7 @@ Alpha. It might eat your data. No guarantees on back-compat. Nobody, including t
 
 ## Usage
 
-No real way to just use it yet. Check back later.
+To self-host, see [Deployment](#deployment) below. To hack on it locally, see [Development](#development).
 
 ## Development
 
@@ -109,6 +109,68 @@ scripts/             license header tooling
 ```
 
 If you're going to write code, read `design/basics.md` and `CLAUDE.md` first — they lay out the substrate, the trust boundary, the plugin model, and the conventions every plugin is expected to follow.
+
+## Deployment
+
+mvtt deploys as a single Node process behind a TLS-terminating reverse proxy. The recommended shape on a Linux box is **systemd + Caddy**: Caddy obtains and renews a Let's Encrypt cert and proxies to the mvtt service on `localhost:3001`. SQLite, the auth secret, and per-world plugin uploads all live under `<checkout>/data/` — there's no external database, no Docker volume, no object storage to wire up.
+
+### Prerequisites on the box
+
+- Node 20+ and pnpm (`corepack enable` is enough)
+- `git`, `systemd`, `sudo`, and a C toolchain (for `better-sqlite3`)
+- **Caddy** — `deploy.sh` configures it but doesn't install it. Use the [official cloudsmith repo](https://caddyserver.com/docs/install#debian-ubuntu-raspbian) on Debian/Ubuntu, `sudo dnf install -y caddy` on Fedora/RHEL, `sudo pacman -S caddy` on Arch.
+
+### Initial deploy
+
+As the user the service should run as (a regular user is fine — it doesn't need to be root, and the data dir lives in the checkout, owned by that user):
+
+```sh
+git clone <this repo> mvtt
+cd mvtt
+pnpm run deploy
+```
+
+The first `pnpm run deploy` copies `deploy/env.example` to `deploy/env` and stops so you can fill it in:
+
+```sh
+$EDITOR deploy/env       # set BETTER_AUTH_URL and TRUSTED_ORIGINS to your https://domain
+pnpm run deploy          # second run installs the systemd unit, configures Caddy, starts both
+```
+
+DNS for the domain has to point at this host before that second run — Caddy requests a Let's Encrypt cert immediately and rate-limits failed attempts.
+
+The first user to sign up after the service comes up becomes the global Game Master.
+
+### Updates
+
+Same command, every time:
+
+```sh
+pnpm run deploy
+```
+
+It's idempotent. The script auto-detects the source directory, the user/group it's invoked as, and the path to `node`, then:
+
+1. `git pull --ff-only` if there's a tracking branch and the working tree is clean
+2. `pnpm install --frozen-lockfile`
+3. `pnpm --filter @vtt/client build`
+4. Re-renders `/etc/systemd/system/mvtt.service` for the current host and writes it only if the rendered content differs (no spurious sudo prompts on a no-op)
+5. `systemctl enable` on first run, then `start` or `restart`
+6. Re-renders `/etc/caddy/Caddyfile` from the domain in `BETTER_AUTH_URL`, writes only on change, and `systemctl reload`s Caddy
+
+If `/etc/caddy/Caddyfile` already exists without the script's marker comment (i.e. you wrote it yourself), the script leaves it alone and prints the block it would have written so you can paste it into your own config.
+
+`sudo` is required for the systemd / `/etc/caddy/` bits; everything else runs as the invoking user. For unattended runs, add a sudoers entry for `systemctl restart mvtt`, `systemctl reload caddy`, and the two `tee` writes.
+
+### Logs and backups
+
+```sh
+journalctl -u mvtt -f                                        # tail logs
+sqlite3 data/mvtt.db ".backup 'data/backup-$(date +%F).db'"  # snapshot the db (WAL-safe)
+rsync -a data/plugin-data/ /backup/plugin-data/              # back up uploads
+```
+
+See [`deploy/README.md`](./deploy/README.md) for the full deploy reference, including overrides for `SOURCE_DIR` / `SERVICE_USER` / `NODE_BIN`.
 
 ## License
 

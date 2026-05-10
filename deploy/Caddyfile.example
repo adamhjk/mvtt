@@ -1,9 +1,14 @@
-# Caddy reverse-proxy for mvtt.
+# Reference Caddyfile for an mvtt deploy.
 #
-# Drop this in /etc/caddy/Caddyfile (or import it from there) and
-# replace mvtt.example.com with your domain. Caddy will obtain and
-# renew a Let's Encrypt cert automatically. `reverse_proxy` upgrades
-# WebSocket connections out of the box, so /ws needs no special block.
+# You normally don't need to write this yourself — `pnpm run deploy`
+# generates and installs an equivalent block at /etc/caddy/Caddyfile,
+# deriving the domain from BETTER_AUTH_URL in deploy/env. This file
+# stays around as a reference and as the source for manual setups
+# where you want to manage the Caddyfile yourself.
+#
+# Caddy's `reverse_proxy` upgrades WebSocket connections out of the
+# box, so /ws needs no special block. TLS is automatic via
+# Let's Encrypt — point your DNS at the box first.
 
 mvtt.example.com {
 	encode zstd gzip

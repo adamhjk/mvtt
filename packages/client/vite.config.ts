@@ -23,6 +23,23 @@ const SERVER_PORT = process.env.SERVER_PORT ?? "3001";
 
 export default defineConfig({
   plugins: [tailwind(), solid()],
+  build: {
+    rollupOptions: {
+      output: {
+        // Keep all of Babylon (and the havok physics plugin) in one
+        // chunk. Rollup's default splitting can land ThinEngine and
+        // its base class AbstractEngine in separate chunks; the child
+        // chunk loads first, evaluates `class ThinEngine extends
+        // AbstractEngine`, and AbstractEngine is still undefined —
+        // producing "Class extends value undefined is not a
+        // constructor" in the production bundle. Co-locating the
+        // whole package in one chunk preserves the inheritance order.
+        manualChunks(id) {
+          if (id.includes("node_modules/@babylonjs/")) return "babylon";
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

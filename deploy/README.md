@@ -22,7 +22,10 @@ so wherever you check the repo out, and as whichever user you run it,
 
 - Node 20+ and pnpm (`corepack enable` is enough)
 - `git`, `systemd`, `sudo`
-- Caddy (or any other TLS-terminating reverse proxy)
+- **Caddy** — the deploy script configures it but doesn't install it.
+  - Debian/Ubuntu: [official cloudsmith repo](https://caddyserver.com/docs/install#debian-ubuntu-raspbian)
+  - Fedora/RHEL: `sudo dnf install -y caddy`
+  - Arch: `sudo pacman -S caddy`
 
 ## Deploy / update
 
@@ -42,28 +45,29 @@ script is idempotent:
    - `git pull --ff-only` if there's a tracking branch and the tree is clean
    - `pnpm install --frozen-lockfile`
    - `pnpm --filter @vtt/client build`
-   - re-renders the systemd unit for the current `(source dir, user, group, node binary)` and writes `/etc/systemd/system/mvtt.service` only if it actually changed (no spurious sudo prompts on a no-op)
+   - re-renders `/etc/systemd/system/mvtt.service` for the current `(source dir, user, group, node binary)` and writes only if it actually changed (no spurious sudo prompts on a no-op)
    - `systemctl enable` on first run, then `systemctl start` or `restart`
+   - re-renders `/etc/caddy/Caddyfile` from the domain in `BETTER_AUTH_URL`, writes only if changed, and `systemctl reload`s Caddy
 
-`sudo` is required for the systemd bits; the rest runs as the invoking
-user. Add a sudoers entry for `systemctl restart mvtt` and
-`tee /etc/systemd/system/mvtt.service` if you want unattended runs.
+DNS for the domain has to point at this host the first time the
+Caddyfile is written — Caddy will request a Let's Encrypt cert
+immediately and rate-limits failed attempts.
 
-## Caddy
-
-Once mvtt is up on `localhost:3001`, point Caddy at it:
-
-```sh
-sudo cp deploy/Caddyfile.example /etc/caddy/Caddyfile
-sudo $EDITOR /etc/caddy/Caddyfile     # set your domain
-sudo systemctl reload caddy
-```
-
-DNS for the domain has to point at this host before reload — Caddy
-will request a cert immediately and rate-limits failed attempts.
+`sudo` is required for the systemd / `/etc/caddy/` bits; the rest
+runs as the invoking user. For unattended runs, add a sudoers entry
+for `systemctl restart mvtt`, `systemctl reload caddy`, and the two
+`tee` writes.
 
 The first user to sign up after the service comes up becomes the
 global game master.
+
+### When the script won't touch Caddy
+
+The script writes a marker comment to the Caddyfile on first install.
+If `/etc/caddy/Caddyfile` already exists *without* that marker (i.e.
+you wrote it yourself), the script leaves it alone, prints the block
+it would have written, and continues. Either delete the file (next run
+regenerates) or paste the printed block into your own config.
 
 ## Logs
 
