@@ -16,7 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import "@testing-library/jest-dom/vitest";
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import {
@@ -124,6 +124,54 @@ describe("kit/Tabs", () => {
     ));
     expect(screen.getByTestId("empty")).toBeInTheDocument();
     expect(screen.queryByRole("tablist")).toBeNull();
+  });
+
+  it("scrolls the bar into view on switch when bar is sticky", () => {
+    // Inside SheetShell the tab bar is `position: sticky` pinned under
+    // the identity header. When the user is scrolled deep into the
+    // previous tab and picks a new one, we want the new tab read from
+    // its top — not from wherever the prior scroll happened to be.
+    // Tabs detects the sticky bar at click time and calls
+    // scrollIntoView({block:'start'}); SheetShell's scroll-margin-top
+    // accounts for the identity bar's height.
+    render(() => (
+      <Tabs
+        tabs={[
+          { id: "a", label: "A", render: () => <p>a</p> },
+          { id: "b", label: "B", render: () => <p>b</p> },
+        ]}
+      />
+    ));
+    const bar = document.querySelector(".vk-tabs__bar") as HTMLElement;
+    bar.style.position = "sticky";
+    const spy = vi.fn();
+    bar.scrollIntoView = spy;
+    fireEvent.click(screen.getByRole("tab", { name: "B" }));
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith({ block: "start" });
+  });
+
+  it("does NOT scroll on switch when bar is static (non-shell consumers)", () => {
+    // Outside SheetShell (or inside it on desktop where the @container
+    // override resets position to static), the bar isn't sticky and the
+    // tab body has its own overflow:auto — switching mounts a fresh
+    // body at scrollTop:0, no scroll-back needed. Calling
+    // scrollIntoView there would yank the page unexpectedly.
+    render(() => (
+      <Tabs
+        tabs={[
+          { id: "a", label: "A", render: () => <p>a</p> },
+          { id: "b", label: "B", render: () => <p>b</p> },
+        ]}
+      />
+    ));
+    const bar = document.querySelector(".vk-tabs__bar") as HTMLElement;
+    // Default: position is "static" (kit's default rule sets nothing,
+    // and jsdom returns "static" via the initial value).
+    const spy = vi.fn();
+    bar.scrollIntoView = spy;
+    fireEvent.click(screen.getByRole("tab", { name: "B" }));
+    expect(spy).not.toHaveBeenCalled();
   });
 
   it("re-mounts the body on each switch (not just toggling visibility)", () => {

@@ -16,7 +16,11 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { onMount, onCleanup, type JSX } from "solid-js";
-import { EditorState, Compartment } from "@codemirror/state";
+import {
+  EditorState,
+  Compartment,
+  RangeSetBuilder,
+} from "@codemirror/state";
 import {
   EditorView,
   keymap,
@@ -25,18 +29,33 @@ import {
   highlightActiveLineGutter,
   drawSelection,
   tooltips,
+  Decoration,
+  WidgetType,
+  ViewPlugin,
+  type ViewUpdate,
+  type DecorationSet,
+  type Command,
 } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { parseCode } from "@lezer/markdown";
 import {
   HighlightStyle,
   syntaxHighlighting,
   bracketMatching,
+  syntaxTree,
+  foldGutter,
+  foldKeymap,
 } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import {
   autocompletion,
+  closeBrackets,
+  closeBracketsKeymap,
   completionKeymap,
+  completionStatus,
+  snippetCompletion,
+  type Completion,
   type CompletionContext,
   type CompletionResult,
 } from "@codemirror/autocomplete";
@@ -49,6 +68,7 @@ import {
   Headings,
 } from "../shared/traits.js";
 import type { EntityId } from "@vtt/substrate";
+import { setdesignParser } from "./setdesign-lezer.js";
 
 /**
  * Solid wrapper around CodeMirror 6. The wiki-link grammar's
@@ -315,10 +335,36 @@ export function CodeMirrorEditor(props: {
           highlightActiveLineGutter(),
           lineNumbers(),
           bracketMatching(),
-          markdown({ base: markdownLanguage }),
+          // `parseCode` plumbs through `@lezer/markdown` so the body
+          // of a ```setdesign fence is parsed by our hand-built
+          // Lezer parser. The resulting subtree carries the
+          // `Setdesign*` node types from `setdesign-lezer.ts`, which
+          // already have styleTags, foldNodeProp, and indentNodeProp
+          // attached — so highlighting, folding, and indent flow
+          // through the markdown language without further wiring.
+          markdown({
+            base: markdownLanguage,
+            extensions: [
+              parseCode({
+                codeParser: (info) =>
+                  info.trim().toLowerCase() === "setdesign"
+                    ? setdesignParser
+                    : null,
+              }),
+            ],
+          }),
           syntaxHighlighting(markdownHighlightStyle),
+          foldGutter(),
+          setdesignLiveChips,
+          // `closeBrackets()` reads the bracket list from the
+          // innermost language at the cursor — inside a ```setdesign
+          // fence that's the `setdesign` language we attached via
+          // `languageDataProp`, so `*`, `_`, `` ` ``, and `[` all
+          // auto-pair (with proper skip-over and selection-wrap).
+          // Outside the fence, the markdown defaults apply.
+          closeBrackets(),
           autocompletion({
-            override: [wikiCompletions],
+            override: [wikiCompletions, setdesignCompletions],
             activateOnTyping: true,
             closeOnBlur: true,
             defaultKeymap: true,
@@ -327,7 +373,27 @@ export function CodeMirrorEditor(props: {
           // document.body so they escape any ancestor `overflow: hidden`
           // that would otherwise clip the popup.
           tooltips({ position: "fixed", parent: document.body }),
-          keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
+          // Keybindings:
+          //  - Enter: setdesignEnter (tree-aware; preserves indent;
+          //    adds extra step after `->`).
+          //  - Tab / Shift-Tab inside fence: indent / outdent line.
+          //  - Cmd-B / Mod-B / Cmd-I: wrap selection in `**…**` / `*…*`.
+          //
+          // Each binding returns false when not applicable so the
+          // default keymap (later in this array) handles the
+          // fallback case unchanged.
+          keymap.of([
+            { key: "Enter", run: setdesignEnter },
+            { key: "Tab", run: setdesignTab },
+            { key: "Shift-Tab", run: setdesignShiftTab },
+            { key: "Mod-b", run: setdesignWrapBold },
+            { key: "Mod-i", run: setdesignWrapItalic },
+            ...closeBracketsKeymap,
+            ...defaultKeymap,
+            ...historyKeymap,
+            ...completionKeymap,
+            ...foldKeymap,
+          ]),
           pasteHandler,
           updateListener,
           editorTheme,
@@ -472,6 +538,374 @@ const markdownHighlightStyle = HighlightStyle.define([
   { tag: t.atom, color: "var(--color-accent)" },
   { tag: t.tagName, color: "var(--color-accent)" },
 ]);
+
+/**
+ * Fence-info regex for an open ``` fence: `lang` is captured. We only
+ * accept up to three leading spaces (CommonMark's fence rule) and one
+ * info word — the markdown grammar tolerates more, but real fences
+ * authored in mvtt notes are tight, and over-tolerant matching here
+ * would mis-detect ``` lines that happen to be embedded in narrative.
+ */
+const FENCE_RE = /^[ ]{0,3}(`{3,}|~{3,})\s*([^\s`~]*)/;
+
+/**
+ * Decide whether the caret at `pos` sits inside a ```setdesign fence.
+ *
+ * Strategy: walk backwards line by line. The first fence delimiter
+ * found is the most recent fence above the cursor:
+ *
+ *  - If its info string is `setdesign`, the cursor is inside a
+ *    setdesign fence (the opener hasn't been closed yet).
+ *  - If its info string is anything else (or empty), it is either a
+ *    different-language opener or a close fence — in both cases the
+ *    cursor is NOT inside a setdesign fence.
+ *
+ * This heuristic skips the (rare) authoring pattern of unlabeled
+ * `` ``` `` open + content + close, which is acceptable here.
+ */
+export function isInsideSetdesignFence(
+  state: EditorState,
+  pos: number,
+): boolean {
+  const doc = state.doc;
+  let line = doc.lineAt(pos);
+  // If the cursor IS on a fence line itself, treat it as not inside —
+  // the user is editing the marker, not the content.
+  if (FENCE_RE.test(line.text)) return false;
+  let cur = line.number - 1;
+  while (cur >= 1) {
+    line = doc.line(cur);
+    const m = FENCE_RE.exec(line.text);
+    if (m) {
+      const info = (m[2] ?? "").toLowerCase();
+      return info === "setdesign";
+    }
+    cur--;
+  }
+  return false;
+}
+
+/**
+ * Completion source for in-fence set-design snippets.
+ *
+ * Surfaces a small palette of structural tokens (bold visible element,
+ * arrow, branch arrow, stat block, header separator) that match the
+ * grammar described in `shared/set-design.ts`. The source fires when
+ * the cursor is inside a ```setdesign fence and either the user has
+ * typed a partial token (matched against the snippet labels) or
+ * explicitly opened completions (Ctrl-Space).
+ *
+ * Defers to the wiki-link completion when the user is typing a
+ * `[[…` token — that source already works inside the fence and
+ * returns the right kind-specific suggestions; competing here would
+ * just produce noise.
+ */
+function setdesignCompletions(
+  ctx: CompletionContext,
+): CompletionResult | null {
+  if (!isInsideSetdesignFence(ctx.state, ctx.pos)) return null;
+  if (ctx.matchBefore(/\[\[[^\]\n]{0,160}/)) return null;
+
+  const word = ctx.matchBefore(/[A-Za-z][\w-]*/);
+  if (!word && !ctx.explicit) return null;
+
+  // Tree-aware classification: where in the setdesign block is the
+  // cursor? `visible` and `header` only make sense at the start of a
+  // line (no segment text yet); everything else fires anywhere. We
+  // detect "line start" via raw doc text (cheap) because the syntax
+  // tree may be slightly stale during typing.
+  const line = ctx.state.doc.lineAt(ctx.pos);
+  const beforeCursor = line.text.slice(0, ctx.pos - line.from);
+  const isLineStart = /^\s*$/.test(
+    word ? beforeCursor.slice(0, word.from - line.from) : beforeCursor,
+  );
+
+  // `header` is even more restricted: it should only appear when the
+  // user is plausibly typing the rule under a single-line title. We
+  // surface it whenever we're at line start, since the cost of
+  // surfacing it elsewhere is low (it's still a valid token).
+  const doc = setdesignDocAt(ctx.state, ctx.pos);
+  void doc; // reserved for future, more nuanced placement decisions
+
+  const options: Completion[] = [];
+  if (isLineStart) {
+    options.push(
+      snippetCompletion("**${name}**", {
+        label: "visible",
+        detail: "**bold visible element**",
+        type: "keyword",
+      }),
+      snippetCompletion("---", {
+        label: "header",
+        detail: "header separator under title",
+        type: "keyword",
+      }),
+    );
+  }
+  options.push(
+    snippetCompletion(" -> ${}", {
+      label: "arrow",
+      detail: " -> (renders as →)",
+      type: "keyword",
+    }),
+    snippetCompletion(" |-> ${}", {
+      label: "branch",
+      detail: " |-> (branch from chain)",
+      type: "keyword",
+    }),
+    snippetCompletion("(_${stats}_)", {
+      label: "stats",
+      detail: "(_stat block_)",
+      type: "keyword",
+    }),
+  );
+
+  return {
+    from: word ? word.from : ctx.pos,
+    to: ctx.pos,
+    options,
+    validFor: /^[A-Za-z][\w-]*$/,
+  };
+}
+
+/**
+ * Locate the SetdesignDoc node enclosing `pos`, if any. Walks the
+ * syntax tree to find a `SetdesignDoc` that contains the position.
+ * Returns null when the cursor isn't inside one. This is the tree-
+ * aware companion to `isInsideSetdesignFence` — both are kept because
+ * the regex path is faster for hot paths (input handlers) where the
+ * tree might be slightly stale, while this one is precise for
+ * commands that already need to walk the tree anyway.
+ */
+function setdesignDocAt(state: EditorState, pos: number): {
+  from: number;
+  to: number;
+} | null {
+  const tree = syntaxTree(state);
+  let cur = tree.resolveInner(pos, -1);
+  while (cur) {
+    if (cur.type.name === "SetdesignDoc") {
+      return { from: cur.from, to: cur.to };
+    }
+    if (!cur.parent) break;
+    cur = cur.parent;
+  }
+  return null;
+}
+
+/**
+ * Smart Enter inside a ```setdesign fence. Preserves the previous
+ * line's indentation; if the previous line ends with a chain arrow
+ * (`->` / `→`), adds one extra two-space indent step so the child is
+ * automatically placed under the chain's tail.
+ *
+ * Returns `false` (and lets the default Enter handler run) when:
+ *  - the caret isn't inside a setdesign fence, or
+ *  - the active selection spans multiple characters (replace-on-Enter),
+ *  - the document is currently in a completion context that should
+ *    consume Enter for selection — `completionKeymap` runs *after*
+ *    this binding, so we let CM's normal flow handle that case by
+ *    refusing here when the next-line behavior would just be a
+ *    plain newline anyway (no indent).
+ */
+export const setdesignEnter: Command = (view) => {
+  const state = view.state;
+  // An active completion popup must keep Enter for option selection —
+  // bail so `completionKeymap`'s Enter binding gets it.
+  if (completionStatus(state) === "active") return false;
+  const sel = state.selection.main;
+  if (!sel.empty) return false;
+  const pos = sel.head;
+  if (!isInsideSetdesignFence(state, pos)) return false;
+
+  const line = state.doc.lineAt(pos);
+  const lineText = line.text;
+  const beforeCursor = lineText.slice(0, pos - line.from);
+  const indentMatch = /^[ \t]*/.exec(lineText);
+  const baseIndent = indentMatch ? indentMatch[0] : "";
+  const endsWithArrow = /(?:->|→)\s*$/.test(beforeCursor);
+  const extra = endsWithArrow ? "  " : "";
+  const insert = "\n" + baseIndent + extra;
+
+  view.dispatch({
+    changes: { from: pos, to: pos, insert },
+    selection: { anchor: pos + insert.length },
+    userEvent: "input",
+    scrollIntoView: true,
+  });
+  return true;
+};
+
+// ---------- Tab / Shift-Tab inside fence ----------
+
+/**
+ * Inside a setdesign fence, Tab indents the current line by two
+ * spaces (one nest step). Outside, falls through to default Tab
+ * (insert tab character).
+ */
+const setdesignTab: Command = (view) => {
+  const state = view.state;
+  const sel = state.selection.main;
+  if (!isInsideSetdesignFence(state, sel.head)) return false;
+  return indentMore(view);
+};
+
+/**
+ * Mirror of `setdesignTab`. Outside the fence, lets Shift-Tab fall
+ * through (the default keymap doesn't bind it, so it becomes a
+ * no-op — that's fine).
+ */
+const setdesignShiftTab: Command = (view) => {
+  const state = view.state;
+  const sel = state.selection.main;
+  if (!isInsideSetdesignFence(state, sel.head)) return false;
+  return indentLess(view);
+};
+
+// ---------- Cmd-B / Cmd-I wrap ----------
+
+function wrapWithDelimiter(view: EditorView, delim: string): boolean {
+  const state = view.state;
+  const sel = state.selection.main;
+  if (!isInsideSetdesignFence(state, sel.head)) return false;
+  if (sel.empty) {
+    // No selection: insert empty pair with cursor between.
+    const insert = delim + delim;
+    view.dispatch({
+      changes: { from: sel.from, to: sel.to, insert },
+      selection: { anchor: sel.from + delim.length },
+      userEvent: "input.wrap",
+    });
+    return true;
+  }
+  const selected = state.sliceDoc(sel.from, sel.to);
+  // Toggle: if already wrapped, strip the delimiters.
+  if (
+    selected.startsWith(delim) &&
+    selected.endsWith(delim) &&
+    selected.length >= delim.length * 2
+  ) {
+    const stripped = selected.slice(delim.length, -delim.length);
+    view.dispatch({
+      changes: { from: sel.from, to: sel.to, insert: stripped },
+      selection: { anchor: sel.from, head: sel.from + stripped.length },
+      userEvent: "input.unwrap",
+    });
+    return true;
+  }
+  const insert = delim + selected + delim;
+  view.dispatch({
+    changes: { from: sel.from, to: sel.to, insert },
+    selection: { anchor: sel.from + delim.length, head: sel.from + delim.length + selected.length },
+    userEvent: "input.wrap",
+  });
+  return true;
+}
+
+const setdesignWrapBold: Command = (view) => wrapWithDelimiter(view, "**");
+const setdesignWrapItalic: Command = (view) => wrapWithDelimiter(view, "_");
+
+// ---------- Live wiki-link chips ----------
+
+/**
+ * Widget that displays the wiki-link's display value as a chip.
+ * Clicking the chip moves the caret into the source so the user
+ * can edit. Hovering doesn't expand — that's a follow-up.
+ */
+class WikiChipWidget extends WidgetType {
+  constructor(
+    private readonly bodyText: string,
+    private readonly isEmbed: boolean,
+  ) {
+    super();
+  }
+  toDOM(): HTMLElement {
+    const el = document.createElement("span");
+    el.className = "cm-setdesign-chip";
+    el.dataset.embed = this.isEmbed ? "1" : "0";
+    el.textContent = this.bodyText;
+    return el;
+  }
+  eq(other: WidgetType): boolean {
+    return (
+      other instanceof WikiChipWidget &&
+      other.bodyText === this.bodyText &&
+      other.isEmbed === this.isEmbed
+    );
+  }
+  ignoreEvent(): boolean {
+    // Let click events through so caret-on-click moves into the
+    // source range, exposing the underlying `[[…]]` for editing.
+    return false;
+  }
+}
+
+/**
+ * Build decorations that replace each `SetdesignWikiLink` node with
+ * a chip widget, UNLESS the caret is currently inside (or touching)
+ * the link's range — in that case we show the raw source so the
+ * user can edit it. Same idiom Obsidian's live preview uses.
+ */
+function buildSetdesignChips(view: EditorView): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>();
+  const sel = view.state.selection.main;
+  for (const { from: vFrom, to: vTo } of view.visibleRanges) {
+    syntaxTree(view.state).iterate({
+      from: vFrom,
+      to: vTo,
+      enter(node) {
+        if (node.type.name !== "SetdesignWikiLink") return;
+        // Skip when caret is inside the link span (so the user can edit).
+        if (sel.from <= node.to && sel.to >= node.from) return;
+        const raw = view.state.sliceDoc(node.from, node.to);
+        const isEmbed = raw.startsWith("!");
+        const inner = raw.replace(/^!?\[\[/, "").replace(/]]$/, "");
+        // Body is whatever comes before `|` (alias) or `#` (anchor),
+        // and after any `kind:` prefix.
+        const aliasIdx = inner.indexOf("|");
+        const headPart = aliasIdx >= 0 ? inner.slice(0, aliasIdx) : inner;
+        const aliasPart = aliasIdx >= 0 ? inner.slice(aliasIdx + 1).trim() : "";
+        const colonIdx = headPart.indexOf(":");
+        const bodyRaw =
+          colonIdx > 0 && /^[a-zA-Z][\w-]*$/.test(headPart.slice(0, colonIdx).trim())
+            ? headPart.slice(colonIdx + 1).trim()
+            : headPart.trim();
+        const display = aliasPart.length > 0 ? aliasPart : bodyRaw;
+        builder.add(
+          node.from,
+          node.to,
+          Decoration.replace({
+            widget: new WikiChipWidget(display, isEmbed),
+            inclusive: false,
+          }),
+        );
+      },
+    });
+  }
+  return builder.finish();
+}
+
+const setdesignLiveChips = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) {
+      this.decorations = buildSetdesignChips(view);
+    }
+    update(update: ViewUpdate) {
+      if (
+        update.docChanged ||
+        update.viewportChanged ||
+        update.selectionSet ||
+        syntaxTree(update.startState) !== syntaxTree(update.state)
+      ) {
+        this.decorations = buildSetdesignChips(update.view);
+      }
+    }
+  },
+  {
+    decorations: (v) => v.decorations,
+  },
+);
 
 function resolveNoteByName(
   world: World,

@@ -35,3 +35,101 @@ option {
   background-color: var(--color-surface-elevated, var(--color-surface));
   color: var(--color-fg);
 }
+
+/*
+ * Set-design blocks (notes plugin). The remark plugin in
+ * @vtt/notes/client/markdown.tsx emits a nested `<ul>` tree with these
+ * class hooks. Visual idiom: a sunken card with an optional header,
+ * indent-only nested branches drawn by a left border, and arrows
+ * (`->` / `→` in source) rendered as a colored span between segments.
+ *
+ * The block is intentionally part of `.prose` typography styling since
+ * MarkdownView wraps everything in `prose`, but typography's default
+ * list/ul styles would render bullets — we reset them locally.
+ */
+.set-design {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-control, 0.375rem);
+  background: var(--color-surface-sunken, var(--color-surface));
+  font-family: var(--font-sans);
+  line-height: 1.45;
+}
+.set-design-header {
+  margin: 0 0 0.5rem 0;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--color-border-muted);
+  font-family: var(--font-display, var(--font-sans));
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--color-fg);
+}
+.set-design ul.set-design-tree,
+.prose .set-design ul.set-design-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.set-design ul.set-design-tree ul.set-design-tree,
+.prose .set-design ul.set-design-tree ul.set-design-tree {
+  margin-top: 0.15rem;
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--color-border-muted);
+}
+.set-design li.set-design-node,
+.prose .set-design li.set-design-node {
+  margin: 0;
+  padding: 0.1rem 0.25rem;
+  position: relative;
+}
+.set-design li.set-design-node.is-blank-before,
+.prose .set-design li.set-design-node.is-blank-before {
+  margin-top: 0.6rem;
+}
+.set-design .set-design-line,
+.prose .set-design .set-design-line {
+  margin: 0;
+  padding: 0;
+}
+.set-design .set-design-arrow,
+.prose .set-design .set-design-arrow {
+  display: inline-block;
+  margin: 0 0.3rem;
+  color: var(--color-accent);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-style: normal;
+  font-weight: 500;
+}
+
+/*
+ * In-editor live chips for `[[…]]` tokens inside ```setdesign fences.
+ * The Lezer parser tags each WikiLink node; a CodeMirror ViewPlugin
+ * replaces the range with a `<span.cm-setdesign-chip>` widget when
+ * the caret is outside. When the caret enters the range the chip
+ * disappears so the source is editable — the classic Obsidian
+ * live-preview pattern.
+ */
+.cm-setdesign-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.4rem;
+  margin: 0 0.05rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control, 0.25rem);
+  background: var(--color-surface-elevated, var(--color-surface));
+  color: var(--color-accent);
+  font-size: 0.85em;
+  line-height: 1.4;
+  cursor: text;
+}
+.cm-setdesign-chip[data-embed="1"]::before {
+  content: "▸";
+  font-size: 0.75em;
+  color: var(--color-fg-subtle);
+}
+.cm-setdesign-chip:hover {
+  border-color: var(--color-accent);
+}

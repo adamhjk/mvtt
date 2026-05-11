@@ -16,7 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { createOptimisticTrait, useClient } from "@vtt/substrate/client";
-import { createMemo, For, onMount, Show, type JSX } from "solid-js";
+import { createMemo, For, onCleanup, onMount, Show, type JSX } from "solid-js";
 import { useTabSentinel } from "@vtt/shell-workbench/client";
 import type { CommandInstance } from "@vtt/substrate";
 import {
@@ -39,27 +39,28 @@ const SHEET_SHELL_STYLE_ID = "vtt-characters-sheet-shell-styles";
 /*
  * SheetShell stylesheet, injected once into <head> on the first mount.
  *
- * Layout strategy: the shell is a flex column anchored top + bottom by
- * sticky regions (identity, actions). The middle area (rail + tabs) is
- * the only flexible part. The previous grid-based layout had a single
- * 1fr row for tabs which collapsed to zero when the sum of the auto
- * rows exceeded the viewport — clicking a tab worked but you couldn't
- * see the body. The new flex layout:
+ * Layout strategy depends on the container's width:
  *
- *   - identity is `flex: 0 0 auto` (always its content size)
- *   - actions  is `flex: 0 0 auto` (always its content size)
- *   - main     is `flex: 1 1 auto; min-height: 0` (takes the rest,
- *              shrinks below content size)
- *   - inside main, on phone/tablet:
- *       rail is `flex: 0 0 auto; max-height: 40%` so it scrolls
- *       independently and never starves the tabs region
- *       tabs is `flex: 1 1 auto; min-height: 0` (the rest, ≥60%)
- *   - on desktop (≥1024px) main flips to `flex-direction: row` and the
- *     rail becomes a 280px-wide left column with no max-height.
+ * Column mode (narrow — phone, tablet portrait, side panel):
+ *   The whole sheet is one continuous scroll inside `.sheet-shell`.
+ *   Identity sticks to the top, the tab bar sticks just under it
+ *   (offset by `--sheet-identity-height`, which a ResizeObserver in
+ *   the component writes whenever the identity bar changes size),
+ *   and the actions bar sticks to the bottom. Rail and tab body
+ *   flow naturally and the outer scroll handles all of it. This
+ *   gives long content (inventory, skills) the full leftover height
+ *   instead of a 60%-of-viewport sub-window.
  *
- * The Tabs primitive (kit.tsx) owns its own flex column with sticky
- * tab bar + scrollable body, so tab switching always works regardless
- * of how short the viewport is.
+ * Desktop mode (≥1024px container):
+ *   Main flips to `flex-direction: row`. The rail becomes a 280px
+ *   left sidebar with its own scroll so vitals stay pinned next to
+ *   the user as they scroll the tab body. The shell itself is
+ *   `overflow: hidden` and identity/actions revert to `static`.
+ *
+ * The Tabs primitive (kit.tsx) ships with its own
+ * `overflow:hidden`/scrollable-body defaults, so other consumers
+ * still get fixed-region tabs. We override those defaults here, but
+ * only inside `.sheet-shell` and only in column mode.
  */
 const SHEET_SHELL_CSS = `
 .sheet-shell {
@@ -68,13 +69,17 @@ const SHEET_SHELL_CSS = `
   height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
   background: var(--color-surface);
   color: var(--color-fg);
 }
 .sheet-shell__region { min-width: 0; min-height: 0; }
 .sheet-shell__identity {
   flex: 0 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 2;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--color-border-muted);
   display: flex;
@@ -84,16 +89,11 @@ const SHEET_SHELL_CSS = `
 }
 .sheet-shell__main {
   flex: 1 1 auto;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 .sheet-shell__rail {
   flex: 0 0 auto;
-  max-height: 40%;
-  overflow-y: auto;
-  scrollbar-width: thin;
   padding: 0.6rem 1rem;
   border-bottom: 1px solid var(--color-border-muted);
   display: flex;
@@ -104,6 +104,9 @@ const SHEET_SHELL_CSS = `
 .sheet-shell__rail-region { display: flex; flex-direction: column; gap: 0.5rem; }
 .sheet-shell__actions {
   flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   padding: 0.5rem 1rem;
   border-top: 1px solid var(--color-border-muted);
   display: flex;
@@ -111,6 +114,21 @@ const SHEET_SHELL_CSS = `
   flex-wrap: wrap;
   gap: 0.5rem;
   background: var(--color-surface);
+}
+
+/* Tabs primitive overrides — scoped to inside the sheet so other
+   consumers of <Tabs> keep the fixed-region defaults from kit.tsx. */
+.sheet-shell .vk-tabs {
+  overflow: visible;
+}
+.sheet-shell .vk-tabs__bar {
+  position: sticky;
+  top: var(--sheet-identity-height, 0px);
+  scroll-margin-top: var(--sheet-identity-height, 0px);
+  z-index: 1;
+}
+.sheet-shell .vk-tabs__body {
+  overflow-y: visible;
 }
 
 /* When all rail fills are empty, drop the rail entirely so tabs has
@@ -123,12 +141,32 @@ const SHEET_SHELL_CSS = `
 }
 
 @container sheet (min-width: 1024px) {
-  .sheet-shell__main { flex-direction: row; }
+  .sheet-shell { overflow: hidden; }
+  .sheet-shell__identity { position: static; }
+  .sheet-shell__actions { position: static; }
+  .sheet-shell__main {
+    flex-direction: row;
+    min-height: 0;
+    overflow: hidden;
+  }
   .sheet-shell__rail {
     flex: 0 0 280px;
-    max-height: none;
+    overflow-y: auto;
+    scrollbar-width: thin;
     border-bottom: 0;
     border-right: 1px solid var(--color-border-muted);
+  }
+  .sheet-shell .vk-tabs {
+    overflow: hidden;
+    min-height: 0;
+  }
+  .sheet-shell .vk-tabs__bar {
+    position: static;
+    scroll-margin-top: 0;
+  }
+  .sheet-shell .vk-tabs__body {
+    overflow-y: auto;
+    min-height: 0;
   }
 }
 `;
@@ -218,9 +256,33 @@ export function SheetShell(props: {
     })),
   );
 
+  // Sticky tab bar in column mode lives at `top: var(--sheet-identity-height)`
+  // so it parks immediately under the sticky identity bar instead of
+  // overlapping it. The identity bar's height varies with what game systems
+  // project into it (one-line vs two-line headers), so a ResizeObserver
+  // keeps the var in sync. The same value also drives `scroll-margin-top`
+  // on the bar, so `scrollIntoView` from kit.Tabs lands the bar at its
+  // sticky-pinned position rather than tucked behind identity.
+  let shellEl: HTMLDivElement | undefined;
+  let identityEl: HTMLDivElement | undefined;
+  onMount(() => {
+    if (!shellEl || !identityEl || typeof ResizeObserver === "undefined") return;
+    const sync = () => {
+      shellEl!.style.setProperty(
+        "--sheet-identity-height",
+        `${identityEl!.offsetHeight}px`,
+      );
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(identityEl);
+    onCleanup(() => ro.disconnect());
+  });
+
   return (
-    <div class="sheet-shell">
+    <div class="sheet-shell" ref={shellEl}>
       <div
+        ref={identityEl}
         class="sheet-shell__region sheet-shell__identity"
         data-region="identity"
       >

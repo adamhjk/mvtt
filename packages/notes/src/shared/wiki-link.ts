@@ -219,16 +219,32 @@ export function parseLinks(
 }
 
 /**
+ * Fenced-code-block info strings whose content should NOT be masked
+ * out of wiki-link extraction. `setdesign` is mvtt's first-class
+ * room-keying syntax — wiki-links inside such fences are intentional
+ * and must surface in backlinks, link autocompletion, and renderer
+ * chip rewriting just like links in prose.
+ *
+ * To add another fence kind, drop its info-string token here.
+ */
+const UNMASKED_FENCE_LANGS = new Set(["setdesign"]);
+
+/**
  * Replace fenced-code-block bodies and inline-backtick spans with
  * spaces of equal length so the link regex can't pick up `[[…]]`
  * literals inside code samples. Preserves byte offsets so reported
  * ranges still index the original text correctly.
+ *
+ * Exception: fenced blocks whose info string is in `UNMASKED_FENCE_LANGS`
+ * keep their contents intact — those fences are real wiki-link-bearing
+ * surfaces, not opaque code samples.
  */
 function maskCode(text: string): string {
   const chars = text.split("");
   let i = 0;
   let inFence = false;
   let fenceMarker: string | null = null;
+  let fenceMasked = true;
 
   // Walk lines for fenced blocks, then scrub inline backticks per
   // line in non-fence regions.
@@ -237,19 +253,26 @@ function maskCode(text: string): string {
   for (const line of lines) {
     const lineStart = cursor;
     const lineEnd = cursor + line.length;
-    const fenceMatch = /^([ ]{0,3})(`{3,}|~{3,})/.exec(line);
+    const fenceMatch = /^([ ]{0,3})(`{3,}|~{3,})\s*([^\s`~]*)/.exec(line);
     if (inFence) {
-      // Mask the whole line as code.
-      for (i = lineStart; i < lineEnd; i++) {
-        if (chars[i] !== "\n") chars[i] = " ";
+      if (fenceMasked) {
+        for (i = lineStart; i < lineEnd; i++) {
+          if (chars[i] !== "\n") chars[i] = " ";
+        }
       }
       if (fenceMatch && fenceMarker !== null && line.trim().startsWith(fenceMarker)) {
         inFence = false;
         fenceMarker = null;
+        fenceMasked = true;
       }
     } else if (fenceMatch) {
       inFence = true;
       fenceMarker = fenceMatch[2]!;
+      const info = (fenceMatch[3] ?? "").toLowerCase();
+      fenceMasked = !UNMASKED_FENCE_LANGS.has(info);
+      // Always mask the fence marker line itself — the `[[` cannot
+      // appear here under any sane authoring, and leaving it open
+      // would let an `info` string containing `[[…]]` parse as a link.
       for (i = lineStart; i < lineEnd; i++) {
         if (chars[i] !== "\n") chars[i] = " ";
       }

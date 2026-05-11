@@ -190,6 +190,15 @@ describe("parseLinks", () => {
     expect(links[0]!.body).toBe("Real Link");
   });
 
+  it("preserves [[…]] inside ```setdesign fences so backlinks see them", () => {
+    const text =
+      "intro\n```setdesign\n**Innkeeper** [[character:Marta]] -> 5sp/night\n```\n";
+    const links = parseLinks(text);
+    expect(links).toHaveLength(1);
+    expect(links[0]!.kind).toBe("character");
+    expect(links[0]!.body).toBe("Marta");
+  });
+
   it("ignores [[…]] inside inline backtick spans", () => {
     const text = "Use `[[Goblin Cave]]` syntax to link to [[Real Link]].";
     const links = parseLinks(text);

@@ -1423,9 +1423,22 @@ export function Tabs(props: {
   const [localId, setLocalId] = createSignal<string | null>(null);
   const isControlled = () => props.onSelectTab !== undefined;
   const wantedId = () => (isControlled() ? props.activeId ?? null : localId());
+  let barEl: HTMLDivElement | undefined;
+  // When the bar is rendered as `position: sticky` (the SheetShell column
+  // mode pins it under the identity header), the user is often scrolled
+  // deep into the previous tab when they pick a new one — without a
+  // scroll, the new tab's content appears mid-page at whatever the prior
+  // scroll offset was. Reset to the bar's sticky-pinned position so the
+  // new tab is read from the top. `scroll-margin-top` on the bar (set by
+  // SheetShell) accounts for the identity bar's height. When the bar is
+  // `static` (kit's default for non-shell consumers, plus the desktop
+  // override inside the shell), this is a no-op.
   const select = (id: string) => {
     if (isControlled()) props.onSelectTab?.(id);
     else setLocalId(id);
+    if (!barEl || typeof window === "undefined") return;
+    if (window.getComputedStyle(barEl).position !== "sticky") return;
+    barEl.scrollIntoView({ block: "start" });
   };
   const active = createMemo<TabSpec | null>(() => {
     const list = sorted();
@@ -1442,6 +1455,7 @@ export function Tabs(props: {
         fallback={props.emptyState ?? null}
       >
         <div
+          ref={barEl}
           class="vk-tabs__bar"
           role="tablist"
           aria-label={props.ariaLabel}

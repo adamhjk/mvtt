@@ -32,6 +32,15 @@ if (typeof window !== "undefined") {
     globalThis.ResizeObserver =
       ResizeObserverStub as unknown as typeof ResizeObserver;
   }
+  // jsdom doesn't implement scrollIntoView. The SheetShell's sticky
+  // tab bar (kit.Tabs `select`) calls it after a tab switch so the new
+  // tab is read from the top instead of mid-scroll. In real browsers
+  // it's a function; in jsdom we just need a no-op so the click
+  // handler doesn't throw. Tests that want to assert it was called can
+  // still vi.spyOn / replace it on a specific element.
+  if (typeof Element.prototype.scrollIntoView !== "function") {
+    Element.prototype.scrollIntoView = function (): void {};
+  }
   globalThis.fetch = async (
     input: RequestInfo | URL,
   ): Promise<Response> => {

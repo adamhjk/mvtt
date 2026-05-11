@@ -342,6 +342,123 @@ describe("MarkdownView wiki-link click delegation", () => {
   });
 });
 
+describe("MarkdownView set-design blocks", () => {
+  it("renders a ```setdesign block as a nested tree with header + arrows", () => {
+    const h = harness();
+    const body = [
+      "```setdesign",
+      "Old Library 7)",
+      "---",
+      "**Bookshelves** N+E walls -> sagging, collapsed",
+      "**Oak Desk** SW -> drawers dumped",
+      "  -> locked drawer -> DC 15",
+      "    -> scroll case",
+      "```",
+    ].join("\n");
+    const { container } = render(() => (
+      <ClientProvider value={h.client}>
+        <MarkdownView
+          body={body}
+          world={h.client.world}
+          registry={h.client.registry}
+          worldId="test-world"
+        />
+      </ClientProvider>
+    ));
+
+    const wrapper = container.querySelector(".set-design");
+    expect(wrapper, "expected a .set-design wrapper").not.toBeNull();
+    const header = wrapper!.querySelector(".set-design-header");
+    expect(header?.textContent).toContain("Old Library 7");
+
+    // Two top-level items: Bookshelves, Oak Desk.
+    const topTree = wrapper!.querySelector(":scope > ul.set-design-tree");
+    expect(topTree).not.toBeNull();
+    const topItems = topTree!.querySelectorAll(":scope > li.set-design-node");
+    expect(topItems.length).toBe(2);
+
+    // First item: Bookshelves has bold for the visible element.
+    expect(topItems[0]!.querySelector("strong")?.textContent).toBe(
+      "Bookshelves",
+    );
+
+    // Arrows: `->` source should render as a → glyph in a styled span.
+    const arrows = wrapper!.querySelectorAll("span.set-design-arrow");
+    expect(arrows.length).toBeGreaterThan(0);
+    expect(arrows[0]!.textContent).toBe("→");
+
+    // Nesting: Oak Desk should have a child sub-tree (locked drawer → DC 15)
+    // with a further-nested grandchild (scroll case).
+    const oakDesk = topItems[1]!;
+    const sub = oakDesk.querySelector(":scope > ul.set-design-tree");
+    expect(sub, "Oak Desk should have a nested tree").not.toBeNull();
+    const subItem = sub!.querySelector(":scope > li.set-design-node");
+    expect(subItem?.textContent).toContain("locked drawer");
+    const grand = subItem!.querySelector(":scope > ul.set-design-tree");
+    expect(grand, "locked drawer should have a deeper sub-tree").not.toBeNull();
+  });
+
+  it("treats a leading `->` on a line as decorative and uses indent for parent", () => {
+    const h = harness();
+    const body = [
+      "```setdesign",
+      "**Portcullis** -> wooden",
+      "  -> blocks tunnel",
+      "  |-> can pass under",
+      "```",
+    ].join("\n");
+    const { container } = render(() => (
+      <ClientProvider value={h.client}>
+        <MarkdownView
+          body={body}
+          world={h.client.world}
+          registry={h.client.registry}
+          worldId="test-world"
+        />
+      </ClientProvider>
+    ));
+    const top = container.querySelectorAll(
+      ".set-design > ul.set-design-tree > li.set-design-node",
+    );
+    expect(top.length).toBe(1);
+    const children = top[0]!.querySelectorAll(
+      ":scope > ul.set-design-tree > li.set-design-node",
+    );
+    expect(children.length).toBe(2);
+    expect(children[0]!.textContent).toContain("blocks tunnel");
+    expect(children[1]!.textContent).toContain("can pass under");
+  });
+
+  it("rewrites [[…]] inside a set-design line into a clickable chip", () => {
+    const h = harness();
+    const onLink = vi.fn();
+    const body = [
+      "```setdesign",
+      "**Innkeeper** [[character:Marta]] -> 5sp/night",
+      "```",
+    ].join("\n");
+    const { container } = render(() => (
+      <ClientProvider value={h.client}>
+        <MarkdownView
+          body={body}
+          world={h.client.world}
+          registry={h.client.registry}
+          worldId="test-world"
+          onLink={onLink}
+        />
+      </ClientProvider>
+    ));
+    const chip = container.querySelector(
+      ".set-design [data-wiki-ref]",
+    ) as HTMLElement | null;
+    expect(chip, "expected a wiki-link chip inside the set-design block").not.toBeNull();
+    expect(chip?.getAttribute("data-link-kind")).toBe("character");
+    expect(chip?.getAttribute("data-link-body")).toBe("Marta");
+    fireEvent.click(chip!);
+    expect(onLink).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("MarkdownView external links", () => {
   it("renders standard markdown links with target=_blank + safe rel", () => {
     const h = harness();

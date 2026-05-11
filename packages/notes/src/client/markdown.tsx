@@ -29,12 +29,25 @@ import type {
   Parent,
   PhrasingContent,
   Text as MdText,
+  Code as MdCode,
+  List as MdList,
+  ListItem as MdListItem,
+  Paragraph as MdParagraph,
+  Blockquote as MdBlockquote,
+  RootContent as MdRootContent,
+  BlockContent as MdBlockContent,
+  Emphasis as MdEmphasis,
 } from "mdast";
 import type { Root as HastRoot, Element as HastElement } from "hast";
 import { Asset } from "@vtt/assets/shared";
 import { parseLinks, type WikiLinkRef } from "../shared/wiki-link.js";
 import { headingIdFor, mdastTextContent, slugify } from "../shared/headings.js";
 import { buildLinkKindIndex } from "../shared/index.js";
+import {
+  parseSetDesign,
+  splitSegments,
+  type SetDesignNode,
+} from "../shared/set-design.js";
 
 /**
  * Markdown → static HTML for read-mode pages. We compile the body to
@@ -203,6 +216,10 @@ function compile(body: string, ctx: RenderCtx): string {
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkHeadingIds)
+    // remarkSetDesign must run BEFORE remarkWikiLinks so the line text
+    // it emits (as standard mdast `text` nodes inside paragraphs) is
+    // visited by the wiki-link rewriter just like any other prose.
+    .use(remarkSetDesign)
     .use(remarkWikiLinks)
     .use(remarkRehype, { allowDangerousHtml: false })
     .use(rehypeWikiLinks, ctx)
@@ -236,6 +253,160 @@ function remarkHeadingIds() {
       data.hProperties.id = id;
     });
   };
+}
+
+// ---------- remark plugin: set-design fenced blocks ----------
+
+/**
+ * Visits every ```setdesign fenced code block and replaces it with a
+ * structured mdast tree (blockquote-as-div wrapper → optional header →
+ * nested list/listItem tree). Line text is sub-parsed as markdown
+ * phrasing so `**bold**`, `*italic*`, `` `code` ``, and `[[wikilinks]]`
+ * inside set-design lines flow through the rest of the pipeline
+ * normally — `remarkWikiLinks` (registered after us) finds the text
+ * nodes we produced and rewrites `[[…]]` literals into mdast links.
+ *
+ * Source arrows (`->`, `|->`, `→`, `|→`) at the start of a line are
+ * decorative — indentation alone determines parent/child. Internal
+ * `->`/`→` separators split a line into chained segments rendered
+ * with a styled arrow glyph between them.
+ */
+function remarkSetDesign() {
+  return (tree: Root) => {
+    visit(tree, "code", (node: MdCode, index, parent) => {
+      if (parent == null || index == null) return;
+      const lang = (node.lang ?? "").toLowerCase();
+      if (lang !== "setdesign") return;
+      const block = parseSetDesign(node.value);
+      const replacement = renderSetDesignBlock(block);
+      (parent as Parent).children.splice(
+        index,
+        1,
+        replacement as unknown as MdRootContent,
+      );
+      // Skip the children of the replacement (`visit` semantics: return
+      // [SKIP, nextIndex] to advance the cursor past the new node).
+      return ["skip", index + 1] as const;
+    });
+  };
+}
+
+type HastData = {
+  readonly hName?: string;
+  readonly hProperties?: Record<string, unknown>;
+};
+
+function withHast<T extends { data?: unknown }>(node: T, data: HastData): T {
+  (node as { data?: HastData }).data = { ...((node as { data?: HastData }).data ?? {}), ...data };
+  return node;
+}
+
+function renderSetDesignBlock(block: {
+  header: string | null;
+  root: ReadonlyArray<SetDesignNode>;
+}): MdBlockquote {
+  const children: MdBlockContent[] = [];
+  if (block.header && block.header.length > 0) {
+    children.push(
+      withHast<MdParagraph>(
+        {
+          type: "paragraph",
+          children: parseInlinePhrasing(block.header),
+        },
+        { hProperties: { className: ["set-design-header"] } },
+      ),
+    );
+  }
+  if (block.root.length > 0) {
+    children.push(buildSetDesignList(block.root));
+  }
+  return withHast<MdBlockquote>(
+    {
+      type: "blockquote",
+      children,
+    },
+    { hName: "div", hProperties: { className: ["set-design"] } },
+  );
+}
+
+function buildSetDesignList(
+  nodes: ReadonlyArray<SetDesignNode>,
+): MdList {
+  return withHast<MdList>(
+    {
+      type: "list",
+      ordered: false,
+      spread: false,
+      children: nodes.map(buildSetDesignItem),
+    },
+    { hProperties: { className: ["set-design-tree"] } },
+  );
+}
+
+function buildSetDesignItem(node: SetDesignNode): MdListItem {
+  const lineChildren = buildLinePhrasing(node.text);
+  const line = withHast<MdParagraph>(
+    {
+      type: "paragraph",
+      children: lineChildren,
+    },
+    { hProperties: { className: ["set-design-line"] } },
+  );
+  const body: MdBlockContent[] = [line];
+  if (node.children.length > 0) {
+    body.push(buildSetDesignList(node.children));
+  }
+  const cls = node.blankBefore
+    ? ["set-design-node", "is-blank-before"]
+    : ["set-design-node"];
+  return withHast<MdListItem>(
+    {
+      type: "listItem",
+      spread: false,
+      children: body,
+    },
+    { hProperties: { className: cls } },
+  );
+}
+
+function buildLinePhrasing(text: string): PhrasingContent[] {
+  const segments = splitSegments(text);
+  if (segments.length === 0) return [];
+  const out: PhrasingContent[] = [];
+  segments.forEach((seg, i) => {
+    if (i > 0) out.push(arrowSpan());
+    for (const phr of parseInlinePhrasing(seg)) out.push(phr);
+  });
+  return out;
+}
+
+function arrowSpan(): MdEmphasis {
+  return withHast<MdEmphasis>(
+    {
+      type: "emphasis",
+      children: [{ type: "text", value: "→" } as MdText],
+    },
+    { hName: "span", hProperties: { className: ["set-design-arrow"] } },
+  );
+}
+
+/**
+ * Shared sub-pipeline that parses an inline source fragment into mdast
+ * phrasing content. Instantiated once — `unified()` chains are
+ * stateless w.r.t. inputs, so re-using a single processor is safe and
+ * avoids per-line allocation overhead.
+ */
+const inlineParser = unified().use(remarkParse).use(remarkGfm);
+
+function parseInlinePhrasing(text: string): PhrasingContent[] {
+  if (text.length === 0) return [];
+  const root = inlineParser.parse(text) as Root;
+  for (const child of root.children) {
+    if (child.type === "paragraph") {
+      return child.children as PhrasingContent[];
+    }
+  }
+  return [{ type: "text", value: text }];
 }
 
 // ---------- remark plugin: wiki-link splitting ----------
