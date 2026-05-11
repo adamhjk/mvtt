@@ -318,6 +318,7 @@ export const ChatStreamView = defineView({
       <div
         ref={viewportEl}
         onScroll={onScroll}
+        data-testid="chat-stream-viewport"
         class="flex min-h-[12rem] flex-1 flex-col gap-2 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <For each={entries()}>{(e) => <>{e.render() as unknown}</>}</For>

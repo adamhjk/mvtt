@@ -15,12 +15,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { defineView, clientOnly, RootSurface } from "@vtt/substrate";
+import { defineView, clientOnly, RootSurface, type CommandInstance } from "@vtt/substrate";
 import { Surface, useClient, useQuery } from "@vtt/substrate/client";
 import { PendingRoll } from "@vtt/characters/shared";
 import { CharacterSheet } from "@vtt/characters/client";
 import { Character } from "@vtt/characters/shared";
+import { RollResolved } from "@vtt/resolution/shared";
 import {
+  OpenPage,
   WorkbenchChatRailSurface,
   type PageProvider,
 } from "@vtt/shell-workbench/shared";
@@ -28,11 +30,14 @@ import {
   usePageProviders,
   useChatRailWidgets,
   useMe,
+  useWorkspace,
 } from "@vtt/shell-workbench/client";
 import {
+  createEffect,
   createMemo,
   createSignal,
   For,
+  onCleanup,
   onMount,
   Show,
   type JSX,
@@ -122,7 +127,96 @@ export const MobileShellView = defineView({
       return id ?? null;
     });
 
+    // The mobile content panel mirrors whatever the user's workspace
+    // says is active: clicking a book citation, note wikilink, or any
+    // other deep link already dispatches OpenPage, which retargets the
+    // workspace's active tab. We just read from the same WorkspaceState
+    // the workbench reads, so navigation works for free across shells
+    // — switch between desktop and mobile and you land on the same
+    // page. When there's no active tab yet (fresh login), we fall back
+    // to the user's default character.
+    const workspace = useWorkspace();
+    const activeTab = createMemo(() => {
+      const s = workspace.state();
+      if (!s) return null;
+      const pane = s.panes[s.activePaneId];
+      if (!pane?.activeTabId) return null;
+      return s.tabs[pane.activeTabId] ?? null;
+    });
+    const activeProvider = createMemo<PageProvider | null>(() => {
+      const tab = activeTab();
+      if (!tab) return null;
+      return providers().get(tab.pageKind) ?? null;
+    });
+
+    // Combine tab + provider into a single keyed value so `<Show keyed>`
+    // re-mounts the rendered page exactly when (tab.id, pageKind,
+    // entityId) changes — mirrors the workbench's per-pane keying so a
+    // provider's render(args) runs once per logical "page". Re-using
+    // the same provider sub-tree across entity changes would inherit
+    // closure-captured ids from the prior render; the keyed remount
+    // matches `useTrait(entityId, …)` semantics.
+    const activeTabAndProvider = createMemo<
+      { tab: NonNullable<ReturnType<typeof activeTab>>; provider: PageProvider } | null
+    >(() => {
+      const tab = activeTab();
+      const provider = activeProvider();
+      if (!tab || !provider) return null;
+      return { tab, provider };
+    });
+
+    // Bottom-nav label — track whatever's actually on screen so the
+    // button reads like a breadcrumb. When the workspace has an active
+    // tab, use that provider's label ("Books", "Notes", "Rules"). When
+    // we're on the default-character fallback path, use the characters
+    // provider's label so the button still reflects what the panel is
+    // showing.
+    const pageLabel = createMemo(() => {
+      const provider = activeProvider();
+      if (provider) return provider.label;
+      const charProvider = providers().get("@vtt/characters/characters");
+      return charProvider?.label ?? "Page";
+    });
+
     const chatRailWidgets = useChatRailWidgets();
+
+    // Auto-switch to chat mode when a roll the current user initiated
+    // resolves, so they see the result without manually tapping over.
+    // We gate on `rolledByUserId` so another player rolling at the
+    // table doesn't yank you away from the character sheet you're
+    // editing. Don't switch on rolls made *from* chat mode either —
+    // the user is already there.
+    const offRoll = client.bus.on(RollResolved.name, (e) => {
+      const payload = e.payload as { rolledByUserId: string };
+      const meVal = me();
+      if (!meVal) return;
+      if (payload.rolledByUserId !== meVal.userId) return;
+      if (mode() === "chat") return;
+      setMode("chat");
+    });
+    onCleanup(offRoll);
+
+    // The chat-mode panel and the chat stream's scroll viewport. When
+    // the chat panel is hidden via `display:none` the chat stream's
+    // own pin-to-bottom effect runs against a 0-height element and
+    // sets `scrollTop = 0`, so when the panel reappears the viewer
+    // lands at the top instead of the bottom. We snap to bottom from
+    // the shell on every transition into chat mode so the most recent
+    // roll/message is in view.
+    let chatPanelEl: HTMLDivElement | undefined;
+
+    createEffect(() => {
+      if (mode() !== "chat") return;
+      // After Solid commits the display flip, the viewport has
+      // measurable height. requestAnimationFrame waits one tick so
+      // scrollHeight reflects the laid-out content.
+      requestAnimationFrame(() => {
+        const el = chatPanelEl?.querySelector(
+          "[data-testid='chat-stream-viewport']",
+        ) as HTMLElement | null;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+    });
 
     return (
       <div
@@ -137,29 +231,48 @@ export const MobileShellView = defineView({
 
         {/* Body — exactly one mode visible at a time */}
         <main class="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {/* Character mode */}
+          {/* Page mode — renders whichever PageProvider matches the
+              workspace's active tab (Character, Book, Note, Rule, …).
+              Falls back to the default character sheet on a fresh
+              login before any tab exists. */}
           <div
             class="h-full w-full overflow-y-auto"
             style={{ display: mode() === "character" ? "block" : "none" }}
+            data-testid="mobile-content-panel"
           >
             <Show
-              when={defaultCharacterId()}
+              when={activeTabAndProvider()}
               fallback={
-                <div class="flex h-full items-center justify-center px-6">
-                  <p class="text-sm text-fg-muted">No character found</p>
-                </div>
+                <Show
+                  when={defaultCharacterId()}
+                  fallback={
+                    <div class="flex h-full items-center justify-center px-6">
+                      <p class="text-sm text-fg-muted">No character found</p>
+                    </div>
+                  }
+                >
+                  {(idAcc) => <CharacterSheet characterId={idAcc()} />}
+                </Show>
               }
+              keyed
             >
-              {(idAcc) => (
-                <CharacterSheet characterId={idAcc()} />
+              {(pair) => (
+                <>
+                  {pair.provider.render({
+                    tabId: pair.tab.id,
+                    entityId: pair.tab.entityId,
+                  }) as unknown as JSX.Element}
+                </>
               )}
             </Show>
           </div>
 
           {/* Chat mode */}
           <div
+            ref={chatPanelEl}
             class="flex h-full w-full flex-col overflow-hidden"
             style={{ display: mode() === "chat" ? "flex" : "none" }}
+            data-testid="mobile-chat-panel"
           >
             {/* Chat rail widgets (pending roll panels, player list, etc.) */}
             <div class="shrink-0 border-b border-border-muted px-3 py-2">
@@ -182,6 +295,7 @@ export const MobileShellView = defineView({
           mode={mode()}
           onModeChange={setMode}
           hasPendingRoll={hasPendingRoll()}
+          pageLabel={pageLabel()}
         />
 
         {/* Overlays */}
@@ -190,6 +304,19 @@ export const MobileShellView = defineView({
           open={menuOpen()}
           onClose={() => setMenuOpen(false)}
           userName={me()?.name ?? ""}
+          navigate={(pageKind, entityId) => {
+            // Dispatch OpenPage so the user's WorkspaceState retargets
+            // the active tab. The mobile shell's `activeTab` memo picks
+            // up the change and renders the new provider — same
+            // mechanism a workbench wikilink uses.
+            client.dispatch(
+              OpenPage({ pageKind, entityId }) as CommandInstance,
+            );
+            // Make sure the content panel is visible so the user sees
+            // the page they just opened — chat mode would hide it.
+            setMode("character");
+            setMenuOpen(false);
+          }}
         />
       </div>
     );

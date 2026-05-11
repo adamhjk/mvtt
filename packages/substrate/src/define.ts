@@ -228,7 +228,13 @@ export type AnySystemDef = Omit<SystemDef, "on" | "run"> & {
  * compatible with the surface's context schema.
  *
  * Cardinality:
- *  - "single"     : exactly one view should fill this surface (highest priority wins on conflict)
+ *  - "single"     : exactly one view fills this surface. Views are tried in
+ *                   priority order (highest first); the first view whose
+ *                   render returns a non-null/undefined result wins. A view
+ *                   that returns `null` declines the surface and the next
+ *                   candidate is tried — letting a higher-priority view gate
+ *                   itself at runtime (e.g. the mobile shell on desktop)
+ *                   without leaving the surface blank.
  *  - "stacked"    : multiple views, ordered by priority, rendered in sequence
  *  - "per-entity" : like stacked, but rendered once per entity matching the view's `requires`
  */

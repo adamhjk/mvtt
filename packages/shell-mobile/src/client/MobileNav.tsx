@@ -20,14 +20,16 @@ import { Show, type JSX } from "solid-js";
 export type MobileMode = "character" | "chat";
 
 /**
- * Bottom segmented control — two segments for Character and Chat.
- * `hasPendingRoll` shows a pulsing accent dot on the chat segment
- * to draw attention to an active roll.
+ * Bottom segmented control — two segments: the active page (label
+ * reflects the current PageProvider — "Characters", "Books", "Notes",
+ * "Rules", …) and Chat. `hasPendingRoll` shows a pulsing accent dot
+ * on the chat segment to draw attention to an active roll.
  */
 export function MobileNav(props: {
   mode: MobileMode;
   onModeChange: (mode: MobileMode) => void;
   hasPendingRoll: boolean;
+  pageLabel: string;
 }): JSX.Element {
   return (
     <nav
@@ -44,12 +46,26 @@ export function MobileNav(props: {
             "text-fg-muted hover:text-fg": props.mode !== "character",
           }}
           aria-pressed={props.mode === "character"}
+          aria-label={`${props.pageLabel} (current page)`}
+          data-testid="nav-page"
         >
-          {/* Person icon */}
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-7 8a7 7 0 0114 0H3z" />
+          {/* Generic page/document icon — works for any content kind. */}
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M6 2.5h6.5L16 6v11.5H6z" />
+            <path d="M12.5 2.5V6H16" />
+            <line x1="8" y1="10" x2="13" y2="10" />
+            <line x1="8" y1="13" x2="13" y2="13" />
           </svg>
-          <span>Character</span>
+          <span class="truncate">{props.pageLabel}</span>
         </button>
         <button
           type="button"
@@ -60,6 +76,7 @@ export function MobileNav(props: {
             "text-fg-muted hover:text-fg": props.mode !== "chat",
           }}
           aria-pressed={props.mode === "chat"}
+          data-testid="nav-chat"
         >
           {/* Chat bubble icon */}
           <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">

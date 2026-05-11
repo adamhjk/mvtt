@@ -17,6 +17,7 @@
 
 import { definePlugin } from "@vtt/substrate";
 import { MobileShellView } from "./client/MobileShell.js";
+import { SwitchToMobileButtonView } from "./client/SwitchToMobileButton.js";
 
 /**
  * Mobile shell plugin — a touch-optimised layout that replaces the
@@ -37,6 +38,7 @@ export const shellMobile = definePlugin({
     "@vtt/shell-workbench@^0",
     "@vtt/characters@^0",
     "@vtt/identity@^0",
+    "@vtt/resolution@^0",
   ],
   traits: [],
   events: [],
@@ -44,7 +46,7 @@ export const shellMobile = definePlugin({
   systems: [],
   surfaces: [],
   slots: [],
-  views: [MobileShellView],
+  views: [MobileShellView, SwitchToMobileButtonView],
 });
 
 export default shellMobile;

@@ -326,6 +326,13 @@ export function useQuery(traits: ReadonlyArray<TraitMeta>): Accessor<QueryRow[]>
 /**
  * Renders every view registered against `surface`, in priority order.
  * Per-entity surfaces fan out automatically by iterating matching entities.
+ *
+ * For `single` surfaces the highest-priority view whose render returns a
+ * non-null/undefined result fills the surface. Lower-priority views are
+ * tried only when the higher view returns null — letting a view "decline"
+ * (e.g. the mobile shell on a desktop browser) and fall through to the
+ * next candidate. Once a view renders, all lower-priority views are
+ * skipped.
  */
 export function Surface(props: {
   name: SurfaceName;
@@ -346,9 +353,18 @@ export function Surface(props: {
     );
   }
 
-  const ordered = surface.kind === "single" ? views.slice(0, 1) : views;
+  if (surface.kind === "single") {
+    for (const view of views) {
+      const out = view.render(props.context ?? {});
+      if (out !== null && out !== undefined) {
+        return <>{out as unknown}</>;
+      }
+    }
+    return null;
+  }
+
   return (
-    <For each={ordered}>
+    <For each={views}>
       {(view) => <>{view.render(props.context ?? {}) as unknown}</>}
     </For>
   );
