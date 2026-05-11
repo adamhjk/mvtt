@@ -56,7 +56,9 @@ import {
  */
 function AbilitiesSkillsTab(props: { characterId: string }): JSX.Element {
   const sortedSkills = createMemo<ReadonlyArray<SkillEntry>>(() =>
-    [...ALL_SKILLS].sort((a, b) => a.name.localeCompare(b.name)),
+    ALL_SKILLS.filter((s) => s.category !== "npc").sort((a, b) =>
+      a.name.localeCompare(b.name),
+    ),
   );
 
   return (

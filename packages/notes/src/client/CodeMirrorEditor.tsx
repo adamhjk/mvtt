@@ -142,6 +142,11 @@ export function CodeMirrorEditor(props: {
       // purposes. Resolves the actual `[[` start by scanning back
       // from `from` at apply-time (handles edits between result
       // construction and selection).
+      //
+      // Also consumes any trailing `]]` that `closeBrackets` may
+      // have auto-paired when the user typed `[[`. The completion
+      // replacement already includes its own `]]`, so without this
+      // we'd leave behind a stray pair, producing `…]]]]`.
       const buildApply =
         (replacement: string) =>
         (
@@ -156,8 +161,12 @@ export function CodeMirrorEditor(props: {
             lastBracketsRel >= 0
               ? from - (back.length - lastBracketsRel)
               : from;
+          // Eat a trailing `]]` (left behind by auto-pair) so the
+          // completion's own closing brackets aren't doubled up.
+          const after = view.state.sliceDoc(to, to + 2);
+          const adjustedTo = after === "]]" ? to + 2 : to;
           view.dispatch({
-            changes: { from: start, to, insert: replacement },
+            changes: { from: start, to: adjustedTo, insert: replacement },
             selection: { anchor: start + replacement.length },
             userEvent: "input.complete",
           });
@@ -359,10 +368,18 @@ export function CodeMirrorEditor(props: {
           // `closeBrackets()` reads the bracket list from the
           // innermost language at the cursor — inside a ```setdesign
           // fence that's the `setdesign` language we attached via
-          // `languageDataProp`, so `*`, `_`, `` ` ``, and `[` all
-          // auto-pair (with proper skip-over and selection-wrap).
-          // Outside the fence, the markdown defaults apply.
+          // `languageDataProp`, so `[`, `_`, `` ` ``, and the
+          // punctuation pairs all auto-pair (with proper skip-over
+          // and selection-wrap). Outside the fence, the markdown
+          // defaults apply.
           closeBrackets(),
+          // `*` is owned by a dedicated input handler — see
+          // `setdesignStarHandler` below for the why. Must run as
+          // an input handler (not closeBrackets) so the two-star
+          // bold trigger can place the caret between two pairs.
+          EditorView.inputHandler.of((view, from, to, text) =>
+            setdesignStarHandler(view, from, to, text),
+          ),
           autocompletion({
             override: [wikiCompletions, setdesignCompletions],
             activateOnTyping: true,
@@ -804,6 +821,77 @@ function wrapWithDelimiter(view: EditorView, delim: string): boolean {
 
 const setdesignWrapBold: Command = (view) => wrapWithDelimiter(view, "**");
 const setdesignWrapItalic: Command = (view) => wrapWithDelimiter(view, "_");
+
+// ---------- `*` / `**` input handler ----------
+
+/**
+ * Owns the `*` key inside ```setdesign fences. Two reasons we can't
+ * just register `*` in the `closeBrackets` brackets list:
+ *
+ *  1. `*` is ambiguous between italic (single delimiter) and bold
+ *     (double delimiter). `closeBrackets`'s symmetric-pair model
+ *     would auto-pair every `*` as italic, making it impossible to
+ *     type `**…**` without fighting the editor.
+ *  2. The desired bold-open behavior is "second `*` produces
+ *     `**|**`" (caret between two `**` pairs) — that's not a
+ *     pair-stack, it's an asymmetric two-character expansion that
+ *     the close-brackets state machine can't express.
+ *
+ * Behavior implemented here:
+ *
+ *  - First `*` (no `*` immediately before): inserted as-is. No pair.
+ *  - Second `*` (`*` immediately before cursor, and the next char is
+ *    NOT `*`): expand to `**|**` — i.e., insert `*` plus the closing
+ *    `**` so the doc has four stars and the caret lands between the
+ *    second and third.
+ *  - Typed `*` when the next char is already `*`: skip-over. Caret
+ *    advances by one without inserting. Handles both close-of-bold
+ *    (`…**|**` → `…****|`) and close-of-italic where the user
+ *    already typed both stars.
+ *  - Anything else (no relevant `*` context): fall through (returns
+ *    false) so the default text-insert runs.
+ */
+function setdesignStarHandler(
+  view: EditorView,
+  from: number,
+  to: number,
+  text: string,
+): boolean {
+  if (text !== "*") return false;
+  if (from !== to) return false;
+  const state = view.state;
+  if (!isInsideSetdesignFence(state, from)) return false;
+
+  const prevChar = state.sliceDoc(Math.max(0, from - 1), from);
+  const nextChar = state.sliceDoc(from, from + 1);
+
+  // Skip-over: typing `*` when the next char is already `*` —
+  // advance the caret without inserting.
+  if (nextChar === "*") {
+    view.dispatch({
+      selection: { anchor: from + 1 },
+      userEvent: "input.type",
+      scrollIntoView: true,
+    });
+    return true;
+  }
+
+  // Two-star bold open: prev char is `*`, next char is not `*`.
+  // Insert `*` (the typed char) plus the closing `**` so the caret
+  // lands between the bold-open and bold-close.
+  if (prevChar === "*") {
+    view.dispatch({
+      changes: { from, to, insert: "*" + "**" },
+      selection: { anchor: from + 1 },
+      userEvent: "input.type",
+      scrollIntoView: true,
+    });
+    return true;
+  }
+
+  // Single `*` with no special context — fall through.
+  return false;
+}
 
 // ---------- Live wiki-link chips ----------
 

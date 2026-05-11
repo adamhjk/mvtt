@@ -153,9 +153,18 @@ const baseNodeSet = new NodeSet(nodeTypes);
  * with the skip-over and selection-wrap behavior `closeBrackets`
  * already implements correctly.
  */
+/**
+ * Note: `*` is intentionally NOT in this list. `*` is ambiguous —
+ * one means italic open, two mean bold open — and `closeBrackets`'s
+ * symmetric-pair model can't express the "two `*`s should produce
+ * `**|**`" behavior. The editor's `setdesignStarPairs` input
+ * handler (`CodeMirrorEditor.tsx`) owns `*` exclusively: it triggers
+ * a `**` pair on the *second* `*` and provides skip-over for the
+ * `**…**` close.
+ */
 const setdesignLanguageFacet = defineLanguageFacet({
   closeBrackets: {
-    brackets: ["(", "[", "{", "'", '"', "`", "*", "_"],
+    brackets: ["(", "[", "{", "'", '"', "`", "_"],
   },
 });
 
