@@ -58,8 +58,14 @@ export interface CharacterDndPayload {
   /** Default fallback icon when no portrait was uploaded. */
   iconSlug: string;
   /**
-   * URL of the character's uploaded portrait, or null if none. Lives
-   * under `/plugin-data/<worldId>/...` (server validates).
+   * Asset entity id holding the portrait bytes, or null when the
+   * character has no portrait (or carries only a legacy URL).
+   */
+  assetId: string | null;
+  /**
+   * Legacy plugin-data URL for pre-refactor characters. Null when an
+   * `assetId` is set. Drop accepters route exactly one of these into
+   * `PlaceCharacterToken` (the validator rejects setting both).
    */
   imageUrl: string | null;
 }
@@ -78,6 +84,10 @@ export function decodeCharacterDnd(raw: string): CharacterDndPayload | null {
     ) {
       return null;
     }
+    const assetId =
+      parsed.assetId === null || typeof parsed.assetId === "string"
+        ? parsed.assetId
+        : null;
     const imageUrl =
       parsed.imageUrl === null || typeof parsed.imageUrl === "string"
         ? parsed.imageUrl
@@ -86,6 +96,7 @@ export function decodeCharacterDnd(raw: string): CharacterDndPayload | null {
       characterId: parsed.characterId,
       label: parsed.label,
       iconSlug: parsed.iconSlug,
+      assetId: assetId ?? null,
       imageUrl: imageUrl ?? null,
     };
   } catch {

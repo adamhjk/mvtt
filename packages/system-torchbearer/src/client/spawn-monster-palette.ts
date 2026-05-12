@@ -15,14 +15,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-// Quick-lookup palette verbs for the bestiary. One verb per
+// Quick-lookup palette verbs for the monsters page. One verb per
 // `TbMonsterTemplate`: typing a monster's name in ⌘K surfaces a
 // "Spawn <Name>" entry that, on commit, dispatches
 // `CreateMonsterFromCatalog`, waits for the `MonsterCreated` event to
 // learn the server-allocated id, and dispatches `OpenPageInNewTab`
 // so the freshly-spawned creature opens in a focused new tab on the
-// bestiary page (existing entities the player typed for are surfaced
-// separately by the `BestiaryPageProvider.list` rows).
+// monsters page (existing entities the player typed for are surfaced
+// separately by the `MonstersPageProvider.list` rows).
 //
 // GM-only: the verbs are hidden from non-GM sessions via `visibleTo`.
 
@@ -43,7 +43,7 @@ import {
 import { MonsterCreated } from "../shared/monster-events.js";
 import { TbMonster } from "../shared/monster-traits.js";
 
-const BESTIARY_KIND = qualifiedName("@vtt/system-torchbearer/bestiary");
+const MONSTERS_KIND = qualifiedName("@vtt/system-torchbearer/monsters");
 
 /**
  * Pull the last `/`-delimited segment of a templateId. The catalog
@@ -73,7 +73,7 @@ export const TB_SPAWN_MONSTER_PALETTE_COMMANDS: ReadonlyArray<PaletteCommand> =
       `@vtt/system-torchbearer/spawn-${lastSegment(tmpl.id)}`,
     ) as PaletteCommand["id"],
     label: `Spawn ${tmpl.name}`,
-    hint: `Bestiary · ${tmpl.sourceBook}${
+    hint: `Monsters · ${tmpl.sourceBook}${
       tmpl.sourcePage !== null ? ` p.${tmpl.sourcePage}` : ""
     }`,
     visibleTo: (ctx) => ctx.role === "gm",
@@ -93,13 +93,13 @@ export const TB_SPAWN_MONSTER_PALETTE_COMMANDS: ReadonlyArray<PaletteCommand> =
           .query([Character, TbMonster])
           .find((r) => !beforeIds.has(r.id as string));
         if (!fresh) return;
-        // Open the new monster in a focused new tab on the bestiary
+        // Open the new monster in a focused new tab on the monsters
         // page. OpenPageInNewTab sets `pane.activeTabId` to the new
         // tab so the user lands on the spawn immediately rather than
         // having to switch tabs by hand.
         client.dispatch(
           OpenPageInNewTab({
-            pageKind: BESTIARY_KIND,
+            pageKind: MONSTERS_KIND,
             entityId: fresh.id as EntityId,
           }) as CommandInstance,
         );

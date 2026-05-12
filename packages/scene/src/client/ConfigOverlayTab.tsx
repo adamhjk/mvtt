@@ -15,10 +15,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { qualifiedName, type CommandInstance } from "@vtt/substrate";
+import { qualifiedName, type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useTrait } from "@vtt/substrate/client";
-import { createEffect, createSignal, Show, type JSX } from "solid-js";
+import { uploadAssetForWorld } from "@vtt/assets/client";
+import { createEffect, createMemo, createSignal, Show, type JSX } from "solid-js";
 import { Scene } from "../shared/traits.js";
+import { resolveSceneBackgroundUrl } from "../shared/background.js";
 import { UpdateScene } from "../shared/commands.js";
 import {
   type SceneOverlayTab,
@@ -67,6 +69,7 @@ function ConfigTabBody(props: { sceneId: string }): JSX.Element {
       heightPx: number;
       backgroundColor: string;
       gridColor: string;
+      backgroundAssetId: EntityId | null;
       backgroundImage: string | null;
     }>,
   ) => {
@@ -155,11 +158,14 @@ function ConfigTabBody(props: { sceneId: string }): JSX.Element {
             <BackgroundImageField
               sceneId={props.sceneId}
               worldId={client.worldId() ?? ""}
-              value={s().backgroundImage}
+              value={resolveSceneBackgroundUrl(s(), client.worldId())}
               disabled={!isGm() || !client.worldId()}
-              onUpload={(backgroundImage, dims) =>
+              onUpload={(backgroundAssetId, dims) =>
                 update({
-                  backgroundImage,
+                  // Asset-first write — clear the legacy URL in the same
+                  // dispatch so the trait can't end up with both shapes.
+                  backgroundAssetId: backgroundAssetId as EntityId,
+                  backgroundImage: null,
                   // Auto-fit the playable extent to the uploaded image so
                   // the canvas surface = image surface by default. The
                   // GM can still override Width/Height afterwards.
@@ -167,7 +173,9 @@ function ConfigTabBody(props: { sceneId: string }): JSX.Element {
                   heightPx: dims.height,
                 })
               }
-              onClear={() => update({ backgroundImage: null })}
+              onClear={() =>
+                update({ backgroundAssetId: null, backgroundImage: null })
+              }
             />
           </Section>
         </div>
@@ -177,16 +185,16 @@ function ConfigTabBody(props: { sceneId: string }): JSX.Element {
 }
 
 /**
- * Upload + preview + clear for the scene's background image. The
- * upload POSTs the raw file body to
- * `/api/plugin-data/<worldId>/@vtt/scene/scenes/<sceneId>/background.<ext>`,
- * scoped to this scene's plugin-data prefix within this world. On success the response
- * carries the public URL (with a cache-bust suffix); we dispatch
- * UpdateScene with that URL so every client picks up the change.
+ * Upload + preview + clear for the scene's background image. Uses the
+ * per-world asset upload route (`/api/worlds/<wid>/assets/upload`), so
+ * the bytes are content-addressed, deduped, and reachable from the
+ * unified asset library — the bundle exporter picks them up
+ * automatically. The returned assetId is dispatched as
+ * `UpdateScene.backgroundAssetId`.
  *
- * GM-only — the upload endpoint enforces this server-side; the inputs
- * are also disabled here so non-GMs see the current image without
- * attempting a doomed write.
+ * GM-only — the upload endpoint enforces world membership server-side;
+ * the inputs are also disabled here so non-GMs see the current image
+ * without attempting a doomed write.
  */
 function BackgroundImageField(props: {
   sceneId: string;
@@ -194,12 +202,12 @@ function BackgroundImageField(props: {
   value: string | null;
   disabled: boolean;
   /**
-   * Called after a successful upload. Receives the new public URL plus
+   * Called after a successful upload. Receives the new asset id plus
    * the image's natural pixel dimensions, so the parent can dispatch
-   * UpdateScene with both `backgroundImage` AND `widthPx`/`heightPx` in
-   * one shot — the playable extent auto-fits the image by default.
+   * UpdateScene with both `backgroundAssetId` AND `widthPx`/`heightPx`
+   * in one shot — the playable extent auto-fits the image by default.
    */
-  onUpload: (next: string, dims: { width: number; height: number }) => void;
+  onUpload: (assetId: string, dims: { width: number; height: number }) => void;
   onClear: () => void;
 }): JSX.Element {
   const [busy, setBusy] = createSignal(false);
@@ -208,18 +216,6 @@ function BackgroundImageField(props: {
 
   const upload = async (file: File) => {
     setError(null);
-    // Pull the extension from the file's name; fall back to a sniff
-    // from MIME type for the rare case where the picker hands us a
-    // file without an extension (camera capture, paste-as-file).
-    const ext =
-      extensionFromName(file.name) ??
-      extensionFromMime(file.type) ??
-      ".bin";
-    const url = `/api/plugin-data/${encodeURIComponent(
-      props.worldId,
-    )}/@vtt/scene/scenes/${encodeURIComponent(
-      props.sceneId,
-    )}/background${ext}`;
     setBusy(true);
     try {
       // Read the image's natural dimensions in parallel with the
@@ -228,19 +224,9 @@ function BackgroundImageField(props: {
       // browser is already going to decode this image to render the
       // preview, so the extra cost is negligible.
       const dimsPromise = readImageDimensions(file);
-      const res = await fetch(url, {
-        method: "POST",
-        body: file,
-        credentials: "same-origin",
-        headers: file.type ? { "content-type": file.type } : {},
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error ?? `upload failed (${res.status})`);
-      }
-      const body = (await res.json()) as { path: string };
+      const result = await uploadAssetForWorld(props.worldId, file);
       const dims = await dimsPromise;
-      props.onUpload(body.path, dims);
+      props.onUpload(result.assetId, dims);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -352,36 +338,6 @@ async function readImageDimensions(
   }
 }
 
-/** `foo.png` → `.png`, `foo` → null. Lowercased. */
-function extensionFromName(name: string): string | null {
-  const dot = name.lastIndexOf(".");
-  if (dot < 0 || dot === name.length - 1) return null;
-  return name.slice(dot).toLowerCase();
-}
-
-/**
- * Last-resort extension derivation when the file name has none — covers
- * camera captures and paste-as-file paths where the browser hands us an
- * extensionless File whose only identity is its MIME type.
- */
-function extensionFromMime(mime: string): string | null {
-  switch (mime) {
-    case "image/png":
-      return ".png";
-    case "image/jpeg":
-      return ".jpg";
-    case "image/gif":
-      return ".gif";
-    case "image/webp":
-      return ".webp";
-    case "image/avif":
-      return ".avif";
-    case "image/svg+xml":
-      return ".svg";
-    default:
-      return null;
-  }
-}
 
 function Section(props: { label: string; children: JSX.Element }): JSX.Element {
   return (

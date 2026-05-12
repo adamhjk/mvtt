@@ -39,7 +39,7 @@ import {
   NpcSearchInput,
   filterNpcCatalogByQuery,
 } from "./npc-picker.js";
-import { fuzzyMatch } from "./bestiary-picker.js";
+import { fuzzyMatch } from "./monsters-picker.js";
 import { tbCanonicalBookAbbreviation } from "../data/seed.js";
 
 const NPCS_KIND = "@vtt/system-torchbearer/npcs";
@@ -48,7 +48,7 @@ const NPCS_KIND = "@vtt/system-torchbearer/npcs";
  * NPCs page provider — lists every NPC entity in the world (entities
  * carrying both `Character` and `TbNpc`) and renders the simplified
  * NPC sheet. Lives on its own workbench tab so the Characters tab
- * stays focused on PCs and the Bestiary tab stays focused on monsters.
+ * stays focused on PCs and the Monsters tab stays focused on monsters.
  *
  * GM-only spawn: `CreateNpcFromCatalog` validates `role === "gm"`,
  * so the create form below appears only for GMs. Players who can read
@@ -292,7 +292,7 @@ function NpcsFilterInput(props: {
 }
 
 /**
- * One row in the existing-NPCs list. Layout mirrors the bestiary
+ * One row in the existing-NPCs list. Layout mirrors the monsters
  * hub's roomier rows but adds a `<BookCitation>` chip when the NPC
  * carries a `pageRef` (i.e. canon catalog entries) so the GM can
  * click straight to the printed stat block.
@@ -368,7 +368,7 @@ function citationLabel(canonicalId: string, page: number): string {
 
 /**
  * Catalog picker — fuzzy-search rack listing every `TbNpcTemplate`
- * plus an inline blank-NPC affordance below. Mirrors the bestiary
+ * plus an inline blank-NPC affordance below. Mirrors the monsters
  * `CatalogPicker` shape so the two surfaces stay patternable.
  *
  * The Spawn button dispatches either `CreateNpcFromCatalog` (for the
@@ -389,7 +389,7 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
   const candidates = createMemo(() => filterNpcCatalogByQuery(query()));
 
   // Selection auto-heals when the search trims it out — same heal
-  // pattern as the bestiary picker's CatalogPicker.
+  // pattern as the monsters picker's CatalogPicker.
   createMemo(() => {
     const list = candidates();
     const cur = selected();

@@ -40,6 +40,6 @@ export { TbRollRow } from "./tb-roll-row.js";
 export { TB_ITEM_DETAIL_SECTIONS } from "./item-detail-sections.js";
 export { GrindTrackerView } from "./grind-tracker.js";
 export { MonsterSheet } from "./monster-sheet.js";
-export { BestiaryPageProvider } from "./bestiary-page.js";
+export { MonstersPageProvider } from "./monsters-page.js";
 export { NpcSheet } from "./npc-sheet.js";
 export { NpcsPageProvider } from "./npcs-page.js";

@@ -81,7 +81,7 @@ export const npcLinkKind = defineLinkKind<NpcRef>({
       if (needle.length > 0 && !v.name.toLowerCase().includes(needle)) continue;
       out.push({
         kind: "npc",
-        body: row.id,
+        body: v.name,
         display: v.name,
         badge: role || "NPC",
       });

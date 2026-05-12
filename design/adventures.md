@@ -217,13 +217,13 @@ When the cursor is on the opening fence line (` ```|` ), the autocomplete shows 
 
 ### Scoping the picker — avoiding the flood
 
-Once monster/spell/NPC catalogs are seeded eagerly, every world boots with hundreds of `MonsterTemplate` entities. A naive autocomplete that lists *all* matching entities on every empty `[[character:` would dump the bestiary into the GM's face. The fix is simple: **don't pre-populate the dropdown — require at least one character of query before showing catalog matches.**
+Once monster/spell/NPC catalogs are seeded eagerly, every world boots with hundreds of `MonsterTemplate` entities. A naive autocomplete that lists *all* matching entities on every empty `[[character:` would dump the whole catalog into the GM's face. The fix is simple: **don't pre-populate the dropdown — require at least one character of query before showing catalog matches.**
 
 Empty-query (`[[character:` with cursor right after the colon) shows a tiny strip — maybe the last 3–5 entities the GM referenced or spawned in this world — plus a hint to type. Once the query has ≥ 1 character, fuzzy-search runs over all visible entities, with two ranking boosts: matches authored on the current page or in the current adventure float to the top, and recently-used matches rank above never-used. No flood, because no list appears until the GM expresses intent.
 
 For the **conflict UI's mid-fight "Add participant" picker**, same rule: a search box with a small "recent" strip pinned on top, no big list by default. Optional tag chips (`humanoid`, `undead`, `boss`, …) for browse-style filtering when the GM doesn't have a name in mind; tags live as a `MonsterTags{ tags: string[] }` trait written by the seed step from the existing `TB_MONSTER_TEMPLATES[i].tags` data.
 
-The principle: **the catalog is searchable, not browsable by default.** A GM who knows what they want types it; a GM who's browsing opens the dedicated bestiary page.
+The principle: **the catalog is searchable, not browsable by default.** A GM who knows what they want types it; a GM who's browsing opens the dedicated monsters page.
 
 ## Fenced-block grammars (TB)
 
@@ -631,7 +631,7 @@ The closure runs recursively — a goblin scout's `monster` block may reference 
 
 System-seeded entities (items, monsters, spells) are detected by the **same `ItemDerivedFrom`-style trait** the items doc already specifies: `originPlugin === "@vtt/system-torchbearer"` with empty `overrides`. Because the system plugin loads on *both* worlds (export source and import target are both running TB), the seeded entity is guaranteed to exist on the target — the wiki-link resolves naturally on import without any bundled definition.
 
-This is what makes the system plugin's bestiary load-bearing: the more creatures, items, and spells the system ships in its seed catalog, the smaller and more reusable adventure bundles become. An adventure built entirely from the TB starter bestiary + items + spells ships zero `monster`/`item`/`spell` blocks — the bundle is just locations, encounters, and a few unique NPCs/villains. (Today the items catalog is real; the monster and spell catalogs aren't shipped yet — see "Substrate work" below.)
+This is what makes the system plugin's monster/spell/item catalogs load-bearing: the more creatures, items, and spells the system ships in its seed catalog, the smaller and more reusable adventure bundles become. An adventure built entirely from the TB starter catalogs ships zero `monster`/`item`/`spell` blocks — the bundle is just locations, encounters, and a few unique NPCs/villains. (Today the items catalog is real; the monster and spell catalogs aren't shipped yet — see "Substrate work" below.)
 
 Asset references are walked through *both* prose markdown and YAML string values (a `character` block can carry `portrait: ![[asset:greta.webp]]`, etc.).
 
@@ -669,7 +669,7 @@ What changes:
 
 1. Each catalog gets a `TbXCatalogIndex` sentinel entity (mirroring `TbItemCatalogIndex`).
 2. The plugin's `seed()` step (today wired only to items in `manifest.ts:634`) is extended to walk every catalog: spawn each entry as a real entity with the appropriate marker (`MonsterTemplate`, etc.) and `ItemDerivedFrom{ originPlugin: "@vtt/system-torchbearer", templateId, overrides: [] }` provenance.
-3. Pickers (`bestiary-page.tsx`, `spawn-monster-palette.ts`, `npc-picker.tsx`, `npcs-page.tsx`, etc.) shift from `TB_*_TEMPLATES.find(...)` to `world.where(MonsterTemplate)` (or equivalent). Selection no longer "spawns from a template" — it either references the seeded entity directly (for things like wiki-links) or runs the existing copy-on-fork flow (for "spawn a customized instance").
+3. Pickers (`monsters-page.tsx`, `spawn-monster-palette.ts`, `npc-picker.tsx`, `npcs-page.tsx`, etc.) shift from `TB_*_TEMPLATES.find(...)` to `world.where(MonsterTemplate)` (or equivalent). Selection no longer "spawns from a template" — it either references the seeded entity directly (for things like wiki-links) or runs the existing copy-on-fork flow (for "spawn a customized instance").
 4. **Migration of existing data.** Per CLAUDE.md backwards-compat rules, in-prod worlds may already contain entities spawned via the old lazy flow. The simplest forward-only treatment: leave them as-is (they become "manual" entities with no upstream-merge link), and let new spawns use the seeded templates. A heavier migration that re-keys old spawns to point at the new templates can land later if it matters; v1 is the lighter path.
 
 This work is one focused refactor in `@vtt/system-torchbearer` and lands as **phase 0** of the adventures rollout (before phase 1).

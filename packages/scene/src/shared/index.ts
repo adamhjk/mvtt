@@ -24,6 +24,12 @@ export {
   TokenImage,
 } from "./traits.js";
 export {
+  resolveSceneBackgroundUrl,
+  resolveTokenImageUrl,
+  type SceneBackgroundValue,
+  type TokenImageValue,
+} from "./background.js";
+export {
   CharacterTokenPlaced,
   SceneCreated,
   SceneRemoved,

@@ -72,7 +72,7 @@ export const invocationLinkKind = defineLinkKind<InvocationRef>({
       if (needle.length > 0 && !v.name.toLowerCase().includes(needle)) continue;
       out.push({
         kind: "invocation",
-        body: row.id,
+        body: v.name,
         display: v.name,
         badge: "Invocation",
       });

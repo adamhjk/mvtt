@@ -74,7 +74,7 @@ export { TB_MONSTER_TEMPLATES };
 
 /**
  * Spawn a monster entity from a catalog template. GM-only — players
- * can't conjure their own bestiary entries. The command resolves the
+ * can't conjure their own catalog entries. The command resolves the
  * template's referenced armor item against the items catalog index
  * inside `apply` (read-only read of the world is allowed alongside
  * the world.allocateId() write — see the EquipItem command for the
@@ -211,7 +211,7 @@ export const CreateBlankMonster = defineCommand({
 
 /**
  * Despawn a monster. Mirrors RemoveCharacter but on the
- * MonsterRemoved event so the bestiary page provider can react
+ * MonsterRemoved event so the monsters page provider can react
  * without conflating with PC removals (and so any future "graveyard"
  * archive can pick this up specifically).
  */

@@ -122,7 +122,7 @@ export const bookLinkKind = defineLinkKind<BookRef>({
       if (needle.length > 0 && !v.name.toLowerCase().includes(needle)) continue;
       out.push({
         kind: "book",
-        body: row.id,
+        body: v.name,
         display: v.name,
         badge: "Book",
       });

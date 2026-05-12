@@ -426,16 +426,29 @@ export const CancelPendingRoll = defineCommand({
 
 /**
  * Editor-gated: set or clear the character's uploaded token image.
- * Pass `imageUrl: null` to clear. The upload endpoint enforces the
- * GM-only / size / extension policy server-side; this command keeps
- * the trait pointing at this plugin's own storage by validating the
- * URL belongs to the character's plugin-data prefix.
+ *
+ * Two write shapes (mutually exclusive):
+ *   - `{ assetId: <entityId> }` — the canonical post-refactor form. The
+ *     upload route at `/api/worlds/<wid>/assets/upload` produced this
+ *     id; we just stamp it onto the character's `CharacterToken` trait.
+ *     The asset entity must exist in this world. `imageUrl` is cleared
+ *     in the same event so a stale legacy path can't shadow the new
+ *     asset.
+ *   - `{ imageUrl: <pluginDataPath> }` — the legacy form, kept for
+ *     callers (or replays) that still write directly to plugin-data.
+ *     Validated to live under this character's plugin-data prefix.
+ *
+ * Pass `{}` (no fields) — or `{assetId: null, imageUrl: null}` — to
+ * clear the portrait entirely.
  */
 export const SetCharacterTokenImage = defineCommand({
   name: "@vtt/characters/SetCharacterTokenImage",
   schema: z.object({
     characterId: EntityId,
-    imageUrl: z.string().nullable(),
+    /** Asset entity carrying the portrait bytes (preferred). */
+    assetId: EntityId.nullable().default(null),
+    /** Legacy plugin-data path (BC for older clients + replay). */
+    imageUrl: z.string().nullable().default(null),
   }),
   validate: (ctx) => {
     if (!requireSession(ctx)) return fail("not authenticated");
@@ -444,6 +457,22 @@ export const SetCharacterTokenImage = defineCommand({
     }
     if (!ctx.world.get(ctx.cmd.characterId, [Character])) {
       return fail(`entity ${ctx.cmd.characterId} is not a character`);
+    }
+    // assetId + imageUrl are mutually exclusive on a single write — the
+    // command shape stays unambiguous on the wire and at replay.
+    if (ctx.cmd.assetId !== null && ctx.cmd.imageUrl !== null) {
+      return fail(
+        "set either assetId or imageUrl, not both",
+      );
+    }
+    if (ctx.cmd.assetId !== null) {
+      // We don't import the Asset trait here to avoid a layering
+      // dependency on @vtt/assets; checking the entity exists is enough
+      // for the substrate-level guarantee. The upload route is the
+      // canonical way to mint a valid assetId.
+      if (!ctx.world.has(ctx.cmd.assetId)) {
+        return fail(`asset ${ctx.cmd.assetId} does not exist`);
+      }
     }
     if (
       ctx.cmd.imageUrl !== null &&
@@ -462,6 +491,7 @@ export const SetCharacterTokenImage = defineCommand({
   apply: ({ cmd }) => [
     CharacterTokenImageSet({
       characterId: cmd.characterId,
+      assetId: cmd.assetId,
       imageUrl: cmd.imageUrl,
     }),
   ],

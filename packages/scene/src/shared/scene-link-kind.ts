@@ -71,7 +71,7 @@ export const sceneLinkKind = defineLinkKind<SceneRef>({
       if (needle.length > 0 && !v.name.toLowerCase().includes(needle)) continue;
       out.push({
         kind: "scene",
-        body: row.id,
+        body: v.name,
         display: v.name,
         badge: "Scene",
       });

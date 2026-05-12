@@ -44,7 +44,7 @@ architectural plan; consult it before touching any of the moving parts.
    and the consume command differ.
 10. **Fuzzy search picker** for "add spell from catalog" / "memorize"
     / "learn from book" — never long dropdowns. Mirrors the existing
-    `bestiary-picker.tsx` subsequence-fuzzy approach.
+    `monsters-picker.tsx` subsequence-fuzzy approach.
 
 ## Plugin scope
 

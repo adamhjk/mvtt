@@ -105,4 +105,17 @@ describe("npcLinkKind.autocomplete", () => {
     expect(out.length).toBe(1);
     expect(out[0]?.display).toBe("Skarra Wormtongue");
   });
+
+  // Body must be the *name*, not the entity id — entity ids drift on
+  // bundle import (every imported entity gets a fresh server-allocated
+  // id in the target world), so id-based wikilinks dangle after
+  // import. The CodeMirror editor inserts `[[npc:<body>]]` literally,
+  // and the parser resolves `<body>` by case-insensitive name match.
+  it("emits name-based body so wikilinks survive bundle import", () => {
+    const world = new World();
+    spawnNpc(world, "Max the Monster");
+    const [out] = npcLinkKind.autocomplete("max", world);
+    expect(out?.body).toBe("Max the Monster");
+    expect(out?.body).not.toMatch(/^e\d+$/);
+  });
 });

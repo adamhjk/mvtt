@@ -871,6 +871,85 @@ describe("@vtt/scene", () => {
       );
       expect(res.result.ok).toBe(false);
     });
+
+    it("accepts a backgroundAssetId pointing at an existing asset entity", async () => {
+      await makeScene(pipeline);
+      const sceneId = world.query([Scene])[0]!.id;
+      // Stand up a stub asset entity — we don't drag in the full
+      // @vtt/assets plugin here; the command only checks that the
+      // assetId exists.
+      const assetId = world.spawn([]);
+      const res = await dispatch(
+        pipeline,
+        UpdateScene({ sceneId, backgroundAssetId: assetId }),
+        GM,
+      );
+      expect(res.result.ok).toBe(true);
+      const after = world.get(sceneId, [Scene]) as {
+        Scene: { backgroundAssetId: string | null; backgroundImage: string | null };
+      };
+      expect(after.Scene.backgroundAssetId).toBe(assetId);
+      // Legacy URL stays null on the trait.
+      expect(after.Scene.backgroundImage).toBeNull();
+    });
+
+    it("setting backgroundAssetId clears any legacy backgroundImage on the trait", async () => {
+      await makeScene(pipeline);
+      const sceneId = world.query([Scene])[0]!.id;
+      // First write a legacy URL.
+      await dispatch(
+        pipeline,
+        UpdateScene({
+          sceneId,
+          backgroundImage: `/plugin-data/default/@vtt/scene/scenes/${sceneId}/background.png`,
+        }),
+        GM,
+      );
+      // Then upload a new asset — the system should clear the URL so
+      // asset-first precedence can't accidentally pin the stale URL.
+      const assetId = world.spawn([]);
+      const res = await dispatch(
+        pipeline,
+        UpdateScene({ sceneId, backgroundAssetId: assetId }),
+        GM,
+      );
+      expect(res.result.ok).toBe(true);
+      const after = world.get(sceneId, [Scene]) as {
+        Scene: { backgroundAssetId: string | null; backgroundImage: string | null };
+      };
+      expect(after.Scene.backgroundAssetId).toBe(assetId);
+      expect(after.Scene.backgroundImage).toBeNull();
+    });
+
+    it("rejects setting both backgroundAssetId and backgroundImage in the same write", async () => {
+      await makeScene(pipeline);
+      const sceneId = world.query([Scene])[0]!.id;
+      const assetId = world.spawn([]);
+      const res = await dispatch(
+        pipeline,
+        UpdateScene({
+          sceneId,
+          backgroundAssetId: assetId,
+          backgroundImage: `/plugin-data/default/@vtt/scene/scenes/${sceneId}/background.png`,
+        }),
+        GM,
+      );
+      expect(res.result.ok).toBe(false);
+    });
+
+    it("rejects a backgroundAssetId for an asset entity that doesn't exist", async () => {
+      await makeScene(pipeline);
+      const sceneId = world.query([Scene])[0]!.id;
+      const res = await dispatch(
+        pipeline,
+        UpdateScene({
+          sceneId,
+          backgroundAssetId: "missing-asset-id" as EntityId,
+        }),
+        GM,
+      );
+      expect(res.result.ok).toBe(false);
+    });
   });
 
   describe("RemoveScene", () => {

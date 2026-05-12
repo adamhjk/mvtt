@@ -18,11 +18,14 @@
 import { z, type EntityId, type World } from "@vtt/substrate";
 import {
   BelongsToNote,
+  Headings,
   Note,
   NoteOrdering,
   Page,
+  PageHistory,
   PageOrdering,
 } from "@vtt/notes/shared";
+import { Permissions, everyone, ownedBy } from "@vtt/permissions/shared";
 import { Asset } from "@vtt/assets/shared";
 import {
   BLOCK_ENTITY_INDEX_ID,
@@ -258,12 +261,26 @@ export async function buildBundle(
     });
   }
 
-  // Walk asset references in every selected note body. References look
-  // like `[[asset:<id>]]` or `![[asset:<id>]]` (post-normalization) or
-  // bare `[[asset:<filename>]]` pre-normalization. We collect every
-  // referenced entityId, look up the Asset trait, and load the bytes
-  // via `loadAssetBytes` if provided.
+  // Collect every Asset entity that needs to ride along in the
+  // bundle. Two sources:
+  //   1. Inline wiki-link references in note bodies: `[[asset:<id>]]`
+  //      / `![[asset:<id>]]`. Covers GM-typed images and the asset
+  //      link kind.
+  //   2. Every Asset entity in the world. Post-refactor, plugin
+  //      traits (CharacterToken.assetId, Scene.backgroundAssetId,
+  //      TokenImage.assetId, PdfDocument.assetId, …) point at Asset
+  //      entities by id. Tracing those references from inside
+  //      adventures would require importing every consumer plugin,
+  //      which inverts the dependency graph. The pragmatic v1: union
+  //      every Asset entity in the world — dedup at import is by
+  //      sha256 so the cost of bundling an asset the target world
+  //      already has is just the manifest entry. Future work can
+  //      narrow this when there's an `AssetReferenceFinder` slot for
+  //      plugins to declare their own roots.
   const referencedAssetIds = new Set<EntityId>();
+  for (const row of world.query([Asset])) {
+    referencedAssetIds.add(row.id as EntityId);
+  }
   for (const note of noteEntries) {
     for (const page of note.pages) {
       const matches = page.body.matchAll(/!?\[\[asset:([^\]|]+)/g);
@@ -598,6 +615,14 @@ export interface ImportBundleHooks {
     bytes: Uint8Array,
     descriptor: BundleManifest["assets"][number],
   ) => EntityId | Promise<EntityId>;
+  /**
+   * User id to record as the owner of imported notes (and pages by
+   * inheritance). Defaults to `read: everyone, write: everyone` when
+   * absent — fine for unit tests, wrong for HTTP imports where the
+   * GM should own the result. The HTTP route threads `session.userId`
+   * here.
+   */
+  importerUserId?: string;
 }
 
 /**
@@ -645,6 +670,17 @@ export async function importBundle(
     }
   }
 
+  // Permissions for every imported note / page. The HTTP route hands
+  // us the GM's userId; standalone callers (unit tests, scripts)
+  // typically don't, so we fall back to the public-everyone shape so
+  // the imported notes are at least visible. Without Permissions
+  // attached, `useQuery([Note, Permissions])`-style hub queries skip
+  // the imported entities entirely — that's the bug this branch
+  // fixes.
+  const importPermissions = hooks.importerUserId
+    ? ownedBy(hooks.importerUserId)
+    : { read: everyone(), write: everyone() };
+
   const noteIds: EntityId[] = [];
   let pagesCreated = 0;
   for (let i = 0; i < m.notes.length; i += 1) {
@@ -652,6 +688,7 @@ export async function importBundle(
     const noteId = world.spawn([
       Note({ title: n.title, createdAt: Date.now() }),
       NoteOrdering({ ordinal: i }),
+      Permissions(importPermissions),
       AdventureProvenance({
         bundleId: m.bundleId,
         bundleName: m.name,
@@ -687,6 +724,15 @@ export async function importBundle(
         BelongsToNote({ noteId }),
         Page({ title: p.title, body, bodyRev: 1 }),
         PageOrdering({ ordinal: j }),
+        // Mirror the trait set the normal `PageSpawnSystem` attaches:
+        // Headings (read by the heading-nav rail), PageHistory (read
+        // by the version-history panel), and Permissions (inherited
+        // from the parent note — same shape as the cascade system).
+        // Without these, imported pages render but every consumer
+        // that filters by them quietly drops the row.
+        Headings({ items: [] }),
+        PageHistory({ entries: [] }),
+        Permissions(importPermissions),
       ]);
       // Now run the parse system manually to materialize block entities.
       runBlockParse(world, pageId, body, kindIndex);

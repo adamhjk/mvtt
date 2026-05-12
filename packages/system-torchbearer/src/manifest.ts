@@ -319,7 +319,7 @@ import { ALL_CONFLICT_SYSTEMS } from "./conflict/server/index.js";
 
 /**
  * Hide monster entities from the Characters tab — they live on their
- * own Bestiary tab via `BestiaryPageProvider`. The same trait powers
+ * own Monsters tab via `MonstersPageProvider`. The same trait powers
  * the monster sheet's existence check.
  */
 const tbMonsterListExclusion: CharacterListExclusion = {

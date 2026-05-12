@@ -24,13 +24,13 @@ import { TbMonster, TbNpc } from "../../shared/index.js";
 // (not imported) because the providers live in unrelated packages
 // and the kind strings are stable substrate-wide identifiers.
 const CHARACTERS_PAGE_KIND = "@vtt/characters/characters" as QualifiedName;
-const BESTIARY_PAGE_KIND = "@vtt/system-torchbearer/bestiary" as QualifiedName;
+const MONSTERS_PAGE_KIND = "@vtt/system-torchbearer/monsters" as QualifiedName;
 const NPCS_PAGE_KIND = "@vtt/system-torchbearer/npcs" as QualifiedName;
 
 /**
  * Returns a click handler that follows a deep link to a character /
- * bestiary / NPCs entry. Monsters (entities carrying `TbMonster`)
- * route to the Bestiary page; NPCs (entities carrying `TbNpc`) route
+ * monsters / NPCs entry. Monsters (entities carrying `TbMonster`)
+ * route to the Monsters page; NPCs (entities carrying `TbNpc`) route
  * to the NPCs page; everything else to the Characters page.
  *
  * Powered by `useFollowLink`, so it inherits the canonical wikilink
@@ -44,7 +44,7 @@ const NPCS_PAGE_KIND = "@vtt/system-torchbearer/npcs" as QualifiedName;
  *
  * Pass the click event so modifiers are honored. Multi-spawn rosters
  * (Barrow Wight 1/2/3) all share one `characterId`, so every variant
- * resolves to the single shared bestiary entry.
+ * resolves to the single shared monsters entry.
  */
 export function useOpenCharacterSheet(): (
   characterId: EntityId,
@@ -56,7 +56,7 @@ export function useOpenCharacterSheet(): (
     const isMonster = client.world.get(characterId, [TbMonster]) !== undefined;
     const isNpc = client.world.get(characterId, [TbNpc]) !== undefined;
     const pageKind = isMonster
-      ? BESTIARY_PAGE_KIND
+      ? MONSTERS_PAGE_KIND
       : isNpc
         ? NPCS_PAGE_KIND
         : CHARACTERS_PAGE_KIND;

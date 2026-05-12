@@ -33,7 +33,7 @@ import {
   type InvocationTradition,
 } from "../shared/invocations/invocation-traits.js";
 import { tbCanonicalBookAbbreviation } from "../data/seed.js";
-import { fuzzyMatch } from "./bestiary-picker.js";
+import { fuzzyMatch } from "./monsters-picker.js";
 import { CircleDots } from "./spell-picker.js";
 
 export interface InvocationCandidate {

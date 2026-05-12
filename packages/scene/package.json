@@ -13,6 +13,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@vtt/assets": "workspace:*",
     "@vtt/auth": "workspace:*",
     "@vtt/characters": "workspace:*",
     "@vtt/identity": "workspace:*",

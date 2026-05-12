@@ -237,9 +237,18 @@ export function CodeMirrorEditor(props: {
 
         if (!kindFilter) {
           // Bare query — include Notes plus every registered kind.
+          //
+          // Suggestions store the *name* form `[[kind:body]]` (no
+          // `|display` trailer), since the body is now the
+          // human-readable name and the chip renderer can rederive the
+          // display from the resolved entity. Name-based storage
+          // survives bundle import (where entity ids change) — the id
+          // form would dangle on the target world. The `asset:` kind
+          // is the deliberate exception: filenames aren't unique and
+          // the bundle importer rewrites `[[asset:<id>]]` refs.
           for (const row of world.query([Note])) {
             const v = row.values.Note as { title: string };
-            const replacement = `[[note:${row.id}|${v.title}]]`;
+            const replacement = `[[note:${v.title}]]`;
             options.push({
               label: v.title,
               detail: "Note",
@@ -258,7 +267,7 @@ export function CodeMirrorEditor(props: {
             for (const s of suggestions) {
               const display =
                 s.display.length > 0 ? s.display : `${s.kind}:${s.body}`;
-              const replacement = `[[${s.kind}:${s.body}|${display}]]`;
+              const replacement = `[[${s.kind}:${s.body}]]`;
               options.push({
                 label: display,
                 detail: s.badge ?? s.kind,
@@ -273,7 +282,7 @@ export function CodeMirrorEditor(props: {
             options.push({
               label: `+ create new note: "${trimmed}"`,
               detail: "create",
-              apply: buildApply(`[[note:${trimmed}|${trimmed}]]`),
+              apply: buildApply(`[[note:${trimmed}]]`),
               type: "create",
             });
           }
@@ -284,7 +293,7 @@ export function CodeMirrorEditor(props: {
           if (kindFilter.name === "note") {
             for (const row of world.query([Note])) {
               const v = row.values.Note as { title: string };
-              const replacement = `[[note:${row.id}|${v.title}]]`;
+              const replacement = `[[note:${v.title}]]`;
               options.push({
                 label: v.title,
                 detail: "Note",
@@ -306,7 +315,7 @@ export function CodeMirrorEditor(props: {
             for (const s of suggestions) {
               const display =
                 s.display.length > 0 ? s.display : `${s.kind}:${s.body}`;
-              const replacement = `[[${s.kind}:${s.body}|${display}]]`;
+              const replacement = `[[${s.kind}:${s.body}]]`;
               options.push({
                 label: display,
                 detail: s.badge ?? s.kind,
@@ -337,7 +346,7 @@ export function CodeMirrorEditor(props: {
           const back = row.values.BelongsToNote as { noteId: EntityId };
           if (back.noteId !== noteId) continue;
           const p = row.values.Page as { title: string };
-          const replacement = `[[note:${noteId}>${row.id}|${noteTitle} › ${p.title}]]`;
+          const replacement = `[[note:${noteTitle}>${p.title}]]`;
           options.push({
             label: p.title,
             detail: "Page",
@@ -363,7 +372,7 @@ export function CodeMirrorEditor(props: {
             | { Headings: { items: Array<{ id: string; text: string }> } }
             | undefined)?.Headings.items ?? [];
         for (const h of headings) {
-          const replacement = `[[note:${noteId}>${pageId}>${h.id}|${noteTitle} › ${pageTitle} › ${h.text}]]`;
+          const replacement = `[[note:${noteTitle}>${pageTitle}>${h.text}]]`;
           options.push({
             label: h.text,
             detail: "Heading",

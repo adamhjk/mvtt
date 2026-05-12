@@ -33,17 +33,25 @@ import {
 import { MonsterCreated } from "../shared/monster-events.js";
 import { TbMonster } from "../shared/monster-traits.js";
 import {
-  BestiaryRack,
-  BestiarySearchInput,
+  MonstersRack,
+  MonstersSearchInput,
   filterCatalogByQuery,
   fuzzyMatch,
-} from "./bestiary-picker.js";
+} from "./monsters-picker.js";
 import { MonsterSheet } from "./monster-sheet.js";
 
-const BESTIARY_KIND = "@vtt/system-torchbearer/bestiary";
+export const MONSTERS_KIND = "@vtt/system-torchbearer/monsters";
 
 /**
- * Bestiary page provider — lists every monster entity in the world
+ * Legacy qualified name for this page. Persisted `WorkspaceTab.pageKind`
+ * values written before the bestiary→monsters rename still carry this
+ * string; `BestiaryPageAlias` (below) is registered under it so those
+ * tabs resolve to the same renderer.
+ */
+const LEGACY_BESTIARY_KIND = "@vtt/system-torchbearer/bestiary";
+
+/**
+ * Monsters page provider — lists every monster entity in the world
  * (entities carrying both `Character` and `TbMonster`) and renders
  * the scrolling monster sheet. Lives on its own workbench tab so the
  * Characters tab stays focused on PCs (and, future, NPCs get their
@@ -54,10 +62,10 @@ const BESTIARY_KIND = "@vtt/system-torchbearer/bestiary";
  * the entity (per Permissions) can still see it on this tab once a GM
  * reveals it.
  */
-export const BestiaryPageProvider = definePageProvider({
-  kind: BESTIARY_KIND,
+export const MonstersPageProvider = definePageProvider({
+  kind: MONSTERS_KIND,
   icon: "bug",
-  label: "Bestiary",
+  label: "Monsters",
   reads: [Character, TbMonster],
   list: ({ world }) => {
     return world.query([Character, TbMonster]).map((row) => {
@@ -75,18 +83,33 @@ export const BestiaryPageProvider = definePageProvider({
     return first?.id ?? null;
   },
   render: ({ tabId, entityId }) => {
-    return <BestiaryPage tabId={tabId} entityId={entityId} />;
+    return <MonstersPage tabId={tabId} entityId={entityId} />;
   },
 });
 
-function BestiaryPage(props: {
+/**
+ * Back-compat shim: a second page provider registered under the
+ * pre-rename qualified name so persisted tabs still resolve. Delegates
+ * everything to `MonstersPageProvider`.
+ */
+export const BestiaryPageAlias = definePageProvider({
+  kind: LEGACY_BESTIARY_KIND,
+  icon: MonstersPageProvider.icon,
+  label: MonstersPageProvider.label,
+  reads: MonstersPageProvider.reads,
+  list: MonstersPageProvider.list,
+  defaultEntity: MonstersPageProvider.defaultEntity,
+  render: MonstersPageProvider.render,
+});
+
+function MonstersPage(props: {
   tabId: string;
   entityId: string | null;
 }): JSX.Element {
   return (
     <Show
       when={props.entityId}
-      fallback={<BestiaryHub tabId={props.tabId} />}
+      fallback={<MonstersHub tabId={props.tabId} />}
     >
       {(idAcc) => <MonsterSheet characterId={idAcc()} />}
     </Show>
@@ -106,7 +129,7 @@ interface MonsterRow {
   readonly active: boolean;
 }
 
-function BestiaryHub(props: { tabId: string }): JSX.Element {
+function MonstersHub(props: { tabId: string }): JSX.Element {
   const client = useClient();
   const me = kit.useMe();
   const monsterRows = useQuery([Character, TbMonster]);
@@ -149,7 +172,7 @@ function BestiaryHub(props: { tabId: string }): JSX.Element {
     client.dispatch(
       RetargetTab({
         tabId: props.tabId,
-        pageKind: BESTIARY_KIND,
+        pageKind: MONSTERS_KIND,
         entityId: monsterId,
       }) as CommandInstance,
     );
@@ -163,7 +186,7 @@ function BestiaryHub(props: { tabId: string }): JSX.Element {
   const renderRow = (m: MonsterRow): JSX.Element => (
     <li
       class="group flex items-center gap-3 rounded-(--radius-control) border border-border-muted bg-surface-elevated px-3 py-2"
-      data-testid={`bestiary-row-${m.id}`}
+      data-testid={`monsters-row-${m.id}`}
     >
       <button
         type="button"
@@ -208,7 +231,7 @@ function BestiaryHub(props: { tabId: string }): JSX.Element {
                 class="font-display text-2xl tracking-tight text-fg-muted"
                 style={{ "font-family": "var(--font-display)" }}
               >
-                No monsters yet — spawn one from the bestiary below.
+                No monsters yet — spawn one from the catalog below.
               </p>
               <Show
                 when={isGm()}
@@ -228,7 +251,7 @@ function BestiaryHub(props: { tabId: string }): JSX.Element {
               class="font-display text-xl tracking-tight text-fg"
               style={{ "font-family": "var(--font-display)" }}
             >
-              Bestiary
+              Monsters
             </h2>
             <span class="font-display text-[0.62rem] uppercase tracking-[0.16em] text-fg-subtle">
               {activeMonsters().length} active · {inactiveMonsters().length} inactive
@@ -239,7 +262,7 @@ function BestiaryHub(props: { tabId: string }): JSX.Element {
             query={query}
             setQuery={setQuery}
             placeholder="filter by name…"
-            testid="bestiary-filter"
+            testid="monsters-filter"
           />
 
           <Show
@@ -247,7 +270,7 @@ function BestiaryHub(props: { tabId: string }): JSX.Element {
             fallback={
               <p
                 class="text-center text-xs text-fg-subtle italic"
-                data-testid="bestiary-empty"
+                data-testid="monsters-empty"
               >
                 No monsters match "{query()}".
               </p>
@@ -261,7 +284,7 @@ function BestiaryHub(props: { tabId: string }): JSX.Element {
                 />
                 <ul
                   class="flex flex-col gap-1"
-                  data-testid="bestiary-active-list"
+                  data-testid="monsters-active-list"
                 >
                   <For each={activeMonsters()}>{renderRow}</For>
                 </ul>
@@ -275,7 +298,7 @@ function BestiaryHub(props: { tabId: string }): JSX.Element {
                 />
                 <ul
                   class="flex flex-col gap-1"
-                  data-testid="bestiary-inactive-list"
+                  data-testid="monsters-inactive-list"
                 >
                   <For each={inactiveMonsters()}>{renderRow}</For>
                 </ul>
@@ -316,7 +339,7 @@ function SectionHeader(props: { label: string; count: number }): JSX.Element {
 }
 
 /**
- * Plain filter input shared by the Bestiary + NPCs lists. No
+ * Plain filter input shared by the Monsters + NPCs lists. No
  * roving selection (that's the catalog picker's job); this is just a
  * filter field that pushes its value into the parent's `query`
  * signal. Escape clears the filter.
@@ -358,9 +381,9 @@ function FilterInput(props: {
  * diffs the monster list on the event, and retargets this tab onto
  * the freshly-spawned entity.
  *
- * Uses the same `BestiaryRack` + fuzzy matcher as the conflict-declare
+ * Uses the same `MonstersRack` + fuzzy matcher as the conflict-declare
  * inline picker — typing filters in place, ↑/↓ moves the highlight,
- * Enter spawns. Shares the `bestiary-picker` module so a future
+ * Enter spawns. Shares the `monsters-picker` module so a future
  * catalog change shows up in both places without drift.
  */
 function CatalogPicker(props: { tabId: string }): JSX.Element {
@@ -403,7 +426,7 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
         client.dispatch(
           RetargetTab({
             tabId: props.tabId,
-            pageKind: BESTIARY_KIND,
+            pageKind: MONSTERS_KIND,
             entityId: fresh.id,
           }) as CommandInstance,
         );
@@ -435,9 +458,9 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
   return (
     <div
       class="flex w-full flex-col gap-3"
-      data-testid="bestiary-catalog-picker"
+      data-testid="monsters-catalog-picker"
     >
-      <BestiarySearchInput
+      <MonstersSearchInput
         query={query}
         setQuery={setQuery}
         selected={selected}
@@ -473,7 +496,7 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
           </div>
         }
       >
-        <BestiaryRack
+        <MonstersRack
           candidates={candidates}
           selected={selected}
           setSelected={setSelected}

@@ -185,6 +185,48 @@ describe("buildBundle", () => {
     expect(bundle.manifest.notes).toHaveLength(1);
     expect(bundle.manifest.notes[0]!.title).toBe("A");
   });
+
+  it("captures every Asset entity in the world — even those only referenced via plugin trait fields (CharacterToken.assetId, Scene.backgroundAssetId, …)", async () => {
+    const { Asset } = await import("@vtt/assets/shared");
+    // Spawn three Asset entities with distinct shas.
+    const assetIds: EntityId[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      const id = world.spawn([
+        Asset({
+          mime: "image/png",
+          sizeBytes: 4,
+          sha256: "a".repeat(63) + String(i),
+          filename: null,
+          width: 1,
+          height: 1,
+          uploadedAt: 0,
+        }),
+      ]) as EntityId;
+      assetIds.push(id);
+    }
+    const noteId = world.spawn([
+      Note({ title: "Plain", createdAt: 0 }),
+      NoteOrdering({ ordinal: 0 }),
+    ]);
+    world.spawn([
+      Page({ title: "p", body: "no asset wiki-links here", bodyRev: 1 }),
+      BelongsToNote({ noteId }),
+      PageOrdering({ ordinal: 0 }),
+    ]);
+    const bundle = await buildBundle(world, {
+      bundleId: "uuid-asset-capture",
+      name: "T",
+      version: "1.0.0",
+      noteIds: [noteId],
+      loadAssetBytes: async (id) =>
+        new Uint8Array([id.charCodeAt(0)]),
+    });
+    // All three asset entities land in the bundle even though the
+    // note body references none of them — they were captured because
+    // plugin traits point at them by id.
+    expect(bundle.manifest.assets).toHaveLength(3);
+    expect(bundle.assets.size).toBe(3);
+  });
 });
 
 describe("importBundle round-trip", () => {
@@ -282,6 +324,87 @@ describe("importBundle round-trip", () => {
     // detect-already-imported-via-provenance flow lives in the
     // update service (Phase 7).
     expect(b.world.query([Note]).length).toBe(2);
+  });
+
+  it("imported notes + pages carry Permissions / Headings / PageHistory so hub queries find them", async () => {
+    const a = setup();
+    const noteId = a.world.spawn([
+      Note({ title: "X", createdAt: 0 }),
+      NoteOrdering({ ordinal: 0 }),
+    ]);
+    a.world.spawn([
+      Page({ title: "P", body: "hello", bodyRev: 1 }),
+      BelongsToNote({ noteId }),
+      PageOrdering({ ordinal: 0 }),
+    ]);
+    const bundle = await buildBundle(a.world, {
+      bundleId: "uuid-perm",
+      name: "PermsCheck",
+      version: "1.0.0",
+      noteIds: [noteId],
+    });
+
+    const b = setup();
+    const idx = buildBlockKindIndex(b.registry);
+    const { Permissions } = await import("@vtt/permissions/shared");
+    const { Headings, PageHistory } = await import("@vtt/notes/shared");
+    await importBundle(b.world, bundle, idx, { importerUserId: "gm-7" });
+
+    // Imported note appears in `[Note, Permissions]` queries — the
+    // exact shape the Notes hub uses to list notes.
+    const noteRows = b.world.query([Note, Permissions]);
+    expect(noteRows).toHaveLength(1);
+    const perm = noteRows[0]!.values.Permissions as {
+      read: { kind: string; userIds?: string[] };
+      write: { kind: string; userIds?: string[] };
+    };
+    expect(perm.write.kind).toBe("users");
+    expect(perm.write.userIds).toContain("gm-7");
+
+    // Imported page carries the page-trait set the normal create flow
+    // attaches (Permissions + Headings + PageHistory).
+    const pageRows = b.world.query([
+      Page,
+      Permissions,
+      Headings,
+      PageHistory,
+    ]);
+    expect(pageRows).toHaveLength(1);
+    const pageBody = (pageRows[0]!.values.Page as { body: string }).body;
+    expect(pageBody).toBe("hello");
+  });
+
+  it("without importerUserId, imported entities default to read:everyone/write:everyone (test/script callers)", async () => {
+    const a = setup();
+    const noteId = a.world.spawn([
+      Note({ title: "X", createdAt: 0 }),
+      NoteOrdering({ ordinal: 0 }),
+    ]);
+    a.world.spawn([
+      Page({ title: "P", body: "", bodyRev: 1 }),
+      BelongsToNote({ noteId }),
+      PageOrdering({ ordinal: 0 }),
+    ]);
+    const bundle = await buildBundle(a.world, {
+      bundleId: "uuid-perm-default",
+      name: "PermsDefault",
+      version: "1.0.0",
+      noteIds: [noteId],
+    });
+    const b = setup();
+    const idx = buildBlockKindIndex(b.registry);
+    const { Permissions } = await import("@vtt/permissions/shared");
+    await importBundle(b.world, bundle, idx);
+    const perm = b.world.get(b.world.query([Note])[0]!.id, [Permissions]) as
+      | {
+          Permissions: {
+            read: { kind: string };
+            write: { kind: string };
+          };
+        }
+      | undefined;
+    expect(perm!.Permissions.read.kind).toBe("everyone");
+    expect(perm!.Permissions.write.kind).toBe("everyone");
   });
 });
 

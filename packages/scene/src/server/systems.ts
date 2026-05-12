@@ -177,8 +177,17 @@ export const CharacterTokenPlacementSystem = defineSystem({
       Permissions(perm),
       LinkedCharacter({ characterId: event.characterId }),
     ];
-    if (event.imageUrl !== null) {
-      traits.push(TokenImage({ url: event.imageUrl }));
+    // Attach TokenImage when either the asset-first or legacy URL
+    // field is set. Pre-refactor placements only carry `imageUrl`;
+    // post-refactor placements carry `assetId`. Both never set
+    // together (validator rejects).
+    if (event.assetId !== null || event.imageUrl !== null) {
+      traits.push(
+        TokenImage({
+          assetId: event.assetId,
+          url: event.imageUrl,
+        }),
+      );
     }
     world.spawnAt(event.tokenId, traits);
     return [];
@@ -249,11 +258,26 @@ export const SceneUpdateSystem = defineSystem({
             heightPx: number;
             backgroundColor: string;
             gridColor: string;
+            backgroundAssetId: string | null;
             backgroundImage: string | null;
           };
         }
       | undefined;
     if (!got) return [];
+    // Background fields: `undefined` = leave unchanged, `null` = clear.
+    // Setting one explicitly clears the other so the trait can't
+    // accidentally hold both (which would let asset-first precedence
+    // hide a stale legacy URL).
+    let nextAssetId = got.Scene.backgroundAssetId ?? null;
+    let nextImage = got.Scene.backgroundImage ?? null;
+    if (event.backgroundAssetId !== undefined) {
+      nextAssetId = event.backgroundAssetId;
+      if (event.backgroundAssetId !== null) nextImage = null;
+    }
+    if (event.backgroundImage !== undefined) {
+      nextImage = event.backgroundImage;
+      if (event.backgroundImage !== null) nextAssetId = null;
+    }
     world.set(event.sceneId, Scene, {
       name: event.name ?? got.Scene.name,
       gridSize: event.gridSize ?? got.Scene.gridSize,
@@ -261,13 +285,8 @@ export const SceneUpdateSystem = defineSystem({
       heightPx: event.heightPx ?? got.Scene.heightPx,
       backgroundColor: event.backgroundColor ?? got.Scene.backgroundColor,
       gridColor: event.gridColor ?? got.Scene.gridColor,
-      // event.backgroundImage may be `null` to explicitly clear; we
-      // distinguish that from `undefined` (leave unchanged) by checking
-      // for `undefined` only.
-      backgroundImage:
-        event.backgroundImage !== undefined
-          ? event.backgroundImage
-          : got.Scene.backgroundImage,
+      backgroundAssetId: nextAssetId,
+      backgroundImage: nextImage,
     });
     return [];
   },

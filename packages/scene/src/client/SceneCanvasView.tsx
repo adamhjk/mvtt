@@ -48,6 +48,10 @@ import {
   TokenImage,
 } from "../shared/traits.js";
 import {
+  resolveSceneBackgroundUrl,
+  resolveTokenImageUrl,
+} from "../shared/background.js";
+import {
   CreateToken,
   MoveToken,
   PlaceCharacterToken,
@@ -105,8 +109,11 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
       return `${sc.widthPx}x${sc.heightPx}@${sc.gridSize}`;
     });
     const bgColor = createMemo<string | undefined>(() => sceneTrait()?.backgroundColor);
-    const bgImageUrl = createMemo<string | null>(
-      () => sceneTrait()?.backgroundImage ?? null,
+    // Asset-first read — assetId wins, legacy backgroundImage is the
+    // fallback for scenes saved before the asset-first refactor. The
+    // resolver shape matches `resolveCharacterTokenUrl`.
+    const bgImageUrl = createMemo<string | null>(() =>
+      resolveSceneBackgroundUrl(sceneTrait() ?? null, client.worldId()),
     );
 
     let host: HTMLDivElement | undefined;
@@ -493,6 +500,7 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
               sceneId: ctx.sceneId,
               characterId: payload.characterId,
               iconSlug: payload.iconSlug,
+              assetId: payload.assetId,
               imageUrl: payload.imageUrl,
               tint: 0xffffff,
               size: tgt.grid,
@@ -833,10 +841,17 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         // characters placed via `PlaceCharacterToken`. Read separately
         // so the inner `world.get([Sprite, Position, Token])` doesn't
         // narrow to undefined when an unrelated token lacks it.
+        //
+        // Asset-first precedence — fall back to the legacy `url`
+        // field for pre-refactor placements that snapshotted a
+        // plugin-data URL.
         const tokenImage = client.world.get(id, [TokenImage]) as
-          | { TokenImage: { url: string } }
+          | { TokenImage: { assetId: string | null; url: string | null } }
           | undefined;
-        const imageUrl = tokenImage?.TokenImage.url ?? null;
+        const imageUrl = resolveTokenImageUrl(
+          tokenImage?.TokenImage ?? null,
+          client.worldId(),
+        );
 
         const existing = sprites.get(id);
         if (existing) {

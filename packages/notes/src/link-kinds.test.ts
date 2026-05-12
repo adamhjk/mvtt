@@ -224,16 +224,18 @@ describe("link-kind registry", () => {
     });
 
     it("autocomplete after `Note >` suggests pages of that note", async () => {
-      const { noteId, pageId } = await buildCave();
+      await buildCave();
       const suggestions = noteLinkKind.autocomplete("Goblin Cave > ", world);
       const inh = suggestions.find((s) => s.display.endsWith("Inhabitants"));
       expect(inh).toBeDefined();
-      expect(inh!.body).toBe(`${noteId}>${pageId}`);
+      // Name-based body — survives bundle import. Stored as
+      // `<NoteTitle>>>>>... ` (split on ">").
+      expect(inh!.body).toBe("Goblin Cave>Inhabitants");
       expect(inh!.badge).toBe("Page");
     });
 
     it("autocomplete after `Note > Page >` suggests headings", async () => {
-      const { noteId, pageId } = await buildCave();
+      await buildCave();
       const suggestions = noteLinkKind.autocomplete(
         "Goblin Cave > Inhabitants > tact",
         world,
@@ -242,8 +244,10 @@ describe("link-kind registry", () => {
       expect(suggestions[0]!.display).toBe(
         "Goblin Cave › Inhabitants › Tactics",
       );
-      expect(suggestions[0]!.body).toMatch(
-        new RegExp(`^${noteId}>${pageId}>hd:`),
+      // Heading body is the heading text, not the `hd:<slug>` id —
+      // the parser's `resolveHeadingOnPage` handles text fallback.
+      expect(suggestions[0]!.body).toBe(
+        "Goblin Cave>Inhabitants>Tactics",
       );
     });
 

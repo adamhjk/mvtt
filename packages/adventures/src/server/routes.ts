@@ -137,14 +137,17 @@ export async function handleAdventureImport(
   }
   try {
     const idx = buildBlockKindIndex(runtime.registry);
-    const hooks = deps.saveAssetBytes
-      ? {
-          saveAssetBytes: async (
-            bytes: Uint8Array,
-            descriptor: { sha256: string; mime: string; name: string; bytes: number },
-          ) => deps.saveAssetBytes!(worldId, bytes, descriptor, session),
-        }
-      : undefined;
+    const hooks: Parameters<typeof importBundle>[3] = {
+      importerUserId: session.userId,
+      ...(deps.saveAssetBytes
+        ? {
+            saveAssetBytes: async (
+              bytes: Uint8Array,
+              descriptor: { sha256: string; mime: string; name: string; bytes: number },
+            ) => deps.saveAssetBytes!(worldId, bytes, descriptor, session),
+          }
+        : {}),
+    };
     const result = await importBundle(runtime.world, bundle, idx, hooks);
     sendJson(res, 200, {
       bundleId: bundle.manifest.bundleId,

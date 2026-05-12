@@ -43,13 +43,21 @@ export const Scene = defineTrait({
     /** Color of the grid lines drawn over the background. */
     gridColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#2a2a2a"),
     /**
-     * URL of a background image to render beneath the grid, or null if
-     * the scene uses only the solid `backgroundColor`. Must be served
-     * from the substrate's `/plugin-data/@vtt/scene/scenes/<sceneId>/`
-     * mount — uploaded via `POST /api/plugin-data/...` (GM-only). The
-     * URL may include a `?v=<bytes>` cache-bust suffix the upload
-     * endpoint stamps on so the browser re-fetches when the GM
-     * replaces the image.
+     * Asset entity holding the background image bytes (canonical).
+     * Post-refactor uploads go through
+     * `POST /api/worlds/<wid>/assets/upload`; the returned assetId is
+     * stamped here. Null when the scene uses only the solid
+     * `backgroundColor` or when a legacy `backgroundImage` URL is
+     * still in use.
+     */
+    backgroundAssetId: EntityId.nullable().default(null),
+    /**
+     * Legacy URL of a background image. Pre-refactor scenes carried a
+     * `/plugin-data/<worldId>/@vtt/scene/scenes/<sceneId>/background.<ext>`
+     * path here. Readers prefer `backgroundAssetId` and fall back to
+     * `backgroundImage` when assetId is null. New uploads leave this
+     * null. Use `resolveSceneBackgroundUrl(scene, worldId)` for the
+     * read precedence.
      */
     backgroundImage: z.string().nullable().default(null),
   }),
@@ -109,19 +117,25 @@ export const Token = defineTrait({
 
 /**
  * Optional override for a token's visual: when present, the canvas
- * loads `url` as the sprite's texture instead of the icon-manifest
- * SVG referenced by `Sprite.iconSlug`. Lazily attached — absent means
- * "use the iconSlug." Used by `PlaceCharacterToken` to project a
- * character's uploaded portrait onto the map.
+ * loads either the asset bytes (preferred) or the legacy URL instead
+ * of the icon-manifest SVG referenced by `Sprite.iconSlug`. Lazily
+ * attached — absent means "use the iconSlug." Used by
+ * `PlaceCharacterToken` to project a character's uploaded portrait
+ * onto the map.
  *
- * The URL must live under `/plugin-data/<worldId>/...` (server-side
- * validation in `PlaceCharacterToken` enforces it). Cache-bust
- * suffixes (`?v=<bytes>`) are accepted.
+ * Asset-first: `assetId` is the canonical post-refactor path. The
+ * legacy `url` field carries pre-refactor placements (and a
+ * placed-by-string command shape for plugins that haven't migrated).
+ * The canvas reads `resolveTokenImageUrl(token, worldId)` to apply
+ * precedence.
  */
 export const TokenImage = defineTrait({
   name: "@vtt/scene/TokenImage",
   schema: z.object({
-    url: z.string().min(1),
+    /** Asset entity carrying the token's portrait (canonical). */
+    assetId: EntityId.nullable().default(null),
+    /** Legacy URL form. Null when the placement used an assetId. */
+    url: z.string().nullable().default(null),
   }),
 });
 

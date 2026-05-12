@@ -258,8 +258,14 @@ export const CharacterTokenImageSetSystem = defineSystem({
   writes: [CharacterToken],
   run: ({ event, world }) => {
     if (!world.has(event.characterId)) return [];
+    // Write both fields verbatim — the event itself stays the source
+    // of truth. Asset-first writes carry `{assetId, imageUrl: null}`;
+    // legacy / replayed writes carry `{assetId: null, imageUrl}`;
+    // clears carry both null. Readers apply precedence at read time
+    // via `resolveCharacterTokenUrl`.
     world.set(event.characterId, CharacterToken, {
-      imageUrl: event.imageUrl,
+      assetId: event.assetId ?? null,
+      imageUrl: event.imageUrl ?? null,
     });
     return [];
   },

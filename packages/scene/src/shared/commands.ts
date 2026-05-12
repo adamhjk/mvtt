@@ -267,9 +267,14 @@ export const UpdateScene = defineCommand({
     backgroundColor: Color.optional(),
     gridColor: Color.optional(),
     /**
-     * URL of the new background image, or null to clear it.
-     * Validated to start with this scene's plugin-data prefix so the
-     * trait can't be pointed at an arbitrary URL.
+     * Asset entity holding the new background image, or null to clear.
+     * Optional — omit to leave unchanged. Canonical post-refactor path.
+     */
+    backgroundAssetId: EntityId.nullable().optional(),
+    /**
+     * Legacy URL form of the background image, or null to clear.
+     * Validated to start with this scene's plugin-data prefix. New
+     * uploads use `backgroundAssetId`; this stays for BC.
      */
     backgroundImage: z.string().nullable().optional(),
   }),
@@ -277,6 +282,25 @@ export const UpdateScene = defineCommand({
     if (!requireSession(ctx)) return fail("not authenticated");
     if (!ctx.world.has(ctx.cmd.sceneId)) {
       return fail(`scene ${ctx.cmd.sceneId} does not exist`);
+    }
+    // Forbid setting both shapes in the same write — the wire stays
+    // unambiguous about which path is canonical.
+    if (
+      ctx.cmd.backgroundAssetId !== undefined &&
+      ctx.cmd.backgroundAssetId !== null &&
+      ctx.cmd.backgroundImage !== undefined &&
+      ctx.cmd.backgroundImage !== null
+    ) {
+      return fail(
+        "set either backgroundAssetId or backgroundImage, not both",
+      );
+    }
+    if (
+      ctx.cmd.backgroundAssetId !== undefined &&
+      ctx.cmd.backgroundAssetId !== null &&
+      !ctx.world.has(ctx.cmd.backgroundAssetId)
+    ) {
+      return fail(`asset ${ctx.cmd.backgroundAssetId} does not exist`);
     }
     if (
       ctx.cmd.backgroundImage !== undefined &&
@@ -302,6 +326,7 @@ export const UpdateScene = defineCommand({
       heightPx?: number;
       backgroundColor?: string;
       gridColor?: string;
+      backgroundAssetId?: typeof cmd.backgroundAssetId;
       backgroundImage?: string | null;
     } = { sceneId: cmd.sceneId };
     if (cmd.name !== undefined) payload.name = cmd.name;
@@ -312,6 +337,9 @@ export const UpdateScene = defineCommand({
       payload.backgroundColor = cmd.backgroundColor;
     }
     if (cmd.gridColor !== undefined) payload.gridColor = cmd.gridColor;
+    if (cmd.backgroundAssetId !== undefined) {
+      payload.backgroundAssetId = cmd.backgroundAssetId;
+    }
     if (cmd.backgroundImage !== undefined) {
       payload.backgroundImage = cmd.backgroundImage;
     }
@@ -354,8 +382,16 @@ export const PlaceCharacterToken = defineCommand({
     sceneId: EntityId,
     characterId: EntityId,
     iconSlug: z.string().min(1),
-    /** Public URL of the character's uploaded portrait, or null for icon fallback. */
-    imageUrl: z.string().nullable(),
+    /**
+     * Snapshot of the character's portrait at placement time.
+     * Asset-first: when the character carries `CharacterToken.assetId`,
+     * pass that here. Pre-refactor placements pass `imageUrl` instead.
+     * Both are nullable; null/null means "no portrait, paint the
+     * iconSlug fallback." At most one should be set; the validator
+     * rejects setting both in the same write.
+     */
+    assetId: EntityId.nullable().default(null),
+    imageUrl: z.string().nullable().default(null),
     tint: z.number().int().min(0).max(0xffffff).default(0xffffff),
     size: z.number().int().min(8).max(512).default(64),
     label: z.string().min(1).max(80),
@@ -373,6 +409,12 @@ export const PlaceCharacterToken = defineCommand({
     const editor = requireWrite(ctx, ctx.cmd.characterId);
     if (!editor.ok) return editor;
 
+    if (ctx.cmd.assetId !== null && ctx.cmd.imageUrl !== null) {
+      return fail("set either assetId or imageUrl, not both");
+    }
+    if (ctx.cmd.assetId !== null && !ctx.world.has(ctx.cmd.assetId)) {
+      return fail(`asset ${ctx.cmd.assetId} does not exist`);
+    }
     if (
       ctx.cmd.imageUrl !== null &&
       !isWorldPluginDataUrl(ctx.cmd.imageUrl, ctx.world.worldId)
@@ -403,6 +445,7 @@ export const PlaceCharacterToken = defineCommand({
       sceneId: cmd.sceneId,
       characterId: cmd.characterId,
       iconSlug: cmd.iconSlug,
+      assetId: cmd.assetId,
       imageUrl: cmd.imageUrl,
       tint: cmd.tint,
       size: cmd.size,

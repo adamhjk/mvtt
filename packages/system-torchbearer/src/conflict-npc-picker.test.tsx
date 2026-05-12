@@ -84,7 +84,7 @@ function harness() {
 const TAB_ID = "tab-conflict";
 
 describe("ConflictPage — inline NPC spawn picker", () => {
-  it("the declare form renders an NPC spawn rack alongside the bestiary one", () => {
+  it("the declare form renders an NPC spawn rack alongside the monsters one", () => {
     const h = harness();
     mountWithClient(
       h,
@@ -94,9 +94,9 @@ describe("ConflictPage — inline NPC spawn picker", () => {
           entityId: null,
         }) as never,
     );
-    // Both the bestiary picker and the NPC picker are present in the
+    // Both the monsters picker and the NPC picker are present in the
     // declare form — quick-spawn parity for monsters and NPCs.
-    expect(screen.queryByTestId("declare-bestiary-picker")).not.toBeNull();
+    expect(screen.queryByTestId("declare-monsters-picker")).not.toBeNull();
     expect(screen.queryByTestId("declare-npc-picker")).not.toBeNull();
     // The NPC rack lists the catalog entries by default (no filter).
     const opts = screen.getByTestId("declare-npc-options");

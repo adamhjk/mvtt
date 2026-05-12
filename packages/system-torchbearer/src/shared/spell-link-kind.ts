@@ -78,7 +78,7 @@ export const spellLinkKind = defineLinkKind<SpellRef>({
       if (needle.length > 0 && !v.name.toLowerCase().includes(needle)) continue;
       out.push({
         kind: "spell",
-        body: row.id,
+        body: v.name,
         display: v.name,
         badge: "Spell",
       });

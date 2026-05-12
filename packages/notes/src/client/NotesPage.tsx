@@ -107,6 +107,7 @@ function NotesHub(props: { tabId: string }): JSX.Element {
   const noteRows = useQuery([Note, Permissions]);
   const [searchQuery, setSearchQuery] = createSignal("");
   const [showExport, setShowExport] = createSignal(false);
+  const [showImport, setShowImport] = createSignal(false);
 
   const notes = createMemo(() =>
     noteRows()
@@ -182,7 +183,7 @@ function NotesHub(props: { tabId: string }): JSX.Element {
                 class="font-display text-2xl tracking-tight text-fg-muted"
                 style={{ "font-family": "var(--font-display)" }}
               >
-                No notes yet — write the first one.
+                No notes yet — write the first one, or import an adventure.
               </p>
               <Show
                 when={me()}
@@ -193,6 +194,17 @@ function NotesHub(props: { tabId: string }): JSX.Element {
                 }
               >
                 <CreateNoteForm tabId={props.tabId} />
+                <Show when={me()?.role === "gm"}>
+                  <button
+                    type="button"
+                    onClick={() => setShowImport(true)}
+                    class="rounded-(--radius-control) border border-border bg-surface px-3 py-1.5 text-xs text-fg-muted hover:border-accent hover:text-fg transition"
+                    data-testid="import-adventure-button-empty"
+                    title="Import a .advt.zip bundle into this world"
+                  >
+                    Import adventure…
+                  </button>
+                </Show>
               </Show>
             </div>
           }
@@ -206,6 +218,15 @@ function NotesHub(props: { tabId: string }): JSX.Element {
             </h2>
             <div class="flex items-baseline gap-3">
               <Show when={me()?.role === "gm"}>
+                <button
+                  type="button"
+                  onClick={() => setShowImport(true)}
+                  class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-[0.65rem] text-fg-muted hover:border-accent hover:text-fg transition"
+                  data-testid="import-adventure-button"
+                  title="Import a .advt.zip bundle into this world"
+                >
+                  Import adventure…
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowExport(true)}
@@ -321,6 +342,189 @@ function NotesHub(props: { tabId: string }): JSX.Element {
           onClose={() => setShowExport(false)}
         />
       </Show>
+      <Show when={showImport()}>
+        <ImportAdventureModal
+          worldId={client.worldId() ?? ""}
+          onClose={() => setShowImport(false)}
+        />
+      </Show>
+    </div>
+  );
+}
+
+/**
+ * "Import adventure…" modal — pick a `.advt.zip` file, POST the raw
+ * bytes to `/api/worlds/<wid>/adventures/import`, surface the result
+ * inline. The server walks the bundle, materialises notes + pages,
+ * uploads any bundled assets as fresh `Asset` entities, and reports a
+ * count of each so the GM knows what landed.
+ *
+ * GM-only — gated upstream by the button visibility, and again
+ * server-side in `handleAdventureImport`. v1 always does a fresh
+ * import: if the bundle was previously imported, the server creates
+ * a new set of notes alongside the existing ones (additive). A
+ * future enhancement runs `/check-update` first when an
+ * `AdventureProvenance` for the bundleId already exists in the world
+ * and opens the existing `update-dialog.tsx` for confirmation.
+ */
+function ImportAdventureModal(props: {
+  worldId: string;
+  onClose: () => void;
+}): JSX.Element {
+  const [file, setFile] = createSignal<File | null>(null);
+  const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+  const [result, setResult] = createSignal<{
+    notesCreated: number;
+    pagesCreated: number;
+    assetsUploaded: number;
+    bundleId: string;
+    version: string;
+  } | null>(null);
+  let fileInput: HTMLInputElement | undefined;
+
+  const submit = async (e: SubmitEvent): Promise<void> => {
+    e.preventDefault();
+    setError(null);
+    setResult(null);
+    const f = file();
+    if (!f) {
+      setError("Pick a `.advt.zip` file first.");
+      return;
+    }
+    if (!props.worldId) {
+      setError("Not connected to a world.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/worlds/${encodeURIComponent(props.worldId)}/adventures/import`,
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "content-type": "application/zip" },
+          body: f,
+        },
+      );
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(body.error ?? `import failed (${res.status})`);
+      }
+      const body = (await res.json()) as {
+        notesCreated: number;
+        pagesCreated: number;
+        assetsUploaded: number;
+        bundleId: string;
+        version: string;
+      };
+      setResult(body);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      class="fixed inset-0 z-40 grid place-items-center bg-black/40 px-4"
+      onClick={props.onClose}
+      data-testid="import-adventure-modal"
+    >
+      <div
+        class="flex max-h-[85vh] w-full max-w-md flex-col gap-3 rounded-(--radius-card) border border-border bg-surface-elevated p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header>
+          <h2 class="text-base font-semibold tracking-tight text-fg">
+            Import adventure
+          </h2>
+          <p class="mt-1 text-xs text-fg-muted">
+            Pick a `.advt.zip` bundle. The notes + pages it carries are
+            added to this world; any bundled assets (portraits,
+            backgrounds, PDFs) are uploaded as fresh `Asset` entities.
+            Re-importing the same bundle creates a new copy alongside
+            the existing one.
+          </p>
+        </header>
+        <form
+          onSubmit={submit}
+          class="flex flex-col gap-3"
+          autocomplete="off"
+          data-form-type="other"
+          data-1p-ignore="true"
+          data-lpignore="true"
+          data-bwignore="true"
+        >
+          <label class="flex flex-col gap-1 text-xs text-fg-muted">
+            <span>Bundle file</span>
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".zip,application/zip,.advt"
+              onChange={(e) => {
+                const f = e.currentTarget.files?.[0] ?? null;
+                setFile(f);
+                setError(null);
+                setResult(null);
+              }}
+              data-testid="import-file"
+              class="rounded-(--radius-control) border border-border bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-accent file:mr-3 file:rounded-(--radius-control) file:border-0 file:bg-surface-elevated file:px-2 file:py-1 file:text-xs file:text-fg-muted hover:file:bg-surface"
+            />
+          </label>
+
+          <Show when={file() && !result()}>
+            <p class="text-[0.7rem] text-fg-subtle">
+              {file()!.name} · {(file()!.size / 1024).toFixed(0)} KB
+            </p>
+          </Show>
+
+          <Show when={error()}>
+            <p class="rounded-(--radius-control) border border-danger/40 bg-danger/10 px-2 py-1 text-xs text-danger">
+              {error()}
+            </p>
+          </Show>
+
+          <Show when={result()}>
+            {(r) => (
+              <div class="flex flex-col gap-1 rounded-(--radius-control) border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-fg">
+                <span class="font-medium">Imported successfully.</span>
+                <span class="text-fg-muted">
+                  {r().notesCreated} notes · {r().pagesCreated} pages ·{" "}
+                  {r().assetsUploaded} assets
+                </span>
+                <span class="text-fg-subtle">
+                  bundle <code class="font-mono">{r().bundleId}</code> v
+                  {r().version}
+                </span>
+              </div>
+            )}
+          </Show>
+
+          <div class="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={props.onClose}
+              class="rounded-(--radius-control) border border-border px-3 py-1.5 text-xs text-fg-muted hover:bg-surface transition"
+            >
+              {result() ? "Done" : "Cancel"}
+            </button>
+            <Show when={!result()}>
+              <button
+                type="submit"
+                disabled={busy() || !file()}
+                class="rounded-(--radius-control) bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:bg-accent-hover transition disabled:opacity-50"
+                data-testid="import-submit"
+              >
+                {busy() ? "Importing…" : "Import"}
+              </button>
+            </Show>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

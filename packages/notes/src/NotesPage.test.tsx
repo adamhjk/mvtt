@@ -113,7 +113,7 @@ describe("NotesPage hub (no entityId)", () => {
       }) as never,
     );
     expect(
-      screen.getByText(/No notes yet — write the first one\./i),
+      screen.getByText(/No notes yet — write the first one, or import an adventure\./i),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("textbox", { name: /Title/i }),

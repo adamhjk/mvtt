@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { defineTrait, z } from "@vtt/substrate";
+import { defineTrait, EntityId, z } from "@vtt/substrate";
 
 /**
  * A player- or GM-managed character. The display name is the only
@@ -45,21 +45,33 @@ export const Character = defineTrait({
  * means "no image yet" (the scene's character placement falls back to
  * the default creature icon).
  *
- * `imageUrl` must be a path under
- * `/plugin-data/<worldId>/@vtt/characters/characters/<characterId>/`
- * — same shape as scene backgrounds and pdf-book documents. The upload
- * endpoint stamps a `?v=<bytes>` cache-bust suffix so the browser
- * re-fetches when the GM replaces the file. Server-side validation in
- * SetCharacterTokenImage enforces the prefix to keep the trait
- * pointing at this plugin's own storage.
+ * **Asset-first storage**: the canonical field is `assetId`, pointing
+ * at an `Asset` entity in the world. New uploads go through
+ * `POST /api/worlds/<wid>/assets/upload`, then `SetCharacterTokenImage`
+ * records the returned assetId here.
  *
- * `null` is allowed so a previously-set image can be cleared without
- * needing a separate "remove trait" API in the substrate.
+ * `imageUrl` is the legacy field — entities materialised before the
+ * asset-first refactor carry a path like
+ * `/plugin-data/<worldId>/@vtt/characters/characters/<characterId>/token.png?v=<bytes>`.
+ * Readers prefer `assetId` and fall back to `imageUrl` when assetId is
+ * null. Both fields are independently nullable so re-uploading a new
+ * portrait clears imageUrl and writes assetId in the same set.
+ *
+ * Helper: use `resolveCharacterTokenUrl(token, worldId)` from
+ * `@vtt/characters/shared` to centralise the precedence logic.
  */
 export const CharacterToken = defineTrait({
   name: "@vtt/characters/CharacterToken",
   schema: z.object({
-    imageUrl: z.string().nullable(),
+    /** Asset entity carrying the portrait bytes (canonical). */
+    assetId: EntityId.nullable().default(null),
+    /**
+     * Legacy raw URL under `/plugin-data/<wid>/@vtt/characters/...`.
+     * Pre-refactor entities carried this directly; new uploads leave
+     * it null and write `assetId`. Kept for BC — readers fall back
+     * here only when assetId is null.
+     */
+    imageUrl: z.string().nullable().default(null),
   }),
 });
 
@@ -73,7 +85,7 @@ export const CharacterToken = defineTrait({
  * without per-encounter ceremony. Without filtering, every picker
  * shows the entire library and the fuzzy-lookups in particular lose
  * their usefulness. `Active` is the picker filter: pickers hide
- * inactive entries; library pages (Bestiary, NPCs) keep showing
+ * inactive entries; library pages (Monsters, NPCs) keep showing
  * everything and surface a per-row toggle.
  *
  * Backwards compatibility: prod entities predating this trait don't

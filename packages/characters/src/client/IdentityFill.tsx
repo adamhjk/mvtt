@@ -15,9 +15,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { type CommandInstance } from "@vtt/substrate";
+import { type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useTrait } from "@vtt/substrate/client";
 import { canWrite, Permissions } from "@vtt/permissions/shared";
+import { uploadAssetForWorld } from "@vtt/assets/client";
 import {
   createEffect,
   createMemo,
@@ -26,6 +27,7 @@ import {
   type JSX,
 } from "solid-js";
 import { Character, CharacterToken } from "../shared/traits.js";
+import { resolveCharacterTokenUrl } from "../shared/token-image.js";
 import {
   RenameCharacter,
   SetCharacterTokenImage,
@@ -64,14 +66,22 @@ export function IdentityFill(props: { characterId: string }): JSX.Element {
     );
   };
 
-  const setTokenImage = (imageUrl: string | null) => {
+  // Set the portrait to a freshly-uploaded asset, or clear it.
+  // Post-refactor we only ever write through the assetId path; the
+  // legacy imageUrl field is read-only from the UI's perspective.
+  const setTokenAsset = (assetId: EntityId | null) => {
     client.dispatch(
       SetCharacterTokenImage({
         characterId: props.characterId,
-        imageUrl,
+        assetId,
+        imageUrl: null,
       }) as CommandInstance,
     );
   };
+
+  const portraitUrl = createMemo(() =>
+    resolveCharacterTokenUrl(tokenImage() ?? null, client.worldId()),
+  );
 
   return (
     <div class="flex flex-col gap-2">
@@ -82,10 +92,10 @@ export function IdentityFill(props: { characterId: string }): JSX.Element {
         <TokenImageField
           characterId={props.characterId}
           worldId={client.worldId() ?? ""}
-          value={tokenImage()?.imageUrl ?? null}
+          value={portraitUrl()}
           disabled={!canEdit() || !character() || !client.worldId()}
-          onUpload={(url) => setTokenImage(url)}
-          onClear={() => setTokenImage(null)}
+          onUpload={(assetId) => setTokenAsset(assetId as EntityId)}
+          onClear={() => setTokenAsset(null)}
         />
       </div>
       <div class="flex flex-col gap-1">
@@ -111,17 +121,16 @@ export function IdentityFill(props: { characterId: string }): JSX.Element {
 }
 
 /**
- * Upload + preview + clear for the character's token portrait. Mirrors
- * the scene plugin's BackgroundImageField — the upload POSTs the raw
- * file body to
- * `/api/plugin-data/<worldId>/@vtt/characters/characters/<characterId>/token.<ext>`,
- * scoped to this character's plugin-data prefix within this world. On
- * success the response carries the public URL (with a cache-bust
- * suffix); we dispatch SetCharacterTokenImage so every client picks up
- * the change.
+ * Upload + preview + clear for the character's token portrait. Uses
+ * the per-world asset upload route (`/api/worlds/<wid>/assets/upload`)
+ * so the bytes are content-addressed, deduped, and reachable from the
+ * unified asset library — the bundle exporter picks them up
+ * automatically. The returned assetId flows to `onUpload`; the parent
+ * dispatches `SetCharacterTokenImage({assetId})`.
  *
- * GM-or-owner: the upload endpoint enforces GM-only world-data writes
- * server-side, so non-GM-non-owners see a disabled control. Inside
+ * GM-or-owner: the upload endpoint enforces world-membership server-
+ * side and the `SetCharacterTokenImage` validator gates by per-entity
+ * write permission. Non-editors see a disabled control. Inside
  * `data-1p-ignore` etc. so the file picker doesn't get suggested as a
  * password input by extensions.
  */
@@ -130,7 +139,7 @@ function TokenImageField(props: {
   worldId: string;
   value: string | null;
   disabled: boolean;
-  onUpload: (next: string) => void;
+  onUpload: (assetId: string) => void;
   onClear: () => void;
 }): JSX.Element {
   const [busy, setBusy] = createSignal(false);
@@ -139,28 +148,10 @@ function TokenImageField(props: {
 
   const upload = async (file: File) => {
     setError(null);
-    const ext =
-      extensionFromName(file.name) ??
-      extensionFromMime(file.type) ??
-      ".bin";
-    const url =
-      `/api/plugin-data/${encodeURIComponent(props.worldId)}` +
-      `/@vtt/characters/characters/${encodeURIComponent(props.characterId)}` +
-      `/token${ext}`;
     setBusy(true);
     try {
-      const res = await fetch(url, {
-        method: "POST",
-        body: file,
-        credentials: "same-origin",
-        headers: file.type ? { "content-type": file.type } : {},
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error ?? `upload failed (${res.status})`);
-      }
-      const body = (await res.json()) as { path: string };
-      props.onUpload(body.path);
+      const result = await uploadAssetForWorld(props.worldId, file);
+      props.onUpload(result.assetId);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -243,31 +234,6 @@ function TokenImageField(props: {
       />
     </div>
   );
-}
-
-function extensionFromName(name: string): string | null {
-  const dot = name.lastIndexOf(".");
-  if (dot < 0 || dot === name.length - 1) return null;
-  return name.slice(dot).toLowerCase();
-}
-
-function extensionFromMime(mime: string): string | null {
-  switch (mime) {
-    case "image/png":
-      return ".png";
-    case "image/jpeg":
-      return ".jpg";
-    case "image/gif":
-      return ".gif";
-    case "image/webp":
-      return ".webp";
-    case "image/avif":
-      return ".avif";
-    case "image/svg+xml":
-      return ".svg";
-    default:
-      return null;
-  }
 }
 
 function NameField(props: {

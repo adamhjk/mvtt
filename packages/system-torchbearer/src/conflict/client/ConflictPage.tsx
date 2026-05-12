@@ -63,9 +63,9 @@ import {
   type ConflictType,
 } from "../shared/index.js";
 import {
-  BestiaryRack,
+  MonstersRack,
   filterCatalogByQuery,
-} from "../../client/bestiary-picker.js";
+} from "../../client/monsters-picker.js";
 import { useConflict, useScript } from "./hooks.js";
 import { TopStripe } from "./TopStripe.js";
 import { TeamColumn } from "./TeamColumn.js";
@@ -377,39 +377,39 @@ function DeclareConflictForm(props: {
   const enemyChars = createMemo(() =>
     characters().filter((c) => c.team === "enemy"),
   );
-  // Bestiary picker — pick a template + count, click Spawn, the
+  // Monsters picker — pick a template + count, click Spawn, the
   // freshly-spawned character appears in the enemy list with the
   // requested count selected. Saves a roundtrip through the
-  // Bestiary tab when declaring "throw 4 goblins at them".
+  // Monsters tab when declaring "throw 4 goblins at them".
   //
-  // The picker is a typeahead: `bestiaryQuery` holds the typed text;
-  // `bestiarySelected` is the committed pick (template id) used when
-  // Spawn fires. `bestiaryQuery` and `bestiarySelected` are
+  // The picker is a typeahead: `monstersQuery` holds the typed text;
+  // `monstersSelected` is the committed pick (template id) used when
+  // Spawn fires. `monstersQuery` and `monstersSelected` are
   // independent so a user can keep editing the query without losing
   // their selection.
-  const [bestiaryQuery, setBestiaryQuery] = createSignal("");
-  const [bestiarySelected, setBestiarySelected] = createSignal<string | null>(
+  const [monstersQuery, setMonstersQuery] = createSignal("");
+  const [monstersSelected, setMonstersSelected] = createSignal<string | null>(
     TB_MONSTER_TEMPLATES[0]?.id ?? null,
   );
-  const [bestiaryCount, setBestiaryCount] = createSignal<number>(1);
-  const [bestiaryBusy, setBestiaryBusy] = createSignal(false);
+  const [monstersCount, setMonstersCount] = createSignal<number>(1);
+  const [monstersBusy, setMonstersBusy] = createSignal(false);
 
   // Filter the catalog by the typed query. Subsequence-style fuzzy
   // match — see `filterCatalogByQuery` for details. Pulled out into a
-  // shared helper so the bestiary home page uses the same matcher.
-  const bestiaryCandidates = createMemo(() =>
-    filterCatalogByQuery(bestiaryQuery()),
+  // shared helper so the monsters home page uses the same matcher.
+  const monstersCandidates = createMemo(() =>
+    filterCatalogByQuery(monstersQuery()),
   );
   // Resolve the selected template's display label for the input's
   // placeholder + the chip alongside it. Falls back to "—" if the
   // selection has been cleared (e.g. typed a query that doesn't
   // match anything yet — Spawn stays disabled).
-  const bestiarySelectedTemplate = createMemo(() =>
-    TB_MONSTER_TEMPLATES.find((t) => t.id === bestiarySelected()) ?? null,
+  const monstersSelectedTemplate = createMemo(() =>
+    TB_MONSTER_TEMPLATES.find((t) => t.id === monstersSelected()) ?? null,
   );
 
-  // NPC spawn-into-conflict state. Mirrors the bestiary state shape so
-  // the inline picker reads as a sibling of the BestiarySpawnRow.
+  // NPC spawn-into-conflict state. Mirrors the monsters state shape so
+  // the inline picker reads as a sibling of the MonstersSpawnRow.
   const [npcQuery, setNpcQuery] = createSignal("");
   const [npcSelected, setNpcSelected] = createSignal<string | null>(
     TB_NPC_TEMPLATES[0]?.id ?? null,
@@ -457,7 +457,7 @@ function DeclareConflictForm(props: {
   //   - Each resolved enemy is auto-activated. Block-materialised
   //     monsters/NPCs default to inactive; without this dispatch the
   //     chip wouldn't render in `enemyChars()`. Same rationale as the
-  //     bestiary inline-spawn flow.
+  //     monsters inline-spawn flow.
   onMount(() => {
     const encounterId = props.fromEncounterId;
     if (!encounterId) return;
@@ -569,24 +569,24 @@ function DeclareConflictForm(props: {
   };
 
   /**
-   * Spawn a fresh monster from the bestiary catalog and pre-select
+   * Spawn a fresh monster from the catalog and pre-select
    * it in the enemy list with the chosen count. The command itself
    * spawns ONE character entity; we just dial up `count` on the
    * enemy-counts map so DeclareConflict's expansion produces N rows
    * referencing it.
    */
-  const spawnAndPickFromBestiary = (): void => {
-    if (bestiaryBusy()) return;
-    const tmplId = bestiarySelected();
+  const spawnAndPickFromMonsters = (): void => {
+    if (monstersBusy()) return;
+    const tmplId = monstersSelected();
     if (!tmplId) return;
-    setBestiaryBusy(true);
+    setMonstersBusy(true);
     // Snapshot the existing monster ids so we can identify the new
     // one when the MonsterCreated event lands. The command's apply
     // allocates the id server-side, so we don't know it up-front.
     const beforeIds = new Set(
       client.world.query([Character, TbMonster]).map((r) => r.id as string),
     );
-    const requestedCount = Math.max(1, Math.min(20, bestiaryCount()));
+    const requestedCount = Math.max(1, Math.min(20, monstersCount()));
     const off = client.bus.on(MonsterCreated.name, () => {
       off();
       const fresh = client.world
@@ -603,7 +603,7 @@ function DeclareConflictForm(props: {
         // clicking Spawn from inside conflict-declare is the GM
         // explicitly bringing the monster into play. Auto-activate so
         // the chip appears in `enemyChars()` and the GM doesn't have
-        // to bounce out to the Bestiary tab to flip a toggle.
+        // to bounce out to the Monsters tab to flip a toggle.
         client.dispatch(
           SetField({
             characterId: fresh.id as EntityId,
@@ -613,7 +613,7 @@ function DeclareConflictForm(props: {
           }) as CommandInstance,
         );
       }
-      setBestiaryBusy(false);
+      setMonstersBusy(false);
     });
     client.dispatch(
       CreateMonsterFromCatalog({ templateId: tmplId }) as CommandInstance,
@@ -623,7 +623,7 @@ function DeclareConflictForm(props: {
   /**
    * Spawn a fresh NPC from the catalog and pre-select it in the enemy
    * list with the chosen count. Same shape as
-   * `spawnAndPickFromBestiary` — the only differences are the events
+   * `spawnAndPickFromMonsters` — the only differences are the events
    * we listen for, the trait we query, and the command we dispatch.
    */
   const spawnAndPickFromNpcCatalog = (): void => {
@@ -849,25 +849,25 @@ function DeclareConflictForm(props: {
           </ul>
         </Show>
 
-        {/* Spawn-from-bestiary inline picker. Lets the GM materialize
+        {/* Spawn-from-monsters inline picker. Lets the GM materialize
             a fresh monster mid-declare instead of bouncing to the
-            Bestiary tab first. The freshly-spawned character is
+            Monsters tab first. The freshly-spawned character is
             auto-selected with the chosen count. */}
-        <BestiarySpawnRow
-          query={bestiaryQuery}
-          setQuery={setBestiaryQuery}
-          selected={bestiarySelected}
-          setSelected={setBestiarySelected}
-          selectedTemplate={bestiarySelectedTemplate}
-          candidates={bestiaryCandidates}
-          count={bestiaryCount}
-          setCount={setBestiaryCount}
-          busy={bestiaryBusy}
-          onSpawn={spawnAndPickFromBestiary}
+        <MonstersSpawnRow
+          query={monstersQuery}
+          setQuery={setMonstersQuery}
+          selected={monstersSelected}
+          setSelected={setMonstersSelected}
+          selectedTemplate={monstersSelectedTemplate}
+          candidates={monstersCandidates}
+          count={monstersCount}
+          setCount={setMonstersCount}
+          busy={monstersBusy}
+          onSpawn={spawnAndPickFromMonsters}
         />
 
         {/* Spawn-from-NPC-catalog inline picker. Same shape as the
-            bestiary row above; lets the GM declare "two bandits and a
+            monsters row above; lets the GM declare "two bandits and a
             soldier" without leaving the conflict-declare form. */}
         <NpcSpawnRow
           query={npcQuery}
@@ -1055,7 +1055,7 @@ function EnemyCountStepper(props: {
 }
 
 /**
- * Inline bestiary picker row inside the conflict-declare form.
+ * Inline monsters picker row inside the conflict-declare form.
  * Combobox-style: typing filters the catalog with a subsequence
  * fuzzy match, clicking a candidate commits the selection, the
  * count input dials the participant multiplier, the Spawn button
@@ -1069,7 +1069,7 @@ function EnemyCountStepper(props: {
  * spawn handler colocated with the rest of the form.
  */
 /**
- * Bestiary spawn picker. Replaces the prior combobox with a
+ * Monsters spawn picker. Replaces the prior combobox with a
  * persistent card-list rack: search filters the visible cards
  * inline, the selected creature is shouted via an inverted accent
  * surface + a thick rail on the leading edge + a chevron marker, and
@@ -1083,7 +1083,7 @@ function EnemyCountStepper(props: {
  * keyboard-navigable (↑/↓ to step through filtered candidates,
  * Enter to commit, Esc to clear).
  */
-function BestiarySpawnRow(props: {
+function MonstersSpawnRow(props: {
   query: () => string;
   setQuery: (next: string) => void;
   selected: () => string | null;
@@ -1148,7 +1148,7 @@ function BestiarySpawnRow(props: {
   return (
     <div
       class="relative mt-2"
-      data-testid="declare-bestiary-picker"
+      data-testid="declare-monsters-picker"
       style={{
         "border-top": "1px solid var(--color-border-muted)",
         "padding-top": "0.85rem",
@@ -1178,7 +1178,7 @@ function BestiarySpawnRow(props: {
           >
             ❦
           </span>
-          Bestiary
+          Monsters
         </h3>
         <span
           class="tabular-nums"
@@ -1247,10 +1247,10 @@ function BestiarySpawnRow(props: {
             (e.currentTarget as HTMLInputElement).style.borderColor =
               "var(--color-border-muted)";
           }}
-          data-testid="declare-bestiary-input"
+          data-testid="declare-monsters-input"
           autocomplete="off"
           spellcheck={false}
-          name="conflict-bestiary"
+          name="conflict-monsters"
           data-1p-ignore="true"
           data-lpignore="true"
           data-bwignore="true"
@@ -1289,7 +1289,7 @@ function BestiarySpawnRow(props: {
               "background-color":
                 "var(--color-surface-sunken, var(--color-surface))",
             }}
-            data-testid="declare-bestiary-empty"
+            data-testid="declare-monsters-empty"
           >
             <span
               style={{
@@ -1304,7 +1304,7 @@ function BestiarySpawnRow(props: {
           </div>
         }
       >
-        <BestiaryRack
+        <MonstersRack
           candidates={props.candidates}
           selected={props.selected}
           setSelected={props.setSelected}
@@ -1361,7 +1361,7 @@ function BestiarySpawnRow(props: {
               width: "2.4rem",
               color: "var(--color-fg)",
             }}
-            data-testid="declare-bestiary-count"
+            data-testid="declare-monsters-count"
             disabled={props.busy()}
           />
           <button
@@ -1385,7 +1385,7 @@ function BestiarySpawnRow(props: {
           type="button"
           onClick={() => props.onSpawn()}
           disabled={props.busy() || !props.selected()}
-          data-testid="declare-bestiary-spawn"
+          data-testid="declare-monsters-spawn"
           class="flex-1 transition-all rounded-(--radius-control) flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             "background-color": props.busy()
@@ -1444,7 +1444,7 @@ function BestiarySpawnRow(props: {
           "letter-spacing": "0.02em",
         }}
       >
-        Materializes one character on the bestiary; expanded into{" "}
+        Materializes one character in the catalog; expanded into{" "}
         <span class="tabular-nums" style={{ "font-family": "var(--font-mono)", "font-style": "normal" }}>
           {props.count()}
         </span>{" "}
@@ -1455,7 +1455,7 @@ function BestiarySpawnRow(props: {
 }
 
 /**
- * Inline spawn-from-NPC-catalog picker. Mirrors `BestiarySpawnRow`
+ * Inline spawn-from-NPC-catalog picker. Mirrors `MonstersSpawnRow`
  * exactly — same search input, same rack, same count stepper, same
  * "Conjure N × Soldier →" verb-on-target footer button — but reads
  * from `TB_NPC_TEMPLATES` and dispatches `CreateNpcFromCatalog`.

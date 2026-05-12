@@ -168,6 +168,9 @@ importers:
 
   packages/characters:
     dependencies:
+      '@vtt/assets':
+        specifier: workspace:*
+        version: link:../assets
       '@vtt/auth':
         specifier: workspace:*
         version: link:../auth
@@ -670,6 +673,9 @@ importers:
 
   packages/scene:
     dependencies:
+      '@vtt/assets':
+        specifier: workspace:*
+        version: link:../assets
       '@vtt/auth':
         specifier: workspace:*
         version: link:../auth

@@ -49,7 +49,7 @@ import {
   RollResult,
 } from "@vtt/resolution/shared";
 import { systemTorchbearer } from "./manifest.js";
-import { BestiaryPageProvider } from "./client/bestiary-page.js";
+import { MonstersPageProvider } from "./client/monsters-page.js";
 import {
   CreateBlankMonster,
   CreateMonsterFromCatalog,
@@ -57,12 +57,12 @@ import {
 
 /**
  * Slot/surface infra so the TB plugin's chat/sheet fills register
- * cleanly. Mirrors the monster-sheet test setup; the bestiary page
+ * cleanly. Mirrors the monster-sheet test setup; the monsters page
  * provider doesn't itself fill any of these but the manifest as a
  * whole expects them to exist.
  */
 const sheetSlotsTestInfra = definePlugin({
-  name: "@vtt/test-bestiary-page-slots",
+  name: "@vtt/test-monsters-page-slots",
   version: "0.0.0",
   slots: [
     CharacterSheetIdentitySlot,
@@ -75,7 +75,7 @@ const sheetSlotsTestInfra = definePlugin({
     ItemDetailSectionsSlot,
     PaletteCommandsSlot,
     // Notes-side slot torchbearer fills with `monsterLinkKind`
-    // (the `!` wikilink → bestiary route). Declared here so the TB
+    // (the `!` wikilink → monsters route). Declared here so the TB
     // fill resolves without pulling the full @vtt/notes plugin.
     LinkKindsSlot,
     BlockKindsSlot,
@@ -88,7 +88,7 @@ const sheetSlotsTestInfra = definePlugin({
 beforeEach(() => cleanup());
 
 function harness() {
-  // We don't need a Character entity for the bestiary hub view (it
+  // We don't need a Character entity for the monsters hub view (it
   // renders the empty-state hub when no monsters exist), but reusing
   // buildCharacterHarness gives us GM gating + the full TB manifest
   // wiring with one call.
@@ -99,14 +99,14 @@ function harness() {
   });
 }
 
-const TAB_ID = "tab-bestiary";
+const TAB_ID = "tab-monsters";
 
-describe("BestiaryPageProvider — catalog picker (fuzzy search)", () => {
+describe("MonstersPageProvider — catalog picker (fuzzy search)", () => {
   it("renders the catalog rack with every TB monster template visible by default", () => {
     const h = harness();
     mountWithClient(
       h,
-      () => BestiaryPageProvider.render({ tabId: TAB_ID, entityId: null }) as never,
+      () => MonstersPageProvider.render({ tabId: TAB_ID, entityId: null }) as never,
     );
     const opts = screen.getByTestId("monster-template-options");
     // Every catalog template renders one row; pick a couple of
@@ -126,7 +126,7 @@ describe("BestiaryPageProvider — catalog picker (fuzzy search)", () => {
     const h = harness();
     mountWithClient(
       h,
-      () => BestiaryPageProvider.render({ tabId: TAB_ID, entityId: null }) as never,
+      () => MonstersPageProvider.render({ tabId: TAB_ID, entityId: null }) as never,
     );
     const search = screen.getByTestId("monster-template-search") as HTMLInputElement;
     fireEvent.input(search, { target: { value: "vmpr" } });
@@ -148,7 +148,7 @@ describe("BestiaryPageProvider — catalog picker (fuzzy search)", () => {
     const h = harness();
     mountWithClient(
       h,
-      () => BestiaryPageProvider.render({ tabId: TAB_ID, entityId: null }) as never,
+      () => MonstersPageProvider.render({ tabId: TAB_ID, entityId: null }) as never,
     );
     const goblinRow = screen.getByTestId(
       "monster-template-option-tb/monster/goblin",
@@ -162,7 +162,7 @@ describe("BestiaryPageProvider — catalog picker (fuzzy search)", () => {
     const h = harness();
     mountWithClient(
       h,
-      () => BestiaryPageProvider.render({ tabId: TAB_ID, entityId: null }) as never,
+      () => MonstersPageProvider.render({ tabId: TAB_ID, entityId: null }) as never,
     );
     fireEvent.click(
       screen.getByTestId("monster-template-option-tb/monster/vampire-lord"),
@@ -181,7 +181,7 @@ describe("BestiaryPageProvider — catalog picker (fuzzy search)", () => {
     const h = harness();
     mountWithClient(
       h,
-      () => BestiaryPageProvider.render({ tabId: TAB_ID, entityId: null }) as never,
+      () => MonstersPageProvider.render({ tabId: TAB_ID, entityId: null }) as never,
     );
     const search = screen.getByTestId("monster-template-search") as HTMLInputElement;
     // No template name has all of these chars in subsequence order.
@@ -197,7 +197,7 @@ describe("BestiaryPageProvider — catalog picker (fuzzy search)", () => {
     const h = harness();
     mountWithClient(
       h,
-      () => BestiaryPageProvider.render({ tabId: TAB_ID, entityId: null }) as never,
+      () => MonstersPageProvider.render({ tabId: TAB_ID, entityId: null }) as never,
     );
     const blankInput = screen.getByTestId(
       "monster-blank-name-input",
@@ -212,7 +212,7 @@ describe("BestiaryPageProvider — catalog picker (fuzzy search)", () => {
   });
 });
 
-describe("Bestiary quick lookup — spawn-monster palette commands", () => {
+describe("Monsters quick lookup — spawn-monster palette commands", () => {
   it("registers one PaletteCommand per TB monster template", () => {
     // Smoke test against the catalog. The exact count tracks
     // TB_MONSTER_TEMPLATES so this also flags accidental drops.
@@ -229,7 +229,7 @@ describe("Bestiary quick lookup — spawn-monster palette commands", () => {
     const vampireLord = TB_SPAWN_MONSTER_PALETTE_COMMANDS.find(
       (c) => c.label === "Spawn Vampire Lord",
     );
-    expect(vampireLord!.hint).toBe("Bestiary · LMM p.261");
+    expect(vampireLord!.hint).toBe("Monsters · LMM p.261");
   });
 
   it("verbs are hidden from non-GM sessions via visibleTo", () => {
@@ -243,7 +243,7 @@ describe("Bestiary quick lookup — spawn-monster palette commands", () => {
     ).toBe(false);
   });
 
-  it("running a spawn verb dispatches CreateMonsterFromCatalog and (after the spawn lands) OpenPageInNewTab onto the bestiary page with the new monster id", async () => {
+  it("running a spawn verb dispatches CreateMonsterFromCatalog and (after the spawn lands) OpenPageInNewTab onto the monsters page with the new monster id", async () => {
     const h = harness();
     const verb = TB_SPAWN_MONSTER_PALETTE_COMMANDS.find(
       (c) => c.label === "Spawn Vampire Lord",
@@ -275,7 +275,7 @@ describe("Bestiary quick lookup — spawn-monster palette commands", () => {
     expect(spawned).toBeTruthy();
 
     // 3. The follow-up OpenPageInNewTab landed targeting the
-    // bestiary page + the new monster id. Crucially: we use
+    // monsters page + the new monster id. Crucially: we use
     // OpenPageInNewTab (not OpenPage) so the new tab opens
     // *focused* in the active pane without yanking the GM out of
     // whatever they were looking at when they hit ⌘K.
@@ -284,7 +284,7 @@ describe("Bestiary quick lookup — spawn-monster palette commands", () => {
     );
     expect(openCmd).toBeTruthy();
     expect(openCmd!.payload).toMatchObject({
-      pageKind: "@vtt/system-torchbearer/bestiary",
+      pageKind: "@vtt/system-torchbearer/monsters",
       entityId: spawned!.id,
     });
   });

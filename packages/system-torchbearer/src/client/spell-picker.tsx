@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-// Fuzzy-search picker for spells. Mirrors the bestiary picker's
+// Fuzzy-search picker for spells. Mirrors the monsters picker's
 // subsequence-fuzzy approach: every char in the query (in order, not
 // necessarily adjacent) must appear in the candidate name. Cheap and
 // good enough for a catalog of ~80 spells.
@@ -36,7 +36,7 @@ import {
   type SpellSchool,
 } from "../shared/spells/spell-traits.js";
 import { tbCanonicalBookAbbreviation } from "../data/seed.js";
-import { fuzzyMatch } from "./bestiary-picker.js";
+import { fuzzyMatch } from "./monsters-picker.js";
 
 export interface SpellCandidate {
   readonly id: string;

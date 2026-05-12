@@ -127,7 +127,7 @@ const sheetSlotsTestInfra = definePlugin({
     // pulling the full shell-workbench package into the harness.
     PaletteCommandsSlot,
     // Notes-side slot torchbearer fills with `monsterLinkKind` (the
-    // `!` wikilink → bestiary route). Declared here so the TB fill
+    // `!` wikilink → monsters route). Declared here so the TB fill
     // resolves without pulling the full @vtt/notes package in.
     LinkKindsSlot,
     BlockKindsSlot,

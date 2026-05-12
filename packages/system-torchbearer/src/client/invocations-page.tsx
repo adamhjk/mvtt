@@ -51,7 +51,7 @@ import {
   type InvocationTradition,
 } from "../shared/index.js";
 import { tbCanonicalBookAbbreviation } from "../data/seed.js";
-import { fuzzyMatch } from "./bestiary-picker.js";
+import { fuzzyMatch } from "./monsters-picker.js";
 import { CircleDots } from "./spell-picker.js";
 
 export const INVOCATIONS_KIND = "@vtt/system-torchbearer/invocations";

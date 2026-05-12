@@ -86,4 +86,37 @@ describe("bundleToZip / zipToBundle", () => {
     // Build a bundle, drop the manifest entry, re-zip with raw fflate.
     expect(() => zipToBundle(new Uint8Array([0, 0, 0, 0]))).toThrow();
   });
+
+  it("preserves page bodies that begin with markdown headings — regression for the heading-as-page-separator bug", () => {
+    // The user-authored body uses `# Heading` markdown for sections.
+    // The earlier deserializer tried to recover per-page splits by
+    // scanning the .md file for `\n\n# ` and truncated everything
+    // before the first heading off the body. This test guards the fix.
+    const headingHeavy =
+      "# Massive Fight\n\n# Bad guys\n![[asset:e713]]\n\nNarrative.";
+    const bundle: AdventureBundle = {
+      manifest: {
+        bundleId: "uuid-headings",
+        name: "Headings",
+        version: "0.1.0",
+        summary: "",
+        author: "",
+        requires: [],
+        notes: [
+          {
+            bundlePath: "notes/headings.md",
+            title: "Headings",
+            pages: [
+              { title: "Page", body: headingHeavy, sha256: "0".repeat(64) },
+            ],
+          },
+        ],
+        assets: [],
+      },
+      assets: new Map(),
+    };
+    const zip = bundleToZip(bundle);
+    const restored = zipToBundle(zip);
+    expect(restored.manifest.notes[0]!.pages[0]!.body).toBe(headingHeavy);
+  });
 });

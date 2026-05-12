@@ -18,7 +18,12 @@
 import { qualifiedName, type CommandInstance } from "@vtt/substrate";
 import { useClient, useQuery } from "@vtt/substrate/client";
 import { canWrite, Permissions } from "@vtt/permissions/shared";
-import { Character, CharacterToken } from "@vtt/characters/shared";
+import {
+  Character,
+  CharacterToken,
+  resolveCharacterTokenUrl,
+  type CharacterTokenValue,
+} from "@vtt/characters/shared";
 import { createMemo, For, Show, type JSX } from "solid-js";
 import { LinkedCharacter, Position, Scene } from "../shared/traits.js";
 import { PlaceCharacterToken } from "../shared/commands.js";
@@ -79,11 +84,15 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
   });
   const placedRows = useQuery([LinkedCharacter, Position]);
 
+  // Map character entity id → its raw CharacterToken value (both
+  // fields). Consumers either forward both fields verbatim (dnd
+  // encoder, place dispatch) or resolve a display URL via
+  // `resolveCharacterTokenUrl` (thumbnail rendering).
   const tokenImageByCharacter = createMemo(() => {
-    const map = new Map<string, string | null>();
+    const map = new Map<string, CharacterTokenValue>();
     for (const row of tokenImages()) {
-      const t = row.values.CharacterToken as { imageUrl: string | null };
-      map.set(row.id, t.imageUrl);
+      const t = row.values.CharacterToken as CharacterTokenValue;
+      map.set(row.id, t);
     }
     return map;
   });
@@ -99,15 +108,25 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
   });
 
   const sortedCharacters = createMemo(() => {
+    const wid = client.worldId();
     return characters()
-      .map((row) => ({
-        id: row.id,
-        name: (row.values.Character as { name: string }).name,
-        permissions: row.values.Permissions as
-          | Parameters<typeof canWrite>[1]
-          | undefined,
-        imageUrl: tokenImageByCharacter().get(row.id) ?? null,
-      }))
+      .map((row) => {
+        const token = tokenImageByCharacter().get(row.id) ?? null;
+        return {
+          id: row.id,
+          name: (row.values.Character as { name: string }).name,
+          permissions: row.values.Permissions as
+            | Parameters<typeof canWrite>[1]
+            | undefined,
+          // assetId / imageUrl forwarded verbatim into the dnd payload
+          // and the place-dispatch path. `displayUrl` is the resolved
+          // thumbnail URL — used only for rendering, never passed to
+          // PlaceCharacterToken (which expects raw fields).
+          assetId: token?.assetId ?? null,
+          imageUrl: token?.imageUrl ?? null,
+          displayUrl: resolveCharacterTokenUrl(token, wid),
+        };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
@@ -117,6 +136,7 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
   const place = (c: {
     id: string;
     name: string;
+    assetId: string | null;
     imageUrl: string | null;
   }) => {
     const sc = sceneRow();
@@ -152,6 +172,9 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
         // TokenImage over iconSlug whenever a portrait was uploaded,
         // so this only paints for character tokens with no image yet.
         iconSlug: DEFAULT_CHARACTER_ICON_SLUG,
+        // Forward whichever shape the character carries — the
+        // command's validator rejects setting both.
+        assetId: c.assetId,
         imageUrl: c.imageUrl,
         tint: 0xffffff,
         size: grid,
@@ -229,6 +252,7 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
                         characterId: c.id,
                         label: c.name,
                         iconSlug: DEFAULT_CHARACTER_ICON_SLUG,
+                        assetId: c.assetId,
                         imageUrl: c.imageUrl,
                       }),
                     );
@@ -242,7 +266,7 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
                 >
                   <div class="flex aspect-square w-full items-center justify-center overflow-hidden rounded-(--radius-control) border border-border-muted bg-surface-sunken">
                     <Show
-                      when={c.imageUrl}
+                      when={c.displayUrl}
                       fallback={
                         // Placeholder = the 3d-meeple silhouette the
                         // canvas will paint when this character is

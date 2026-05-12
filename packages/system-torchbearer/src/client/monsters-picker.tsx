@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-// Shared bestiary fuzzy-search rack used by both the conflict-declare
-// inline picker and the bestiary home page. The rack itself is the
+// Shared monsters fuzzy-search rack used by both the conflict-declare
+// inline picker and the Monsters home page. The rack itself is the
 // scrolling card list grouped by monster type (when unfiltered) or
 // flattened (when filtered); selection paints exactly one row in
 // solid accent. Parents own state and pass accessors / setters in.
@@ -41,7 +41,7 @@ export function fuzzyMatch(name: string, query: string): boolean {
   return i === q.length;
 }
 
-export interface BestiaryCandidate {
+export interface MonsterCandidate {
   readonly id: string;
   readonly name: string;
   readonly nature: { readonly rating: number };
@@ -54,14 +54,14 @@ export interface BestiaryCandidate {
  * the templates that pass the subsequence fuzzy match. An empty query
  * returns the full catalog (so callers don't need to special-case it).
  */
-export function filterCatalogByQuery(query: string): ReadonlyArray<BestiaryCandidate> {
+export function filterCatalogByQuery(query: string): ReadonlyArray<MonsterCandidate> {
   const q = query.trim();
   if (q.length === 0) return TB_MONSTER_TEMPLATES;
   return TB_MONSTER_TEMPLATES.filter((t) => fuzzyMatch(t.name, q));
 }
 
 /**
- * Bestiary card rack. When the user is searching, the matching
+ * Monsters card rack. When the user is searching, the matching
  * candidates render as a flat list. When the rack is unfiltered, we
  * group by monster `type` (undead/troll/beast/…) with sticky group
  * headers — same scrollroll, but the wall-of-names breaks into
@@ -73,14 +73,14 @@ export function filterCatalogByQuery(query: string): ReadonlyArray<BestiaryCandi
  * grouping. The component assumes a non-empty list — parents render
  * an empty-state fallback themselves.
  */
-export function BestiaryRack(props: {
-  candidates: () => ReadonlyArray<BestiaryCandidate>;
+export function MonstersRack(props: {
+  candidates: () => ReadonlyArray<MonsterCandidate>;
   selected: () => string | null;
   setSelected: (id: string | null) => void;
   query: () => string;
   /** Override `data-testid` on the listbox container. */
   testid?: string;
-  /** Per-row testid prefix; defaults to `"bestiary-option"`. */
+  /** Per-row testid prefix; defaults to `"monsters-option"`. */
   rowTestidPrefix?: string;
 }): JSX.Element {
   const isFiltered = createMemo(() => props.query().trim().length > 0);
@@ -89,10 +89,10 @@ export function BestiaryRack(props: {
     ReadonlyArray<{
       type: string;
       label: string;
-      members: ReadonlyArray<BestiaryCandidate>;
+      members: ReadonlyArray<MonsterCandidate>;
     }>
   >(() => {
-    const buckets = new Map<string, Array<BestiaryCandidate>>();
+    const buckets = new Map<string, Array<MonsterCandidate>>();
     for (const t of props.candidates()) {
       const key = (t.type ?? "other").toLowerCase();
       const list = buckets.get(key) ?? [];
@@ -102,7 +102,7 @@ export function BestiaryRack(props: {
     const out: Array<{
       type: string;
       label: string;
-      members: ReadonlyArray<BestiaryCandidate>;
+      members: ReadonlyArray<MonsterCandidate>;
     }> = [];
     for (const [key, members] of buckets) {
       out.push({
@@ -115,14 +115,14 @@ export function BestiaryRack(props: {
     return out;
   });
 
-  const rowPrefix = (): string => props.rowTestidPrefix ?? "bestiary-option";
+  const rowPrefix = (): string => props.rowTestidPrefix ?? "monsters-option";
 
   return (
     <div
       class="overflow-y-auto"
       role="listbox"
-      aria-label="Bestiary templates"
-      data-testid={props.testid ?? "bestiary-options"}
+      aria-label="Monster templates"
+      data-testid={props.testid ?? "monsters-options"}
       style={{
         "max-height": "22rem",
         border: "1px solid var(--color-border-muted)",
@@ -169,7 +169,7 @@ export function BestiaryRack(props: {
                 <ul>
                   <For each={group.members}>
                     {(t, i) => (
-                      <BestiaryRow
+                      <MonstersRow
                         candidate={t}
                         isLast={i() === group.members.length - 1}
                         selected={() => props.selected() === t.id}
@@ -187,7 +187,7 @@ export function BestiaryRack(props: {
         <ul>
           <For each={props.candidates()}>
             {(t, i) => (
-              <BestiaryRow
+              <MonstersRow
                 candidate={t}
                 isLast={i() === props.candidates().length - 1}
                 selected={() => props.selected() === t.id}
@@ -202,8 +202,8 @@ export function BestiaryRack(props: {
   );
 }
 
-function BestiaryRow(props: {
-  candidate: BestiaryCandidate;
+function MonstersRow(props: {
+  candidate: MonsterCandidate;
   isLast: boolean;
   selected: () => boolean;
   onPick: () => void;
@@ -297,18 +297,18 @@ function BestiaryRow(props: {
 }
 
 /**
- * Search input that drives a `BestiaryRack`. Renders a `▸` prefix
+ * Search input that drives a `MonstersRack`. Renders a `▸` prefix
  * marker, a clear-button × on the right when there's a query, and
  * wires arrow-key roving-selection plus Escape-to-clear plus
  * Enter-to-commit. The parent owns the query/selected/onCommit
  * state — this component is just the input affordance.
  */
-export function BestiarySearchInput(props: {
+export function MonstersSearchInput(props: {
   query: () => string;
   setQuery: (next: string) => void;
   selected: () => string | null;
   setSelected: (id: string | null) => void;
-  candidates: () => ReadonlyArray<BestiaryCandidate>;
+  candidates: () => ReadonlyArray<MonsterCandidate>;
   onCommit?: () => void;
   busy?: () => boolean;
   testid?: string;
@@ -381,10 +381,10 @@ export function BestiarySearchInput(props: {
           (e.currentTarget as HTMLInputElement).style.borderColor =
             "var(--color-border-muted)";
         }}
-        data-testid={props.testid ?? "bestiary-search"}
+        data-testid={props.testid ?? "monsters-search"}
         autocomplete="off"
         spellcheck={false}
-        name="bestiary-search"
+        name="monsters-search"
         data-1p-ignore="true"
         data-lpignore="true"
         data-bwignore="true"

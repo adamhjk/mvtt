@@ -16,7 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { createReadStream, createWriteStream, existsSync, mkdirSync, statSync, unlinkSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
 import { rename } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
@@ -228,9 +228,7 @@ export function loadAssetBytesFromDisk(opts: {
   const path = assetPath(opts.pluginDataDir, opts.worldId, opts.assetId);
   if (!existsSync(path)) return null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fs = require("node:fs") as typeof import("node:fs");
-    const buf = fs.readFileSync(path);
+    const buf = readFileSync(path);
     return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
   } catch {
     return null;

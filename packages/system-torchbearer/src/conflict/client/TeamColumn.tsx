@@ -563,7 +563,7 @@ function ParticipantRow(props: {
     >
       <span class="font-display text-sm text-fg truncate flex-1 min-w-0 inline-flex items-baseline gap-1.5">
         {/* The display name is a button that opens the character /
-            bestiary sheet in the workbench. Multi-spawn monsters
+            monster sheet in the workbench. Multi-spawn monsters
             (Barrow Wight 1/2/3) all share one underlying
             `characterId`, so the click resolves to the shared
             catalog entry — exactly what the user expects when they

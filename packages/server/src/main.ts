@@ -16,18 +16,14 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { fileURLToPath } from "node:url";
-import { dirname, extname, resolve, basename, sep } from "node:path";
+import { dirname, resolve, basename } from "node:path";
 import {
   existsSync,
   readFileSync,
   readdirSync,
   writeFileSync,
   mkdirSync,
-  unlinkSync,
 } from "node:fs";
-import { rename } from "node:fs/promises";
-import { createWriteStream } from "node:fs";
-import { pipeline } from "node:stream/promises";
 import { randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { startServer, WorldsService } from "@vtt/substrate/server";
@@ -85,8 +81,12 @@ const clientRoot = resolve(here, "../../client/dist");
 const iconsRoot = resolve(repoRoot, "assets/icons/ffffff/transparent/1x1");
 // Plugin-owned writable storage. Each plugin gets a subdirectory under
 // the world it belongs to: data/plugin-data/<worldId>/<plugin>/...
-// Mounted read-only at `/plugin-data/`; uploads go through
-// /api/plugin-data/<worldId>/<plugin>/...
+// Mounted read-only at `/plugin-data/`. Writes go through the unified
+// asset upload route (`/api/worlds/<wid>/assets/upload`) — see
+// `@vtt/assets/server`. The static mount stays read-only because
+// legacy CharacterToken / Scene values written before the asset-first
+// refactor still hold raw `/plugin-data/<wid>/<plugin>/...` paths and
+// the resolver falls back to those when no assetId is present.
 const pluginDataDir = resolve(dataDir, "plugin-data");
 mkdirSync(pluginDataDir, { recursive: true });
 
@@ -136,29 +136,23 @@ const iconManifest: IconEntry[] = existsSync(iconsRoot)
   : [];
 const iconManifestBody = JSON.stringify({ icons: iconManifest });
 
-const ALLOWED_PLUGIN_DATA_EXTS = new Set([
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".webp",
-  ".avif",
-  ".svg",
-  ".pdf",
-]);
-const MAX_PLUGIN_DATA_BYTES = 250 * 1024 * 1024; // 250 MB
-
 // ---- assets upload policy ----
 // `ASSETS_MAX_BYTES` is the global drain cap (security ceiling). Any single
 // upload streaming past this many bytes is killed regardless of mime.
 // `ASSETS_MAX_BYTES_BY_MIME` is the per-mime policy cap, ≤ ASSETS_MAX_BYTES.
 // Images stay tight; PDFs (rulebooks) need room.
+// SVG and AVIF are intentionally included because the character /
+// scene upload flows historically supported them — the per-plugin
+// upload routes accepted them and existing portraits in prod may rely
+// on it.
 const ASSETS_MAX_BYTES = 250 * 1024 * 1024; // 250 MB drain cap
 const ASSETS_ALLOWED_MIMES: ReadonlySet<string> = new Set([
   "image/png",
   "image/jpeg",
   "image/webp",
   "image/gif",
+  "image/avif",
+  "image/svg+xml",
   "application/pdf",
 ]);
 const ASSETS_MAX_BYTES_BY_MIME: Readonly<Record<string, number>> = {
@@ -166,6 +160,8 @@ const ASSETS_MAX_BYTES_BY_MIME: Readonly<Record<string, number>> = {
   "image/jpeg": 5 * 1024 * 1024,
   "image/webp": 5 * 1024 * 1024,
   "image/gif": 5 * 1024 * 1024,
+  "image/avif": 5 * 1024 * 1024,
+  "image/svg+xml": 1 * 1024 * 1024, // SVG is text — 1 MB is plenty
   "application/pdf": 250 * 1024 * 1024,
 };
 
@@ -317,15 +313,6 @@ const httpHandler = async (req: IncomingMessage, res: ServerResponse): Promise<b
       const userId = decodeURIComponent(memMatch[1]!);
       return await handleRemoveMembership(req, res, worldId, userId);
     }
-  }
-
-  // ---- plugin-data upload (per-world) ----
-  // POST /api/plugin-data/<worldId>/<plugin>/<rest>
-  if (url.startsWith("/api/plugin-data/") && req.method === "POST") {
-    const rel = decodeURIComponent(
-      url.slice("/api/plugin-data/".length).split("?")[0]!,
-    );
-    return await handlePluginDataUpload(req, res, rel);
   }
 
   // ---- assets upload (per-world) ----
@@ -824,140 +811,6 @@ async function handleRemoveMembership(
   }
   await worldsService.removeMember(worldId, userId);
   sendJson(res, 200, { ok: true });
-  return true;
-}
-
-async function handlePluginDataUpload(
-  req: IncomingMessage,
-  res: ServerResponse,
-  rel: string,
-): Promise<boolean> {
-  const sendAfterDrain = async (status: number, body: object) => {
-    if (req.readable) {
-      let drained = 0;
-      try {
-        for await (const chunk of req) {
-          drained += (chunk as Buffer).length;
-          if (drained > MAX_PLUGIN_DATA_BYTES) {
-            req.destroy();
-            break;
-          }
-        }
-      } catch {
-        /* socket already broken */
-      }
-    }
-    sendJson(res, status, body);
-    return true;
-  };
-
-  // First path segment is the worldId; the rest is the plugin's
-  // freeform path (kept for plugin-determined naming).
-  const slash = rel.indexOf("/");
-  if (slash === -1 || slash === 0) {
-    return sendAfterDrain(400, { error: "expected /api/plugin-data/<worldId>/<rest>" });
-  }
-  const worldIdSegment = rel.slice(0, slash) as WorldId;
-  const subPath = rel.slice(slash + 1);
-
-  if (!subPath || subPath.includes("..") || subPath.startsWith("/")) {
-    return sendAfterDrain(400, { error: "invalid path" });
-  }
-  const ext = extname(subPath).toLowerCase();
-  if (!ALLOWED_PLUGIN_DATA_EXTS.has(ext)) {
-    return sendAfterDrain(400, {
-      error: `extension ${ext || "(none)"} not allowed`,
-    });
-  }
-
-  const session = await requireSession(req);
-  if (!session) return sendAfterDrain(401, { error: "not authenticated" });
-
-  // Must be GM of the named world. For v1 the only GM-of-world is the
-  // owner, so we check ownership.
-  const world = await worldsRepo.get(worldIdSegment);
-  if (!world) return sendAfterDrain(404, { error: "world not found" });
-  if (world.ownerUserId !== session.userId) {
-    return sendAfterDrain(403, { error: "only the world's GM can upload" });
-  }
-
-  const worldDir = resolve(pluginDataDir, worldIdSegment);
-  const absolute = resolve(worldDir, subPath);
-  if (absolute !== worldDir && !absolute.startsWith(worldDir + sep)) {
-    return sendAfterDrain(400, { error: "path escapes world plugin-data root" });
-  }
-
-  const declaredLen = Number(req.headers["content-length"] ?? "");
-  if (Number.isFinite(declaredLen) && declaredLen > MAX_PLUGIN_DATA_BYTES) {
-    return sendAfterDrain(413, { error: "payload too large" });
-  }
-
-  const dir = dirname(absolute);
-  try {
-    mkdirSync(dir, { recursive: true });
-  } catch (err) {
-    return sendAfterDrain(500, { error: `mkdir failed: ${(err as Error).message}` });
-  }
-  const tmpPath = resolve(
-    dir,
-    `.${basename(absolute)}.${randomBytes(6).toString("hex")}.partial`,
-  );
-
-  let received = 0;
-  let oversized = false;
-  req.on("data", (chunk: Buffer) => {
-    received += chunk.length;
-    if (received > MAX_PLUGIN_DATA_BYTES) {
-      oversized = true;
-      req.destroy();
-    }
-  });
-
-  const writeStream = createWriteStream(tmpPath);
-  try {
-    await pipeline(req, writeStream);
-  } catch (err) {
-    try {
-      unlinkSync(tmpPath);
-    } catch {
-      /* already gone */
-    }
-    if (oversized) return sendAfterDrain(413, { error: "payload too large" });
-    return sendAfterDrain(500, {
-      error: `write failed: ${(err as Error).message}`,
-    });
-  }
-
-  // Replace any sibling file with the same base name but a different
-  // extension. Keeps one file-per-slot when GM uploads PNG, then JPG, etc.
-  try {
-    const stem = basename(absolute, ext);
-    for (const sibling of readdirSync(dir)) {
-      if (sibling === basename(absolute)) continue;
-      if (sibling.startsWith(".")) continue;
-      if (basename(sibling, extname(sibling)) === stem) {
-        try {
-          unlinkSync(resolve(dir, sibling));
-        } catch {
-          /* best-effort */
-        }
-      }
-    }
-    await rename(tmpPath, absolute);
-  } catch (err) {
-    try {
-      unlinkSync(tmpPath);
-    } catch {
-      /* already gone */
-    }
-    return sendAfterDrain(500, {
-      error: `rename failed: ${(err as Error).message}`,
-    });
-  }
-
-  // Cache-bust on overwrite. The public URL stays under /plugin-data/.
-  const publicPath = `/plugin-data/${worldIdSegment}/${subPath}?v=${received}`;
-  sendJson(res, 200, { path: publicPath, size: received });
   return true;
 }
 

@@ -85,7 +85,7 @@ const BookPageRef = z.object({
  * to PC armor.
  *
  * Presence of this trait is the load-bearing marker for "this entity
- * is a monster": the bestiary page provider lists by `[Character,
+ * is a monster": the monsters page provider lists by `[Character,
  * TbMonster]`, the characters page hides anyone carrying this trait
  * via `CharacterListExclusionSlot`, and the monster sheet renders.
  */
@@ -235,7 +235,7 @@ export const TbMonsterDerivedFrom = defineTrait({
 /**
  * MonsterTemplate — empty marker on entities seeded from
  * `TB_MONSTER_TEMPLATES`. Templates are real entities so wiki-links can
- * resolve to stable ids, the bestiary page can browse them, and the
+ * resolve to stable ids, the monsters page can browse them, and the
  * `encounter` block can reference them with `4× [[character:goblin
  * scout]]` quantification. Per-instance copies (the goblins spawned
  * into a live conflict) carry `MonsterCopy` instead, never this trait.
@@ -253,7 +253,7 @@ export const MonsterTemplate = defineTrait({
  * "Goblin Scout #2" labels and so a future "rebase mob copies" admin
  * action can find them. Templates and copies are otherwise structurally
  * identical (both `Character` + the same TB stat-block traits); the
- * marker is what keeps the bestiary list, the mob-merge engine, and the
+ * marker is what keeps the monsters list, the mob-merge engine, and the
  * cleanup-on-conflict-end flow honest.
  */
 export const MonsterCopy = defineTrait({

@@ -43,7 +43,7 @@ import {
 import { OpenPendingRoll } from "@vtt/characters/shared";
 import { InvocationCard } from "./invocation-card.js";
 import { useInvocationCatalog } from "./invocation-picker.js";
-import { fuzzyMatch } from "./bestiary-picker.js";
+import { fuzzyMatch } from "./monsters-picker.js";
 
 /**
  * Open the standard pending-roll panel for an invocation perform.

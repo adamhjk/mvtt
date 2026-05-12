@@ -57,7 +57,7 @@ import { NpcsPageProvider } from "./client/npcs-page.js";
 
 /**
  * Slot/surface infra so the TB plugin's chat/sheet fills register
- * cleanly. Mirrors the bestiary-page test setup.
+ * cleanly. Mirrors the monsters-page test setup.
  */
 const sheetSlotsTestInfra = definePlugin({
   name: "@vtt/test-npcs-page-slots",

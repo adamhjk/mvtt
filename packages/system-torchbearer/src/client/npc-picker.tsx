@@ -17,7 +17,7 @@
 
 // Shared NPC-catalog fuzzy-search rack used by the NPCs hub picker
 // (and any future inline picker on the conflict surface). Mirrors
-// `bestiary-picker.tsx` exactly so the two surfaces stay patternable.
+// `monsters-picker.tsx` exactly so the two surfaces stay patternable.
 //
 // NPC rows show the proper-noun name + role label + a `<BookCitation>`
 // chip on the right that deep-links straight to the printed stat block
@@ -74,8 +74,8 @@ export function filterNpcCatalogByQuery(
  * as a flat list. When the rack is unfiltered, we group by source
  * book (`SG`, `LMM`, …) with sticky group headers — the SG denizens
  * chapter is one big bucket today, so the visible benefit is mostly
- * scalable for future books, but the same nav pattern as the bestiary
- * keeps the surfaces patternable.
+ * scalable for future books, but the same nav pattern as the monsters
+ * picker keeps the surfaces patternable.
  *
  * Selection paints exactly one row in solid accent regardless of
  * grouping. The component assumes a non-empty list — parents render
@@ -340,7 +340,7 @@ function NpcRow(props: {
  * Search input that drives an `NpcRack`. Renders a `▸` prefix marker,
  * a clear-button × on the right when there's a query, and wires
  * arrow-key roving-selection plus Escape-to-clear plus Enter-to-commit.
- * Mirrors `BestiarySearchInput` to stay patternable.
+ * Mirrors `MonstersSearchInput` to stay patternable.
  */
 export function NpcSearchInput(props: {
   query: () => string;

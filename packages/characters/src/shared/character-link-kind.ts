@@ -42,7 +42,7 @@ interface CharacterRef {
  * kind defined here treats those archetypes as out-of-scope so they
  * neither autocomplete as `@`-characters nor parse to one — they get
  * their own link kinds with their own destinations (e.g.
- * `monsterLinkKind` → bestiary).
+ * `monsterLinkKind` → monsters).
  */
 function exclusionTraits(registry: Registry | undefined): TraitMeta[] {
   if (!registry) return [];
@@ -125,7 +125,7 @@ export const characterLinkKind = defineLinkKind<CharacterRef>({
       if (needle.length > 0 && !v.name.toLowerCase().includes(needle)) continue;
       out.push({
         kind: "character",
-        body: row.id,
+        body: v.name,
         display: v.name,
         badge: "Character",
       });

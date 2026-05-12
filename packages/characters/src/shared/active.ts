@@ -25,7 +25,7 @@ import { Active } from "./traits.js";
  *     entity that has never had the toggle touched).
  *
  * Pickers should treat the negative case as "hide". Library pages
- * (Bestiary, NPCs) ignore this and show every entity.
+ * (Monsters, NPCs) ignore this and show every entity.
  */
 export function isActive(world: World, id: EntityId): boolean {
   const got = world.get(id, [Active]) as

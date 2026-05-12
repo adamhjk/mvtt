@@ -51,8 +51,8 @@ import {
  *     sheet route, and any existing character-aware code work.
  *   - Team{enemy}: monsters are antagonists; the Team trait drives
  *     conflict-side partition + per-team disposition penalties.
- *   - Permissions: GM-only write — players can't edit the bestiary.
- *     Read remains gmOnly to start (the bestiary is GM-private until
+ *   - Permissions: GM-only write — players can't edit the monster catalog.
+ *     Read remains gmOnly to start (the catalog is GM-private until
  *     a creature is encountered; the GM lifts read restrictions per
  *     instance when revealing). Adjustable via SetPermissions.
  *   - RawAbilities + TownAbilities: NatureCheck and Might tests just

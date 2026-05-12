@@ -136,15 +136,26 @@ export const PendingRollCancelled = defineEvent({
 
 /**
  * The GM (or owner) set or cleared a character's uploaded token image.
- * The recording system attaches the CharacterToken trait. `imageUrl`
- * may be null to clear a previously-set image; the trait is still
- * attached but with `imageUrl: null`.
+ * The recording system attaches/updates the CharacterToken trait.
+ *
+ * Post-refactor: new uploads carry `assetId` (the asset entity holding
+ * the bytes) and leave `imageUrl` null. The legacy `imageUrl` field
+ * remains on the event for backwards compatibility — entities written
+ * before the asset-first refactor still emit events with `imageUrl` set
+ * and `assetId` null/absent. The token-image system writes both
+ * fields verbatim so readers can apply asset-first precedence at read
+ * time via `resolveCharacterTokenUrl`.
+ *
+ * Either or both fields may be null in the same event: null/null
+ * means "clear the portrait." Setting both is forbidden (the command
+ * validates this) so the wire stays unambiguous.
  */
 export const CharacterTokenImageSet = defineEvent({
   name: "@vtt/characters/CharacterTokenImageSet",
   schema: z.object({
     characterId: EntityId,
-    imageUrl: z.string().nullable(),
+    imageUrl: z.string().nullable().default(null),
+    assetId: EntityId.nullable().default(null),
   }),
 });
 

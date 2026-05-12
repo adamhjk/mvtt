@@ -59,8 +59,17 @@ export function bundleToZip(bundle: AdventureBundle): Uint8Array {
 /**
  * Deserialise a `.advt` zip byte stream back to an `AdventureBundle`.
  * Validates the manifest against `BundleManifestSchema`; throws on
- * unknown shape. Asset bytes are read into the bundle's assets map by
- * sha256.
+ * unknown shape. Asset bytes are read into the bundle's assets map
+ * by sha256.
+ *
+ * `manifest.json` is authoritative for page bodies. The per-note
+ * `.md` files in the zip are written for human readability (so a
+ * `.advt.zip` is grep-able / git-diff-able), but are NOT parsed back
+ * here. Page bodies routinely contain `# Heading` markdown — earlier
+ * versions of this deserializer tried to recover page splits from
+ * the `.md` files and silently truncated any body whose first line
+ * was a heading. The body lives in `manifest.json` verbatim; the
+ * `.md` files are advisory.
  */
 export function zipToBundle(zipBytes: Uint8Array): AdventureBundle {
   const files = unzipSync(zipBytes);
@@ -71,30 +80,6 @@ export function zipToBundle(zipBytes: Uint8Array): AdventureBundle {
   const manifest: BundleManifest = BundleManifestSchema.parse(
     JSON.parse(TEXT_DECODER.decode(manifestBytes)),
   );
-  // Re-hydrate page bodies from the per-note .md files, replacing
-  // whatever the manifest carries (the manifest's body fields are
-  // a build-time convenience; the .md files are the canonical bytes
-  // a re-export should round-trip).
-  const restoredNotes: BundleManifest["notes"] = manifest.notes.map((note) => {
-    const fileBytes = files[note.bundlePath];
-    if (!fileBytes) return note;
-    const body = TEXT_DECODER.decode(fileBytes);
-    // Recover per-page splits by `# ` headings we added at zip time.
-    const segs = body.split(/\n\n# /).map((s, i) => (i === 0 ? s.replace(/^# /, "") : s));
-    const restored: typeof note.pages = note.pages.map((p, i) => {
-      const seg = segs[i];
-      if (!seg) return p;
-      const newlineIdx = seg.indexOf("\n");
-      const title = newlineIdx === -1 ? seg : seg.slice(0, newlineIdx);
-      const restBody = newlineIdx === -1 ? "" : seg.slice(newlineIdx + 2);
-      return { title: title.trim(), body: restBody, sha256: p.sha256 };
-    });
-    return { ...note, pages: restored };
-  });
-  const restoredManifest: BundleManifest = {
-    ...manifest,
-    notes: restoredNotes,
-  };
   // Asset bytes — content-addressed by sha256.
   const assetBytes = new Map<string, Uint8Array>();
   for (const asset of manifest.assets) {
@@ -102,5 +87,5 @@ export function zipToBundle(zipBytes: Uint8Array): AdventureBundle {
     const bytes = files[path];
     if (bytes) assetBytes.set(asset.sha256, bytes);
   }
-  return { manifest: restoredManifest, assets: assetBytes };
+  return { manifest, assets: assetBytes };
 }

@@ -297,7 +297,7 @@ export const noteLinkKind = defineLinkKind<NoteRef>({
         }
         out.push({
           kind: "note",
-          body: row.id,
+          body: v.title,
           display: v.title,
           badge: "Note",
         });
@@ -314,7 +314,7 @@ export const noteLinkKind = defineLinkKind<NoteRef>({
           if (!noteGot) continue;
           out.push({
             kind: "note",
-            body: `${back.noteId}>${row.id}`,
+            body: `${noteGot.Note.title}>${p.title}`,
             display: `${noteGot.Note.title} › ${p.title}`,
             badge: "Page",
           });
@@ -343,7 +343,7 @@ export const noteLinkKind = defineLinkKind<NoteRef>({
         }
         out.push({
           kind: "note",
-          body: `${noteId}>${row.id}`,
+          body: `${noteGot.Note.title}>${p.title}`,
           display: `${noteGot.Note.title} › ${p.title}`,
           badge: "Page",
         });
@@ -380,7 +380,7 @@ export const noteLinkKind = defineLinkKind<NoteRef>({
         }
         out.push({
           kind: "note",
-          body: `${noteId}>${pageId}>${item.id}`,
+          body: `${noteGot.Note.title}>${pageGot.Page.title}>${item.text}`,
           display: `${noteGot.Note.title} › ${pageGot.Page.title} › ${item.text}`,
           badge: "Heading",
         });

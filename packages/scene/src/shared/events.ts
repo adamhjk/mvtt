@@ -98,7 +98,16 @@ export const CharacterTokenPlaced = defineEvent({
     sceneId: EntityId,
     characterId: EntityId,
     iconSlug: z.string(),
-    imageUrl: z.string().nullable(),
+    /**
+     * Asset-first portrait snapshot (canonical). Pre-refactor events
+     * carry only `imageUrl` (with `assetId` defaulting to null on
+     * re-parse); new placements carry the assetId and leave `imageUrl`
+     * null. The placement system writes both fields verbatim onto
+     * `TokenImage`; the canvas resolves precedence at read time via
+     * `resolveTokenImageUrl`.
+     */
+    assetId: EntityId.nullable().default(null),
+    imageUrl: z.string().nullable().default(null),
     tint: z.number().int(),
     size: z.number().int(),
     label: z.string(),
@@ -141,9 +150,14 @@ export const SceneUpdated = defineEvent({
     backgroundColor: Color.optional(),
     gridColor: Color.optional(),
     /**
-     * URL of the new background image, or null to clear it. Optional —
-     * omit to leave unchanged. The system merges this onto the trait;
-     * see Scene.backgroundImage for the URL contract.
+     * Asset entity holding the new background image, or null to clear.
+     * Optional — omit to leave unchanged. Asset-first canonical path.
+     */
+    backgroundAssetId: EntityId.nullable().optional(),
+    /**
+     * Legacy URL form of the new background image, or null to clear.
+     * Optional — omit to leave unchanged. Kept for BC with replayed
+     * events / older clients; new writes use `backgroundAssetId`.
      */
     backgroundImage: z.string().nullable().optional(),
   }),

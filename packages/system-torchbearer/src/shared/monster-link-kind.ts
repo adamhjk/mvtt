@@ -26,24 +26,24 @@ interface MonsterRef {
 }
 
 /**
- * Wikilink kind for bestiary monsters. Sigil `!` so a danger-flavored
+ * Wikilink kind for catalog monsters. Sigil `!` so a danger-flavored
  * mention reads naturally — `[[!Barrow Wight]]`. Distinct from the
  * `@`-character kind so monsters:
  *
  *   1. don't pollute character autocomplete (the `@` kind already
  *      filters them via `CharacterListExclusionSlot`),
- *   2. activate to the **Bestiary** workbench page rather than the
+ *   2. activate to the **Monsters** workbench page rather than the
  *      Characters page — clicking the link opens the monster sheet
- *      in the bestiary tab.
+ *      in the monsters tab.
  *
  * A monster is a Character entity that *also* carries `TbMonster`.
  * Multi-spawn rosters in conflicts (Barrow Wight 1/2/3) all share the
- * single bestiary character entity, so a monster wikilink resolves to
+ * single catalog character entity, so a monster wikilink resolves to
  * the catalog entry — same target the conflict's per-row name button
  * resolves to.
  *
  * Index events: refresh on monster create / remove (changes the set
- * of valid targets) and on character rename (the printed bestiary
+ * of valid targets) and on character rename (the printed monster
  * label is the underlying `Character.name`, so the autocomplete
  * display has to track renames).
  */
@@ -80,7 +80,7 @@ export const monsterLinkKind = defineLinkKind<MonsterRef>({
   target: (ref) => ({ entityId: ref.characterId }),
   activate: (ref) => ({
     type: "navigate",
-    pageKind: "@vtt/system-torchbearer/bestiary",
+    pageKind: "@vtt/system-torchbearer/monsters",
     entityId: ref.characterId,
   }),
   autocomplete: (query, world) => {
@@ -91,9 +91,9 @@ export const monsterLinkKind = defineLinkKind<MonsterRef>({
       if (needle.length > 0 && !v.name.toLowerCase().includes(needle)) continue;
       out.push({
         kind: "monster",
-        body: row.id,
+        body: v.name,
         display: v.name,
-        badge: "Bestiary",
+        badge: "Monsters",
       });
     }
     return out;

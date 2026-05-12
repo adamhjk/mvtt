@@ -16,3 +16,8 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 export { AssetsPageProvider } from "./AssetsPage.jsx";
+export {
+  assetUrl,
+  uploadAssetForWorld,
+  type UploadAssetResult,
+} from "./upload.js";
