@@ -106,6 +106,7 @@ function NotesHub(props: { tabId: string }): JSX.Element {
   const me = useMe();
   const noteRows = useQuery([Note, Permissions]);
   const [searchQuery, setSearchQuery] = createSignal("");
+  const [showExport, setShowExport] = createSignal(false);
 
   const notes = createMemo(() =>
     noteRows()
@@ -196,16 +197,29 @@ function NotesHub(props: { tabId: string }): JSX.Element {
             </div>
           }
         >
-          <header class="flex items-baseline justify-between">
+          <header class="flex items-baseline justify-between gap-3">
             <h2
               class="font-display text-xl tracking-tight text-fg"
               style={{ "font-family": "var(--font-display)" }}
             >
               Notes
             </h2>
-            <span class="font-display text-[0.62rem] uppercase tracking-[0.16em] text-fg-subtle">
-              {notes().length} total
-            </span>
+            <div class="flex items-baseline gap-3">
+              <Show when={me()?.role === "gm"}>
+                <button
+                  type="button"
+                  onClick={() => setShowExport(true)}
+                  class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-[0.65rem] text-fg-muted hover:border-accent hover:text-fg transition"
+                  data-testid="pack-adventure-button"
+                  title="Pack the selected notes (and their referenced assets) into a .advt.zip"
+                >
+                  Pack adventure…
+                </button>
+              </Show>
+              <span class="font-display text-[0.62rem] uppercase tracking-[0.16em] text-fg-subtle">
+                {notes().length} total
+              </span>
+            </div>
           </header>
           <input
             type="search"
@@ -300,8 +314,292 @@ function NotesHub(props: { tabId: string }): JSX.Element {
           </Show>
         </Show>
       </div>
+      <Show when={showExport()}>
+        <ExportAdventureModal
+          notes={notes()}
+          worldId={client.worldId() ?? ""}
+          onClose={() => setShowExport(false)}
+        />
+      </Show>
     </div>
   );
+}
+
+/**
+ * "Pack adventure…" modal — pick which notes go into the bundle,
+ * fill in metadata, hit Export. The server walks the selected notes
+ * for `[[asset:…]]` references and includes the bytes automatically;
+ * the client receives the zip as a blob and triggers a download.
+ *
+ * GM-only — gated upstream by the button visibility, and again
+ * server-side in `handleAdventureExport`. The modal stays a thin
+ * shell over the existing HTTP endpoint so the export flow can keep
+ * evolving (reference closure, asset captures, multi-bundle update
+ * paths) without re-wiring the UI.
+ */
+function ExportAdventureModal(props: {
+  notes: ReadonlyArray<{ id: EntityId; title: string }>;
+  worldId: string;
+  onClose: () => void;
+}): JSX.Element {
+  const [name, setName] = createSignal("New adventure");
+  const [version, setVersion] = createSignal("0.1.0");
+  const [summary, setSummary] = createSignal("");
+  const [author, setAuthor] = createSignal("");
+  // Default to packing every note — explicitly de-selecting is the
+  // common shape (whittle down a big world to one storyline) and
+  // Select-all-by-default keeps the GM from forgetting an aux note.
+  const [selectedIds, setSelectedIds] = createSignal<Set<EntityId>>(
+    new Set<EntityId>(props.notes.map((n) => n.id)),
+  );
+  const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+
+  const allSelected = createMemo(
+    () => selectedIds().size === props.notes.length,
+  );
+  const noneSelected = createMemo(() => selectedIds().size === 0);
+
+  const toggle = (id: EntityId): void => {
+    setSelectedIds((cur) => {
+      const next = new Set<EntityId>(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const selectAll = (): void => {
+    setSelectedIds(new Set<EntityId>(props.notes.map((n) => n.id)));
+  };
+  const clearAll = (): void => {
+    setSelectedIds(new Set<EntityId>());
+  };
+
+  const submit = async (e: SubmitEvent): Promise<void> => {
+    e.preventDefault();
+    setError(null);
+    if (noneSelected()) {
+      setError("Pick at least one note to pack.");
+      return;
+    }
+    if (!props.worldId) {
+      setError("Not connected to a world.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/worlds/${encodeURIComponent(props.worldId)}/adventures/export`,
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            name: name().trim() || "Untitled adventure",
+            version: version().trim() || "0.1.0",
+            summary: summary().trim(),
+            author: author().trim(),
+            noteIds: [...selectedIds()],
+          }),
+        },
+      );
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(body.error ?? `export failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      // Build a download anchor and click it. Same shape every browser
+      // accepts; revoke the URL after the click so the blob can be GC'd.
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${sanitiseFilename(name().trim() || "adventure")}.advt.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      props.onClose();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      class="fixed inset-0 z-40 grid place-items-center bg-black/40 px-4"
+      onClick={props.onClose}
+      data-testid="pack-adventure-modal"
+    >
+      <div
+        class="flex max-h-[85vh] w-full max-w-lg flex-col gap-3 rounded-(--radius-card) border border-border bg-surface-elevated p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header>
+          <h2 class="text-base font-semibold tracking-tight text-fg">
+            Pack adventure
+          </h2>
+          <p class="mt-1 text-xs text-fg-muted">
+            Bundle notes + every `[[asset:…]]` they reference into a
+            single `.advt.zip` file. Import it on another mvtt instance
+            (or your own backup world) to recreate the cast and content.
+          </p>
+        </header>
+        <form
+          onSubmit={submit}
+          class="flex min-h-0 flex-1 flex-col gap-3"
+          autocomplete="off"
+          data-form-type="other"
+          data-1p-ignore="true"
+          data-lpignore="true"
+          data-bwignore="true"
+        >
+          <div class="grid grid-cols-2 gap-3">
+            <label class="flex flex-col gap-1 text-xs text-fg-muted">
+              <span>Name</span>
+              <input
+                type="text"
+                value={name()}
+                onInput={(e) => setName(e.currentTarget.value)}
+                required
+                maxlength={240}
+                class="rounded-(--radius-control) border border-border bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                data-testid="pack-name"
+              />
+            </label>
+            <label class="flex flex-col gap-1 text-xs text-fg-muted">
+              <span>Version</span>
+              <input
+                type="text"
+                value={version()}
+                onInput={(e) => setVersion(e.currentTarget.value)}
+                required
+                maxlength={60}
+                placeholder="0.1.0"
+                class="rounded-(--radius-control) border border-border bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                data-testid="pack-version"
+              />
+            </label>
+          </div>
+          <label class="flex flex-col gap-1 text-xs text-fg-muted">
+            <span>Summary (optional)</span>
+            <input
+              type="text"
+              value={summary()}
+              onInput={(e) => setSummary(e.currentTarget.value)}
+              maxlength={2000}
+              class="rounded-(--radius-control) border border-border bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+            />
+          </label>
+          <label class="flex flex-col gap-1 text-xs text-fg-muted">
+            <span>Author (optional)</span>
+            <input
+              type="text"
+              value={author()}
+              onInput={(e) => setAuthor(e.currentTarget.value)}
+              maxlength={240}
+              class="rounded-(--radius-control) border border-border bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+            />
+          </label>
+
+          <div class="flex flex-col gap-2 rounded-(--radius-control) border border-border-muted bg-surface p-3">
+            <div class="flex items-baseline justify-between gap-2">
+              <span class="font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle">
+                Notes ({selectedIds().size}/{props.notes.length})
+              </span>
+              <div class="flex gap-2 text-[0.65rem]">
+                <button
+                  type="button"
+                  onClick={selectAll}
+                  disabled={allSelected()}
+                  class="text-fg-muted hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Select all
+                </button>
+                <span class="text-fg-subtle">·</span>
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  disabled={noneSelected()}
+                  class="text-fg-muted hover:text-accent disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <ul
+              class="flex max-h-60 flex-col gap-1 overflow-y-auto"
+              data-testid="pack-notes-list"
+            >
+              <For each={props.notes}>
+                {(n) => (
+                  <li>
+                    <label class="flex items-center gap-2 rounded-(--radius-control) px-1 py-0.5 text-sm text-fg hover:bg-surface-elevated">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds().has(n.id)}
+                        onChange={() => toggle(n.id)}
+                      />
+                      <span class="flex-1 truncate">{n.title}</span>
+                      <span class="font-mono text-[0.6rem] text-fg-subtle">
+                        {n.id}
+                      </span>
+                    </label>
+                  </li>
+                )}
+              </For>
+            </ul>
+            <p class="text-[0.65rem] text-fg-subtle italic">
+              Assets referenced as `[[asset:…]]` in the selected note
+              bodies are packed automatically — uploaded images, sound
+              files, etc.
+            </p>
+          </div>
+
+          <Show when={error()}>
+            <p class="rounded-(--radius-control) border border-danger/40 bg-danger/10 px-2 py-1 text-xs text-danger">
+              {error()}
+            </p>
+          </Show>
+
+          <div class="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={props.onClose}
+              class="rounded-(--radius-control) border border-border px-3 py-1.5 text-xs text-fg-muted hover:bg-surface transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={busy() || noneSelected()}
+              class="rounded-(--radius-control) bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:bg-accent-hover transition disabled:opacity-50"
+              data-testid="pack-export"
+            >
+              {busy() ? "Packing…" : "Export"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Strip filesystem-unsafe characters from the user-typed adventure
+ * name before using it as the download filename. Server applies the
+ * same sanitisation to the `Content-Disposition` header; client mirrors
+ * it so a refused-by-OS download doesn't leave the user wondering.
+ */
+function sanitiseFilename(s: string): string {
+  return s
+    .replace(/[\\/:*?"<>|]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120) || "adventure";
 }
 
 /**

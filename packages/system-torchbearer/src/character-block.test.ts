@@ -36,6 +36,7 @@ import {
   MonsterTemplate,
   Pools,
   RawAbilities,
+  Relics,
   Skills,
   TbMonster,
   TownAbilities,
@@ -49,6 +50,15 @@ import {
 } from "./shared/blocks/character.js";
 import { npcBlockKind } from "./shared/blocks/npc.js";
 import { TbNpc } from "./shared/npc-traits.js";
+import {
+  SpellIdentity,
+  TbLibrary,
+  TbMemoryPalace,
+} from "./shared/spells/spell-traits.js";
+import {
+  InvocationIdentity,
+  TbInvocationRelics,
+} from "./shared/invocations/invocation-traits.js";
 
 const notesStub = definePlugin({
   name: "@vtt/notes",
@@ -95,6 +105,12 @@ const tbCharacterBlocksStub = definePlugin({
     TbCarries,
     TbItemSlotOptions,
     TbNpc,
+    SpellIdentity,
+    TbLibrary,
+    TbMemoryPalace,
+    InvocationIdentity,
+    TbInvocationRelics,
+    Relics,
   ],
   fills: {
     [BlockKindsSlot.name]: [
@@ -360,6 +376,142 @@ describe("TB character block kind", () => {
       | undefined;
     expect(carries).toBeDefined();
     expect(carries!.TbCarries.entries.length).toBe(0);
+  });
+
+  it("spellbook / memory / invocations / urdr / burden seed the arcane traits", () => {
+    // Pre-seed two spell catalog entities and one invocation so the
+    // wiki-link resolver can find them at parse time.
+    const wayfinderId = world.spawn([
+      SpellIdentity({
+        name: "Wayfinder's Friend",
+        circle: 1,
+        school: "Divination",
+        pageRef: null,
+      }),
+    ]);
+    const majorHealingId = world.spawn([
+      SpellIdentity({
+        name: "Major Healing",
+        circle: 2,
+        school: "Conjuration",
+        pageRef: null,
+      }),
+    ]);
+    const stoneOfStrengthId = world.spawn([
+      InvocationIdentity({
+        name: "Stone of Strength",
+        circle: 1,
+        traditions: [],
+        pageRef: null,
+      } as never),
+    ]);
+    parseBody(
+      [
+        "```character Iselda Theurge",
+        "stock: Human",
+        "class: Theurge",
+        "will: 4",
+        "spellbook:",
+        "  - [[spell:Wayfinder's Friend]]",
+        "  - [[spell:Major Healing]]",
+        "memory:",
+        "  - [[spell:Wayfinder's Friend]]",
+        "  - [[spell:Major Healing]]",
+        "invocations:",
+        "  - [[invocation:Stone of Strength]]",
+        "urdr: 2",
+        "burden: 1",
+        "```",
+      ].join("\n"),
+    );
+    const eid = blockEntityId(pageId, "iselda-theurge");
+    expect(world.has(eid)).toBe(true);
+
+    const library = world.get(eid, [TbLibrary]) as
+      | { TbLibrary: { spellIds: ReadonlyArray<string> } }
+      | undefined;
+    expect(library).toBeDefined();
+    expect([...library!.TbLibrary.spellIds].sort()).toEqual(
+      [wayfinderId, majorHealingId].sort(),
+    );
+
+    const palace = world.get(eid, [TbMemoryPalace]) as
+      | {
+          TbMemoryPalace: {
+            capacity: number;
+            memorized: ReadonlyArray<{
+              spellId: string;
+              slotsConsumed: number;
+              cast: boolean;
+            }>;
+          };
+        }
+      | undefined;
+    expect(palace).toBeDefined();
+    // Two spells: circle 1 (Wayfinder) + circle 2 (Major Healing) = 3 slots.
+    expect(palace!.TbMemoryPalace.capacity).toBe(3);
+    expect(palace!.TbMemoryPalace.memorized).toHaveLength(2);
+    // slotsConsumed mirrors the spell's printed circle.
+    const wm = palace!.TbMemoryPalace.memorized.find(
+      (m) => m.spellId === wayfinderId,
+    );
+    const mh = palace!.TbMemoryPalace.memorized.find(
+      (m) => m.spellId === majorHealingId,
+    );
+    expect(wm?.slotsConsumed).toBe(1);
+    expect(mh?.slotsConsumed).toBe(2);
+
+    const inv = world.get(eid, [TbInvocationRelics]) as
+      | { TbInvocationRelics: { invocationIds: ReadonlyArray<string> } }
+      | undefined;
+    expect(inv).toBeDefined();
+    expect(inv!.TbInvocationRelics.invocationIds).toEqual([stoneOfStrengthId]);
+
+    const relics = world.get(eid, [Relics]) as
+      | { Relics: { urdr: number; burden: number } }
+      | undefined;
+    expect(relics).toBeDefined();
+    expect(relics!.Relics.urdr).toBe(2);
+    expect(relics!.Relics.burden).toBe(1);
+  });
+
+  it("palace_capacity overrides the sum-of-circles default", () => {
+    world.spawn([
+      SpellIdentity({
+        name: "Spark",
+        circle: 1,
+        school: "Evocation",
+        pageRef: null,
+      }),
+    ]);
+    parseBody(
+      [
+        "```character Studious Wizard",
+        "memory:",
+        "  - [[spell:Spark]]",
+        "palace_capacity: 5",
+        "```",
+      ].join("\n"),
+    );
+    const eid = blockEntityId(pageId, "studious-wizard");
+    const palace = world.get(eid, [TbMemoryPalace]) as
+      | { TbMemoryPalace: { capacity: number } }
+      | undefined;
+    expect(palace!.TbMemoryPalace.capacity).toBe(5);
+  });
+
+  it("unresolved spell references drop silently (no TbLibrary if every entry missed)", () => {
+    parseBody(
+      [
+        "```character Unknown Spells",
+        "spellbook:",
+        "  - [[spell:Spell That Doesnt Exist]]",
+        "```",
+      ].join("\n"),
+    );
+    const eid = blockEntityId(pageId, "unknown-spells");
+    const library = world.get(eid, [TbLibrary]);
+    expect(library).toBeUndefined();
   });
 });
 

@@ -40,6 +40,16 @@ import { ALL_SKILLS, isKnownSkillId } from "../skills.js";
 import { MonsterTemplate, TbMonster } from "../monster-traits.js";
 import { TbCarries } from "../items/item-traits.js";
 import { TB_BODY_SLOTS_AUTHORING } from "./item.js";
+import { Relics } from "../traits.js";
+import {
+  SpellIdentity,
+  TbLibrary,
+  TbMemoryPalace,
+} from "../spells/spell-traits.js";
+import {
+  InvocationIdentity,
+  TbInvocationRelics,
+} from "../invocations/invocation-traits.js";
 import {
   channelFor,
   defaultSlotForItem,
@@ -147,6 +157,55 @@ export const CharacterBlockSchema = z.object({
   // Inventory.
   carries: CarriesArraySchema,
 
+  // Arcane — spell library (kept-but-unmemorized), memory palace
+  // (currently-memorized), the palace's slot capacity, plus theurge
+  // / shaman invocations + Urðr / Burden counters.
+  spellbook: z
+    .array(wikiLink("spell"))
+    .default([])
+    .describe(
+      "Spells the character knows but hasn't memorized — the at-home library / personal spell book contents. Wiki-links to spell catalog entities, e.g. `[[spell:Wayfinder's Friend]]`.",
+    ),
+  memory: z
+    .array(wikiLink("spell"))
+    .default([])
+    .describe(
+      "Currently-memorized spells (the memory palace). Each entry consumes slots equal to its circle. The palace's capacity defaults to the sum of memorized spell circles unless `palace_capacity` overrides it.",
+    ),
+  palace_capacity: z
+    .number()
+    .int()
+    .min(0)
+    .max(20)
+    .optional()
+    .describe(
+      "Override the memory-palace slot capacity. Default = sum of memorized spell circles, so a sparse YAML doesn't paint the palace as full.",
+    ),
+  invocations: z
+    .array(wikiLink("invocation"))
+    .default([])
+    .describe(
+      'Invocations (Urðr) the character can perform — wiki-links to invocation catalog entities, e.g. `[[invocation:Stone of Strength]]`. Each entry adds the invocation to `TbInvocationRelics` so the post-roll burden flow on the Invocations tab finds it.',
+    ),
+  urdr: z
+    .number()
+    .int()
+    .min(0)
+    .max(4)
+    .default(1)
+    .describe(
+      "Urðr — divine-favor counter for theurges / shamans (DH p.99). 0–4. Default 1.",
+    ),
+  burden: z
+    .number()
+    .int()
+    .min(0)
+    .max(6)
+    .default(0)
+    .describe(
+      "Immortal Burden — divine-debt counter (DH p.99). 0–6. Default 0.",
+    ),
+
   // What you fight for.
   belief: z.string().max(2000).default(""),
   creed: z.string().max(2000).default(""),
@@ -189,6 +248,106 @@ export const MonsterBlockSchema = z.object({
 });
 
 export type MonsterBlockParsed = z.infer<typeof MonsterBlockSchema>;
+
+/**
+ * Resolve an authored spell wiki-link body to a catalog entity id.
+ * Accepts the editor-canonical `[[spell:e123|Wayfinder's Friend]]`
+ * wrapping (peelWikiLink strips it), the bare id `e123`, or a
+ * case-insensitive name match against `SpellIdentity.name`. Returns
+ * null when nothing resolves — drops at the call site rather than
+ * inserting a stale id into the trait.
+ */
+function resolveSpellRef(
+  body: string,
+  world: World,
+): string | null {
+  // peelWikiLink strips `[[...]]`, `|alias`, `#anchor`, and the
+  // `item:` prefix. Spells use the `spell:` prefix instead so we
+  // strip it explicitly here before the entity-id / name lookup.
+  let cleaned = peelWikiLink(body).trim();
+  if (cleaned.toLowerCase().startsWith("spell:")) {
+    cleaned = cleaned.slice("spell:".length).trim();
+  }
+  if (cleaned.length === 0) return null;
+  if (world.has(cleaned as Parameters<typeof world.has>[0])) {
+    if (world.get(cleaned as Parameters<typeof world.get>[0], [SpellIdentity])) {
+      return cleaned;
+    }
+  }
+  const needle = cleaned.toLowerCase();
+  for (const row of world.query([SpellIdentity])) {
+    const v = row.values.SpellIdentity as { name: string };
+    if (v.name.toLowerCase() === needle) return row.id;
+  }
+  return null;
+}
+
+function resolveSpellRefs(
+  bodies: ReadonlyArray<string>,
+  world: World,
+): string[] {
+  const out: string[] = [];
+  for (const b of bodies) {
+    const id = resolveSpellRef(b, world);
+    if (id) out.push(id);
+  }
+  return out;
+}
+
+/**
+ * Read the printed circle (1–5) of a spell entity. Falls back to null
+ * when the entity is missing or doesn't carry `SpellIdentity` — the
+ * caller seeds `slotsConsumed` to 1 in that case.
+ */
+function readSpellCircle(spellId: string, world: World): number | null {
+  const got = world.get(spellId as Parameters<typeof world.get>[0], [
+    SpellIdentity,
+  ]) as { SpellIdentity: { circle: number } } | undefined;
+  return got?.SpellIdentity.circle ?? null;
+}
+
+/**
+ * Same shape as `resolveSpellRef`, against the invocation catalog.
+ * Used to seed `TbInvocationRelics.invocationIds` from the `invocations:`
+ * field on a character / npc block.
+ */
+function resolveInvocationRef(
+  body: string,
+  world: World,
+): string | null {
+  let cleaned = peelWikiLink(body).trim();
+  if (cleaned.toLowerCase().startsWith("invocation:")) {
+    cleaned = cleaned.slice("invocation:".length).trim();
+  }
+  if (cleaned.length === 0) return null;
+  if (world.has(cleaned as Parameters<typeof world.has>[0])) {
+    if (
+      world.get(cleaned as Parameters<typeof world.get>[0], [
+        InvocationIdentity,
+      ])
+    ) {
+      return cleaned;
+    }
+  }
+  const needle = cleaned.toLowerCase();
+  for (const row of world.query([InvocationIdentity])) {
+    const v = row.values.InvocationIdentity as { name: string };
+    if (v.name.toLowerCase() === needle) return row.id;
+  }
+  return null;
+}
+
+function resolveInvocationRefs(
+  bodies: ReadonlyArray<string>,
+  world: World,
+): string[] {
+  const out: string[] = [];
+  for (const b of bodies) {
+    const id = resolveInvocationRef(b, world);
+    if (id) out.push(id);
+  }
+  return out;
+}
 
 function buildSkillsRecord(
   seed: Record<string, number>,
@@ -408,6 +567,65 @@ export function buildCharacterTraitWrites(
     { trait: TbCarries, value: { entries: carriesEntries } },
   ];
 
+  // Arcane wiring — spellbook (TbLibrary), memorized spells
+  // (TbMemoryPalace), and invocations (TbInvocationRelics +
+  // Relics urdr/burden). Each list resolves wiki-link bodies to
+  // their catalog entity ids; unresolved entries drop silently
+  // (the GM can fix the wiki-link or wait for the catalog to seed).
+  const spellbookIds = resolveSpellRefs(parsed.spellbook, ctx.world);
+  const memorizedIds = resolveSpellRefs(parsed.memory, ctx.world);
+  if (spellbookIds.length > 0) {
+    traits.push({
+      trait: TbLibrary,
+      value: {
+        spellIds: spellbookIds,
+        location: "home" as const,
+        lonerLocation: "",
+      },
+    });
+  }
+  if (memorizedIds.length > 0 || parsed.palace_capacity !== undefined) {
+    const memorized = memorizedIds.map((spellId) => ({
+      spellId,
+      // Slots-consumed snapshot — read the spell's circle at parse
+      // time. If the spell entity has no SpellIdentity (shouldn't
+      // happen given the resolver only returns ids that DO carry it),
+      // fall back to 1 so the trait still validates.
+      slotsConsumed: readSpellCircle(spellId, ctx.world) ?? 1,
+      cast: false,
+    }));
+    const sumCircles = memorized.reduce((acc, m) => acc + m.slotsConsumed, 0);
+    traits.push({
+      trait: TbMemoryPalace,
+      value: {
+        capacity: parsed.palace_capacity ?? sumCircles,
+        memorized,
+      },
+    });
+  }
+  const invocationIds = resolveInvocationRefs(parsed.invocations, ctx.world);
+  if (invocationIds.length > 0) {
+    traits.push({
+      trait: TbInvocationRelics,
+      value: { invocationIds },
+    });
+  }
+  // Always seed Relics when urdr/burden are non-default so the sheet
+  // surfaces the counters. The trait carries the per-relic free-text
+  // table too; we leave `entries` empty here — adventure blocks
+  // describe relics via the `invocations:` list, and the GM fills
+  // the free-text rows in the sheet UI if they want notes.
+  if (parsed.urdr !== 1 || parsed.burden !== 0) {
+    traits.push({
+      trait: Relics,
+      value: {
+        entries: [],
+        urdr: parsed.urdr,
+        burden: parsed.burden,
+      },
+    });
+  }
+
   return {
     traits,
     spawnIfMissing: [
@@ -620,9 +838,17 @@ carries:
     slot: handR
   - item: [[item:\${12:traveling ration}]]
     quantity: \${13:2}
-belief: \${14:belief}
-goal: \${15:goal}
-instinct: \${16:instinct}
+spellbook:
+  - [[spell:\${14:Wayfinder's Friend}]]
+memory:
+  - [[spell:\${15:Wayfinder's Friend}]]
+invocations:
+  - [[invocation:\${16:Stone of Strength}]]
+urdr: \${17:1}
+burden: \${18:0}
+belief: \${19:belief}
+goal: \${20:goal}
+instinct: \${21:instinct}
 notes: |
   \${0}`,
 });

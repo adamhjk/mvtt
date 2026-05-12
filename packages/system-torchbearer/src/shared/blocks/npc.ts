@@ -142,9 +142,14 @@ wises: [\${12:wise}]
 carries:
   - item: [[item:\${13:hammer}]]
     slot: handR
-belief: \${14:What this NPC believes.}
-goal: \${15:What they're trying to do right now.}
-instinct: \${16:When in doubt, they…}
+spellbook: []
+memory: []
+invocations: []
+urdr: \${14:1}
+burden: \${15:0}
+belief: \${16:What this NPC believes.}
+goal: \${17:What they're trying to do right now.}
+instinct: \${18:When in doubt, they…}
 notes: |
   \${0:GM-only description. Personality, situation, hooks.}`,
 });

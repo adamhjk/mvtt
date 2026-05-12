@@ -20,6 +20,7 @@ import { PagesSlot } from "@vtt/shell-workbench/shared";
 import { ConflictPageProvider } from "./conflict/client/index.js";
 import { ArcanePageProvider } from "./client/arcane-page.js";
 import { BestiaryPageProvider } from "./client/bestiary-page.js";
+import { InvocationsPageProvider } from "./client/invocations-page.js";
 import { NpcsPageProvider } from "./client/npcs-page.js";
 
 /**
@@ -48,6 +49,7 @@ export const systemTorchbearerPages = definePlugin({
       BestiaryPageProvider,
       NpcsPageProvider,
       ArcanePageProvider,
+      InvocationsPageProvider,
     ],
   },
 });

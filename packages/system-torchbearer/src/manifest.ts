@@ -48,8 +48,10 @@ import {
   LootPlacementSystem,
   PlaceLootInScene,
 } from "./shared/loot-commands.js";
+import { invocationLinkKind } from "./shared/invocation-link-kind.js";
 import { monsterLinkKind } from "./shared/monster-link-kind.js";
 import { npcLinkKind } from "./shared/npc-link-kind.js";
+import { spellLinkKind } from "./shared/spell-link-kind.js";
 import { itemLinkKind } from "@vtt/items/shared";
 import {
   AdvancementLogged,
@@ -672,7 +674,13 @@ export const systemTorchbearer = definePlugin({
       tbMonsterListExclusion,
       tbNpcListExclusion,
     ],
-    [LinkKindsSlot.name]: [monsterLinkKind, npcLinkKind, itemLinkKind],
+    [LinkKindsSlot.name]: [
+      monsterLinkKind,
+      npcLinkKind,
+      itemLinkKind,
+      spellLinkKind,
+      invocationLinkKind,
+    ],
     [PaletteCommandsSlot.name]: [
       ...TB_SPAWN_MONSTER_PALETTE_COMMANDS,
       ...TB_SPAWN_NPC_PALETTE_COMMANDS,
