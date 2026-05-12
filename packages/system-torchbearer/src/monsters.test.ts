@@ -34,6 +34,7 @@ import {
   Heroic,
   MonsterCreated,
   MonsterRemoved,
+  MonsterTemplate,
   RawAbilities,
   RemoveMonster,
   TbConflictResource,
@@ -73,7 +74,7 @@ import {
   MonsterRemovalSystem,
   MonsterSpawningSystem,
 } from "./server/monster-systems.js";
-import { tbItemsSeed } from "./data/seed.js";
+import { tbSeed } from "./data/seed.js";
 
 /**
  * Minimal plugin that registers only what the monster spawn path needs
@@ -447,7 +448,7 @@ describe("@vtt/system-torchbearer monsters", () => {
 
     it("equips the catalog armor when the items catalog has been seeded", async () => {
       // Seed the items catalog first so the byrnie entity exists.
-      tbItemsSeed({ world: setup.world, registry: setup.registry });
+      tbSeed({ world: setup.world, registry: setup.registry });
       const indexEntities = setup.world.query([ItemCatalogIndex]);
       const byrnieEntries = (
         indexEntities[0]!.values.ItemCatalogIndex as {
@@ -463,7 +464,11 @@ describe("@vtt/system-torchbearer monsters", () => {
       );
       expect(res.result.ok).toBe(true);
 
-      const monsterId = setup.world.query([Character, TbMonster])[0]!.id;
+      // Filter out MonsterTemplate entities (added by tbSeed) so we
+      // find the freshly spawned instance, not a catalog template.
+      const monsterId = setup.world
+        .query([Character, TbMonster])
+        .filter((r) => !setup.world.get(r.id, [MonsterTemplate]))[0]!.id;
       const carries = setup.world.get(monsterId, [TbCarries]) as
         | { TbCarries: { entries: { itemId: string; slot: string }[] } }
         | undefined;

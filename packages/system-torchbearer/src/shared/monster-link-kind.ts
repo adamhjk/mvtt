@@ -57,7 +57,10 @@ export const monsterLinkKind = defineLinkKind<MonsterRef>({
       world.has(id) &&
       world.get(id, [Character]) !== undefined &&
       world.get(id, [TbMonster]) !== undefined;
-    if (/^e\d+$/.test(trimmed)) {
+    // Accept any string the world recognises as a monster — covers
+    // both substrate-allocated `e\d+` ids and deterministic ids
+    // (e.g. block-authored monsters with `block:<pageId>:<slug>`).
+    {
       const id = trimmed as EntityId;
       if (isMonster(id)) return { characterId: id };
     }

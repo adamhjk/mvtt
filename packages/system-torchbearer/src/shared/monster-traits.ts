@@ -233,6 +233,54 @@ export const TbMonsterDerivedFrom = defineTrait({
 });
 
 /**
+ * MonsterTemplate — empty marker on entities seeded from
+ * `TB_MONSTER_TEMPLATES`. Templates are real entities so wiki-links can
+ * resolve to stable ids, the bestiary page can browse them, and the
+ * `encounter` block can reference them with `4× [[character:goblin
+ * scout]]` quantification. Per-instance copies (the goblins spawned
+ * into a live conflict) carry `MonsterCopy` instead, never this trait.
+ *
+ * See `design/adventures.md` § "NPC/PC/template/copy distinction".
+ */
+export const MonsterTemplate = defineTrait({
+  name: "@vtt/system-torchbearer/MonsterTemplate",
+  schema: z.object({}),
+});
+
+/**
+ * MonsterCopy — marker on entities spawned as a per-encounter copy of
+ * a `MonsterTemplate`. Carries the template id so the renderer can show
+ * "Goblin Scout #2" labels and so a future "rebase mob copies" admin
+ * action can find them. Templates and copies are otherwise structurally
+ * identical (both `Character` + the same TB stat-block traits); the
+ * marker is what keeps the bestiary list, the mob-merge engine, and the
+ * cleanup-on-conflict-end flow honest.
+ */
+export const MonsterCopy = defineTrait({
+  name: "@vtt/system-torchbearer/MonsterCopy",
+  schema: z.object({
+    templateId: z.string().min(1).max(240),
+    ordinal: z.number().int().min(1).max(999),
+  }),
+});
+
+/**
+ * MonsterCatalogIndex — sentinel mapping `templateId → entityId` for
+ * every seeded monster template. Mirrors `ItemCatalogIndex` /
+ * `SpellCatalogIndex`. The seed step uses this to make re-seed
+ * idempotent: existing entries get their traits merged in place; new
+ * templates get fresh entities; templates withdrawn from the catalog
+ * get `TbMonsterDerivedFrom.deprecated = true`.
+ */
+export const MonsterCatalogIndex = defineTrait({
+  name: "@vtt/system-torchbearer/MonsterCatalogIndex",
+  schema: z.object({
+    pluginName: z.string().min(1).max(120),
+    entries: z.record(z.string(), z.string()).default({}),
+  }),
+});
+
+/**
  * TbConflictResource — marks an item entity as an abstract weapon or
  * armor whose only meaning is in conflict resolution (e.g. Blackmail,
  * Hostage, Maps, Caltrops, True Name, Vestments — DH p.234-239,

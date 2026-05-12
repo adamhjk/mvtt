@@ -37,7 +37,14 @@ const Advancement = z
 
 const RatedAbility = z
   .object({
-    rating: z.number().int().min(0).max(7).default(0),
+    // Rating ceiling widened from 7 to 10 to accommodate NPC catalog
+    // entries (some wealthy denizens carry Resources 8, named dragons
+    // carry Will 8) and to leave headroom for future high-tier monsters.
+    // PCs cap at 7 by RAW (DH p.49) but the schema is shared with
+    // monsters/NPCs and the cap is enforced by class/advancement logic
+    // elsewhere. Backwards-compatible — every previously-valid value
+    // (0..7) still parses.
+    rating: z.number().int().min(0).max(10).default(0),
     advancement: Advancement,
   })
   .default({ rating: 0, advancement: { pass: 0, fail: 0 } });
@@ -249,7 +256,12 @@ export const TownAbilities = defineTrait({
       resources: RatedAbility,
       circles: RatedAbility,
       precedence: z.number().int().min(0).max(10).default(0),
-      might: z.number().int().min(0).max(6).default(2),
+      // Monsters in TB2 can have might 7–8 (Black Dragon, Hill Giant,
+      // Roc) and the design leaves headroom up to 10. PCs cap at 5 per
+      // RAW (DH p.66) but the trait is shared so we widen to fit
+      // monsters too. Backwards-compatible widening — every previously
+      // valid value (0..6) still parses.
+      might: z.number().int().min(0).max(10).default(2),
     })
     .default({
       resources: { rating: 0, advancement: { pass: 0, fail: 0 } },

@@ -16,6 +16,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@vtt/adventures": "workspace:*",
     "@vtt/books": "workspace:*",
     "@vtt/characters": "workspace:*",
     "@vtt/comms": "workspace:*",

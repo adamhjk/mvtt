@@ -25,7 +25,32 @@ import {
   type CharacterListExclusion,
 } from "@vtt/characters/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
+import { BlockKindsSlot } from "@vtt/adventures/shared";
+import {
+  characterBlockKind,
+  encounterBlockKind,
+  itemBlockKind,
+  lootBlockKind,
+  monsterBlockKind,
+  npcBlockKind,
+} from "./shared/blocks/index.js";
+import {
+  EncounterStarted,
+  MonsterCopySpawned,
+  MonsterCopySpawningSystem,
+  StartEncounter,
+} from "./shared/encounter-commands.js";
+import {
+  AwardLoot,
+  LootAwarded,
+  LootAwardSystem,
+  LootPlacedInScene,
+  LootPlacementSystem,
+  PlaceLootInScene,
+} from "./shared/loot-commands.js";
 import { monsterLinkKind } from "./shared/monster-link-kind.js";
+import { npcLinkKind } from "./shared/npc-link-kind.js";
+import { itemLinkKind } from "@vtt/items/shared";
 import {
   AdvancementLogged,
   AdvancementLoggedTrait,
@@ -139,8 +164,11 @@ import {
   // Monsters:
   CreateBlankMonster,
   CreateMonsterFromCatalog,
+  MonsterCatalogIndex,
+  MonsterCopy,
   MonsterCreated,
   MonsterRemoved,
+  MonsterTemplate,
   RemoveMonster,
   TbConflictResource,
   TbMonster,
@@ -150,8 +178,10 @@ import {
   // NPCs:
   CreateBlankNpc,
   CreateNpcFromCatalog,
+  NpcCatalogIndex,
   NpcCreated,
   NpcRemoved,
+  NpcTemplate,
   RemoveNpc,
   TbNpc,
   TbNpcDerivedFrom,
@@ -277,7 +307,7 @@ import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { PaletteCommandsSlot } from "@vtt/shell-workbench/shared";
 import { TB_SPAWN_MONSTER_PALETTE_COMMANDS } from "./client/spawn-monster-palette.js";
 import { TB_SPAWN_NPC_PALETTE_COMMANDS } from "./client/spawn-npc-palette.js";
-import { tbItemsSeed } from "./data/seed.js";
+import { tbSeed } from "./data/seed.js";
 import {
   ALL_CONFLICT_COMMANDS,
   ALL_CONFLICT_EVENTS,
@@ -411,10 +441,15 @@ export const systemTorchbearer = definePlugin({
     TbMonsterWeapons,
     TbMonsterSpecialRules,
     TbMonsterDerivedFrom,
+    MonsterTemplate,
+    MonsterCopy,
+    MonsterCatalogIndex,
     TbConflictResource,
     // NPCs:
     TbNpc,
     TbNpcDerivedFrom,
+    NpcTemplate,
+    NpcCatalogIndex,
     ...ALL_CONFLICT_TRAITS,
   ],
   events: [
@@ -448,9 +483,14 @@ export const systemTorchbearer = definePlugin({
     // Monsters:
     MonsterCreated,
     MonsterRemoved,
+    MonsterCopySpawned,
     // NPCs:
     NpcCreated,
     NpcRemoved,
+    // Encounters:
+    EncounterStarted,
+    LootAwarded,
+    LootPlacedInScene,
     // Arcane:
     SpellAddedToLibrary,
     SpellRemovedFromLibrary,
@@ -516,6 +556,10 @@ export const systemTorchbearer = definePlugin({
     CreateBlankNpc,
     CreateNpcFromCatalog,
     RemoveNpc,
+    // Encounters:
+    StartEncounter,
+    AwardLoot,
+    PlaceLootInScene,
     // Arcane:
     AddSpellToLibrary,
     RemoveSpellFromLibrary,
@@ -580,6 +624,9 @@ export const systemTorchbearer = definePlugin({
     // Monsters:
     MonsterSpawningSystem,
     MonsterRemovalSystem,
+    MonsterCopySpawningSystem,
+    LootAwardSystem,
+    LootPlacementSystem,
     // NPCs:
     NpcSpawningSystem,
     NpcRemovalSystem,
@@ -625,13 +672,21 @@ export const systemTorchbearer = definePlugin({
       tbMonsterListExclusion,
       tbNpcListExclusion,
     ],
-    [LinkKindsSlot.name]: [monsterLinkKind],
+    [LinkKindsSlot.name]: [monsterLinkKind, npcLinkKind, itemLinkKind],
     [PaletteCommandsSlot.name]: [
       ...TB_SPAWN_MONSTER_PALETTE_COMMANDS,
       ...TB_SPAWN_NPC_PALETTE_COMMANDS,
     ],
+    [BlockKindsSlot.name]: [
+      itemBlockKind as never,
+      characterBlockKind as never,
+      npcBlockKind as never,
+      monsterBlockKind as never,
+      encounterBlockKind as never,
+      lootBlockKind as never,
+    ],
   },
-  seed: tbItemsSeed,
+  seed: tbSeed,
 });
 
 export default systemTorchbearer;

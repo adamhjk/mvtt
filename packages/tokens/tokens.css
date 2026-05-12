@@ -51,6 +51,21 @@
   --color-warning: light-dark(#9a6700, #d29922);
 
   /*
+   * Syntax highlighting palette — used by the notes editor's CodeMirror
+   * highlight style for fenced YAML / setdesign blocks. Five families
+   * rotated ~90° around the colour wheel so adjacent tokens never
+   * collapse into one another, even with mild colour-vision deficiency.
+   * Light values are 700–800 weight; dark are 300 — same hue family,
+   * lightness flipped for legibility against the surface.
+   */
+  --color-syntax-key: light-dark(#1e40af, #93c5fd);
+  --color-syntax-string: light-dark(#9a3412, #fdba74);
+  --color-syntax-constant: light-dark(#0e7490, #67e8f9);
+  --color-syntax-meta: light-dark(#6d28d9, #c4b5fd);
+  --color-syntax-comment: light-dark(#64748b, #94a3b8);
+  --color-syntax-punctuation: light-dark(#94a3b8, #64748b);
+
+  /*
    * Workbench-specific — used by @vtt/shell-workbench but exposed here so
    * a theme override can retune the chrome alongside the base palette.
    */

@@ -83,7 +83,11 @@ export const characterLinkKind = defineLinkKind<CharacterRef>({
     const trimmed = body.trim();
     if (trimmed.length === 0) return null;
     const excluded = exclusionTraits(registry);
-    if (/^e\d+$/.test(trimmed) && world.has(trimmed as EntityId)) {
+    // Accept any string the world recognises as a Character entity id —
+    // not just substrate-allocated `e\d+` ids. Block-authored characters
+    // (e.g. `block:e3:skarra-wormtongue`) and any other deterministic-id
+    // scheme work via the same path.
+    if (world.has(trimmed as EntityId)) {
       const got = world.get(trimmed as EntityId, [Character]);
       if (got && !isExcluded(world, trimmed as EntityId, excluded)) {
         return { characterId: trimmed as EntityId };

@@ -69,7 +69,7 @@ import {
 import { runCatalogMerge } from "@vtt/items/shared";
 import { CanonicalBookCatalog } from "@vtt/books/shared";
 import {
-  tbItemsSeed,
+  tbSeed,
   TB_ITEM_TEMPLATES,
   TB_CANONICAL_BOOKS,
   templateToTraitBag,
@@ -205,10 +205,10 @@ describe("TB items catalog → seed", () => {
   it("seed runs idempotently and converges on the same entity count", () => {
     const registry = buildRegistry();
     const world = new World();
-    tbItemsSeed({ world, registry });
+    tbSeed({ world, registry });
     const firstCount = world.query([ItemDerivedFrom]).length;
     expect(firstCount).toBe(TOTAL_SEED_TEMPLATE_COUNT);
-    tbItemsSeed({ world, registry });
+    tbSeed({ world, registry });
     const secondCount = world.query([ItemDerivedFrom]).length;
     expect(secondCount).toBe(firstCount);
   });
@@ -216,7 +216,7 @@ describe("TB items catalog → seed", () => {
   it("seed tags every catalog entity with the right pluginName + templateId", () => {
     const registry = buildRegistry();
     const world = new World();
-    tbItemsSeed({ world, registry });
+    tbSeed({ world, registry });
     const indexEntities = world.query([ItemCatalogIndex]);
     expect(indexEntities).toHaveLength(1);
     const idx = indexEntities[0]!.values.ItemCatalogIndex as {
@@ -240,7 +240,7 @@ describe("TB items catalog → seed", () => {
   it("seed registers the canonical TB2 book ids in a CanonicalBookCatalog sentinel", () => {
     const registry = buildRegistry();
     const world = new World();
-    tbItemsSeed({ world, registry });
+    tbSeed({ world, registry });
     const sentinels = world.query([CanonicalBookCatalog]);
     expect(sentinels).toHaveLength(1);
     const v = sentinels[0]!.values.CanonicalBookCatalog as {
@@ -261,8 +261,8 @@ describe("TB items catalog → seed", () => {
   it("re-running the seed leaves the canonical book sentinel unchanged (idempotent)", () => {
     const registry = buildRegistry();
     const world = new World();
-    tbItemsSeed({ world, registry });
-    tbItemsSeed({ world, registry });
+    tbSeed({ world, registry });
+    tbSeed({ world, registry });
     const sentinels = world.query([CanonicalBookCatalog]);
     expect(sentinels).toHaveLength(1);
   });
@@ -270,7 +270,7 @@ describe("TB items catalog → seed", () => {
   it("upstream change to a template's name flows into the entity (no override)", () => {
     const registry = buildRegistry();
     const world = new World();
-    tbItemsSeed({ world, registry });
+    tbSeed({ world, registry });
 
     // Pick the first template, find its entity.
     const target = TB_ITEM_TEMPLATES[0]!;

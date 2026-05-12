@@ -80,7 +80,11 @@ import {
   PageSpawnSystem,
 } from "./server/systems.js";
 import { LinkKindsSlot } from "./shared/link-kinds.js";
+import { MarkdownPostRenderSlot } from "./shared/post-render.js";
+import { EditorCompletionSourcesSlot } from "./shared/editor-completions.js";
+import { NotesReferenceSlot } from "./shared/editor-reference.js";
 import { noteLinkKind } from "./shared/note-link-kind.js";
+import { notesReferenceProvider } from "./shared/notes-reference-provider.js";
 import { PagesSlot } from "@vtt/shell-workbench/shared";
 import { NotesPageProvider } from "./client/index.js";
 
@@ -160,10 +164,16 @@ export const notes = definePlugin({
     LockReleaseSystem,
     NotesUiStateMirror,
   ],
-  slots: [LinkKindsSlot],
+  slots: [
+    LinkKindsSlot,
+    MarkdownPostRenderSlot,
+    EditorCompletionSourcesSlot,
+    NotesReferenceSlot,
+  ],
   fills: {
     [LinkKindsSlot.name]: [noteLinkKind],
     [PagesSlot.name]: [NotesPageProvider],
+    [NotesReferenceSlot.name]: [notesReferenceProvider],
   },
 });
 

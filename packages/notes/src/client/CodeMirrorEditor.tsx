@@ -38,6 +38,7 @@ import {
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { yamlLanguage } from "@codemirror/lang-yaml";
 import { parseCode } from "@lezer/markdown";
 import {
   HighlightStyle,
@@ -60,6 +61,7 @@ import {
   type CompletionResult,
 } from "@codemirror/autocomplete";
 import { type Registry, type World } from "@vtt/substrate";
+import { EditorCompletionSourcesSlot } from "../shared/editor-completions.js";
 import { buildLinkKindIndex } from "../shared/index.js";
 import {
   Note,
@@ -96,6 +98,12 @@ export interface CodeMirrorHandle {
   getValue(): string;
   /** Replace contents wholesale (e.g. on a remote-driven body update). */
   setValue(next: string): void;
+  /**
+   * Insert `text` at the current selection (or replace it if non-empty).
+   * The caret lands at the end of the inserted text. Used by the
+   * reference panel's "Insert at cursor" button.
+   */
+  insertAtCursor(text: string): void;
   /** Imperatively destroy the editor (also called on unmount). */
   destroy(): void;
 }
@@ -188,49 +196,135 @@ export function CodeMirrorEditor(props: {
       };
 
       if (depth === 0) {
-        for (const row of world.query([Note])) {
-          const v = row.values.Note as { title: string };
-          const replacement = `[[note:${row.id}|${v.title}]]`;
-          options.push({
-            label: v.title,
-            detail: "Note",
-            apply: buildApply(replacement),
-            type: "note",
-          });
-        }
-        // Other registered link kinds (asset, character, scene). Only
-        // surfaced at depth 0 — they don't share the note-path syntax.
         const idx = buildLinkKindIndex(props.registry);
         const segText = inner.slice(segStart);
-        for (const kind of idx.all) {
-          if (kind.name === "note") continue;
-          let suggestions: ReturnType<typeof kind.autocomplete>;
-          try {
-            suggestions = kind.autocomplete(segText, world, props.registry);
-          } catch {
-            continue;
-          }
-          for (const s of suggestions) {
-            const display =
-              s.display.length > 0 ? s.display : `${s.kind}:${s.body}`;
-            const replacement = `[[${s.kind}:${s.body}|${display}]]`;
-            options.push({
-              label: display,
-              detail: s.badge ?? s.kind,
-              apply: buildApply(replacement),
-              type: s.kind,
-            });
+
+        // Detect an explicit kind prefix or sigil. When present, we
+        // route the query exclusively to that kind and strip the
+        // prefix before passing it down — without this, typing
+        // `[[npc:Skar` passes `"npc:Skar"` to every kind's matcher,
+        // and `name.includes("npc:skar")` returns nothing for an NPC
+        // actually named "Skarra".
+        //
+        // Three accepted forms:
+        //   `kind:body`  — explicit kind (registered name); strip
+        //                   `kind:` and search that kind only.
+        //   `<sigil>body` — first char is a registered sigil; strip
+        //                   the sigil and search the matching kind.
+        //   bare        — no prefix; query every kind, plus Notes.
+        let kindFilter: typeof idx.all[number] | null = null;
+        let bodyQuery = segText;
+        let bodyFilterFrom = filterFrom;
+        const colonIdx = segText.indexOf(":");
+        if (colonIdx > 0) {
+          const candidate = segText.slice(0, colonIdx);
+          const matched = idx.byName.get(candidate);
+          if (matched) {
+            kindFilter = matched;
+            bodyQuery = segText.slice(colonIdx + 1);
+            bodyFilterFrom = filterFrom + colonIdx + 1;
           }
         }
-        // "+ create new note" — depth 0, non-empty segment, flat title
-        const trimmed = segText.trim();
-        if (trimmed.length > 0) {
-          options.push({
-            label: `+ create new note: "${trimmed}"`,
-            detail: "create",
-            apply: buildApply(`[[note:${trimmed}|${trimmed}]]`),
-            type: "create",
-          });
+        if (!kindFilter && segText.length > 0) {
+          const firstChar = segText[0]!;
+          const sigilKind = idx.bySigil.get(firstChar);
+          if (sigilKind) {
+            kindFilter = sigilKind;
+            bodyQuery = segText.slice(1);
+            bodyFilterFrom = filterFrom + 1;
+          }
+        }
+
+        if (!kindFilter) {
+          // Bare query — include Notes plus every registered kind.
+          for (const row of world.query([Note])) {
+            const v = row.values.Note as { title: string };
+            const replacement = `[[note:${row.id}|${v.title}]]`;
+            options.push({
+              label: v.title,
+              detail: "Note",
+              apply: buildApply(replacement),
+              type: "note",
+            });
+          }
+          for (const kind of idx.all) {
+            if (kind.name === "note") continue;
+            let suggestions: ReturnType<typeof kind.autocomplete>;
+            try {
+              suggestions = kind.autocomplete(segText, world, props.registry);
+            } catch {
+              continue;
+            }
+            for (const s of suggestions) {
+              const display =
+                s.display.length > 0 ? s.display : `${s.kind}:${s.body}`;
+              const replacement = `[[${s.kind}:${s.body}|${display}]]`;
+              options.push({
+                label: display,
+                detail: s.badge ?? s.kind,
+                apply: buildApply(replacement),
+                type: s.kind,
+              });
+            }
+          }
+          // "+ create new note" — depth 0, non-empty segment, flat title
+          const trimmed = segText.trim();
+          if (trimmed.length > 0) {
+            options.push({
+              label: `+ create new note: "${trimmed}"`,
+              detail: "create",
+              apply: buildApply(`[[note:${trimmed}|${trimmed}]]`),
+              type: "create",
+            });
+          }
+        } else {
+          // Kind-prefixed query — only this kind. Note kind gets a
+          // special path because it has its own note/page/heading
+          // grammar; the body-only form here just searches note titles.
+          if (kindFilter.name === "note") {
+            for (const row of world.query([Note])) {
+              const v = row.values.Note as { title: string };
+              const replacement = `[[note:${row.id}|${v.title}]]`;
+              options.push({
+                label: v.title,
+                detail: "Note",
+                apply: buildApply(replacement),
+                type: "note",
+              });
+            }
+          } else {
+            let suggestions: ReturnType<typeof kindFilter.autocomplete>;
+            try {
+              suggestions = kindFilter.autocomplete(
+                bodyQuery,
+                world,
+                props.registry,
+              );
+            } catch {
+              suggestions = [];
+            }
+            for (const s of suggestions) {
+              const display =
+                s.display.length > 0 ? s.display : `${s.kind}:${s.body}`;
+              const replacement = `[[${s.kind}:${s.body}|${display}]]`;
+              options.push({
+                label: display,
+                detail: s.badge ?? s.kind,
+                apply: buildApply(replacement),
+                type: s.kind,
+              });
+            }
+          }
+          // Tell CodeMirror to filter against just the body part
+          // (past the `kind:` prefix or sigil) so the labels — bare
+          // entity names like "Skarra" — actually match what the user
+          // is typing.
+          return {
+            from: bodyFilterFrom,
+            to: ctx.pos,
+            options,
+            validFor: /^[^\]\n>]*$/,
+          };
         }
       } else if (depth === 1) {
         const noteText = segments[0]!.trim();
@@ -355,14 +449,37 @@ export function CodeMirrorEditor(props: {
             base: markdownLanguage,
             extensions: [
               parseCode({
-                codeParser: (info) =>
-                  info.trim().toLowerCase() === "setdesign"
-                    ? setdesignParser
-                    : null,
+                codeParser: (info) => {
+                  // `info` is the WHOLE fence info-string (e.g.
+                  // "character Skarra Wormtongue"). The language token
+                  // is just the first word.
+                  const lang = info.trim().split(/\s+/, 1)[0]?.toLowerCase() ?? "";
+                  if (lang === "setdesign") return setdesignParser;
+                  const STATIC_YAML = new Set([
+                    "character",
+                    "monster",
+                    "item",
+                    "encounter",
+                    "loot",
+                    "npc",
+                  ]);
+                  if (
+                    STATIC_YAML.has(lang) ||
+                    yamlBlockKinds(props.registry).has(lang)
+                  ) {
+                    return yamlLanguage.parser;
+                  }
+                  return null;
+                },
               }),
             ],
           }),
           syntaxHighlighting(markdownHighlightStyle),
+          // YAML tokens get their own scoped highlight style so the
+          // rules only fire inside fenced YAML blocks, not against
+          // markdown's `t.string` / `t.content` etc. (which would
+          // bleed colour into prose).
+          syntaxHighlighting(yamlHighlightStyle),
           foldGutter(),
           setdesignLiveChips,
           // `closeBrackets()` reads the bracket list from the
@@ -381,7 +498,11 @@ export function CodeMirrorEditor(props: {
             setdesignStarHandler(view, from, to, text),
           ),
           autocompletion({
-            override: [wikiCompletions, setdesignCompletions],
+            override: [
+              wikiCompletions,
+              setdesignCompletions,
+              ...buildExternalCompletionSources(props),
+            ],
             activateOnTyping: true,
             closeOnBlur: true,
             defaultKeymap: true,
@@ -403,6 +524,12 @@ export function CodeMirrorEditor(props: {
             { key: "Enter", run: setdesignEnter },
             { key: "Tab", run: setdesignTab },
             { key: "Shift-Tab", run: setdesignShiftTab },
+            // Tab handling for any other fenced block (YAML in
+            // character/monster/item/encounter/loot). The setdesign
+            // bindings above return false when not in their fence so
+            // these run next.
+            { key: "Tab", run: fenceTab },
+            { key: "Shift-Tab", run: fenceShiftTab },
             { key: "Mod-b", run: setdesignWrapBold },
             { key: "Mod-i", run: setdesignWrapItalic },
             ...closeBracketsKeymap,
@@ -425,6 +552,17 @@ export function CodeMirrorEditor(props: {
         if (!view) return;
         view.dispatch({
           changes: { from: 0, to: view.state.doc.length, insert: next },
+        });
+      },
+      insertAtCursor: (text) => {
+        if (!view) return;
+        const sel = view.state.selection.main;
+        view.focus();
+        view.dispatch({
+          changes: { from: sel.from, to: sel.to, insert: text },
+          selection: { anchor: sel.from + text.length },
+          userEvent: "input.paste",
+          scrollIntoView: true,
         });
       },
       destroy: () => {
@@ -544,7 +682,7 @@ const markdownHighlightStyle = HighlightStyle.define([
   { tag: t.link, color: "var(--color-accent)", textDecoration: "underline" },
   { tag: t.url, color: "var(--color-accent)" },
   { tag: t.monospace, color: "var(--color-fg)", backgroundColor: "var(--color-surface-sunken)" },
-  { tag: [t.literal, t.string], color: "var(--color-fg)" },
+  { tag: t.literal, color: "var(--color-fg)" },
   { tag: t.quote, color: "var(--color-fg-muted)", fontStyle: "italic" },
   { tag: t.list, color: "var(--color-fg-muted)" },
   { tag: t.processingInstruction, color: "var(--color-fg-subtle)" },
@@ -555,6 +693,41 @@ const markdownHighlightStyle = HighlightStyle.define([
   { tag: t.atom, color: "var(--color-accent)" },
   { tag: t.tagName, color: "var(--color-accent)" },
 ]);
+
+/**
+ * YAML-scoped highlight style — only fires inside @codemirror/lang-yaml
+ * nodes, so markdown's `t.string` / `t.content` etc. in prose stay
+ * unaffected. Colours come from `--color-syntax-*` tokens in
+ * tokens.css; see there for the design rationale (5 families rotated
+ * ~90° around the colour wheel for separation under colour-vision
+ * deficiency). The grammar emits modifier-wrapped tags
+ * (`tags.definition(tags.propertyName)`, `tags.special(tags.string)`,
+ * `tags.lineComment`) — `HighlightStyle` rules need to target the
+ * *exact* wrapped form, not the base tag, so we list both shapes.
+ */
+const yamlHighlightStyle = HighlightStyle.define(
+  [
+    { tag: t.propertyName, color: "var(--color-syntax-key)", fontWeight: "600" },
+    { tag: t.definition(t.propertyName), color: "var(--color-syntax-key)", fontWeight: "600" },
+    { tag: t.number, color: "var(--color-syntax-constant)" },
+    { tag: t.bool, color: "var(--color-syntax-constant)" },
+    { tag: t.keyword, color: "var(--color-syntax-constant)" },
+    { tag: t.null, color: "var(--color-syntax-constant)" },
+    { tag: t.string, color: "var(--color-syntax-string)" },
+    { tag: t.special(t.string), color: "var(--color-syntax-string)" },
+    { tag: t.content, color: "var(--color-syntax-string)" },
+    { tag: t.attributeValue, color: "var(--color-syntax-string)" },
+    { tag: t.labelName, color: "var(--color-syntax-meta)" },
+    { tag: t.typeName, color: "var(--color-syntax-meta)" },
+    { tag: t.lineComment, color: "var(--color-syntax-comment)", fontStyle: "italic" },
+    { tag: t.comment, color: "var(--color-syntax-comment)", fontStyle: "italic" },
+    { tag: t.separator, color: "var(--color-syntax-punctuation)" },
+    { tag: t.squareBracket, color: "var(--color-syntax-punctuation)" },
+    { tag: t.brace, color: "var(--color-syntax-punctuation)" },
+    { tag: t.meta, color: "var(--color-syntax-comment)" },
+  ],
+  { scope: yamlLanguage },
+);
 
 /**
  * Fence-info regex for an open ``` fence: `lang` is captured. We only
@@ -617,6 +790,73 @@ export function isInsideSetdesignFence(
  * returns the right kind-specific suggestions; competing here would
  * just produce noise.
  */
+/**
+ * Build the per-editor list of external completion sources contributed
+ * by other plugins via `EditorCompletionSourcesSlot`. The result is a
+ * fresh array each editor mount; sources are functions stable across
+ * the editor's lifetime.
+ */
+function buildExternalCompletionSources(props: {
+  world: import("@vtt/substrate").World;
+  registry: import("@vtt/substrate").Registry;
+  worldId: string;
+}): Array<(ctx: CompletionContext) => CompletionResult | null | Promise<CompletionResult | null>> {
+  const fills = (props.registry.fills.get(EditorCompletionSourcesSlot.name) ?? []) as ReadonlyArray<
+    import("../shared/index.js").EditorCompletionSourceFactory
+  >;
+  const out: Array<(ctx: CompletionContext) => CompletionResult | null | Promise<CompletionResult | null>> = [];
+  for (const f of fills) {
+    try {
+      const built = f.build({
+        world: props.world,
+        registry: props.registry,
+        worldId: props.worldId,
+      });
+      if (typeof built === "function") {
+        out.push(built as (ctx: CompletionContext) => CompletionResult | null);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(`[notes] editor completion source ${f.name} failed to build:`, (err as Error).message);
+    }
+  }
+  return out;
+}
+
+/**
+ * Build the set of fence info-string kinds whose body should be
+ * parsed with the YAML grammar (for syntax highlighting). Drives off
+ * `@vtt/adventures/block-kinds` registry fills — the slot is owned
+ * by adventures and filled by game-system plugins.
+ *
+ * Cached on the Registry instance so we don't rebuild every parse
+ * pass; invalidated implicitly by registry replacement (rare).
+ */
+const YAML_KIND_CACHE = new WeakMap<
+  import("@vtt/substrate").Registry,
+  Set<string>
+>();
+function yamlBlockKinds(
+  registry: import("@vtt/substrate").Registry,
+): Set<string> {
+  const cached = YAML_KIND_CACHE.get(registry);
+  if (cached) return cached;
+  const out = new Set<string>();
+  // Read the slot fills directly by name to avoid a hard dependency
+  // on @vtt/adventures here. Each fill is a BlockKindDef carrying a
+  // `name` string (the fence kind).
+  const fills = (registry.fills.get(
+    "@vtt/adventures/block-kinds" as never,
+  ) ?? []) as ReadonlyArray<{
+    name?: string;
+  }>;
+  for (const fill of fills) {
+    if (typeof fill.name === "string") out.add(fill.name.toLowerCase());
+  }
+  YAML_KIND_CACHE.set(registry, out);
+  return out;
+}
+
 function setdesignCompletions(
   ctx: CompletionContext,
 ): CompletionResult | null {
@@ -766,6 +1006,50 @@ const setdesignTab: Command = (view) => {
   if (!isInsideSetdesignFence(state, sel.head)) return false;
   return indentMore(view);
 };
+
+/**
+ * Tab indent inside ANY fenced code block (YAML-bodied character /
+ * monster / item / encounter / loot, plus any future kind). Keeps
+ * markdown's default tab behaviour (nothing) outside fences — Tab in
+ * markdown prose moves focus, which is the platform convention.
+ *
+ * Why a fence-wide handler instead of relying on `indentWithTab` from
+ * @codemirror/commands: that binding would steal Tab globally, which
+ * breaks the cursor-anywhere accessibility expectation for prose.
+ * Scoped to fences keeps markdown prose unaffected.
+ */
+const fenceTab: Command = (view) => {
+  const state = view.state;
+  const sel = state.selection.main;
+  if (!isInsideAnyFence(state, sel.head)) return false;
+  return indentMore(view);
+};
+
+const fenceShiftTab: Command = (view) => {
+  const state = view.state;
+  const sel = state.selection.main;
+  if (!isInsideAnyFence(state, sel.head)) return false;
+  return indentLess(view);
+};
+
+/**
+ * Detect whether the caret sits inside ANY fenced code block (open
+ * ``` … ``` pair). Walks backward line-by-line; the first fence
+ * delimiter seen "above" the cursor without a matching close means
+ * we're inside.
+ */
+function isInsideAnyFence(state: EditorState, pos: number): boolean {
+  const line = state.doc.lineAt(pos);
+  let inside = false;
+  for (let n = 1; n < line.number; n += 1) {
+    const l = state.doc.line(n);
+    if (FENCE_RE.test(l.text)) inside = !inside;
+  }
+  // If pos is on the opening fence line itself, we're NOT inside (the
+  // info string lives on that line).
+  if (FENCE_RE.test(line.text)) return false;
+  return inside;
+}
 
 /**
  * Mirror of `setdesignTab`. Outside the fence, lets Shift-Tab fall

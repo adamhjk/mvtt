@@ -18,6 +18,7 @@
 import {
   createSignal,
   onCleanup,
+  Show,
   type JSX,
 } from "solid-js";
 import {
@@ -33,6 +34,7 @@ import {
   SetPageBody,
 } from "../shared/index.js";
 import { CodeMirrorEditor, type CodeMirrorHandle } from "./CodeMirrorEditor.js";
+import { ReferencePanel } from "./ReferencePanel.jsx";
 
 /**
  * Edit-mode editor (lock holder's view). CodeMirror 6 markdown editor
@@ -57,6 +59,7 @@ export function NoteEditor(props: {
 
   const [body, setBody] = createSignal(initialBody);
   const [savedAgo, setSavedAgo] = createSignal<number | null>(null);
+  const [showReference, setShowReference] = createSignal(false);
   let lastDurableBody = initialBody;
   let lastSavedAt = Date.now();
   let dirty = false;
@@ -140,24 +143,50 @@ export function NoteEditor(props: {
             ? ` · last save ${savedAgo()}s ago`
             : ""}
         </span>
-        <button
-          type="button"
-          onClick={onDone}
-          class="rounded-(--radius-control) border border-accent bg-accent px-3 py-1 text-[0.7rem] uppercase tracking-wider text-accent-fg hover:bg-accent-hover transition"
-        >
-          Done
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowReference(!showReference())}
+            aria-pressed={showReference()}
+            aria-label="Toggle syntax reference panel"
+            class="rounded-(--radius-control) border border-border bg-surface px-3 py-1 text-[0.7rem] uppercase tracking-wider text-fg-muted hover:border-accent hover:text-fg transition"
+          >
+            {showReference() ? "Hide reference" : "Reference"}
+          </button>
+          <button
+            type="button"
+            onClick={onDone}
+            class="rounded-(--radius-control) border border-accent bg-accent px-3 py-1 text-[0.7rem] uppercase tracking-wider text-accent-fg hover:bg-accent-hover transition"
+          >
+            Done
+          </button>
+        </div>
       </div>
-      <CodeMirrorEditor
-        initial={initialBody}
-        onChange={onChange}
-        world={client.world}
-        registry={client.registry}
-        worldId={client.worldId() ?? ""}
-        ref={(h) => {
-          cmHandle = h;
-        }}
-      />
+      {/* Flex-row split: editor stretches; optional reference panel on the
+          right. The editor wrapper is `flex flex-col` so CodeMirrorEditor's
+          own `flex-1 min-h-0` resolves against a flex parent (otherwise it
+          collapses to content height and the page scrolls instead of the
+          editor). */}
+      <div class="flex flex-1 min-h-0 gap-2">
+        <div class="flex flex-col flex-1 min-h-0 min-w-0">
+          <CodeMirrorEditor
+            initial={initialBody}
+            onChange={onChange}
+            world={client.world}
+            registry={client.registry}
+            worldId={client.worldId() ?? ""}
+            ref={(h) => {
+              cmHandle = h;
+            }}
+          />
+        </div>
+        <Show when={showReference()}>
+          <ReferencePanel
+            onInsert={(text) => cmHandle?.insertAtCursor(text)}
+            onClose={() => setShowReference(false)}
+          />
+        </Show>
+      </div>
     </div>
   );
 }

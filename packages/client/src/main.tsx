@@ -38,6 +38,7 @@ import { characters } from "@vtt/characters";
 import { diceTray } from "@vtt/dice-tray";
 import { items } from "@vtt/items";
 import { itemsPages } from "@vtt/items/pages";
+import { adventures } from "@vtt/adventures";
 import { systemSimple } from "@vtt/system-simple";
 import { systemTorchbearer } from "@vtt/system-torchbearer";
 import { systemTorchbearerPages } from "@vtt/system-torchbearer/pages";
@@ -75,6 +76,7 @@ const ALL_PLUGINS: ReadonlyArray<PluginDef> = [
   diceTray,
   items,
   itemsPages,
+  adventures,
   systemSimple,
   systemTorchbearer,
   systemTorchbearerPages,

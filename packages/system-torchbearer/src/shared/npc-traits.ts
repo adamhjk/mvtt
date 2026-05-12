@@ -107,3 +107,25 @@ export const TbNpcDerivedFrom = defineTrait({
     deprecated: z.boolean().optional(),
   }),
 });
+
+/**
+ * NpcTemplate — empty marker on entities seeded from
+ * `TB_NPC_TEMPLATES`. Mirrors `MonsterTemplate` for the NPC catalog;
+ * see that trait's docstring for the full design.
+ */
+export const NpcTemplate = defineTrait({
+  name: "@vtt/system-torchbearer/NpcTemplate",
+  schema: z.object({}),
+});
+
+/**
+ * NpcCatalogIndex — sentinel mapping `templateId → entityId` for every
+ * seeded NPC template. Mirrors `MonsterCatalogIndex`.
+ */
+export const NpcCatalogIndex = defineTrait({
+  name: "@vtt/system-torchbearer/NpcCatalogIndex",
+  schema: z.object({
+    pluginName: z.string().min(1).max(120),
+    entries: z.record(z.string(), z.string()).default({}),
+  }),
+});

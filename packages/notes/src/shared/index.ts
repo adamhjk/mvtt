@@ -35,6 +35,23 @@ export type {
 } from "./link-kinds.js";
 export { noteLinkKind } from "./note-link-kind.js";
 export {
+  MarkdownPostRenderSlot,
+  type MarkdownPostRender,
+  type MarkdownPostRenderContext,
+} from "./post-render.js";
+export {
+  EditorCompletionSourcesSlot,
+  type EditorCompletionSourceFactory,
+  type EditorCompletionContext,
+} from "./editor-completions.js";
+export {
+  NotesReferenceSlot,
+  type ReferenceField,
+  type ReferenceSection,
+  type ReferenceProvider,
+  type ReferenceProviderContext,
+} from "./editor-reference.js";
+export {
   BelongsToNote,
   EditorLock,
   Headings,

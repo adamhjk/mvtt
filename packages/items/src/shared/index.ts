@@ -57,3 +57,4 @@ export {
   ItemDetailSectionsSlot,
   type ItemDetailSection,
 } from "./slots.js";
+export { itemLinkKind, type ItemRef } from "./item-link-kind.js";

@@ -1,0 +1,41 @@
+{
+  "name": "@vtt/adventures",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/manifest.ts",
+    "./shared": "./src/shared/index.ts",
+    "./client": "./src/client/index.ts",
+    "./server": "./src/server/index.ts",
+    "./routes": "./src/server/routes.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@vtt/assets": "workspace:*",
+    "@vtt/auth": "workspace:*",
+    "@vtt/characters": "workspace:*",
+    "@vtt/items": "workspace:*",
+    "@vtt/notes": "workspace:*",
+    "@vtt/permissions": "workspace:*",
+    "@vtt/substrate": "workspace:*",
+    "fflate": "^0.8.2",
+    "js-yaml": "^4.1.0",
+    "zod": "^4.3.6"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.9.0"
+  },
+  "peerDependenciesMeta": {
+    "solid-js": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.0.0",
+    "solid-js": "^1.9.0"
+  }
+}

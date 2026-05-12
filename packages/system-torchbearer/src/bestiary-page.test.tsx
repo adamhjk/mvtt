@@ -33,6 +33,7 @@ import {
 import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
+import { BlockKindsSlot } from "@vtt/adventures/shared";
 import {
   PaletteCommandsSlot,
   WorkbenchChatRailSurface,
@@ -77,6 +78,7 @@ const sheetSlotsTestInfra = definePlugin({
     // (the `!` wikilink → bestiary route). Declared here so the TB
     // fill resolves without pulling the full @vtt/notes plugin.
     LinkKindsSlot,
+    BlockKindsSlot,
   ],
   surfaces: [WorkbenchChatRailSurface],
   traits: [Formula, RollResult, RolledBy],

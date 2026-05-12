@@ -44,7 +44,13 @@ import {
   NotesSearchIndex,
 } from "@vtt/notes/server";
 import { assets } from "@vtt/assets";
-import { handleAssetFetch, handleAssetUpload } from "@vtt/assets/server";
+import {
+  handleAssetFetch,
+  handleAssetUpload,
+  loadAssetBytesFromDisk,
+  saveAssetFromBytes,
+} from "@vtt/assets/server";
+import { maybeHandleAdventureRoute } from "@vtt/adventures/routes";
 import { rulesCorpus } from "@vtt/rules-corpus";
 import {
   handleRulesSearch,
@@ -60,6 +66,7 @@ import { characters } from "@vtt/characters";
 import { diceTray } from "@vtt/dice-tray";
 import { diceTrayAssetRoots } from "@vtt/dice-tray/server";
 import { items } from "@vtt/items";
+import { adventures } from "@vtt/adventures";
 import { itemsPages } from "@vtt/items/pages";
 import { systemSimple } from "@vtt/system-simple";
 import { systemTorchbearer } from "@vtt/system-torchbearer";
@@ -174,6 +181,7 @@ const infrastructurePlugins = [
   notes,
   assets,
   rulesCorpus,
+  adventures,
 ];
 const optionalPlugins = [
   resolution,
@@ -421,6 +429,36 @@ const httpHandler = async (req: IncomingMessage, res: ServerResponse): Promise<b
       },
     );
     return true;
+  }
+
+  // ---- adventure bundle import / export / check-update (per-world) ----
+  // POST /api/worlds/<worldId>/adventures/{import,export,check-update}
+  // The adventures route dispatcher handles all three actions; it
+  // returns false for non-matching requests so we fall through.
+  // Asset hooks plug `@vtt/assets/server` into the bundle pipeline so
+  // exported bundles carry asset bytes and imported bundles resolve
+  // refs to live ids in the target world.
+  if (assetWorldsRegistry) {
+    const handled = await maybeHandleAdventureRoute(req, res, {
+      registry: assetWorldsRegistry,
+      authenticate: authenticateForWorld,
+      loadAssetBytes: (worldId, assetId) =>
+        loadAssetBytesFromDisk({ pluginDataDir, worldId, assetId }),
+      saveAssetBytes: async (worldId, bytes, descriptor, session) => {
+        const runtime = await assetWorldsRegistry!.acquire(worldId);
+        const result = await saveAssetFromBytes({
+          runtime,
+          worldId,
+          pluginDataDir,
+          bytes,
+          mime: descriptor.mime,
+          filename: descriptor.name,
+          session,
+        });
+        return result.assetId;
+      },
+    });
+    if (handled) return true;
   }
 
   return false;

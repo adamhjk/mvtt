@@ -23,6 +23,8 @@ export {
 export {
   handleAssetFetch,
   handleAssetUpload,
+  loadAssetBytesFromDisk,
+  saveAssetFromBytes,
 } from "./routes.js";
 export type {
   AssetRoutesDeps,

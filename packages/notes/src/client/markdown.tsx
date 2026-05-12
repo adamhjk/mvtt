@@ -41,6 +41,10 @@ import type {
 import type { Root as HastRoot, Element as HastElement } from "hast";
 import { Asset } from "@vtt/assets/shared";
 import { parseLinks, type WikiLinkRef } from "../shared/wiki-link.js";
+import {
+  MarkdownPostRenderSlot,
+  type MarkdownPostRender,
+} from "../shared/post-render.js";
 import { headingIdFor, mdastTextContent, slugify } from "../shared/headings.js";
 import { buildLinkKindIndex } from "../shared/index.js";
 import {
@@ -92,6 +96,10 @@ export function MarkdownView(props: {
   world: World;
   registry: Registry;
   worldId: string;
+  /** Optional command-dispatch hook for interactive widgets. */
+  dispatch?: (cmd: unknown) => unknown;
+  /** Optional session for permission-gating widgets' action buttons. */
+  session?: { role: "gm" | "player" } | null;
   onLink?: (ref: WikiLinkRef, e: MouseEvent) => void;
   /**
    * Heading id (`hd:…`) to scroll into view after the next compile
@@ -123,6 +131,29 @@ export function MarkdownView(props: {
     // Read `html()` to subscribe to the compiled output: this effect
     // must run AFTER the innerHTML JSX binding has updated the DOM.
     void html();
+    // Run every plugin's post-render hook (adventures uses this to
+    // mount block widgets in place of fenced code blocks).
+    if (containerEl) {
+      const fills = (props.registry.fills.get(MarkdownPostRenderSlot.name) ??
+        []) as ReadonlyArray<MarkdownPostRender>;
+      for (const fill of fills) {
+        try {
+          fill.run(containerEl, {
+            world: props.world,
+            registry: props.registry,
+            worldId: props.worldId,
+            ...(props.dispatch !== undefined && { dispatch: props.dispatch }),
+            ...(props.session !== undefined && { session: props.session }),
+          });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[notes] post-render hook ${fill.name} threw:`,
+            (err as Error).message,
+          );
+        }
+      }
+    }
     const anchor = props.scrollToAnchor;
     if (!anchor) {
       lastScrolledAnchor = null;
@@ -220,6 +251,13 @@ function compile(body: string, ctx: RenderCtx): string {
     // it emits (as standard mdast `text` nodes inside paragraphs) is
     // visited by the wiki-link rewriter just like any other prose.
     .use(remarkSetDesign)
+    // Preserve every fenced block's info-string (the part after the
+    // language token, e.g. ```character Skarra Wormtongue) as a
+    // `data-fence-info` attribute on the rendered <code>. Adventures'
+    // post-render widget mounter reads it back so widgets can show
+    // the entity's display name even when the YAML body has no
+    // `name:` field.
+    .use(remarkFenceInfo)
     .use(remarkWikiLinks)
     .use(remarkRehype, { allowDangerousHtml: false })
     .use(rehypeWikiLinks, ctx)
@@ -227,6 +265,24 @@ function compile(body: string, ctx: RenderCtx): string {
     .use(rehypeStringify)
     .processSync(body);
   return String(file);
+}
+
+/**
+ * Stash each fenced code node's `meta` string (the text after the
+ * language token on the opening fence) into `data.hProperties` so
+ * `remark-rehype` lifts it to a `data-fence-info` HTML attribute.
+ */
+function remarkFenceInfo() {
+  return (tree: Root) => {
+    visit(tree, "code", (node: MdCode) => {
+      const meta = (node.meta ?? "").trim();
+      if (!meta) return;
+      node.data ??= {};
+      const data = node.data as { hProperties?: Record<string, unknown> };
+      data.hProperties ??= {};
+      data.hProperties["data-fence-info"] = meta;
+    });
+  };
 }
 
 // ---------- remark plugin: heading id assignment ----------

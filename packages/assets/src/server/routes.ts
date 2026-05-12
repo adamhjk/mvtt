@@ -126,6 +126,118 @@ function findExistingAssetBySha256(
 }
 
 /**
+ * Programmatic asset save — the post-validation core of
+ * `handleAssetUpload`. Given already-buffered bytes + mime + filename,
+ * dedups against existing assets by sha256, dispatches `RegisterAsset`,
+ * writes bytes to the canonical path, and returns the new (or existing)
+ * assetId.
+ *
+ * Used by:
+ *   - `handleAssetUpload` (the HTTP route)
+ *   - `@vtt/adventures` bundle import → asset rewrite hook
+ *
+ * Mime / size policy enforcement is the *caller's* responsibility — this
+ * helper trusts the inputs. The HTTP route validates Content-Type and
+ * caps; the adventures import trusts the bundle's manifest descriptors.
+ */
+export async function saveAssetFromBytes(opts: {
+  runtime: WorldRuntime;
+  worldId: WorldId;
+  pluginDataDir: string;
+  bytes: Uint8Array;
+  mime: string;
+  filename: string | null;
+  /** AuthSession used as `cmd.session` when dispatching `RegisterAsset`. */
+  session: AuthSession;
+}): Promise<{ assetId: EntityId; deduped: boolean }> {
+  const { runtime, worldId, pluginDataDir, bytes, mime, session } = opts;
+  const filename = opts.filename ? sanitiseFilename(opts.filename) : null;
+  const dir = assetsDir(pluginDataDir, worldId);
+  mkdirSync(dir, { recursive: true });
+
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+
+  // Dedup: if an Asset with this sha256 already exists in the world,
+  // reuse its id and skip the write.
+  const existing = findExistingAssetBySha256(runtime, sha256);
+  if (existing !== null) return { assetId: existing, deduped: true };
+
+  const tmpName = `.${randomBytes(8).toString("hex")}.partial`;
+  const tmpPath = resolve(dir, tmpName);
+  // Write the bytes synchronously to a temp file (small enough that the
+  // sync API is fine; the streaming HTTP route uses pipeline() for
+  // backpressure but this helper takes already-buffered bytes).
+  const ws = createWriteStream(tmpPath);
+  await new Promise<void>((res2, rej) => {
+    ws.on("error", rej);
+    ws.on("finish", res2);
+    ws.end(bytes);
+  });
+
+  let dispatchResult;
+  try {
+    dispatchResult = await runtime.pipeline.dispatch({
+      id: `programmatic-save-${randomBytes(12).toString("hex")}`,
+      issuedBy: ("server-save-" + session.userId) as never,
+      issuedAt: Date.now(),
+      cmd: RegisterAsset({
+        mime,
+        sizeBytes: bytes.length,
+        sha256,
+        filename,
+        width: null,
+        height: null,
+      }),
+      session,
+    });
+  } catch (err) {
+    cleanupTemp(tmpPath);
+    throw err;
+  }
+  if (!dispatchResult.result.ok) {
+    cleanupTemp(tmpPath);
+    throw new Error(dispatchResult.result.reason ?? "RegisterAsset rejected");
+  }
+  const registered = dispatchResult.events.find(
+    (e) => e.type === AssetRegistered.name,
+  ) as { type: string; payload: { assetId: EntityId } } | undefined;
+  if (!registered) {
+    cleanupTemp(tmpPath);
+    throw new Error("register dispatch produced no AssetRegistered event");
+  }
+  const assetId = registered.payload.assetId;
+  const finalPath = assetPath(pluginDataDir, worldId, assetId);
+  await rename(tmpPath, finalPath);
+  return { assetId, deduped: false };
+}
+
+/**
+ * Programmatic asset load — read bytes by assetId from disk. Used by
+ * `@vtt/adventures` bundle export to fold asset bytes into a bundle.
+ * Returns null when the asset isn't on disk (corrupt store, missing
+ * file). Bytes are returned as a Uint8Array sized to the file length.
+ *
+ * Synchronous read — assets are typically <5 MB and this fires once
+ * per export; the simpler API beats async for the call-site.
+ */
+export function loadAssetBytesFromDisk(opts: {
+  pluginDataDir: string;
+  worldId: WorldId;
+  assetId: EntityId;
+}): Uint8Array | null {
+  const path = assetPath(opts.pluginDataDir, opts.worldId, opts.assetId);
+  if (!existsSync(path)) return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require("node:fs") as typeof import("node:fs");
+    const buf = fs.readFileSync(path);
+    return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * POST /api/worlds/:id/assets/upload
  *
  * Body: raw bytes of the asset.

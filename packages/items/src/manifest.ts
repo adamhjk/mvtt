@@ -17,6 +17,8 @@
 
 import { definePlugin } from "@vtt/substrate";
 import { PagesSlot } from "@vtt/shell-workbench/shared";
+import { LinkKindsSlot } from "@vtt/notes/shared";
+import { itemLinkKind } from "./shared/item-link-kind.js";
 import {
   CreateItem,
   CustomizeItem,
@@ -125,6 +127,13 @@ export const items = definePlugin({
   ],
   slots: [ItemDetailSectionsSlot],
 });
+
+// `itemLinkKind` is exported from `./shared` for system plugins to
+// fill `LinkKindsSlot` with. Items deliberately doesn't fill it
+// here — that would force every test loading items to also load
+// notes (which owns the slot). The TB manifest does the fill.
+void LinkKindsSlot;
+void itemLinkKind;
 
 // PagesSlot is filled by the sibling `itemsPages` plugin so that
 // downstream consumers can pick up the workbench tab without

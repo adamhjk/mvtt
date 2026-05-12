@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@vtt/adventures": "workspace:*",
     "@vtt/assets": "workspace:*",
     "@vtt/auth": "workspace:*",
     "@vtt/books": "workspace:*",

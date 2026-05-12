@@ -42,6 +42,7 @@ import {
 import { ItemDetailSectionsSlot, ItemIdentity } from "@vtt/items/shared";
 import { TbContainer } from "./shared/items/index.js";
 import { LinkKindsSlot } from "@vtt/notes/shared";
+import { BlockKindsSlot } from "@vtt/adventures/shared";
 import { PaletteCommandsSlot } from "@vtt/shell-workbench/shared";
 import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
 import { systemTorchbearer } from "./manifest.js";
@@ -78,6 +79,7 @@ const sheetSlotsTestInfra = definePlugin({
     ItemDetailSectionsSlot,
     PaletteCommandsSlot,
     LinkKindsSlot,
+    BlockKindsSlot,
   ],
   surfaces: [WorkbenchChatRailSurface],
   traits: [Formula, RollResult, RolledBy],

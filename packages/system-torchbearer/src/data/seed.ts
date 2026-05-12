@@ -16,15 +16,21 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { SeedFn, World, Registry } from "@vtt/substrate";
-import { runCatalogMerge, type CatalogTemplate } from "@vtt/items/shared";
+import { runCatalogMerge, type CatalogTemplate, ItemCatalogIndex } from "@vtt/items/shared";
 import { seedCanonicalBookCatalog } from "@vtt/books/shared";
+import { Character, Team } from "@vtt/characters/shared";
+import { gmOnly, Permissions } from "@vtt/permissions/shared";
 import { TB_ITEM_TEMPLATES } from "./tb-items.generated.js";
 import { TB_CONFLICT_RESOURCE_TEMPLATES } from "./tb-conflict-resources.generated.js";
 import { TB_SPELL_TEMPLATES } from "./tb-spells.generated.js";
 import { TB_ARCANE_ITEM_TEMPLATES } from "./tb-arcane-items.generated.js";
+import { TB_MONSTER_TEMPLATES } from "./tb-monsters.generated.js";
+import { TB_NPC_TEMPLATES } from "./tb-npcs.generated.js";
 import type { TbItemTemplate } from "./catalog-types.js";
 import type { TbSpellTemplate } from "./spell-catalog-types.js";
 import type { TbInvocationTemplate } from "./invocation-catalog-types.js";
+import type { TbMonsterTemplate } from "./monster-catalog-types.js";
+import type { TbNpcTemplate } from "./npc-catalog-types.js";
 import { TB_INVOCATION_TEMPLATES } from "./tb-invocations.generated.js";
 import { GRIND_SENTINEL_ID, Grind } from "../shared/grind.js";
 import {
@@ -41,6 +47,34 @@ import {
   TbInvocationPerforming,
 } from "../shared/invocations/invocation-traits.js";
 import { parseRelicSlotOptions } from "../shared/invocations/relic-slot-parse.js";
+import {
+  MonsterCatalogIndex,
+  MonsterTemplate,
+  TbMonster,
+  TbMonsterDerivedFrom,
+  TbMonsterSpecialRules,
+  TbMonsterWeapons,
+} from "../shared/monster-traits.js";
+import {
+  NpcCatalogIndex,
+  NpcTemplate,
+  TbNpc,
+  TbNpcDerivedFrom,
+} from "../shared/npc-traits.js";
+import {
+  Conditions,
+  Heroic,
+  Identity,
+  Pools,
+  RawAbilities,
+  Skills,
+  TownAbilities,
+  WhatYouFightFor,
+  Wises,
+  CharacterTraits,
+} from "../shared/traits.js";
+import { TbCarries } from "../shared/items/item-traits.js";
+import { ALL_SKILLS, isKnownSkillId } from "../shared/skills.js";
 
 const PLUGIN_NAME = "@vtt/system-torchbearer";
 
@@ -563,6 +597,446 @@ function readInvocationTemplateMap(
 }
 
 /**
+ * Resolve a TB items-catalog templateId to its world entity id by
+ * walking `ItemCatalogIndex` sentinels. Returns null when the catalog
+ * hasn't been seeded yet OR the template is missing — callers proceed
+ * without that gear entry rather than failing the seed.
+ *
+ * Used by monster + NPC catalog merges to wire armor/gear references
+ * after the items catalog has finished seeding.
+ */
+function resolveCatalogItemId(
+  world: World,
+  itemTemplateId: string,
+): string | null {
+  for (const row of world.query([ItemCatalogIndex])) {
+    const v = row.values.ItemCatalogIndex as {
+      pluginName: string;
+      entries: Record<string, string>;
+    };
+    if (v.pluginName !== PLUGIN_NAME) continue;
+    const eid = v.entries[itemTemplateId];
+    if (eid && world.has(eid as never)) return eid;
+  }
+  return null;
+}
+
+function ensureMonsterCatalogIndex(world: World): string {
+  for (const row of world.query([MonsterCatalogIndex])) {
+    const v = row.values.MonsterCatalogIndex as { pluginName: string };
+    if (v.pluginName === PLUGIN_NAME) return row.id;
+  }
+  return world.spawn([
+    MonsterCatalogIndex({ pluginName: PLUGIN_NAME, entries: {} }),
+  ]);
+}
+
+function ensureNpcCatalogIndex(world: World): string {
+  for (const row of world.query([NpcCatalogIndex])) {
+    const v = row.values.NpcCatalogIndex as { pluginName: string };
+    if (v.pluginName === PLUGIN_NAME) return row.id;
+  }
+  return world.spawn([
+    NpcCatalogIndex({ pluginName: PLUGIN_NAME, entries: {} }),
+  ]);
+}
+
+/**
+ * Build the trait bag for one monster template — the same shape the
+ * MonsterSpawningSystem writes when spawning an instance, minus the
+ * per-instance weapon items (templates carry weapon DATA in
+ * TbMonsterWeapons; per-instance forks spawn the per-weapon item
+ * entities). Templates also carry the `MonsterTemplate` marker.
+ *
+ * `armorItemId` is resolved from the items catalog at seed time. When
+ * the items catalog hasn't seeded yet (shouldn't happen — items merge
+ * runs first) or the template is missing, the armor reference is
+ * dropped and the template ships without an equipped-armor entry.
+ */
+function buildMonsterTemplateTraits(
+  tmpl: TbMonsterTemplate,
+  armorItemId: string | null,
+): Array<{ name: import("@vtt/substrate").TraitName; value: unknown }> {
+  const traits: Array<{ name: import("@vtt/substrate").TraitName; value: unknown }> = [
+    Character({ name: tmpl.name }),
+    Permissions({ read: gmOnly(), write: gmOnly() }),
+    Team({ kind: "enemy" }),
+    RawAbilities({
+      will: { rating: 0, advancement: { pass: 0, fail: 0 } },
+      health: { rating: 0, advancement: { pass: 0, fail: 0 } },
+      nature: {
+        rating: tmpl.nature.rating,
+        maximum: tmpl.nature.rating,
+        advancement: { pass: 0, fail: 0 },
+        descriptors: [...tmpl.nature.descriptors],
+      },
+    }),
+    TownAbilities({
+      resources: { rating: 0, advancement: { pass: 0, fail: 0 } },
+      circles: { rating: 0, advancement: { pass: 0, fail: 0 } },
+      precedence: tmpl.precedence,
+      might: tmpl.might,
+    }),
+    Conditions({
+      fresh: false,
+      hungryThirsty: false,
+      angry: false,
+      afraid: false,
+      exhausted: false,
+      injured: false,
+      sick: false,
+      dead: false,
+    }),
+    Heroic({ abilities: [], townAbilities: [], skills: [] }),
+    TbMonster({
+      type: tmpl.type,
+      instinct: "",
+      armorDescription: "",
+      dispositions: tmpl.dispositions.map((d) => ({ ...d })),
+      pageRef: { canonicalId: tmpl.pageRef.canonicalId, page: tmpl.pageRef.page },
+    }),
+    TbMonsterWeapons({
+      entries: tmpl.weapons.map((w) => ({
+        name: w.name,
+        conflicts: [...w.conflicts],
+        bonuses: {
+          attack: { ...w.bonuses.attack },
+          defend: { ...w.bonuses.defend },
+          feint: { ...w.bonuses.feint },
+          maneuver: { ...w.bonuses.maneuver },
+        },
+      })),
+    }),
+    TbMonsterSpecialRules({
+      entries: tmpl.specialRules.map((r) => ({
+        name: r.name,
+        text: "",
+        pageRef: { canonicalId: r.pageRef.canonicalId, page: r.pageRef.page },
+      })),
+    }),
+    TbMonsterDerivedFrom({
+      templateId: tmpl.id,
+      overrides: [],
+    }),
+    MonsterTemplate({}),
+  ];
+  if (armorItemId) {
+    traits.push(
+      TbCarries({
+        entries: [
+          {
+            slot: "torso",
+            slotIndex: 0,
+            channel: "default" as const,
+            slotsConsumed: 1,
+            itemId: armorItemId,
+            quantity: 1,
+          },
+        ],
+      }),
+    );
+  }
+  return traits;
+}
+
+/**
+ * Build the trait bag for one NPC template. Mirrors NpcSpawningSystem
+ * but writes traits directly (no command pipeline) and stamps the
+ * `NpcTemplate` marker. Gear references resolve through the items
+ * catalog index; missing gear is silently dropped (the GM can equip
+ * later via the inventory UI).
+ */
+function buildNpcTemplateTraits(
+  tmpl: TbNpcTemplate,
+  resolvedGear: Array<{ itemId: string; slot: string }>,
+): Array<{ name: import("@vtt/substrate").TraitName; value: unknown }> {
+  const skillsRecord: Record<string, {
+    rating: number;
+    advancement: { pass: number; fail: number };
+    taxed: boolean;
+    learningTests: number;
+  }> = {};
+  for (const s of ALL_SKILLS) {
+    skillsRecord[s.id] = {
+      rating: 0,
+      advancement: { pass: 0, fail: 0 },
+      taxed: false,
+      learningTests: 0,
+    };
+  }
+  for (const seedEntry of tmpl.skills) {
+    if (!isKnownSkillId(seedEntry.skillId)) continue;
+    const e = skillsRecord[seedEntry.skillId];
+    if (!e) continue;
+    e.rating = seedEntry.rating;
+  }
+  const traits: Array<{ name: import("@vtt/substrate").TraitName; value: unknown }> = [
+    Character({ name: tmpl.name }),
+    Identity({
+      name: tmpl.name,
+      stock: "",
+      class: "",
+      level: 1,
+      age: 20,
+      home: "",
+      raiment: "",
+      parents: "",
+      mentor: "",
+      friend: "",
+      enemy: "",
+    }),
+    Permissions({ read: gmOnly(), write: gmOnly() }),
+    Team({ kind: "enemy" }),
+    RawAbilities({
+      will: { rating: tmpl.will, advancement: { pass: 0, fail: 0 } },
+      health: { rating: tmpl.health, advancement: { pass: 0, fail: 0 } },
+      nature: {
+        rating: tmpl.nature.rating,
+        maximum: tmpl.nature.rating,
+        advancement: { pass: 0, fail: 0 },
+        descriptors: [...tmpl.nature.descriptors],
+      },
+    }),
+    TownAbilities({
+      resources: { rating: tmpl.resources, advancement: { pass: 0, fail: 0 } },
+      circles: { rating: tmpl.circles, advancement: { pass: 0, fail: 0 } },
+      precedence: tmpl.precedence,
+      might: tmpl.might,
+    }),
+    Conditions({
+      fresh: false,
+      hungryThirsty: false,
+      angry: false,
+      afraid: false,
+      exhausted: false,
+      injured: false,
+      sick: false,
+      dead: false,
+    }),
+    Heroic({ abilities: [], townAbilities: [], skills: [] }),
+    Pools({
+      fate: { current: 0, totalSpent: 0 },
+      persona: { current: 0, totalSpent: 0 },
+    }),
+    WhatYouFightFor({ belief: "", creed: "", goal: "", instinct: "" }),
+    Skills({ entries: skillsRecord }),
+    Wises({
+      entries: tmpl.wises.map((name) => ({
+        name,
+        pass: false,
+        fail: false,
+        fate: false,
+        persona: false,
+      })),
+    }),
+    CharacterTraits({
+      entries: tmpl.traits.map((t) => ({
+        name: t.name,
+        level: t.level,
+        beneficialUses: 0,
+        checks: 0,
+        usedAgainst: false,
+      })),
+    }),
+    TbNpc({
+      role: tmpl.role,
+      description: "",
+      pageRef: { canonicalId: tmpl.pageRef.canonicalId, page: tmpl.pageRef.page },
+    }),
+    TbNpcDerivedFrom({
+      templateId: tmpl.id,
+      overrides: [],
+    }),
+    NpcTemplate({}),
+  ];
+  if (resolvedGear.length > 0) {
+    traits.push(
+      TbCarries({
+        entries: resolvedGear.map((g) => ({
+          slot: g.slot,
+          slotIndex: 0,
+          channel: (g.slot === "handR" || g.slot === "handL"
+            ? "carried"
+            : "default") as "default" | "carried",
+          slotsConsumed: 1,
+          itemId: g.itemId,
+          quantity: 1,
+        })),
+      }),
+    );
+  }
+  return traits;
+}
+
+/**
+ * Catalog merge for monsters. Mirrors `runSpellCatalogMerge` shape-for-
+ * shape: index sentinel maps `templateId → entityId`, existing entries
+ * get re-set (last-write-wins on the canonical fields), missing
+ * entries get fresh entities, withdrawn entries flip
+ * `TbMonsterDerivedFrom.deprecated`.
+ *
+ * v1 simplicity: every re-seed overwrites every authored field.
+ * Per-field GM overrides will land alongside the items merge engine
+ * when monsters get a customize-and-edit story.
+ */
+function runMonsterCatalogMerge(world: World, _registry: Registry): void {
+  const indexEntity = ensureMonsterCatalogIndex(world);
+  const indexValue = world.get(indexEntity, [MonsterCatalogIndex]) as
+    | {
+        MonsterCatalogIndex: {
+          pluginName: string;
+          entries: Record<string, string>;
+        };
+      }
+    | undefined;
+  const entries = { ...(indexValue?.MonsterCatalogIndex.entries ?? {}) };
+  const seenTemplateIds = new Set<string>();
+
+  for (const tmpl of TB_MONSTER_TEMPLATES) {
+    seenTemplateIds.add(tmpl.id);
+    const armorItemId = tmpl.armorItemTemplateId
+      ? resolveCatalogItemId(world, tmpl.armorItemTemplateId)
+      : null;
+    const traitFactories = buildMonsterTemplateTraits(tmpl, armorItemId);
+    const existing = entries[tmpl.id];
+    if (existing && world.has(existing as never)) {
+      for (const t of traitFactories) {
+        const traitDef = traitDefForName(t.name);
+        if (traitDef) world.set(existing as never, traitDef, t.value);
+      }
+      const gotDerived = world.get(existing as never, [TbMonsterDerivedFrom]) as
+        | { TbMonsterDerivedFrom: { deprecated?: boolean } }
+        | undefined;
+      if (gotDerived?.TbMonsterDerivedFrom.deprecated) {
+        world.set(existing as never, TbMonsterDerivedFrom, {
+          templateId: tmpl.id,
+          overrides: [],
+        });
+      }
+    } else {
+      const newId = world.spawn(traitFactories);
+      entries[tmpl.id] = newId;
+    }
+  }
+
+  for (const [templateId, monsterId] of Object.entries(entries)) {
+    if (seenTemplateIds.has(templateId)) continue;
+    if (!world.has(monsterId as never)) continue;
+    const got = world.get(monsterId as never, [TbMonsterDerivedFrom]) as
+      | { TbMonsterDerivedFrom: { templateId: string; overrides: string[]; deprecated?: boolean } }
+      | undefined;
+    if (!got || got.TbMonsterDerivedFrom.deprecated) continue;
+    world.set(monsterId as never, TbMonsterDerivedFrom, {
+      ...got.TbMonsterDerivedFrom,
+      deprecated: true,
+    });
+  }
+
+  world.set(indexEntity, MonsterCatalogIndex, {
+    pluginName: PLUGIN_NAME,
+    entries,
+  });
+}
+
+function runNpcCatalogMerge(world: World, _registry: Registry): void {
+  const indexEntity = ensureNpcCatalogIndex(world);
+  const indexValue = world.get(indexEntity, [NpcCatalogIndex]) as
+    | {
+        NpcCatalogIndex: {
+          pluginName: string;
+          entries: Record<string, string>;
+        };
+      }
+    | undefined;
+  const entries = { ...(indexValue?.NpcCatalogIndex.entries ?? {}) };
+  const seenTemplateIds = new Set<string>();
+
+  for (const tmpl of TB_NPC_TEMPLATES) {
+    seenTemplateIds.add(tmpl.id);
+    const resolvedGear: Array<{ itemId: string; slot: string }> = [];
+    for (const g of tmpl.gear) {
+      const itemId = resolveCatalogItemId(world, g.itemTemplateId);
+      if (itemId) resolvedGear.push({ itemId, slot: g.slot });
+    }
+    const traitFactories = buildNpcTemplateTraits(tmpl, resolvedGear);
+    const existing = entries[tmpl.id];
+    if (existing && world.has(existing as never)) {
+      for (const t of traitFactories) {
+        const traitDef = traitDefForName(t.name);
+        if (traitDef) world.set(existing as never, traitDef, t.value);
+      }
+      const gotDerived = world.get(existing as never, [TbNpcDerivedFrom]) as
+        | { TbNpcDerivedFrom: { deprecated?: boolean } }
+        | undefined;
+      if (gotDerived?.TbNpcDerivedFrom.deprecated) {
+        world.set(existing as never, TbNpcDerivedFrom, {
+          templateId: tmpl.id,
+          overrides: [],
+        });
+      }
+    } else {
+      const newId = world.spawn(traitFactories);
+      entries[tmpl.id] = newId;
+    }
+  }
+
+  for (const [templateId, npcId] of Object.entries(entries)) {
+    if (seenTemplateIds.has(templateId)) continue;
+    if (!world.has(npcId as never)) continue;
+    const got = world.get(npcId as never, [TbNpcDerivedFrom]) as
+      | { TbNpcDerivedFrom: { templateId: string; overrides: string[]; deprecated?: boolean } }
+      | undefined;
+    if (!got || got.TbNpcDerivedFrom.deprecated) continue;
+    world.set(npcId as never, TbNpcDerivedFrom, {
+      ...got.TbNpcDerivedFrom,
+      deprecated: true,
+    });
+  }
+
+  world.set(indexEntity, NpcCatalogIndex, {
+    pluginName: PLUGIN_NAME,
+    entries,
+  });
+}
+
+/**
+ * Resolve a trait factory's name to its TraitMeta. The trait factories
+ * we build above carry the trait's brand name (`@vtt/.../X`) on the
+ * `name` field; the trait merge needs the actual `defineTrait`-returned
+ * meta to call `world.set`. This map is fixed for the seed's purposes.
+ */
+function traitDefForName(name: import("@vtt/substrate").TraitName) {
+  // Rather than build a full registry-style map, return the meta
+  // we know we wrote in build*TemplateTraits. Order doesn't matter;
+  // the lookup is O(1) on a small table.
+  switch (name) {
+    case Character.name: return Character;
+    case Identity.name: return Identity;
+    case Permissions.name: return Permissions;
+    case Team.name: return Team;
+    case RawAbilities.name: return RawAbilities;
+    case TownAbilities.name: return TownAbilities;
+    case Conditions.name: return Conditions;
+    case Heroic.name: return Heroic;
+    case Pools.name: return Pools;
+    case WhatYouFightFor.name: return WhatYouFightFor;
+    case Skills.name: return Skills;
+    case Wises.name: return Wises;
+    case CharacterTraits.name: return CharacterTraits;
+    case TbCarries.name: return TbCarries;
+    case TbMonster.name: return TbMonster;
+    case TbMonsterWeapons.name: return TbMonsterWeapons;
+    case TbMonsterSpecialRules.name: return TbMonsterSpecialRules;
+    case TbMonsterDerivedFrom.name: return TbMonsterDerivedFrom;
+    case MonsterTemplate.name: return MonsterTemplate;
+    case TbNpc.name: return TbNpc;
+    case TbNpcDerivedFrom.name: return TbNpcDerivedFrom;
+    case NpcTemplate.name: return NpcTemplate;
+    default: return null;
+  }
+}
+
+/**
  * Seed hook for the TB plugin. Runs once per world after cold-boot
  * replay (see definePlugin.seed in substrate). Idempotent: the
  * merge engine spawns brand-new templates as fresh entities, runs
@@ -571,10 +1045,11 @@ function readInvocationTemplateMap(
  *
  * Order matters: spells seed first because scroll item templates
  * resolve their `spellTemplateId` against the freshly populated
- * `SpellCatalogIndex` during item seeding. Invocations are
- * independent of items / spells and merge separately.
+ * `SpellCatalogIndex` during item seeding. Items seed before
+ * monsters/NPCs so their gear/armor cross-references resolve to live
+ * entity ids.
  */
-export const tbItemsSeed: SeedFn = ({ world, registry }) => {
+export const tbSeed: SeedFn = ({ world, registry }) => {
   runSpellCatalogMerge(world, registry);
   runInvocationCatalogMerge(world, registry);
   // After spell + invocation merges, read both indexes back so item-
@@ -592,6 +1067,11 @@ export const tbItemsSeed: SeedFn = ({ world, registry }) => {
       invocationIdByTemplateId,
     ),
   });
+  // Monsters + NPCs come AFTER items because their templates reference
+  // armor/gear by template id; we need the items catalog index in place
+  // before monsters/NPCs can resolve those references to live entity ids.
+  runMonsterCatalogMerge(world, registry);
+  runNpcCatalogMerge(world, registry);
   // Register the canonical TB2 book ids the plugin's content cites.
   // The Config-tab dropdown reads from this sentinel; binding a Book
   // entity to one of these ids makes its <BookCitation> deep-links

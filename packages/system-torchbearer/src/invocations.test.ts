@@ -149,7 +149,7 @@ function makeSetup(asGm = false): Setup {
   ]);
 
   // Catalog relic-item entity for the invocation, seeded in
-  // `tbItemsSeed` from `TB_INVOCATION_TEMPLATES` in production. We
+  // `tbSeed` from `TB_INVOCATION_TEMPLATES` in production. We
   // spawn it inline here so the test fixture matches a post-seed
   // world.
   const relicItemId = world.spawn([

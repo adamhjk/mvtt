@@ -181,7 +181,25 @@ export {
   type SpellCastContext,
 } from "./roll-spec.js";
 export * from "./items/index.js";
+export * from "./blocks/index.js";
 export {
+  StartEncounter,
+  EncounterStarted,
+  MonsterCopySpawned,
+  MonsterCopySpawningSystem,
+} from "./encounter-commands.js";
+export {
+  AwardLoot,
+  LootAwarded,
+  LootAwardSystem,
+  LootPlacedInScene,
+  LootPlacementSystem,
+  PlaceLootInScene,
+} from "./loot-commands.js";
+export {
+  MonsterCatalogIndex,
+  MonsterCopy,
+  MonsterTemplate,
   TbConflictResource,
   TbMonster,
   TbMonsterDerivedFrom,
@@ -202,6 +220,8 @@ export {
   MonsterRemoved,
 } from "./monster-events.js";
 export {
+  NpcCatalogIndex,
+  NpcTemplate,
   TbNpc,
   TbNpcDerivedFrom,
 } from "./npc-traits.js";

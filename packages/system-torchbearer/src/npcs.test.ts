@@ -42,6 +42,7 @@ import {
   Skills,
   TbNpc,
   TbNpcDerivedFrom,
+  NpcTemplate,
   TownAbilities,
   WhatYouFightFor,
   Wises,
@@ -80,7 +81,7 @@ import {
   TbInvocationRelicLink,
   TbConflictResource,
 } from "./shared/index.js";
-import { tbItemsSeed } from "./data/seed.js";
+import { tbSeed } from "./data/seed.js";
 
 /**
  * Minimal plugin that registers only what the NPC spawn path needs —
@@ -340,13 +341,17 @@ describe("@vtt/system-torchbearer NPCs", () => {
 
     it("Beronin (SG p.262) — named personality whose printed gear becomes equipped catalog items", async () => {
       // Seed the items catalog first so the gear template ids resolve.
-      tbItemsSeed({ world: setup.world, registry: setup.registry });
+      tbSeed({ world: setup.world, registry: setup.registry });
       const res = await dispatchAsGm(
         setup,
         CreateNpcFromCatalog({ templateId: "tb/npc/beronin-bandit-chief" }),
       );
       expect(res.result.ok).toBe(true);
-      const npcId = setup.world.query([Character, TbNpc])[0]!.id;
+      // Filter out NpcTemplate entities (added by tbSeed) so we find
+      // the freshly spawned instance, not a catalog template.
+      const npcId = setup.world
+        .query([Character, TbNpc])
+        .filter((r) => !setup.world.get(r.id, [NpcTemplate]))[0]!.id;
       const character = setup.world.get(npcId, [Character]) as
         | { Character: { name: string } }
         | undefined;
@@ -380,13 +385,15 @@ describe("@vtt/system-torchbearer NPCs", () => {
     });
 
     it("Soldier — chain + spear + shield equipped onto TbCarries from the catalog", async () => {
-      tbItemsSeed({ world: setup.world, registry: setup.registry });
+      tbSeed({ world: setup.world, registry: setup.registry });
       const res = await dispatchAsGm(
         setup,
         CreateNpcFromCatalog({ templateId: "tb/npc/soldier" }),
       );
       expect(res.result.ok).toBe(true);
-      const npcId = setup.world.query([Character, TbNpc])[0]!.id;
+      const npcId = setup.world
+        .query([Character, TbNpc])
+        .filter((r) => !setup.world.get(r.id, [NpcTemplate]))[0]!.id;
       const carries = setup.world.get(npcId, [TbCarries]) as
         | { TbCarries: { entries: Array<{ slot: string; itemId: string }> } }
         | undefined;
@@ -409,13 +416,15 @@ describe("@vtt/system-torchbearer NPCs", () => {
     });
 
     it("Alchemist — no printed gear, no TbCarries trait", async () => {
-      tbItemsSeed({ world: setup.world, registry: setup.registry });
+      tbSeed({ world: setup.world, registry: setup.registry });
       const res = await dispatchAsGm(
         setup,
         CreateNpcFromCatalog({ templateId: "tb/npc/alchemist" }),
       );
       expect(res.result.ok).toBe(true);
-      const npcId = setup.world.query([Character, TbNpc])[0]!.id;
+      const npcId = setup.world
+        .query([Character, TbNpc])
+        .filter((r) => !setup.world.get(r.id, [NpcTemplate]))[0]!.id;
       // Empty gear list ⇒ no TbCarries trait. The sheet's GearSection
       // renders the "no gear equipped" empty state.
       const carries = setup.world.get(npcId, [TbCarries]);
