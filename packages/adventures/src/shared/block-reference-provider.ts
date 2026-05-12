@@ -21,7 +21,7 @@ import type {
   ReferenceProviderContext,
   ReferenceSection,
 } from "@vtt/notes/shared";
-import { buildBlockKindIndex } from "./block-kinds.js";
+import { buildBlockKindIndex, type AnyBlockKindDef } from "./block-kinds.js";
 import { schemaToFields } from "./schema-to-fields.js";
 
 /**
@@ -79,6 +79,7 @@ export function buildBlockReferenceSections(
     let fields: ReferenceField[];
     try {
       fields = schemaToFields(kind.schema);
+      fields = enrichWithDynamicCompletions(fields, kind, ctx);
     } catch {
       fields = [];
     }
@@ -92,6 +93,58 @@ export function buildBlockReferenceSections(
     });
   }
   return sections;
+}
+
+/**
+ * Walk each `ReferenceField` and ask the kind's `complete()` what
+ * concrete values are valid at that path. When the kind returns a
+ * non-empty list, append a one-line "values: a | b | c" hint to the
+ * field's description so the GM sees the dynamic vocabulary the
+ * schema can't express on its own (TB body slots, skill ids, etc.).
+ *
+ * Path mapping: the reference walker uses `[]` for array elements and
+ * `<key>` for record keys; the kind's `complete()` expects the
+ * autocomplete shape (`*` for array elements, the record's parent
+ * path for record-key suggestions). We adapt both forms here so kinds
+ * can keep their existing contract with the autocomplete provider.
+ */
+function enrichWithDynamicCompletions(
+  fields: ReferenceField[],
+  kind: AnyBlockKindDef,
+  ctx: ReferenceProviderContext,
+): ReferenceField[] {
+  if (!kind.complete) return fields;
+  return fields.map((f) => {
+    const segments = f.path.split(".");
+    // Two call paths to try:
+    //   - The field IS a record (path ends with `<key>` placeholder).
+    //     Drop the placeholder and ask the parent path for valid keys.
+    //   - The field IS a value leaf (no `<key>` suffix). Ask the
+    //     completer directly with the path's `[]` markers swapped to
+    //     `*`.
+    const valuePath = segments
+      .filter((s) => s !== "<key>")
+      .map((s) => (s === "[]" ? "*" : s));
+    let suggestions: ReadonlyArray<{ value: string; detail?: string }> = [];
+    try {
+      suggestions = kind.complete!(valuePath, {
+        world: ctx.world,
+        registry: ctx.registry,
+      });
+    } catch {
+      suggestions = [];
+    }
+    if (suggestions.length === 0) return f;
+    const labels = suggestions
+      .map((s) => (s.detail ? `${s.value} (${s.detail})` : s.value))
+      .join(" | ");
+    const next = `values: ${labels}`;
+    const description =
+      f.description && f.description.length > 0
+        ? `${f.description} — ${next}`
+        : next;
+    return { ...f, description };
+  });
 }
 
 /** Slot fill exported for plugin registration. */

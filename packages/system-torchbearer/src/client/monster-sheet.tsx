@@ -18,7 +18,7 @@
 import { type CommandInstance } from "@vtt/substrate";
 import { useClient, useTrait } from "@vtt/substrate/client";
 import { BookCitation } from "@vtt/books/client";
-import { kit } from "@vtt/characters/client";
+import { ActiveToggle, kit } from "@vtt/characters/client";
 import { Character, SetField } from "@vtt/characters/shared";
 import { ItemIdentity } from "@vtt/items/shared";
 import { createMemo, For, onMount, Show, type JSX } from "solid-js";
@@ -359,6 +359,7 @@ function IdentitySection(props: { characterId: string }): JSX.Element {
               />
             )}
           </Show>
+          <ActiveToggle characterId={props.characterId} size="md" />
         </div>
       </Show>
     </kit.SheetSection>

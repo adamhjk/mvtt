@@ -22,7 +22,7 @@ import {
   type BlockKindContext,
   type EntityProjection,
 } from "@vtt/adventures/shared";
-import { Character, Team } from "@vtt/characters/shared";
+import { Active, Character, Team } from "@vtt/characters/shared";
 import { gmOnly, Permissions } from "@vtt/permissions/shared";
 import {
   CharacterTraits,
@@ -39,6 +39,7 @@ import {
 import { ALL_SKILLS, isKnownSkillId } from "../skills.js";
 import { MonsterTemplate, TbMonster } from "../monster-traits.js";
 import { TbCarries } from "../items/item-traits.js";
+import { TB_BODY_SLOTS_AUTHORING } from "./item.js";
 import {
   channelFor,
   defaultSlotForItem,
@@ -67,18 +68,41 @@ const TraitsArraySchema = z
   )
   .default([]);
 
+const CarriesItemString = wikiLink("item").describe(
+  'String form: a bare item wiki-link, e.g. `[[item:e123|Sword]]`. Quote the YAML string when authoring this form. The item is placed in its default slot at quantity 1.',
+);
+
+const CarriesItemObject = z
+  .object({
+    item: wikiLink("item").describe(
+      "Item wiki-link, e.g. `[[item:e123|Sword]]`.",
+    ),
+    slot: z
+      .string()
+      .min(1)
+      .max(40)
+      .optional()
+      .describe(
+        "Where the character carries the item. See the body-slot vocabulary below.",
+      ),
+    quantity: z
+      .number()
+      .int()
+      .min(1)
+      .max(99)
+      .default(1)
+      .describe("How many copies. Stacks into one bundle for bundleable items."),
+  })
+  .describe(
+    "Object form: use when you need to pin the slot (e.g. `handR` vs `handL`) or set a quantity. The item field is the same wiki-link the string form accepts.",
+  );
+
 const CarriesArraySchema = z
-  .array(
-    z.union([
-      wikiLink("item"),
-      z.object({
-        item: wikiLink("item"),
-        slot: z.string().min(1).max(40).optional(),
-        quantity: z.number().int().min(1).max(99).default(1),
-      }),
-    ]),
-  )
-  .default([]);
+  .array(z.union([CarriesItemString, CarriesItemObject]))
+  .default([])
+  .describe(
+    "Inventory. Each entry is either a bare wiki-link or `{ item, slot?, quantity? }`. Slot strings list under `carries.[] (object form).slot` below.",
+  );
 
 /**
  * Schema for the body of a `character` fenced block — used for named
@@ -410,6 +434,12 @@ export function buildCharacterTraitWrites(
           persona: { current: 0, totalSpent: 0 },
         },
       },
+      // Block-materialised character/NPC starts inactive — adventure
+      // imports populate the library without flooding pickers. The GM
+      // flips it active via the sheet header toggle when bringing it
+      // into play. spawnIfMissing so a yaml re-save doesn't clobber a
+      // GM flip.
+      { trait: Active, value: { active: false } },
     ],
   };
 }
@@ -519,6 +549,9 @@ function projectMonster(
           persona: { current: 0, totalSpent: 0 },
         },
       },
+      // Block-materialised monster templates start inactive. They're
+      // library content awaiting an `encounter` block or a manual flip.
+      { trait: Active, value: { active: false } },
     ],
   };
 }
@@ -530,11 +563,21 @@ function projectMonster(
  *   - For `traits` / `wises` / `nature.descriptors`: returns nothing
  *     today (free-text) — could be extended with the canonical lists.
  */
-function completeCharacterKeys(
+export function completeCharacterKeys(
   path: ReadonlyArray<string>,
 ): ReadonlyArray<{ value: string; detail?: string }> {
   if (path.length === 1 && path[0] === "skills") {
     return ALL_SKILLS.map((s) => ({ value: s.id, detail: s.name }));
+  }
+  // Object-form `carries[i].slot` — the schema is `z.string()` so the
+  // value side falls through the enum branch; expose the canonical
+  // TB body-slot vocabulary so authors don't have to guess.
+  if (
+    path.length >= 2 &&
+    path[0] === "carries" &&
+    path[path.length - 1] === "slot"
+  ) {
+    return TB_BODY_SLOTS_AUTHORING.map((s) => ({ value: s }));
   }
   return [];
 }

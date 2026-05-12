@@ -29,7 +29,7 @@ import {
   type PendingRollContributor,
   type PendingRollContributorArgs,
 } from "@vtt/characters/shared";
-import { Character, Team } from "@vtt/characters/shared";
+import { Active, Character, Team, isActive } from "@vtt/characters/shared";
 import { canWrite, Permissions } from "@vtt/permissions/shared";
 import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
@@ -687,6 +687,11 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
   // shows up live. Filtered by Team match downstream so PCs only see
   // PC helpers and monsters only see monster allies.
   const allCharacters = useQuery([Character, Permissions]);
+  // Track Active trait changes so the picker re-runs when a GM flips
+  // an entity in/out of play. The values are read live via
+  // `isActive` in the helpers memo below; this query exists purely
+  // so the memo subscribes to Active writes.
+  const activeRows = useQuery([Active]);
 
   // Initiator's team affiliation — drives the same-team filter on
   // the helper roster. Reactive: if the GM flips a character's team
@@ -823,12 +828,19 @@ function TbContributorPanel(props: PendingRollContributorArgs): JSX.Element {
     // hides cross-team helpers (a PC can't be helped by a monster, a
     // monster can't be helped by the party).
     const myTeam = initiatorTeam()?.kind ?? "party";
+    // Read once so the memo subscribes to Active writes — value used
+    // via the isActive() per-row check below.
+    activeRows();
     for (const row of allCharacters()) {
       if (row.id === props.initiatorCharacterId) continue;
       const perm = row.values.Permissions as
         | Parameters<typeof canWrite>[1]
         | undefined;
       if (!canWrite(m, perm)) continue;
+      // Hide entries the GM has marked inactive — pickers only see
+      // in-play characters. Missing trait treated as active for BC
+      // with prod entities that predate this flag.
+      if (!isActive(client.world, row.id)) continue;
       // Helper must be on the same team. Read live so a GM can flip a
       // monster's team and the picker re-derives.
       const helperTeam = client.world.get(

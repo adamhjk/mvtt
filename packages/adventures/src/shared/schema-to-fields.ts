@@ -111,24 +111,34 @@ function expandUnionVariants(
   for (let i = 0; i < variants.length; i += 1) {
     const variant = variants[i]!;
     const inner = unwrap(variant);
+    // Prefer the variant's own `.describe()` text — when an author
+    // wires per-variant grammar (e.g. "string form with optional `N×`
+    // quantifier prefix") they expect it to land here. Fall back to
+    // the type-derived hints (`unionVariantHint` for wiki-link /
+    // dice) so older schemas that don't carry descriptions still get
+    // sensible authoring guidance.
+    const ownDescription = cleanDescription(variant);
     if (inner instanceof z.ZodObject) {
       const path = [...basePath, `(object form)`].join(" ");
       out.push({
         path,
         type: describeType(variant),
         required: false,
-        description: "Use the object form when you need to set slot or quantity.",
+        description:
+          ownDescription ??
+          "Object form. Use it when you need fields the string form can't express.",
       });
       // Recurse the object's fields under the object-form path so the
       // GM sees e.g. `carries.[] (object form).item`.
       out.push(...schemaToFields(inner, [...basePath, "(object form)"]));
     } else {
       const type = describeType(variant);
+      const description = ownDescription ?? unionVariantHint(type);
       out.push({
         path: [...basePath, `(as ${type})`].join(" "),
         type,
         required: false,
-        ...(unionVariantHint(type) ? { description: unionVariantHint(type)! } : {}),
+        ...(description ? { description } : {}),
       });
     }
   }
@@ -268,8 +278,10 @@ export function describeType(schema: z.ZodTypeAny): string {
   if (inner instanceof z.ZodBoolean) return "boolean";
   if (inner instanceof z.ZodEnum) {
     const opts = (inner.options as ReadonlyArray<string>) ?? [];
-    if (opts.length <= 6) return `enum: ${opts.join(" | ")}`;
-    return `enum (${opts.length} options)`;
+    // List every option, however long. Truncating to "(N options)" left
+    // authors with no way to know what to write; long enums simply
+    // wrap in the reference panel's `break-all`-styled type column.
+    return `enum: ${opts.join(" | ")}`;
   }
   if (inner instanceof z.ZodLiteral) {
     const def = inner._def as unknown as { values?: unknown[]; value?: unknown };
@@ -295,8 +307,9 @@ export function describeType(schema: z.ZodTypeAny): string {
   if (inner instanceof z.ZodObject) {
     const shape = inner.shape as Record<string, z.ZodTypeAny>;
     const keys = Object.keys(shape);
-    if (keys.length <= 4) return `{ ${keys.join(", ")} }`;
-    return `object (${keys.length} fields)`;
+    // Nested rows enumerate each field separately; the summary just
+    // names them so the author sees the full key set at a glance.
+    return `{ ${keys.join(", ")} }`;
   }
   return "any";
 }

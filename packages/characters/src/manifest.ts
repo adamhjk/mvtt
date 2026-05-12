@@ -23,7 +23,7 @@ import {
 } from "@vtt/shell-workbench/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { characterLinkKind } from "./shared/character-link-kind.js";
-import { Character, CharacterToken, Team } from "./shared/traits.js";
+import { Active, Character, CharacterToken, Team } from "./shared/traits.js";
 import { PendingRoll } from "./shared/pending.js";
 import {
   CharacterSheetUiState,
@@ -122,6 +122,7 @@ export const characters = definePlugin({
     CharacterToken,
     PendingRoll,
     Team,
+    Active,
     CharacterSheetUiState,
   ],
   events: [

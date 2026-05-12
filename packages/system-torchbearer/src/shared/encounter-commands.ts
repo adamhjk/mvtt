@@ -246,7 +246,7 @@ export const StartEncounter = defineCommand({
  * `"convince crowd"`, etc.) to one of the ConflictTypeEnum members.
  * Returns null when no mapping is found — caller skips ConflictDeclared.
  */
-function mapConflictType(raw: string): ConflictType | null {
+export function mapConflictType(raw: string): ConflictType | null {
   const norm = raw.toLowerCase().replace(/[^a-z]/g, "");
   const aliases: Record<string, ConflictType> = {
     kill: "kill",

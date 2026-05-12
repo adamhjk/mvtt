@@ -30,6 +30,7 @@ import {
   RenameCharacter,
   SetCharacterTokenImage,
 } from "../shared/commands.js";
+import { ActiveToggle } from "./active-toggle.js";
 import { useMe } from "./use-me.js";
 
 /**
@@ -97,6 +98,14 @@ export function IdentityFill(props: { characterId: string }): JSX.Element {
           onCommit={rename}
         />
       </div>
+      <Show when={canEdit()}>
+        <div class="flex items-center gap-2">
+          <span class="font-display text-[0.6rem] uppercase tracking-[0.2em] text-fg-subtle">
+            In play
+          </span>
+          <ActiveToggle characterId={props.characterId} />
+        </div>
+      </Show>
     </div>
   );
 }

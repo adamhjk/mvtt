@@ -17,13 +17,13 @@
 
 import { type CommandInstance } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
-import { Character } from "@vtt/characters/shared";
+import { Active, Character, isActive } from "@vtt/characters/shared";
 import {
   definePageProvider,
   RetargetTab,
 } from "@vtt/shell-workbench/shared";
 import { BookCitation } from "@vtt/books/client";
-import { kit } from "@vtt/characters/client";
+import { ActiveToggle, kit } from "@vtt/characters/client";
 import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
   CreateBlankNpc,
@@ -39,6 +39,7 @@ import {
   NpcSearchInput,
   filterNpcCatalogByQuery,
 } from "./npc-picker.js";
+import { fuzzyMatch } from "./bestiary-picker.js";
 import { tbCanonicalBookAbbreviation } from "../data/seed.js";
 
 const NPCS_KIND = "@vtt/system-torchbearer/npcs";
@@ -95,20 +96,43 @@ function NpcsPage(props: {
  * picker for spawning a new one. GM only — for non-GMs the picker
  * stays hidden (the command would fail validation anyway).
  */
+interface NpcRowData {
+  readonly id: string;
+  readonly name: string;
+  readonly role: string;
+  readonly active: boolean;
+}
+
 function NpcsHub(props: { tabId: string }): JSX.Element {
   const client = useClient();
   const me = kit.useMe();
   const npcRows = useQuery([Character, TbNpc]);
+  // Subscribe to Active writes so the active/inactive groups
+  // re-render when the GM flips a toggle.
+  const activeRows = useQuery([Active]);
 
-  const npcs = createMemo(() =>
-    npcRows()
+  const npcs = createMemo<NpcRowData[]>(() => {
+    activeRows();
+    return npcRows()
       .map((row) => ({
-        id: row.id,
+        id: row.id as string,
         name: (row.values.Character as { name: string }).name,
         role: (row.values.TbNpc as { role: string }).role,
+        active: isActive(client.world, row.id),
       }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-  );
+      .sort((a, b) => a.name.localeCompare(b.name));
+  });
+
+  // Fuzzy filter — same subsequence matcher the conflict-declare NPC
+  // picker uses.
+  const [query, setQuery] = createSignal("");
+  const filtered = createMemo<NpcRowData[]>(() => {
+    const q = query().trim();
+    if (q.length === 0) return npcs();
+    return npcs().filter((n) => fuzzyMatch(n.name, q));
+  });
+  const activeNpcs = createMemo(() => filtered().filter((n) => n.active));
+  const inactiveNpcs = createMemo(() => filtered().filter((n) => !n.active));
 
   const isGm = createMemo(() => me()?.role === "gm");
 
@@ -126,6 +150,15 @@ function NpcsHub(props: { tabId: string }): JSX.Element {
     if (!window.confirm(`Remove "${name}"?`)) return;
     client.dispatch(RemoveNpc({ npcId }) as CommandInstance);
   };
+
+  const renderRow = (n: NpcRowData): JSX.Element => (
+    <NpcListRow
+      npc={n}
+      isGm={isGm()}
+      onOpen={() => open(n.id)}
+      onRemove={() => remove(n.id, n.name)}
+    />
+  );
 
   return (
     <div class="flex h-full items-start justify-center overflow-y-auto py-10">
@@ -161,21 +194,50 @@ function NpcsHub(props: { tabId: string }): JSX.Element {
               NPCs
             </h2>
             <span class="font-display text-[0.62rem] uppercase tracking-[0.16em] text-fg-subtle">
-              {npcs().length} total
+              {activeNpcs().length} active · {inactiveNpcs().length} inactive
             </span>
           </header>
-          <ul class="flex flex-col gap-2">
-            <For each={npcs()}>
-              {(n) => (
-                <NpcListRow
-                  npc={n}
-                  isGm={isGm()}
-                  onOpen={() => open(n.id)}
-                  onRemove={() => remove(n.id, n.name)}
+
+          <NpcsFilterInput query={query} setQuery={setQuery} />
+
+          <Show
+            when={filtered().length > 0}
+            fallback={
+              <p
+                class="text-center text-xs text-fg-subtle italic"
+                data-testid="npcs-empty"
+              >
+                No NPCs match "{query()}".
+              </p>
+            }
+          >
+            <Show when={activeNpcs().length > 0}>
+              <section class="flex flex-col gap-2">
+                <SectionHeader label="Active" count={activeNpcs().length} />
+                <ul
+                  class="flex flex-col gap-2"
+                  data-testid="npcs-active-list"
+                >
+                  <For each={activeNpcs()}>{renderRow}</For>
+                </ul>
+              </section>
+            </Show>
+            <Show when={inactiveNpcs().length > 0}>
+              <section class="flex flex-col gap-2">
+                <SectionHeader
+                  label="Inactive"
+                  count={inactiveNpcs().length}
                 />
-              )}
-            </For>
-          </ul>
+                <ul
+                  class="flex flex-col gap-2"
+                  data-testid="npcs-inactive-list"
+                >
+                  <For each={inactiveNpcs()}>{renderRow}</For>
+                </ul>
+              </section>
+            </Show>
+          </Show>
+
           <Show when={isGm()}>
             <div class="mt-2 flex flex-col gap-3 border-t border-border-muted pt-5">
               <h3 class="font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle">
@@ -187,6 +249,45 @@ function NpcsHub(props: { tabId: string }): JSX.Element {
         </Show>
       </div>
     </div>
+  );
+}
+
+function SectionHeader(props: { label: string; count: number }): JSX.Element {
+  return (
+    <header class="flex items-baseline justify-between">
+      <h3 class="font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle">
+        {props.label}
+      </h3>
+      <span class="font-mono text-[0.6rem] text-fg-subtle tabular-nums">
+        {props.count}
+      </span>
+    </header>
+  );
+}
+
+function NpcsFilterInput(props: {
+  query: () => string;
+  setQuery: (next: string) => void;
+}): JSX.Element {
+  return (
+    <input
+      type="text"
+      value={props.query()}
+      placeholder="filter by name…"
+      onInput={(e) => props.setQuery(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") props.setQuery("");
+      }}
+      data-testid="npcs-filter"
+      autocomplete="off"
+      spellcheck={false}
+      name="npcs-filter"
+      data-1p-ignore="true"
+      data-lpignore="true"
+      data-bwignore="true"
+      data-form-type="other"
+      class="w-full rounded-(--radius-control) border border-border-muted bg-surface px-3 py-1.5 text-sm text-fg outline-none focus:border-accent transition-colors"
+    />
   );
 }
 
@@ -229,6 +330,9 @@ function NpcListRow(props: {
             ariaLabel={`open ${props.npc.name} entry in ${ref().canonicalId} at page ${ref().page}`}
           />
         )}
+      </Show>
+      <Show when={props.isGm}>
+        <ActiveToggle characterId={props.npc.id} />
       </Show>
       <button
         type="button"

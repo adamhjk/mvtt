@@ -187,6 +187,7 @@ export {
   EncounterStarted,
   MonsterCopySpawned,
   MonsterCopySpawningSystem,
+  mapConflictType,
 } from "./encounter-commands.js";
 export {
   AwardLoot,

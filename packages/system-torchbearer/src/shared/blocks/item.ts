@@ -50,8 +50,15 @@ import { ALL_SKILLS } from "../skills.js";
  * understands. Authors who need a one-hand-specific item (rare —
  * signet ring on the left ring finger, etc.) can still name handR or
  * handL explicitly.
+ *
+ * Exported so the `character` / `npc` block kinds can surface the
+ * same vocabulary on their own `carries.[].slot` field — that field's
+ * schema is `z.string()` because catalog entries can also carry
+ * container-derived slot ids (`container:<entityId>`), but the
+ * canonical body-slot list is what authors actually need at the
+ * keyboard.
  */
-const TB_BODY_SLOTS_AUTHORING = [
+export const TB_BODY_SLOTS_AUTHORING = [
   "head",
   "neck",
   "hand",

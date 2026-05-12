@@ -16,7 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineSystem, type TraitName } from "@vtt/substrate";
-import { Character, Team } from "@vtt/characters/shared";
+import { Active, Character, Team } from "@vtt/characters/shared";
 import { gmOnly, Permissions } from "@vtt/permissions/shared";
 import { NpcCreated, NpcRemoved } from "../shared/npc-events.js";
 import { TbNpc, TbNpcDerivedFrom } from "../shared/npc-traits.js";
@@ -130,6 +130,7 @@ export const NpcSpawningSystem = defineSystem({
     Identity,
     Permissions,
     Team,
+    Active,
     RawAbilities,
     TownAbilities,
     Conditions,
@@ -165,6 +166,11 @@ export const NpcSpawningSystem = defineSystem({
       // "party" via SetField on the Team trait once the GM places
       // them.
       Team({ kind: "enemy" }),
+      // Newly-spawned NPCs default to inactive; the GM flips them in
+      // when bringing the denizen into play. Conflict-declare's
+      // inline NPC-spawn auto-activates after creation so the chip
+      // surfaces immediately for that explicit flow.
+      Active({ active: false }),
       RawAbilities({
         will: { rating: event.will, advancement: { pass: 0, fail: 0 } },
         health: { rating: event.health, advancement: { pass: 0, fail: 0 } },

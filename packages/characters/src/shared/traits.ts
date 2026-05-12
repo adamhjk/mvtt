@@ -64,6 +64,33 @@ export const CharacterToken = defineTrait({
 });
 
 /**
+ * Active flag — whether this character/NPC/monster is currently "in
+ * play" and should appear in pickers (helper roster on a pending roll,
+ * conflict-declare party/enemy chips, switch-team list, etc.).
+ *
+ * Catalogs and adventure imports materialise large sets of NPC and
+ * monster entities up front so wiki-links / quantified spawns work
+ * without per-encounter ceremony. Without filtering, every picker
+ * shows the entire library and the fuzzy-lookups in particular lose
+ * their usefulness. `Active` is the picker filter: pickers hide
+ * inactive entries; library pages (Bestiary, NPCs) keep showing
+ * everything and surface a per-row toggle.
+ *
+ * Backwards compatibility: prod entities predating this trait don't
+ * carry it. Readers must treat *missing* trait as `active: true` so
+ * existing characters keep appearing in every picker. The
+ * `isActive(world, id)` helper does this normalisation.
+ */
+export const Active = defineTrait({
+  name: "@vtt/characters/Active",
+  schema: z
+    .object({
+      active: z.boolean().default(true),
+    })
+    .default({ active: true }),
+});
+
+/**
  * Team affiliation — `"party"` for player-side characters,
  * `"enemy"` for NPCs / antagonists / GM-controlled entities. Used by
  * mechanics that need to query "who else is on my team" — most

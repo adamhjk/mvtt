@@ -15,18 +15,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-export { ActiveToggle } from "./active-toggle.js";
-export { CharactersPageProvider } from "./CharactersPage.js";
-export { CharacterSheet } from "./CharacterSheet.js";
-export { SheetShell } from "./SheetShell.js";
-export { IdentityFill } from "./IdentityFill.js";
-export { PendingRollPanels } from "./PendingRollPanel.js";
-export {
-  activeSpeakerId,
-  setActiveSpeakerId,
-  useSpeakAsOptions,
-  useEffectiveSpeakerId,
-  type SpeakAsOption,
-} from "./speak-as.js";
-export { useWorldMembers, type WorldMember, type WorldMembers } from "./world-members.js";
-export * as kit from "./kit.js";
+/**
+ * Workbench page-kind id for the Conflict tab. Shared so universal
+ * code paths (block actions, palette commands) can route to it
+ * without importing the client-only ConflictPage module.
+ */
+export const CONFLICT_PAGE_KIND = "@vtt/system-torchbearer/conflict";

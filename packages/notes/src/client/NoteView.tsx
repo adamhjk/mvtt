@@ -557,6 +557,14 @@ function PageContent(props: {
 }): JSX.Element {
   const client = useClient();
   const followLink = useFollowLink();
+  const me = useMe();
+  const meSession = createMemo<{ role: "gm" | "player" } | null>(() => {
+    const m = me();
+    if (!m) return null;
+    return { role: m.role === "gm" ? "gm" : "player" };
+  });
+  const dispatchCmd = (cmd: unknown): unknown =>
+    client.dispatch(cmd as CommandInstance);
   const page = useTrait(props.pageId, Page);
   const draft = useTrait(props.pageId, PageDraft);
   const lock = useTrait(props.pageId, EditorLock);
@@ -741,6 +749,8 @@ function PageContent(props: {
               onLink={onLink}
               scrollToAnchor={props.pendingAnchor()}
               onScrolled={props.onScrolled}
+              dispatch={dispatchCmd}
+              session={meSession()}
             />
           }
         >

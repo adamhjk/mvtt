@@ -42,6 +42,7 @@ export {
   type ConflictTypeDef,
   type DispoSkillSpec,
 } from "./conflict-types.js";
+export { CONFLICT_PAGE_KIND } from "./page-kind.js";
 export { ConflictSideEnum, otherSide, type ConflictSide } from "./sides.js";
 export {
   ScriptSlotSchema,

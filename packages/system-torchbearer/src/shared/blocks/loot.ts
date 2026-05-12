@@ -22,40 +22,71 @@ import {
   type EntityProjection,
 } from "@vtt/adventures/shared";
 import { PlaceLootInScene } from "../loot-commands.js";
+import { peelRef } from "./encounter.js";
 
 /**
  * Schema for one loot item entry. The string form `"3× item:silver chalice"`
  * mirrors the encounter participant grammar so authors learn one
- * convention. The object form lets authors set qty + ref explicitly.
+ * convention. The object form lets authors set qty + item explicitly.
+ *
+ * The wiki-link form `[[item:e123|Display Name]]` is accepted on
+ * either branch — `peelRef` strips the wrapping + alias so the stored
+ * `body` is a clean entity id (or item name) the awarder can resolve.
  */
+const LootItemStringSchema = z
+  .string()
+  .min(1)
+  .max(240)
+  .describe(
+    'String form: `<kind>:<id-or-name>` or the wiki-link `[[item:e123|Display]]`. Prefix with `N×` (or `Nx`) to award that many copies — e.g. `3× [[item:silver chalice]]`. With no kind prefix the ref defaults to `item`.',
+  );
+
+const LootItemObjectSchema = z
+  .object({
+    qty: z
+      .number()
+      .int()
+      .min(1)
+      .max(99)
+      .default(1)
+      .describe("How many copies of `item` to award."),
+    item: z
+      .string()
+      .min(1)
+      .max(240)
+      .describe(
+        "The item reference: `<kind>:<id-or-name>` or `[[item:id|Display]]`.",
+      ),
+  })
+  .describe(
+    "Object form: explicit `{ qty, item }`. Pick this when the count is data-driven or you'd rather not eyeball the `N×` prefix.",
+  );
+
 const LootItemSchema = z
-  .union([
-    z.string().min(1).max(240),
-    z.object({
-      qty: z.number().int().min(1).max(99).default(1),
-      item: z.string().min(1).max(240),
-    }),
-  ])
+  .union([LootItemStringSchema, LootItemObjectSchema])
+  .describe(
+    "One row in the loot list. Use the string form for quick authoring or the object form when you want the count as a discrete field.",
+  )
   .transform((v) => {
     if (typeof v === "object") {
-      const colon = v.item.indexOf(":");
-      const kind = colon > 0 ? v.item.slice(0, colon) : "item";
-      const body = colon > 0 ? v.item.slice(colon + 1) : v.item;
-      return { kind, body, quantity: v.qty };
-    }
-    const m = v.match(/^(\d+)[×x]\s*(.+)$/);
-    if (m) {
-      const qty = parseInt(m[1]!, 10);
-      const ref = m[2]!.trim();
+      const ref = peelRef(v.item);
       const colon = ref.indexOf(":");
       const kind = colon > 0 ? ref.slice(0, colon) : "item";
       const body = colon > 0 ? ref.slice(colon + 1) : ref;
-      return { kind, body, quantity: qty };
+      return { kind, body, quantity: v.qty };
     }
-    const colon = v.indexOf(":");
-    const kind = colon > 0 ? v.slice(0, colon) : "item";
-    const body = colon > 0 ? v.slice(colon + 1) : v;
-    return { kind, body, quantity: 1 };
+    let raw = v.trim();
+    let quantity = 1;
+    const m = raw.match(/^(\d+)[×x]\s*(.+)$/);
+    if (m) {
+      quantity = parseInt(m[1]!, 10);
+      raw = m[2]!.trim();
+    }
+    const ref = peelRef(raw);
+    const colon = ref.indexOf(":");
+    const kind = colon > 0 ? ref.slice(0, colon) : "item";
+    const body = colon > 0 ? ref.slice(colon + 1) : ref;
+    return { kind, body, quantity };
   });
 
 /**
@@ -67,15 +98,43 @@ const LootItemSchema = z
  * over RollLoot+AwardLoot two-step.
  */
 export const LootBlockSchema = z.object({
-  items: z.array(LootItemSchema).default([]),
+  items: z
+    .array(LootItemSchema)
+    .default([])
+    .describe(
+      "Items in this parcel. See the row variants below for the accepted string + object forms — both support the `N×` quantifier and wiki-link wrapping.",
+    ),
   cash: z
     .object({
-      copper: z.number().int().min(0).max(999999).default(0),
-      silver: z.number().int().min(0).max(999999).default(0),
-      gold: z.number().int().min(0).max(999999).default(0),
+      copper: z
+        .number()
+        .int()
+        .min(0)
+        .max(999999)
+        .default(0)
+        .describe("Copper coins in this parcel."),
+      silver: z
+        .number()
+        .int()
+        .min(0)
+        .max(999999)
+        .default(0)
+        .describe("Silver coins in this parcel."),
+      gold: z
+        .number()
+        .int()
+        .min(0)
+        .max(999999)
+        .default(0)
+        .describe("Gold coins in this parcel."),
     })
-    .default({ copper: 0, silver: 0, gold: 0 }),
-  notes: z.string().max(4000).default(""),
+    .default({ copper: 0, silver: 0, gold: 0 })
+    .describe("Currency awarded alongside the items."),
+  notes: z
+    .string()
+    .max(4000)
+    .default("")
+    .describe("GM-facing flavor / context for the parcel."),
 });
 
 export type LootBlockParsed = z.infer<typeof LootBlockSchema>;
@@ -171,11 +230,12 @@ export const lootBlockKind = defineBlockKind<LootBlockParsed>({
   ],
   snippet: () => `\${1:name}
 items:
-  - \${2:item:treasure thing}
+  - \${2:[[item:silver chalice]]}
+  - \${3:3×} \${4:[[item:torch]]}
 cash:
-  copper: \${3:0}
-  silver: \${4:0}
-  gold: \${5:0}
+  copper: \${5:0}
+  silver: \${6:0}
+  gold: \${7:0}
 notes: |
   \${0}`,
 });

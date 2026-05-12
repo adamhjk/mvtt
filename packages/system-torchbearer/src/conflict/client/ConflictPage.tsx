@@ -22,10 +22,22 @@ import {
   createMemo,
   createSignal,
   For,
+  Match,
+  onMount,
   Show,
+  Switch,
   type JSX,
 } from "solid-js";
-import { Character, SetField, Team } from "@vtt/characters/shared";
+import {
+  Active,
+  Character,
+  SetField,
+  Team,
+  isActive,
+} from "@vtt/characters/shared";
+import { EncounterTemplate } from "@vtt/adventures/shared";
+import { Note } from "@vtt/notes/shared";
+import { peelRef } from "../../shared/blocks/encounter.js";
 import {
   CreateMonsterFromCatalog,
   CreateNpcFromCatalog,
@@ -35,6 +47,7 @@ import {
   TB_NPC_TEMPLATES,
   TbMonster,
   TbNpc,
+  mapConflictType,
 } from "../../shared/index.js";
 import {
   NpcRack,
@@ -42,6 +55,7 @@ import {
 } from "../../client/npc-picker.js";
 import {
   ALL_CONFLICT_TYPES,
+  CONFLICT_PAGE_KIND,
   DeclareConflict,
   TB_CONFLICT_TYPES,
   TbConflict,
@@ -63,7 +77,6 @@ import { ConditionsPanel } from "./ConditionsPanel.js";
 import { CompromisePanel } from "./CompromisePanel.js";
 import { useMe } from "./use-me.js";
 
-export const CONFLICT_PAGE_KIND = "@vtt/system-torchbearer/conflict";
 
 /**
  * Workbench page provider for the Reference Board. Lists every
@@ -96,17 +109,43 @@ function ConflictPage(props: {
   tabId: string;
   entityId: EntityId | null;
 }): JSX.Element {
+  const client = useClient();
+  // Reactively read the entity's traits to decide how to render:
+  //   - TbConflict       → live board for the conflict
+  //   - EncounterTemplate → declare form pre-filled from the
+  //                         encounter (the GM clicked "Set up
+  //                         conflict" on an encounter card)
+  //   - null / otherwise  → hub (list + declare form)
+  const isConflict = createMemo(() => {
+    const eid = props.entityId;
+    if (!eid) return false;
+    return Boolean(client.world.get(eid, [TbConflict]));
+  });
+  const isEncounter = createMemo(() => {
+    const eid = props.entityId;
+    if (!eid) return false;
+    return Boolean(client.world.get(eid, [EncounterTemplate]));
+  });
   return (
-    <Show
-      when={props.entityId}
+    <Switch
       fallback={
         <section class="flex h-full flex-col gap-3">
-          <ConflictsHub tabId={props.tabId} />
+          <ConflictsHub tabId={props.tabId} fromEncounterId={null} />
         </section>
       }
     >
-      {(idAcc) => <ConflictBoard conflictId={idAcc() as EntityId} />}
-    </Show>
+      <Match when={isConflict()}>
+        <ConflictBoard conflictId={props.entityId as EntityId} />
+      </Match>
+      <Match when={isEncounter()}>
+        <section class="flex h-full flex-col gap-3">
+          <ConflictsHub
+            tabId={props.tabId}
+            fromEncounterId={props.entityId as EntityId}
+          />
+        </section>
+      </Match>
+    </Switch>
   );
 }
 
@@ -114,7 +153,16 @@ function ConflictPage(props: {
  * Hub view — empty state + list + create form
  * ----------------------------------------------------------------------- */
 
-function ConflictsHub(props: { tabId: string }): JSX.Element {
+function ConflictsHub(props: {
+  tabId: string;
+  /**
+   * When set, the hub renders the declare form pre-filled from this
+   * encounter template (type/location/enemies). The conflict list is
+   * still shown above so the GM can see ongoing fights, but the form
+   * is the primary affordance.
+   */
+  fromEncounterId: EntityId | null;
+}): JSX.Element {
   const client = useClient();
   const me = useMe();
   const conflictRows = useQuery([TbConflict]);
@@ -178,7 +226,10 @@ function ConflictsHub(props: { tabId: string }): JSX.Element {
                     </p>
                   }
                 >
-                  <DeclareConflictForm tabId={props.tabId} />
+                  <DeclareConflictForm
+                    tabId={props.tabId}
+                    fromEncounterId={props.fromEncounterId}
+                  />
                 </Show>
               </Show>
             </div>
@@ -223,7 +274,10 @@ function ConflictsHub(props: { tabId: string }): JSX.Element {
               <h3 class="font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle">
                 Declare a new conflict
               </h3>
-              <DeclareConflictForm tabId={props.tabId} />
+              <DeclareConflictForm
+                tabId={props.tabId}
+                fromEncounterId={props.fromEncounterId}
+              />
             </div>
           </Show>
         </Show>
@@ -242,10 +296,22 @@ interface CharacterRow {
   readonly team: "party" | "enemy";
 }
 
-function DeclareConflictForm(props: { tabId: string }): JSX.Element {
+function DeclareConflictForm(props: {
+  tabId: string;
+  /**
+   * When set, the form pre-fills type/location/enemies from the
+   * encounter template the GM clicked "Set up conflict" on. The
+   * one-time seed runs in `onMount`; subsequent edits are owned by
+   * the GM and don't snap back when the encounter template changes.
+   */
+  fromEncounterId: EntityId | null;
+}): JSX.Element {
   const client = useClient();
   const charRows = useQuery([Character]);
   const teamRows = useQuery([Team]);
+  // Subscribe to Active writes so the picker re-runs when a GM flips
+  // an entity in/out of play. Read via isActive() per-row below.
+  const activeRows = useQuery([Active]);
 
   const characters = createMemo<CharacterRow[]>(() => {
     const teams = new Map<EntityId, "party" | "enemy">();
@@ -253,8 +319,14 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
       const t = r.values.Team as { kind: "party" | "enemy" };
       teams.set(r.id, t.kind);
     }
+    activeRows();
     const out: CharacterRow[] = [];
     for (const r of charRows()) {
+      // Hide entries the GM has marked inactive. The conflict-declare
+      // form is the play surface; catalogs that materialise hundreds
+      // of NPCs would otherwise flood the chip lists and the
+      // switch-team scroller.
+      if (!isActive(client.world, r.id)) continue;
       const c = r.values.Character as { name: string };
       out.push({
         id: r.id,
@@ -362,6 +434,110 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
   });
   const [busy, setBusy] = createSignal(false);
 
+  // One-time seed from the encounter template the GM clicked "Set up
+  // conflict" on. Lifts everything the encounter already declares —
+  // conflict type, location label, enemy roster (with quantities) —
+  // so the only thing left for the GM at the table is picking which
+  // party members are present and nominating a captain.
+  //
+  // Resolution rules:
+  //   - Type: normalised via mapConflictType so the author-friendly
+  //     "drive_off" form works alongside the canonical "driveOff".
+  //   - Location: when locationRef.kind === "note" we resolve the
+  //     referenced Note (by entity id first, then by case-insensitive
+  //     title match) and use its current title. That way a renamed
+  //     note shows the new title in the conflict label, and a
+  //     wikilink-style body like `[[note:e123]]` displays the human
+  //     title instead of the raw id.
+  //   - Participants: resolved by case-insensitive Character.name
+  //     lookup against the world. Only entities currently on the
+  //     enemy Team get pre-filled into enemyCounts — encounter blocks
+  //     can list PCs as a "party" side, and the GM picks party
+  //     manually so we don't paint them into the enemy chips.
+  //   - Each resolved enemy is auto-activated. Block-materialised
+  //     monsters/NPCs default to inactive; without this dispatch the
+  //     chip wouldn't render in `enemyChars()`. Same rationale as the
+  //     bestiary inline-spawn flow.
+  onMount(() => {
+    const encounterId = props.fromEncounterId;
+    if (!encounterId) return;
+    const got = client.world.get(encounterId, [EncounterTemplate]) as
+      | { EncounterTemplate: ReturnType<typeof EncounterTemplate>["value"] }
+      | undefined;
+    if (!got) return;
+    const tmpl = got.EncounterTemplate;
+    const mappedType = mapConflictType(tmpl.type);
+    if (mappedType) setType(mappedType);
+    setLocation(resolveLocationLabel(client.world, tmpl.locationRef));
+
+    // Name lookup index — case-insensitive, covers every character
+    // (PC, NPC, monster — they all carry the universal Character
+    // trait by design). Used as the second-pass resolver after
+    // entity-id lookup.
+    const nameIndex = new Map<string, EntityId>();
+    for (const row of client.world.query([Character])) {
+      const v = row.values.Character as { name: string };
+      nameIndex.set(v.name.toLowerCase(), row.id);
+    }
+
+    // Resolve a participant body to an entity id. The participant's
+    // stored body is whatever `ParticipantSchema` produced — for new
+    // encounters that's a clean entity id or name; for encounters
+    // stored before the wiki-link peeler landed, the body can still
+    // carry `]]` suffixes or `|alias` tails. `peelRef` makes the
+    // resolver tolerant of both shapes without forcing a migration.
+    //
+    // Resolution order:
+    //   1. Direct entity-id lookup (covers the canonical wiki-link
+    //      form `[[npc:e667|Alchemist]]` once peeled).
+    //   2. Case-insensitive Character.name match (covers legacy
+    //      shorthand `- npc:Beekeeper`).
+    const resolveParticipant = (rawBody: string): EntityId | null => {
+      const body = peelRef(rawBody);
+      if (client.world.has(body as EntityId)) {
+        const got = client.world.get(body as EntityId, [Character]);
+        if (got) return body as EntityId;
+      }
+      return nameIndex.get(body.toLowerCase()) ?? null;
+    };
+
+    const counts = new Map<EntityId, number>();
+    for (const side of tmpl.sides) {
+      for (const p of side.participants) {
+        const resolved = resolveParticipant(p.body);
+        if (!resolved) continue;
+        // Skip non-enemy participants — the GM picks party manually
+        // and an encounter that lists PCs on a "party" side shouldn't
+        // poison the enemy chips. Default missing-trait to "party"
+        // so unflagged entities (PCs created without a TB block)
+        // don't accidentally appear as enemies.
+        const teamTrait = client.world.get(resolved, [Team]) as
+          | { Team: { kind: "party" | "enemy" } }
+          | undefined;
+        if ((teamTrait?.Team.kind ?? "party") !== "enemy") continue;
+        const qty = p.quantity ?? 1;
+        counts.set(resolved, (counts.get(resolved) ?? 0) + qty);
+      }
+    }
+    if (counts.size > 0) {
+      setEnemyCounts(counts);
+      // Bring each resolved entity into play. The conflict-declare
+      // picker filters chips by isActive(), and adventure-block
+      // monsters default to inactive — without this dispatch the
+      // chip wouldn't render at all.
+      for (const id of counts.keys()) {
+        client.dispatch(
+          SetField({
+            characterId: id,
+            trait: Active.name,
+            path: ["active"],
+            value: true,
+          }) as CommandInstance,
+        );
+      }
+    }
+  });
+
   const togglePartyMember = (id: EntityId): void => {
     setPartyIds((cur) => {
       const next = new Set(cur);
@@ -422,6 +598,20 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
           next.set(fresh.id as EntityId, requestedCount);
           return next;
         });
+        // MonsterSpawningSystem defaults newly-created monsters to
+        // inactive — library content shouldn't flood pickers — but
+        // clicking Spawn from inside conflict-declare is the GM
+        // explicitly bringing the monster into play. Auto-activate so
+        // the chip appears in `enemyChars()` and the GM doesn't have
+        // to bounce out to the Bestiary tab to flip a toggle.
+        client.dispatch(
+          SetField({
+            characterId: fresh.id as EntityId,
+            trait: Active.name,
+            path: ["active"],
+            value: true,
+          }) as CommandInstance,
+        );
       }
       setBestiaryBusy(false);
     });
@@ -456,6 +646,16 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
           next.set(fresh.id as EntityId, requestedCount);
           return next;
         });
+        // Inline conflict-declare spawn auto-activates — see the
+        // monster spawn handler above for the rationale.
+        client.dispatch(
+          SetField({
+            characterId: fresh.id as EntityId,
+            trait: Active.name,
+            path: ["active"],
+            value: true,
+          }) as CommandInstance,
+        );
       }
       setNpcBusy(false);
     });
@@ -737,6 +937,51 @@ function DeclareConflictForm(props: { tabId: string }): JSX.Element {
       </p>
     </form>
   );
+}
+
+/**
+ * Resolve an encounter template's `locationRef` to the label string
+ * the GM should see in the declare form. Behaviour:
+ *
+ *   - null → empty string (no location).
+ *   - kind === "note": try entity-id lookup first (so a wikilink
+ *     body like `e123` resolves to the note's *current* title even
+ *     after a rename), then fall back to case-insensitive title
+ *     match against every Note entity, then finally fall back to
+ *     the raw body string when nothing resolves.
+ *   - other kinds (e.g. "scene"): use the body verbatim. Resolving
+ *     scenes / books / other entity kinds would require importing
+ *     each kind's identity trait; the body string is what the GM
+ *     typed and is a reasonable default until those resolvers land.
+ */
+function resolveLocationLabel(
+  world: import("@vtt/substrate").World,
+  ref: { kind: string; body: string } | null,
+): string {
+  if (!ref) return "";
+  // Defensive peel for encounters stored before the projection's
+  // wiki-link peeler landed: those have `kind = "[[note"`, `body =
+  // "e720|Goblin Cave]]"`. Strip both halves so the resolver below
+  // sees a clean entity id or title.
+  const cleanKind = peelRef(ref.kind);
+  const cleanBody = peelRef(ref.body);
+  if (cleanKind !== "note") return cleanBody;
+  // Direct entity-id lookup first — the parser accepts both
+  // `note:Bywater Bridge` and `note:e123` body forms.
+  if (world.has(cleanBody as EntityId)) {
+    const got = world.get(cleanBody as EntityId, [Note]) as
+      | { Note: { title: string } }
+      | undefined;
+    if (got) return got.Note.title;
+  }
+  // Title-match fallback. Case-insensitive so the GM doesn't have to
+  // copy capitalisation exactly when authoring the encounter.
+  const needle = cleanBody.toLowerCase();
+  for (const row of world.query([Note])) {
+    const v = row.values.Note as { title: string };
+    if (v.title.toLowerCase() === needle) return v.title;
+  }
+  return cleanBody;
 }
 
 function CharChip(props: {

@@ -101,16 +101,20 @@ function BlockWidget(props: BlockWidgetProps): JSX.Element {
       span: { start: 0, end: 0 },
     };
   };
+  // Per-kind accent colors. Hex pairs are passed to CSS `light-dark()`
+  // so the same kind reads cleanly in both themes — light variants are
+  // the printed-page-readable saturated tones, dark variants are
+  // brighter so they still pop on a dark surface.
   const accentByKind: Record<string, string> = {
-    character: "#7c3aed",
-    npc: "#0891b2",
-    monster: "#dc2626",
-    item: "#2563eb",
-    encounter: "#ea580c",
-    loot: "#ca8a04",
+    character: "light-dark(#7c3aed, #a78bfa)",
+    npc: "light-dark(#0891b2, #22d3ee)",
+    monster: "light-dark(#dc2626, #f87171)",
+    item: "light-dark(#2563eb, #60a5fa)",
+    encounter: "light-dark(#ea580c, #fb923c)",
+    loot: "light-dark(#ca8a04, #facc15)",
   };
   const accent = (): string =>
-    accentByKind[props.kind.name] ?? "var(--color-accent, #3b82f6)";
+    accentByKind[props.kind.name] ?? "var(--color-accent)";
   return (
     <div
       class="block-widget"
@@ -118,12 +122,17 @@ function BlockWidget(props: BlockWidgetProps): JSX.Element {
       data-block-info={props.info}
       data-block-entity-id={props.entityId ?? ""}
       style={{
-        border: "1px solid var(--color-border, #ccc)",
+        border: "1px solid var(--color-border)",
         "border-left": `3px solid ${accent()}`,
         "border-radius": "6px",
         padding: "10px 12px",
         margin: "8px 0",
-        background: "var(--color-surface-raised, #f8f8f8)",
+        // `--color-surface-raised` was a typo — the real token is
+        // `--color-surface-elevated` (declared with light-dark() in
+        // tokens.css), and the old fallback (#f8f8f8) baked light-mode
+        // grey into dark mode.
+        background: "var(--color-surface-elevated)",
+        color: "var(--color-fg)",
       }}
     >
       <div
@@ -168,9 +177,9 @@ function BlockWidget(props: BlockWidgetProps): JSX.Element {
                 style={{
                   "font-weight": "600",
                   "font-size": "1.05em",
-                  color: "var(--color-fg, inherit)",
+                  color: "var(--color-fg)",
                   "text-decoration": "none",
-                  "border-bottom": "1px dotted var(--color-fg-muted, #888)",
+                  "border-bottom": "1px dotted var(--color-fg-muted)",
                 }}
               >
                 {displayName()}
@@ -190,8 +199,9 @@ function BlockWidget(props: BlockWidgetProps): JSX.Element {
                   style={{
                     padding: "4px 8px",
                     "border-radius": "4px",
-                    border: "1px solid var(--color-border, #ccc)",
-                    background: "var(--color-surface, #fff)",
+                    border: "1px solid var(--color-border)",
+                    background: "var(--color-surface)",
+                    color: "var(--color-fg)",
                     cursor: props.entityId === null ? "default" : "pointer",
                   }}
                   onClick={() => {
@@ -221,7 +231,7 @@ function BlockWidget(props: BlockWidgetProps): JSX.Element {
           style={{
             "margin-top": "6px",
             "font-size": "0.85em",
-            color: "var(--color-fg-muted, #888)",
+            color: "var(--color-fg-muted)",
           }}
         >
           Not yet materialized — save the page to create the entity.
@@ -248,12 +258,13 @@ export function mountBlockWidgets(
 ): void {
   const kindIndex = buildBlockKindIndex(ctx.registry);
   if (kindIndex.all.length === 0) return;
-  // We can't read the session role from a registry alone — the post-
-  // render hook receives no session ctx. Default to "player" (hide gm
-  // actions); the editor view passes session via window.__mvttSession
-  // when present, used as a soft override for the standard widgets.
-  // A future enhancement plumbs session into the post-render ctx.
-  const isGm = readSessionRole() === "gm";
+  // Prefer the session passed through `MarkdownPostRenderContext` —
+  // NoteView wires it from `useMe()`. The legacy `__mvttSession`
+  // global stays as a fallback for any consumer that hasn't been
+  // updated to plumb session through yet (avoids regressing existing
+  // setups that relied on it).
+  const isGm =
+    ctx.session?.role === "gm" || readSessionRole() === "gm";
 
   // Each `<pre><code class="language-X">` is a candidate. We need to
   // know the *pageId* to derive the deterministic entity id, and the

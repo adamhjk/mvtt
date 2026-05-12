@@ -18,7 +18,7 @@
 import type { SeedFn, World, Registry } from "@vtt/substrate";
 import { runCatalogMerge, type CatalogTemplate, ItemCatalogIndex } from "@vtt/items/shared";
 import { seedCanonicalBookCatalog } from "@vtt/books/shared";
-import { Character, Team } from "@vtt/characters/shared";
+import { Active, Character, Team } from "@vtt/characters/shared";
 import { gmOnly, Permissions } from "@vtt/permissions/shared";
 import { TB_ITEM_TEMPLATES } from "./tb-items.generated.js";
 import { TB_CONFLICT_RESOURCE_TEMPLATES } from "./tb-conflict-resources.generated.js";
@@ -914,7 +914,16 @@ function runMonsterCatalogMerge(world: World, _registry: Registry): void {
         });
       }
     } else {
-      const newId = world.spawn(traitFactories);
+      // First-spawn-only: seed catalog templates as inactive so
+      // wiki-link targets / quantifiable encounter references exist
+      // without flooding the conflict pickers or helper rosters. The
+      // GM flips a template active when bringing it into play; we do
+      // NOT re-set Active during the re-merge loop above, so user
+      // flips survive subsequent reseeds.
+      const newId = world.spawn([
+        ...traitFactories,
+        { name: Active.name, value: { active: false } },
+      ]);
       entries[tmpl.id] = newId;
     }
   }
@@ -975,7 +984,12 @@ function runNpcCatalogMerge(world: World, _registry: Registry): void {
         });
       }
     } else {
-      const newId = world.spawn(traitFactories);
+      // First-spawn-only: seed NPC templates inactive (same rationale
+      // as monsters). GM flips active on bringing one into play.
+      const newId = world.spawn([
+        ...traitFactories,
+        { name: Active.name, value: { active: false } },
+      ]);
       entries[tmpl.id] = newId;
     }
   }

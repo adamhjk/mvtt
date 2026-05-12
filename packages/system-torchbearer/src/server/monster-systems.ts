@@ -16,7 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineSystem, type TraitName } from "@vtt/substrate";
-import { Character, Team } from "@vtt/characters/shared";
+import { Active, Character, Team } from "@vtt/characters/shared";
 import { gmOnly, Permissions } from "@vtt/permissions/shared";
 import { ItemIdentity } from "@vtt/items/shared";
 import { MonsterCreated, MonsterRemoved } from "../shared/monster-events.js";
@@ -78,6 +78,7 @@ export const MonsterSpawningSystem = defineSystem({
     Character,
     Permissions,
     Team,
+    Active,
     RawAbilities,
     TownAbilities,
     Conditions,
@@ -97,6 +98,11 @@ export const MonsterSpawningSystem = defineSystem({
       Character({ name: event.name }),
       Permissions({ read: gmOnly(), write: gmOnly() }),
       Team({ kind: "enemy" }),
+      // Newly-spawned monsters default to inactive — the GM brings
+      // them into play with the Active toggle. The conflict-declare
+      // inline Spawn button auto-activates after creation so the chip
+      // appears immediately for that explicit flow.
+      Active({ active: false }),
       RawAbilities({
         will: { rating: 0, advancement: { pass: 0, fail: 0 } },
         health: { rating: 0, advancement: { pass: 0, fail: 0 } },

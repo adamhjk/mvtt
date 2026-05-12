@@ -26,9 +26,9 @@ import { TbNpc } from "../npc-traits.js";
 import {
   buildCharacterTraitWrites,
   CharacterBlockSchema,
+  completeCharacterKeys,
   type CharacterBlockParsed,
 } from "./character.js";
-import { ALL_SKILLS } from "../skills.js";
 
 /**
  * Schema for the body of an `npc` fenced block — same surface as
@@ -109,14 +109,9 @@ export const npcBlockKind = defineBlockKind<NpcBlockParsed>({
   description: "TB named NPC — projects as Character + TbNpc",
   schema: NpcBlockSchema,
   project: (parsed, ctx) => projectNpc(parsed, ctx.info ?? "Unnamed", ctx),
-  // Same skill-key completion as `character`: typing inside `skills:`
-  // suggests every registered TB skill id with its display name.
-  complete: (path) => {
-    if (path.length === 1 && path[0] === "skills") {
-      return ALL_SKILLS.map((s) => ({ value: s.id, detail: s.name }));
-    }
-    return [];
-  },
+  // Share the character block's completion logic — skills inside
+  // `skills:`, body-slot vocabulary inside `carries.[].slot`.
+  complete: completeCharacterKeys,
   display: (entityId, world) => {
     const got = world.get(entityId, [Character, TbNpc]) as
       | { Character: { name: string }; TbNpc: { role: string } }

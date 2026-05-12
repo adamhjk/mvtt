@@ -36,8 +36,12 @@ export interface ItemRef {
  * first match wins. Authors who care can disambiguate by entity id
  * (which the autocomplete picker inserts post-normalisation).
  *
- * activate(): peek popover by default. Cmd-click could later route
- * to an item-details tab; for v1 a peek is enough.
+ * activate(): navigate to the Items tab targeting this entity. The
+ * notes dispatcher uses OpenPage semantics, so a click focuses an
+ * already-open Items tab pointed at this item, or opens a new one in
+ * the active pane if none exists. Mirrors `characterLinkKind`'s
+ * routing — every wiki-link kind that has a destination page should
+ * behave the same way.
  */
 export const itemLinkKind = defineLinkKind<ItemRef>({
   name: "item",
@@ -63,11 +67,9 @@ export const itemLinkKind = defineLinkKind<ItemRef>({
   },
   target: (ref) => ({ entityId: ref.itemId }),
   activate: (ref) => ({
-    // Peek shows a minimal item card. Full item-detail tab can be a
-    // later page-kind registration; for now the peek is enough to
-    // confirm the GM picked the right thing.
-    type: "peek",
-    render: () => `Item ${ref.itemId}`,
+    type: "navigate",
+    pageKind: "@vtt/items/items",
+    entityId: ref.itemId,
   }),
   autocomplete: (query, world) => {
     const needle = query.trim().toLowerCase();

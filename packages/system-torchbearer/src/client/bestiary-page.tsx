@@ -17,12 +17,12 @@
 
 import { type CommandInstance } from "@vtt/substrate";
 import { useClient, useQuery } from "@vtt/substrate/client";
-import { Character } from "@vtt/characters/shared";
+import { Active, Character, isActive } from "@vtt/characters/shared";
 import {
   definePageProvider,
   RetargetTab,
 } from "@vtt/shell-workbench/shared";
-import { kit } from "@vtt/characters/client";
+import { ActiveToggle, kit } from "@vtt/characters/client";
 import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
   CreateBlankMonster,
@@ -36,6 +36,7 @@ import {
   BestiaryRack,
   BestiarySearchInput,
   filterCatalogByQuery,
+  fuzzyMatch,
 } from "./bestiary-picker.js";
 import { MonsterSheet } from "./monster-sheet.js";
 
@@ -98,19 +99,48 @@ function BestiaryPage(props: {
  * and disabled for non-GMs (the command would fail validation anyway,
  * but mirroring the gate in the UI avoids surprise rejections).
  */
+interface MonsterRow {
+  readonly id: string;
+  readonly name: string;
+  readonly type: string;
+  readonly active: boolean;
+}
+
 function BestiaryHub(props: { tabId: string }): JSX.Element {
   const client = useClient();
   const me = kit.useMe();
   const monsterRows = useQuery([Character, TbMonster]);
+  // Subscribe to Active writes so the active/inactive grouping
+  // re-renders when the GM flips a toggle.
+  const activeRows = useQuery([Active]);
 
-  const monsters = createMemo(() =>
-    monsterRows()
+  // All monsters, normalised + sorted alphabetically. Active state is
+  // read via `isActive` so legacy entities without the trait surface
+  // as active (BC default).
+  const monsters = createMemo<MonsterRow[]>(() => {
+    activeRows();
+    return monsterRows()
       .map((row) => ({
-        id: row.id,
+        id: row.id as string,
         name: (row.values.Character as { name: string }).name,
         type: (row.values.TbMonster as { type: string }).type,
+        active: isActive(client.world, row.id),
       }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
+      .sort((a, b) => a.name.localeCompare(b.name));
+  });
+
+  // Free-text fuzzy filter — same subsequence matcher the catalog
+  // picker uses, applied to monster names. Empty query passes
+  // everything through.
+  const [query, setQuery] = createSignal("");
+  const filtered = createMemo<MonsterRow[]>(() => {
+    const q = query().trim();
+    if (q.length === 0) return monsters();
+    return monsters().filter((m) => fuzzyMatch(m.name, q));
+  });
+  const activeMonsters = createMemo(() => filtered().filter((m) => m.active));
+  const inactiveMonsters = createMemo(() =>
+    filtered().filter((m) => !m.active),
   );
 
   const isGm = createMemo(() => me()?.role === "gm");
@@ -129,6 +159,43 @@ function BestiaryHub(props: { tabId: string }): JSX.Element {
     if (!window.confirm(`Remove "${name}"?`)) return;
     client.dispatch(RemoveMonster({ monsterId }) as CommandInstance);
   };
+
+  const renderRow = (m: MonsterRow): JSX.Element => (
+    <li
+      class="group flex items-center gap-3 rounded-(--radius-control) border border-border-muted bg-surface-elevated px-3 py-2"
+      data-testid={`bestiary-row-${m.id}`}
+    >
+      <button
+        type="button"
+        onClick={() => open(m.id)}
+        class="flex-1 truncate text-left text-sm text-fg hover:text-accent transition"
+        title="Open this monster"
+      >
+        {m.name}
+      </button>
+      <span class="font-mono text-[0.6rem] text-fg-subtle">{m.type}</span>
+      <Show when={isGm()}>
+        <ActiveToggle characterId={m.id} />
+      </Show>
+      <button
+        type="button"
+        onClick={() => open(m.id)}
+        class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-[0.65rem] text-fg-muted hover:border-accent hover:text-fg transition"
+      >
+        Open
+      </button>
+      <Show when={isGm()}>
+        <button
+          type="button"
+          onClick={() => remove(m.id, m.name)}
+          class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-[0.65rem] text-fg-subtle hover:border-danger hover:text-danger transition"
+          title={`Remove "${m.name}"`}
+        >
+          Remove
+        </button>
+      </Show>
+    </li>
+  );
 
   return (
     <div class="flex h-full items-start justify-center overflow-y-auto py-10">
@@ -164,45 +231,58 @@ function BestiaryHub(props: { tabId: string }): JSX.Element {
               Bestiary
             </h2>
             <span class="font-display text-[0.62rem] uppercase tracking-[0.16em] text-fg-subtle">
-              {monsters().length} total
+              {activeMonsters().length} active · {inactiveMonsters().length} inactive
             </span>
           </header>
-          <ul class="flex flex-col gap-1">
-            <For each={monsters()}>
-              {(m) => (
-                <li class="group flex items-center gap-3 rounded-(--radius-control) border border-border-muted bg-surface-elevated px-3 py-2">
-                  <button
-                    type="button"
-                    onClick={() => open(m.id)}
-                    class="flex-1 truncate text-left text-sm text-fg hover:text-accent transition"
-                    title="Open this monster"
-                  >
-                    {m.name}
-                  </button>
-                  <span class="font-mono text-[0.6rem] text-fg-subtle">
-                    {m.type}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => open(m.id)}
-                    class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-[0.65rem] text-fg-muted hover:border-accent hover:text-fg transition"
-                  >
-                    Open
-                  </button>
-                  <Show when={isGm()}>
-                    <button
-                      type="button"
-                      onClick={() => remove(m.id, m.name)}
-                      class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-[0.65rem] text-fg-subtle hover:border-danger hover:text-danger transition"
-                      title={`Remove "${m.name}"`}
-                    >
-                      Remove
-                    </button>
-                  </Show>
-                </li>
-              )}
-            </For>
-          </ul>
+
+          <FilterInput
+            query={query}
+            setQuery={setQuery}
+            placeholder="filter by name…"
+            testid="bestiary-filter"
+          />
+
+          <Show
+            when={filtered().length > 0}
+            fallback={
+              <p
+                class="text-center text-xs text-fg-subtle italic"
+                data-testid="bestiary-empty"
+              >
+                No monsters match "{query()}".
+              </p>
+            }
+          >
+            <Show when={activeMonsters().length > 0}>
+              <section class="flex flex-col gap-2">
+                <SectionHeader
+                  label="Active"
+                  count={activeMonsters().length}
+                />
+                <ul
+                  class="flex flex-col gap-1"
+                  data-testid="bestiary-active-list"
+                >
+                  <For each={activeMonsters()}>{renderRow}</For>
+                </ul>
+              </section>
+            </Show>
+            <Show when={inactiveMonsters().length > 0}>
+              <section class="flex flex-col gap-2">
+                <SectionHeader
+                  label="Inactive"
+                  count={inactiveMonsters().length}
+                />
+                <ul
+                  class="flex flex-col gap-1"
+                  data-testid="bestiary-inactive-list"
+                >
+                  <For each={inactiveMonsters()}>{renderRow}</For>
+                </ul>
+              </section>
+            </Show>
+          </Show>
+
           <Show when={isGm()}>
             <div class="mt-2 flex flex-col gap-3 border-t border-border-muted pt-5">
               <h3 class="font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle">
@@ -214,6 +294,58 @@ function BestiaryHub(props: { tabId: string }): JSX.Element {
         </Show>
       </div>
     </div>
+  );
+}
+
+/**
+ * Section divider above each grouped chunk (Active / Inactive).
+ * Kept here rather than the kit so the styling matches the local
+ * "Spawn from catalog" subhead literally — one place, one rule.
+ */
+function SectionHeader(props: { label: string; count: number }): JSX.Element {
+  return (
+    <header class="flex items-baseline justify-between">
+      <h3 class="font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle">
+        {props.label}
+      </h3>
+      <span class="font-mono text-[0.6rem] text-fg-subtle tabular-nums">
+        {props.count}
+      </span>
+    </header>
+  );
+}
+
+/**
+ * Plain filter input shared by the Bestiary + NPCs lists. No
+ * roving selection (that's the catalog picker's job); this is just a
+ * filter field that pushes its value into the parent's `query`
+ * signal. Escape clears the filter.
+ */
+function FilterInput(props: {
+  query: () => string;
+  setQuery: (next: string) => void;
+  placeholder: string;
+  testid: string;
+}): JSX.Element {
+  return (
+    <input
+      type="text"
+      value={props.query()}
+      placeholder={props.placeholder}
+      onInput={(e) => props.setQuery(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") props.setQuery("");
+      }}
+      data-testid={props.testid}
+      autocomplete="off"
+      spellcheck={false}
+      name={props.testid}
+      data-1p-ignore="true"
+      data-lpignore="true"
+      data-bwignore="true"
+      data-form-type="other"
+      class="w-full rounded-(--radius-control) border border-border-muted bg-surface px-3 py-1.5 text-sm text-fg outline-none focus:border-accent transition-colors"
+    />
   );
 }
 
