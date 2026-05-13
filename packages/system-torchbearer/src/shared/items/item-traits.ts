@@ -110,6 +110,26 @@ export const TbSupply = defineTrait({
 });
 
 /**
+ * TbLiquidVessel — marks an item entity as a vessel that can hold
+ * a liquid (waterskin, wineskin, bottle, jug, canteen). `contents`
+ * tracks what's currently in it; combined with the entity's
+ * `ItemBundle.count` (current draughts) and `capacity` (max
+ * draughts) the inventory UI renders a pip strip plus a contents
+ * dropdown.
+ *
+ * Pure tracking — no rules logic is hung off this trait. Players
+ * change contents and pip count directly via `EditItemField`. An
+ * empty vessel stays in inventory (count: 0) until the player
+ * drops or destroys it.
+ */
+export const TbLiquidVessel = defineTrait({
+  name: "@vtt/system-torchbearer/TbLiquidVessel",
+  schema: z.object({
+    contents: z.enum(["water", "wine", "other", "empty"]).default("empty"),
+  }),
+});
+
+/**
  * TbContainer — pack, sack, pouch, quiver, satchel, chest.
  * `containerSlots` is the internal capacity. `containerType` is a
  * descriptive tag mirroring the Foundry data (backpack / smallSack /

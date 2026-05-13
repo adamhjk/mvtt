@@ -54,14 +54,31 @@ export interface TbItemTemplate {
   readonly specialRules: string;
   /**
    * Bundle/stack info for items that come in fixed-size groups
-   * (e.g. torches: pack 1 for 4 torches; iron spikes: pack 1 for
-   * 6 spikes; small sacks: pack 1 for 2 empty sacks). When set,
-   * the seed materialises an ItemBundle trait with the given
-   * count + capacity. Bottles, jugs, rations etc. are NOT bundles
-   * — they hold doses/portions/draughts that are consumed one
-   * at a time and refilled, modelled by TbSupply.turnsRemaining.
+   * AND for consumables-with-uses (rations, oil flasks, holy
+   * water vials, draughts in a vessel). When set, the seed
+   * materialises an ItemBundle trait with the given count +
+   * capacity. The inventory UI renders a pip strip for any
+   * entity that carries ItemBundle and lets the player click a
+   * pip to set the count directly.
+   *
+   * Light sources (torches, lantern) stay on TbSupply +
+   * state.turnsRemaining for their separate turn-of-fuel
+   * mechanic; an outer "pack of N torches" can still be a bundle
+   * here while each individual lit torch tracks fuel via
+   * TbSupply.
    */
   readonly bundle?: { count: number; capacity: number };
+  /**
+   * Liquid-vessel info — set on waterskin/wineskin/bottle/jug/
+   * canteen templates to declare that the entity is a vessel
+   * that holds a liquid. `defaultContents` seeds the entity's
+   * TbLiquidVessel trait; the player can change it later.
+   * Vessels also carry a `bundle` of `{count: N, capacity: N}`
+   * for their max draughts.
+   */
+  readonly liquid?: {
+    readonly defaultContents: "water" | "wine" | "other" | "empty";
+  };
   readonly kind:
     | { type: "gear" }
     | { type: "armor"; armorType: string; absorbs: number }

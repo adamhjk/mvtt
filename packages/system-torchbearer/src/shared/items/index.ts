@@ -30,6 +30,7 @@ export {
   TbContainer,
   TbItemSlotOptions,
   TbItemSpecialRules,
+  TbLiquidVessel,
   TbSkillBonuses,
   TbSupply,
   TbWeapon,

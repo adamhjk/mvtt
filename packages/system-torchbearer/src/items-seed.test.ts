@@ -19,6 +19,7 @@ import { describe, it, expect } from "vitest";
 import { definePlugin, Registry, World } from "@vtt/substrate";
 import { items } from "@vtt/items";
 import {
+  ItemBundle,
   ItemCatalogIndex,
   ItemDerivedFrom,
   ItemIdentity,
@@ -29,6 +30,7 @@ import {
   TbContainer,
   TbItemSlotOptions,
   TbItemSpecialRules,
+  TbLiquidVessel,
   TbSkillBonuses,
   TbSupply,
   TbWeapon,
@@ -106,6 +108,7 @@ const tbItemsTestPlugin = definePlugin({
     TbArmor,
     TbSupply,
     TbContainer,
+    TbLiquidVessel,
     TbSkillBonuses,
     TbItemSpecialRules,
     TbCarries,
@@ -298,5 +301,223 @@ describe("TB items catalog → seed", () => {
       ItemIdentity: { name: string };
     };
     expect(ident.ItemIdentity.name).toBe(target.name + " (Reforged)");
+  });
+
+  describe("consumable / liquid-vessel seeding", () => {
+    function findCatalogEntity(world: World, templateId: string): string {
+      const idx = world.query([ItemCatalogIndex])[0]!.values
+        .ItemCatalogIndex as { entries: Record<string, string> };
+      const eid = idx.entries[templateId];
+      if (!eid) throw new Error(`no entity for templateId ${templateId}`);
+      return eid;
+    }
+
+    it("Rations Fresh seeds with ItemBundle 2/2 and no TbContainer", () => {
+      const registry = buildRegistry();
+      const world = new World();
+      tbSeed({ world, registry });
+      const eid = findCatalogEntity(
+        world,
+        "tb/food-and-drink/rations-fresh-b1c2d3",
+      );
+      const bundle = world.get(eid as never, [ItemBundle]) as {
+        ItemBundle: { count: number; capacity: number };
+      };
+      expect(bundle.ItemBundle).toEqual({ count: 2, capacity: 2 });
+      expect(world.get(eid as never, [TbContainer])).toBeUndefined();
+    });
+
+    it("Rations Preserved seeds with ItemBundle 3/3", () => {
+      const registry = buildRegistry();
+      const world = new World();
+      tbSeed({ world, registry });
+      const eid = findCatalogEntity(
+        world,
+        "tb/food-and-drink/rations-preserved-b1c2d3",
+      );
+      const bundle = world.get(eid as never, [ItemBundle]) as {
+        ItemBundle: { count: number; capacity: number };
+      };
+      expect(bundle.ItemBundle).toEqual({ count: 3, capacity: 3 });
+    });
+
+    it("Bottle seeds with bundle 2/2 + TbLiquidVessel empty + no TbContainer", () => {
+      const registry = buildRegistry();
+      const world = new World();
+      tbSeed({ world, registry });
+      const eid = findCatalogEntity(world, "tb/containers/bottle-a1b2c3");
+      const bundle = world.get(eid as never, [ItemBundle]) as {
+        ItemBundle: { count: number; capacity: number };
+      };
+      expect(bundle.ItemBundle).toEqual({ count: 2, capacity: 2 });
+      const vessel = world.get(eid as never, [TbLiquidVessel]) as {
+        TbLiquidVessel: { contents: string };
+      };
+      expect(vessel.TbLiquidVessel.contents).toBe("empty");
+      expect(world.get(eid as never, [TbContainer])).toBeUndefined();
+    });
+
+    it("Waterskin seeds with bundle 1/1 + TbLiquidVessel water + no TbContainer", () => {
+      const registry = buildRegistry();
+      const world = new World();
+      tbSeed({ world, registry });
+      const eid = findCatalogEntity(world, "tb/containers/waterskin-a1b2c3");
+      const bundle = world.get(eid as never, [ItemBundle]) as {
+        ItemBundle: { count: number; capacity: number };
+      };
+      expect(bundle.ItemBundle).toEqual({ count: 1, capacity: 1 });
+      const vessel = world.get(eid as never, [TbLiquidVessel]) as {
+        TbLiquidVessel: { contents: string };
+      };
+      expect(vessel.TbLiquidVessel.contents).toBe("water");
+      expect(world.get(eid as never, [TbContainer])).toBeUndefined();
+    });
+
+    it("Jug seeds with bundle 3/3 + TbLiquidVessel empty", () => {
+      const registry = buildRegistry();
+      const world = new World();
+      tbSeed({ world, registry });
+      const eid = findCatalogEntity(world, "tb/containers/jug-a1b2c3");
+      const bundle = world.get(eid as never, [ItemBundle]) as {
+        ItemBundle: { count: number; capacity: number };
+      };
+      expect(bundle.ItemBundle).toEqual({ count: 3, capacity: 3 });
+      const vessel = world.get(eid as never, [TbLiquidVessel]) as {
+        TbLiquidVessel: { contents: string };
+      };
+      expect(vessel.TbLiquidVessel.contents).toBe("empty");
+    });
+
+    it("Wooden Canteen seeds with bundle 2/2 + TbLiquidVessel water (LMM p.81)", () => {
+      const registry = buildRegistry();
+      const world = new World();
+      tbSeed({ world, registry });
+      const eid = findCatalogEntity(
+        world,
+        "tb/containers/wooden-canteen-a1b2c3",
+      );
+      const bundle = world.get(eid as never, [ItemBundle]) as {
+        ItemBundle: { count: number; capacity: number };
+      };
+      expect(bundle.ItemBundle).toEqual({ count: 2, capacity: 2 });
+    });
+
+    it("Clay Pot seeds with bundle 1/1 + TbLiquidVessel empty", () => {
+      const registry = buildRegistry();
+      const world = new World();
+      tbSeed({ world, registry });
+      const eid = findCatalogEntity(world, "tb/containers/clay-pot-a1b2c3");
+      const bundle = world.get(eid as never, [ItemBundle]) as {
+        ItemBundle: { count: number; capacity: number };
+      };
+      expect(bundle.ItemBundle).toEqual({ count: 1, capacity: 1 });
+    });
+
+    it("Holy Water Vials seed with bundle 3/3", () => {
+      const registry = buildRegistry();
+      const world = new World();
+      tbSeed({ world, registry });
+      const eid = findCatalogEntity(
+        world,
+        "tb/magical-religious/holy-water-vials-8a7b6c",
+      );
+      const bundle = world.get(eid as never, [ItemBundle]) as {
+        ItemBundle: { count: number; capacity: number };
+      };
+      expect(bundle.ItemBundle).toEqual({ count: 3, capacity: 3 });
+    });
+
+    it("Flasks of Oil seed with bundle 2/2", () => {
+      const registry = buildRegistry();
+      const world = new World();
+      tbSeed({ world, registry });
+      const eid = findCatalogEntity(
+        world,
+        "tb/equipment/flasks-of-oil-a3b4c5",
+      );
+      const bundle = world.get(eid as never, [ItemBundle]) as {
+        ItemBundle: { count: number; capacity: number };
+      };
+      expect(bundle.ItemBundle).toEqual({ count: 2, capacity: 2 });
+    });
+
+    it("Cask of Wine seeds with bundle 4/4 + TbLiquidVessel wine", () => {
+      const registry = buildRegistry();
+      const world = new World();
+      tbSeed({ world, registry });
+      const eid = findCatalogEntity(world, "tb/bulk-goods/cask-of-wine-c3d4e5");
+      const bundle = world.get(eid as never, [ItemBundle]) as {
+        ItemBundle: { count: number; capacity: number };
+      };
+      expect(bundle.ItemBundle).toEqual({ count: 4, capacity: 4 });
+      const vessel = world.get(eid as never, [TbLiquidVessel]) as {
+        TbLiquidVessel: { contents: string };
+      };
+      expect(vessel.TbLiquidVessel.contents).toBe("wine");
+    });
+
+    it("Tun of Wine seeds with bundle 16/16 + TbLiquidVessel wine", () => {
+      const registry = buildRegistry();
+      const world = new World();
+      tbSeed({ world, registry });
+      const eid = findCatalogEntity(world, "tb/bulk-goods/tun-of-wine-c3d4e5");
+      const bundle = world.get(eid as never, [ItemBundle]) as {
+        ItemBundle: { count: number; capacity: number };
+      };
+      expect(bundle.ItemBundle.capacity).toBe(16);
+    });
+
+    it("Stakes and Mallet seeds with bundle 3/3", () => {
+      const registry = buildRegistry();
+      const world = new World();
+      tbSeed({ world, registry });
+      const eid = findCatalogEntity(
+        world,
+        "tb/magical-religious/stakes-and-mallet-8a7b6c",
+      );
+      const bundle = world.get(eid as never, [ItemBundle]) as {
+        ItemBundle: { count: number; capacity: number };
+      };
+      expect(bundle.ItemBundle).toEqual({ count: 3, capacity: 3 });
+    });
+
+    it("Upgrade pass strips legacy TbContainer from existing bottle entities", () => {
+      const registry = buildRegistry();
+      const world = new World();
+      // First boot: simulate the OLD shape — spawn a "bottle" entity
+      // with TbContainer but no ItemBundle/TbLiquidVessel, register it
+      // in the catalog index under the bottle templateId.
+      const legacyId = world.spawn([
+        ItemIdentity({ name: "Bottle" }),
+        TbItemSlotOptions({ options: { carried: 1, pack: 2 } }),
+        TbContainer({ containerType: "bottle", containerSlots: 0 }),
+      ]);
+      // Hand-craft the catalog index pointing at the legacy entity.
+      world.spawn([
+        ItemCatalogIndex({
+          pluginName: "@vtt/system-torchbearer",
+          entries: { "tb/containers/bottle-a1b2c3": legacyId },
+        }),
+      ]);
+      // Mark it as catalog-derived so the merge engine treats it as
+      // existing (otherwise it'd spawn a duplicate).
+      world.set(legacyId as never, ItemDerivedFrom, {
+        templateId: "tb/containers/bottle-a1b2c3",
+        pluginName: "@vtt/system-torchbearer",
+        overrides: [],
+      });
+      // Now run the seed — should ADD ItemBundle + TbLiquidVessel
+      // AND remove the stale TbContainer.
+      tbSeed({ world, registry });
+      expect(world.get(legacyId as never, [TbContainer])).toBeUndefined();
+      const bundle = world.get(legacyId as never, [ItemBundle]) as
+        | { ItemBundle: { count: number; capacity: number } }
+        | undefined;
+      expect(bundle?.ItemBundle).toEqual({ count: 2, capacity: 2 });
+      const vessel = world.get(legacyId as never, [TbLiquidVessel]) as
+        | { TbLiquidVessel: { contents: string } }
+        | undefined;
+      expect(vessel?.TbLiquidVessel.contents).toBe("empty");
+    });
   });
 });

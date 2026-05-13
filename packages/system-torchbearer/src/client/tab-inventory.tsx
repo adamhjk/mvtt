@@ -34,6 +34,7 @@ import {
 import {
   CustomizeItem,
   DestroyItem,
+  EditItemField,
   ItemBundle,
   ItemCatalogIndex,
   ItemDerivedFrom,
@@ -80,6 +81,7 @@ import {
   TbCarries,
   TbContainer,
   TbItemSlotOptions,
+  TbLiquidVessel,
   TbSupply,
   UnequipItem,
   summarizeCapacity,
@@ -1592,6 +1594,9 @@ function ItemRow(props: {
     return isContainer() &&
       containerHasLiveContents(client.world, props.entry.itemId);
   });
+  const liquidVessel = useTrait(props.entry.itemId, TbLiquidVessel) as () =>
+    | { contents: "water" | "wine" | "other" | "empty" }
+    | undefined;
   const [openPicker, setOpenPicker] = createSignal<string | null>(null);
   const [peekOpen, setPeekOpen] = createSignal(false);
 
@@ -1684,6 +1689,59 @@ function ItemRow(props: {
       SplitItemBundle({
         itemId: props.entry.itemId,
         count: 1,
+      }) as CommandInstance,
+    );
+  };
+  /**
+   * Resolve the item id to edit: if the row currently points at a
+   * shared catalog template, fork once and rebind the entry, then
+   * return the fork id. Same pattern as `editItem` — without this
+   * step, an edit on a catalog entity would silently mutate every
+   * character's copy. Subsequent edits route to the already-forked
+   * entity and skip the round-trip.
+   */
+  const ensureForkedItemId = async (): Promise<EntityId> => {
+    const sourceId = props.entry.itemId;
+    if (!isCatalogTemplate(client.world, sourceId)) return sourceId;
+    const handle = client.dispatch(
+      CustomizeItem({
+        sourceItemId: sourceId,
+        holderId: props.characterId as EntityId,
+        entryIndex: props.entryIndex,
+      }) as CommandInstance,
+    );
+    await handle.ack;
+    const got = client.world.get(props.characterId as EntityId, [TbCarries]) as
+      | { TbCarries: { entries: ReadonlyArray<{ itemId: string }> } }
+      | undefined;
+    const reboundId = got?.TbCarries.entries[props.entryIndex]?.itemId;
+    return ((reboundId as EntityId | undefined) ?? sourceId);
+  };
+  const setBundleCount = async (next: number): Promise<void> => {
+    const got = bundle();
+    if (!got) return;
+    const clamped = Math.max(0, Math.min(got.capacity, Math.floor(next)));
+    if (clamped === got.count) return;
+    const targetId = await ensureForkedItemId();
+    void client.dispatch(
+      EditItemField({
+        itemId: targetId,
+        path: "ItemBundle.count",
+        value: clamped,
+      }) as CommandInstance,
+    );
+  };
+  const setVesselContents = async (
+    next: "water" | "wine" | "other" | "empty",
+  ): Promise<void> => {
+    const current = liquidVessel()?.contents;
+    if (current === next) return;
+    const targetId = await ensureForkedItemId();
+    void client.dispatch(
+      EditItemField({
+        itemId: targetId,
+        path: "TbLiquidVessel.contents",
+        value: next,
       }) as CommandInstance,
     );
   };
@@ -1904,13 +1962,98 @@ function ItemRow(props: {
           </small>
         </Show>
         <Show when={bundle()}>
-          <small
-            style={{ color: "var(--color-fg-subtle)" }}
-            title={`Bundle: ${bundle()!.count} of ${bundle()!.capacity}`}
-            data-testid={`bundle-count-${props.entry.itemId}-${props.entryIndex}`}
-          >
-            ×{bundle()!.count}/{bundle()!.capacity}
-          </small>
+          {(bAcc) => (
+            <span
+              style={{
+                display: "inline-flex",
+                "align-items": "center",
+                gap: "0.25rem",
+              }}
+              data-testid={`bundle-pips-${props.entry.itemId}-${props.entryIndex}`}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  gap: "0.15rem",
+                  "align-items": "center",
+                  "font-family": "var(--font-mono, monospace)",
+                  "line-height": 1,
+                  "user-select": "none",
+                }}
+                title={`${bAcc().count} of ${bAcc().capacity} remaining`}
+              >
+                <For each={Array.from({ length: bAcc().capacity })}>
+                  {(_, i) => {
+                    const filled = (): boolean => i() < bAcc().count;
+                    const targetCount = (): number =>
+                      filled() ? i() : i() + 1;
+                    return (
+                      <button
+                        type="button"
+                        disabled={!canEdit()}
+                        onClick={() => void setBundleCount(targetCount())}
+                        data-testid={`pip-${props.entry.itemId}-${props.entryIndex}-${i()}`}
+                        title={
+                          filled()
+                            ? `Set to ${targetCount()}/${bAcc().capacity} (mark used)`
+                            : `Set to ${targetCount()}/${bAcc().capacity} (restore)`
+                        }
+                        style={{
+                          all: "unset",
+                          cursor: canEdit() ? "pointer" : "default",
+                          width: "0.7rem",
+                          height: "0.7rem",
+                          "border-radius": "50%",
+                          border: "1px solid var(--color-fg-subtle)",
+                          background: filled()
+                            ? "var(--color-fg)"
+                            : "transparent",
+                          opacity: filled() ? 1 : 0.45,
+                        }}
+                      />
+                    );
+                  }}
+                </For>
+              </span>
+              <small
+                style={{ color: "var(--color-fg-subtle)" }}
+                data-testid={`bundle-count-${props.entry.itemId}-${props.entryIndex}`}
+              >
+                {bAcc().count}/{bAcc().capacity}
+              </small>
+            </span>
+          )}
+        </Show>
+        <Show when={liquidVessel()}>
+          {(lAcc) => (
+            <select
+              disabled={!canEdit()}
+              value={lAcc().contents}
+              data-testid={`liquid-${props.entry.itemId}-${props.entryIndex}`}
+              title="What this vessel currently holds"
+              onChange={(e) => {
+                const v = e.currentTarget.value as
+                  | "water"
+                  | "wine"
+                  | "other"
+                  | "empty";
+                void setVesselContents(v);
+              }}
+              style={{
+                "font-size": "0.75rem",
+                padding: "0.05rem 0.2rem",
+                border: "1px solid var(--color-border)",
+                background: "var(--color-surface)",
+                "border-radius": "0.2rem",
+                color: "var(--color-fg-subtle)",
+              }}
+            >
+              <option value="water">water</option>
+              <option value="wine">wine</option>
+              <option value="other">other</option>
+              <option value="empty">empty</option>
+            </select>
+          )}
         </Show>
         <Show when={props.entry.state?.damaged}>
           <small style={{ color: "var(--color-warning)" }} title="Damaged">

@@ -92,14 +92,21 @@ export const ItemDerivedFrom = defineTrait({
  * N units off into a freshly forked entity that carries the same
  * traits — same name, same kind — but with `count = N`.
  *
- * Distinct from supplies-with-charges (TbSupply.turnsRemaining
- * for things like rations / bottles / lanterns): those track how
- * much of one consumable is left and are never split.
+ * `count` may be 0 — empty containers/bundles persist as inventory
+ * entries until the player explicitly drops or destroys them (an
+ * empty jug of wine is still a jug). Splitting still requires
+ * leaving at least 1 unit on the source via `SplitItemBundle`'s
+ * own validator.
+ *
+ * Also used for consumables-with-uses (rations, oil flasks,
+ * holy water vials, draughts in a vessel): each unit is one use,
+ * `capacity` is the rules-as-written maximum, and the user clicks
+ * pips in the inventory UI to set `count` directly.
  */
 export const ItemBundle = defineTrait({
   name: "@vtt/items/ItemBundle",
   schema: z.object({
-    count: z.number().int().min(1).max(99),
+    count: z.number().int().min(0).max(99),
     capacity: z.number().int().min(1).max(99),
   }),
 });

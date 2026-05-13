@@ -22,9 +22,11 @@ import { buildCharacterHarness, mountWithClient } from "@vtt/characters/testing"
 import { items } from "@vtt/items";
 import {
   CustomizeItem,
+  EditItemField,
   ItemBundle,
   ItemEconomics,
   ItemIdentity,
+  ItemFieldChanged,
   JoinItemBundles,
   SplitItemBundle,
   runCatalogMerge,
@@ -37,6 +39,7 @@ import {
   TbArmor,
   TbSupply,
   TbContainer,
+  TbLiquidVessel,
   TbSkillBonuses,
   TbItemSpecialRules,
   ItemPosition,
@@ -86,6 +89,7 @@ const tbItemsTestPlugin = definePlugin({
     TbArmor,
     TbSupply,
     TbContainer,
+    TbLiquidVessel,
     TbSkillBonuses,
     TbItemSpecialRules,
     TbCarries,
@@ -1429,13 +1433,13 @@ describe("Bundle items in the inventory", () => {
     return { ...h, torchId };
   }
 
-  it("renders ×count/capacity next to a stacked item's name", () => {
+  it("renders count/capacity next to a stacked item's name", () => {
     const h = setupTorches({ count: 4, capacity: 4 });
     mountWithClient(h, () =>
       TbInventoryTabFill.render({ characterId: h.characterId }) as never,
     );
     const badge = screen.getByTestId(`bundle-count-${h.torchId}-0`);
-    expect(badge.textContent).toContain("×4/4");
+    expect(badge.textContent).toBe("4/4");
   });
 
   it("Split 1 dispatches SplitItemBundle and the holder ends up with two carries entries", async () => {
@@ -2155,4 +2159,243 @@ describe("Bundle items in the inventory", () => {
       expect(screen.queryByTestId(`value-${h.items.swordId}-0`)).toBeNull();
     });
   });
+
+  describe("consumable pip strip", () => {
+    function spawnRation(
+      world: import("@vtt/substrate").World,
+      capacity = 3,
+      count = capacity,
+    ): EntityId {
+      return world.spawn([
+        ItemIdentity({ name: "Rations, Preserved" }),
+        TbItemSlotOptions({ options: { pocket: 1, pack: 1 } }),
+        ItemBundle({ count, capacity }),
+      ]);
+    }
+
+    it("renders one pip per capacity unit, filled per count", () => {
+      let rationId: EntityId = "" as EntityId;
+      const h = buildCharacterHarness({
+        asGm: true,
+        plugins: [items, tbItemsTestPlugin],
+        setupWorld: ({ world, characterId }) => {
+          rationId = spawnRation(world, 3, 2);
+          world.set(characterId, TbCarries, {
+            entries: [
+              {
+                slot: "pocket",
+                slotIndex: 0,
+                channel: "default",
+                slotsConsumed: 1,
+                itemId: rationId,
+                quantity: 1,
+              },
+            ],
+          });
+        },
+      });
+      mountWithClient(h, () =>
+        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
+      );
+      expect(screen.getByTestId(`pip-${rationId}-0-0`)).toBeInTheDocument();
+      expect(screen.getByTestId(`pip-${rationId}-0-1`)).toBeInTheDocument();
+      expect(screen.getByTestId(`pip-${rationId}-0-2`)).toBeInTheDocument();
+      expect(screen.queryByTestId(`pip-${rationId}-0-3`)).toBeNull();
+      expect(screen.getByTestId(`bundle-count-${rationId}-0`).textContent).toBe(
+        "2/3",
+      );
+    });
+
+    it("clicking a filled pip drops the count to that index", async () => {
+      let rationId: EntityId = "" as EntityId;
+      const h = buildCharacterHarness({
+        asGm: true,
+        plugins: [items, tbItemsTestPlugin],
+        setupWorld: ({ world, characterId }) => {
+          rationId = spawnRation(world, 3, 3);
+          world.set(characterId, TbCarries, {
+            entries: [
+              {
+                slot: "pocket",
+                slotIndex: 0,
+                channel: "default",
+                slotsConsumed: 1,
+                itemId: rationId,
+                quantity: 1,
+              },
+            ],
+          });
+        },
+      });
+      mountWithClient(h, () =>
+        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
+      );
+      // Clicking the 2nd filled pip (index 1) drops count to 1.
+      fireEvent.click(screen.getByTestId(`pip-${rationId}-0-1`));
+      await waitFor(() => {
+        const dispatched = h.dispatched.find(
+          (d) =>
+            d.type === EditItemField.name &&
+            (d.payload as { path: string }).path === "ItemBundle.count",
+        );
+        expect(dispatched).toBeDefined();
+        expect((dispatched!.payload as { value: number }).value).toBe(1);
+      });
+    });
+
+    it("clicking a hollow pip restores the count to that index + 1", async () => {
+      let rationId: EntityId = "" as EntityId;
+      const h = buildCharacterHarness({
+        asGm: true,
+        plugins: [items, tbItemsTestPlugin],
+        setupWorld: ({ world, characterId }) => {
+          rationId = spawnRation(world, 3, 1);
+          world.set(characterId, TbCarries, {
+            entries: [
+              {
+                slot: "pocket",
+                slotIndex: 0,
+                channel: "default",
+                slotsConsumed: 1,
+                itemId: rationId,
+                quantity: 1,
+              },
+            ],
+          });
+        },
+      });
+      mountWithClient(h, () =>
+        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
+      );
+      // Clicking the 3rd (hollow) pip (index 2) restores to count 3.
+      fireEvent.click(screen.getByTestId(`pip-${rationId}-0-2`));
+      await waitFor(() => {
+        const dispatched = h.dispatched.find(
+          (d) =>
+            d.type === EditItemField.name &&
+            (d.payload as { path: string }).path === "ItemBundle.count" &&
+            (d.payload as { value: unknown }).value === 3,
+        );
+        expect(dispatched).toBeDefined();
+      });
+    });
+  });
+
+  describe("liquid vessel contents", () => {
+    function spawnBottle(
+      world: import("@vtt/substrate").World,
+      contents: "water" | "wine" | "other" | "empty" = "wine",
+      count = 2,
+    ): EntityId {
+      return world.spawn([
+        ItemIdentity({ name: "Bottle" }),
+        TbItemSlotOptions({ options: { pocket: 1, pack: 2 } }),
+        ItemBundle({ count, capacity: 2 }),
+        TbLiquidVessel({ contents }),
+      ]);
+    }
+
+    it("renders a contents dropdown reflecting TbLiquidVessel.contents", () => {
+      let bottleId: EntityId = "" as EntityId;
+      const h = buildCharacterHarness({
+        asGm: true,
+        plugins: [items, tbItemsTestPlugin],
+        setupWorld: ({ world, characterId }) => {
+          bottleId = spawnBottle(world, "wine", 2);
+          world.set(characterId, TbCarries, {
+            entries: [
+              {
+                slot: "pocket",
+                slotIndex: 0,
+                channel: "default",
+                slotsConsumed: 1,
+                itemId: bottleId,
+                quantity: 1,
+              },
+            ],
+          });
+        },
+      });
+      mountWithClient(h, () =>
+        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
+      );
+      const sel = screen.getByTestId(
+        `liquid-${bottleId}-0`,
+      ) as HTMLSelectElement;
+      expect(sel.value).toBe("wine");
+    });
+
+    it("changing the dropdown dispatches EditItemField on TbLiquidVessel.contents", async () => {
+      let bottleId: EntityId = "" as EntityId;
+      const h = buildCharacterHarness({
+        asGm: true,
+        plugins: [items, tbItemsTestPlugin],
+        setupWorld: ({ world, characterId }) => {
+          bottleId = spawnBottle(world, "empty", 0);
+          world.set(characterId, TbCarries, {
+            entries: [
+              {
+                slot: "pocket",
+                slotIndex: 0,
+                channel: "default",
+                slotsConsumed: 1,
+                itemId: bottleId,
+                quantity: 1,
+              },
+            ],
+          });
+        },
+      });
+      mountWithClient(h, () =>
+        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
+      );
+      const sel = screen.getByTestId(
+        `liquid-${bottleId}-0`,
+      ) as HTMLSelectElement;
+      fireEvent.change(sel, { target: { value: "water" } });
+      await waitFor(() => {
+        const dispatched = h.dispatched.find(
+          (d) =>
+            d.type === EditItemField.name &&
+            (d.payload as { path: string }).path === "TbLiquidVessel.contents",
+        );
+        expect(dispatched).toBeDefined();
+        expect((dispatched!.payload as { value: string }).value).toBe("water");
+      });
+    });
+
+    it("does not render a contents dropdown for non-vessel bundles (rations)", () => {
+      let rationId: EntityId = "" as EntityId;
+      const h = buildCharacterHarness({
+        asGm: true,
+        plugins: [items, tbItemsTestPlugin],
+        setupWorld: ({ world, characterId }) => {
+          rationId = world.spawn([
+            ItemIdentity({ name: "Rations, Fresh" }),
+            TbItemSlotOptions({ options: { pocket: 1, pack: 1 } }),
+            ItemBundle({ count: 2, capacity: 2 }),
+          ]);
+          world.set(characterId, TbCarries, {
+            entries: [
+              {
+                slot: "pocket",
+                slotIndex: 0,
+                channel: "default",
+                slotsConsumed: 1,
+                itemId: rationId,
+                quantity: 1,
+              },
+            ],
+          });
+        },
+      });
+      mountWithClient(h, () =>
+        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
+      );
+      expect(screen.queryByTestId(`liquid-${rationId}-0`)).toBeNull();
+    });
+  });
 });
+
+void EditItemField;
+void ItemFieldChanged;

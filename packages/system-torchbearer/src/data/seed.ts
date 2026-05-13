@@ -73,7 +73,7 @@ import {
   Wises,
   CharacterTraits,
 } from "../shared/traits.js";
-import { TbCarries } from "../shared/items/item-traits.js";
+import { TbCarries, TbContainer } from "../shared/items/item-traits.js";
 import { ALL_SKILLS, isKnownSkillId } from "../shared/skills.js";
 
 const PLUGIN_NAME = "@vtt/system-torchbearer";
@@ -160,6 +160,11 @@ export function templateToTraitBag(
     bag.ItemBundle = {
       count: t.bundle.count,
       capacity: t.bundle.capacity,
+    };
+  }
+  if (t.liquid) {
+    bag.TbLiquidVessel = {
+      contents: t.liquid.defaultContents,
     };
   }
   switch (t.kind.type) {
@@ -1051,6 +1056,54 @@ function traitDefForName(name: import("@vtt/substrate").TraitName) {
 }
 
 /**
+ * Strip the legacy `TbContainer` trait from items that have since
+ * been re-classified as liquid vessels (bottle, jug, waterskin,
+ * wooden-canteen, clay-pot, horn-of-drenge). Earlier seeds emitted
+ * `TbContainer { containerSlots: 0 }` for these — inert container
+ * data the inventory UI never used. The new shape is `ItemBundle`
+ * (draught count) + `TbLiquidVessel` (contents); `TbContainer` is
+ * stale and confuses the inventory views that key off "do I have
+ * a container?" predicates.
+ *
+ * The merge engine adds NEW traits but never removes ones the
+ * template no longer carries (a deliberately conservative default
+ * — silently dropping data is dangerous). We do the removal here
+ * after `runCatalogMerge` so existing worlds converge to the new
+ * shape on next boot.
+ *
+ * Limited to the specific catalog ids we changed so the pass is a
+ * scalpel, not a sledgehammer: future TbContainer-on-vessel items
+ * (like the Barrel/Cask/Tun storage containers, which still carry
+ * inventory slots dry) keep their TbContainer untouched.
+ */
+const LIQUID_VESSEL_TEMPLATE_IDS = new Set<string>([
+  "tb/containers/bottle-a1b2c3",
+  "tb/containers/jug-a1b2c3",
+  "tb/containers/waterskin-a1b2c3",
+  "tb/containers/wooden-canteen-a1b2c3",
+  "tb/containers/clay-pot-a1b2c3",
+  "tb/magic-items/horn-of-drenge-cc0000",
+]);
+
+function stripStaleContainerTraitsOnLiquidVessels(world: World): void {
+  for (const row of world.query([ItemCatalogIndex])) {
+    const idx = row.values.ItemCatalogIndex as {
+      pluginName: string;
+      entries: Record<string, string>;
+    };
+    if (idx.pluginName !== PLUGIN_NAME) continue;
+    for (const [templateId, itemId] of Object.entries(idx.entries)) {
+      if (!LIQUID_VESSEL_TEMPLATE_IDS.has(templateId)) continue;
+      if (!world.has(itemId as never)) continue;
+      const got = world.get(itemId as never, [TbContainer]);
+      if (got) {
+        world.remove(itemId as never, TbContainer);
+      }
+    }
+  }
+}
+
+/**
  * Seed hook for the TB plugin. Runs once per world after cold-boot
  * replay (see definePlugin.seed in substrate). Idempotent: the
  * merge engine spawns brand-new templates as fresh entities, runs
@@ -1081,6 +1134,7 @@ export const tbSeed: SeedFn = ({ world, registry }) => {
       invocationIdByTemplateId,
     ),
   });
+  stripStaleContainerTraitsOnLiquidVessels(world);
   // Monsters + NPCs come AFTER items because their templates reference
   // armor/gear by template id; we need the items catalog index in place
   // before monsters/NPCs can resolve those references to live entity ids.
