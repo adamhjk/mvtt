@@ -38,12 +38,21 @@ export const ItemCreated = defineEvent({
  * over (the substrate's `share: false` flag controls which traits
  * skip the copy), then fires the original "you customized this"
  * machinery against the new id. The source entity is unchanged.
+ *
+ * Optional holder hints — `holderId` + `entryIndex` — let a holder-
+ * side plugin (e.g. `@vtt/system-torchbearer`) rewrite the exact
+ * inventory entry that asked for the fork. Without them, the fork is
+ * created but no holder is touched; that's still useful for "open the
+ * catalog, fork an entity directly" affordances. Old payloads from
+ * before this surface existed parse fine — both fields are optional.
  */
 export const ItemForked = defineEvent({
   name: "@vtt/items/ItemForked",
   schema: z.object({
     sourceItemId: EntityId,
     newItemId: EntityId,
+    holderId: EntityId.optional(),
+    entryIndex: z.number().int().min(0).optional(),
   }),
 });
 

@@ -16,4 +16,4 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 export { ItemIcon } from "./ItemIcon.js";
-export { ItemsPageProvider } from "./ItemsPage.js";
+export { ItemsPageProvider, ITEMS_KIND } from "./ItemsPage.js";

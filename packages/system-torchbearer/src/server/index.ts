@@ -47,6 +47,7 @@ export {
 export {
   TbBundleJoinSystem,
   TbBundleSplitSystem,
+  TbCarryRebindOnForkSystem,
   TbEntryStateSystem,
   TbItemDropSystem,
   TbItemEquipSystem,

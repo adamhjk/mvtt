@@ -16,7 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineSystem } from "@vtt/substrate";
-import { ItemBundleJoined, ItemBundleSplit } from "@vtt/items/shared";
+import { ItemBundleJoined, ItemBundleSplit, ItemForked } from "@vtt/items/shared";
 import {
   EntryStateChanged,
   ItemDropped,
@@ -288,6 +288,47 @@ export const TbBundleJoinSystem = defineSystem({
       const entries = v.entries.filter((e) => e.itemId !== event.srcId);
       world.set(row.id, TbCarries, { entries });
     }
+    return [];
+  },
+});
+
+/**
+ * ItemForked (with holder hints) → rewrite the holder's carry entry
+ * so it points at the fork instead of the source. Without this, a
+ * fork-and-edit flow leaves the fork orphaned (no one references it)
+ * and the holder's inventory keeps pointing at the catalog template,
+ * so per-instance edits aren't visible on the inventory row.
+ *
+ * The system is opt-in via the optional `holderId`/`entryIndex`
+ * fields on `ItemForked`. Bare-allocation forks (e.g. customizing
+ * directly from the workbench Items page) don't carry those hints
+ * and are ignored here. We additionally verify the entry's itemId
+ * still matches `sourceItemId` so a stale or concurrent rewrite
+ * doesn't clobber the wrong entry.
+ */
+export const TbCarryRebindOnForkSystem = defineSystem({
+  name: "TbCarryRebindOnFork",
+  on: ItemForked,
+  reads: [TbCarries],
+  writes: [TbCarries],
+  run: ({ event, world }) => {
+    if (event.holderId === undefined || event.entryIndex === undefined) {
+      return [];
+    }
+    const got = world.get(event.holderId, [TbCarries]) as
+      | {
+          TbCarries: {
+            entries: Array<Record<string, unknown> & { itemId: string }>;
+          };
+        }
+      | undefined;
+    if (!got) return [];
+    const current = got.TbCarries.entries[event.entryIndex];
+    if (!current) return [];
+    if (current.itemId !== event.sourceItemId) return [];
+    const entries = got.TbCarries.entries.slice();
+    entries[event.entryIndex] = { ...current, itemId: event.newItemId };
+    world.set(event.holderId, TbCarries, { entries });
     return [];
   },
 });

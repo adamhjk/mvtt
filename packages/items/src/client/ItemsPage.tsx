@@ -52,7 +52,7 @@ import {
 import { ItemDetailSectionsSlot } from "../shared/slots.js";
 import { ItemIcon } from "./ItemIcon.js";
 
-const ITEMS_KIND = "@vtt/items/items";
+export const ITEMS_KIND = "@vtt/items/items";
 
 /**
  * "Items" workbench page — list every item entity, click to open a

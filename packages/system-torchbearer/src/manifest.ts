@@ -268,6 +268,7 @@ import {
   NoticeDismissSystem,
   TbBundleJoinSystem,
   TbBundleSplitSystem,
+  TbCarryRebindOnForkSystem,
   TbCommitSpendsSystem,
   TbEntryStateSystem,
   TbItemDropSystem,
@@ -616,6 +617,7 @@ export const systemTorchbearer = definePlugin({
     TbItemUnequipSystem,
     TbBundleSplitSystem,
     TbBundleJoinSystem,
+    TbCarryRebindOnForkSystem,
     // Grind clock + light decrement:
     GrindTickSystem,
     GrindExtremeToggleSystem,

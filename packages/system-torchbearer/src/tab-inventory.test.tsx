@@ -21,7 +21,9 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { buildCharacterHarness, mountWithClient } from "@vtt/characters/testing";
 import { items } from "@vtt/items";
 import {
+  CustomizeItem,
   ItemBundle,
+  ItemEconomics,
   ItemIdentity,
   JoinItemBundles,
   SplitItemBundle,
@@ -58,6 +60,7 @@ import {
 import {
   TbBundleJoinSystem,
   TbBundleSplitSystem,
+  TbCarryRebindOnForkSystem,
   TbEntryStateSystem,
   TbItemDropSystem,
   TbItemEquipSystem,
@@ -119,6 +122,7 @@ const tbItemsTestPlugin = definePlugin({
     TbItemUnequipSystem,
     TbBundleSplitSystem,
     TbBundleJoinSystem,
+    TbCarryRebindOnForkSystem,
   ],
   gameSystem: true,
 });
@@ -1850,6 +1854,305 @@ describe("Bundle items in the inventory", () => {
       };
       // Only dest entry remains in carries.
       expect(carries.TbCarries.entries.map((e) => e.itemId)).toEqual([h.bId]);
+    });
+  });
+
+  describe("Edit (fork + open in tab)", () => {
+    it("Edit on a non-catalog (fork/ad-hoc) entry opens its detail page directly — no fork", async () => {
+      const h = setupHarness({
+        initialEntries: ({ swordId }) => [
+          {
+            slot: "handR",
+            slotIndex: 0,
+            channel: "carried",
+            slotsConsumed: 1,
+            itemId: swordId,
+            quantity: 1,
+          },
+        ],
+      });
+      mountWithClient(h, () =>
+        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
+      );
+      fireEvent.click(screen.getByTestId(`edit-${h.items.swordId}-0`));
+      await waitFor(() => {
+        expect(
+          h.dispatched.some(
+            (d) => d.type === "@vtt/shell-workbench/OpenPage",
+          ),
+        ).toBe(true);
+      });
+      // No fork happened — the standalone sword is already a private
+      // entity; Edit just navigates to its detail page.
+      expect(h.dispatched.some((d) => d.type === CustomizeItem.name)).toBe(
+        false,
+      );
+      const open = h.dispatched.find(
+        (d) => d.type === "@vtt/shell-workbench/OpenPage",
+      );
+      expect(open).toBeDefined();
+      expect((open!.payload as { pageKind: string }).pageKind).toBe(
+        "@vtt/items/items",
+      );
+      expect((open!.payload as { entityId: string }).entityId).toBe(
+        h.items.swordId,
+      );
+    });
+
+    it("Edit on a catalog-template entry forks first, rebinds the carry entry, then opens the fork's detail page", async () => {
+      const h = buildCharacterHarness({
+        asGm: true,
+        plugins: [items, tbItemsTestPlugin],
+        setupWorld: ({ world, registry, characterId }) => {
+          runCatalogMerge({
+            world,
+            registry,
+            pluginName: "@vtt/test-system",
+            templates: [
+              {
+                templateId: "test/sword",
+                traits: {
+                  ItemIdentity: { name: "Sword" },
+                  TbItemSlotOptions: { options: { carried: 1, belt: 1 } },
+                  ItemEconomics: { value: { dice: 2, negotiated: false } },
+                },
+              },
+            ],
+          });
+          const swordEntity = world.query([ItemIdentity]).find(
+            (r) => (r.values.ItemIdentity as { name: string }).name === "Sword",
+          )!;
+          world.set(characterId, TbCarries, {
+            entries: [
+              {
+                slot: "handR",
+                slotIndex: 0,
+                channel: "carried",
+                slotsConsumed: 1,
+                itemId: swordEntity.id,
+                quantity: 1,
+              },
+            ],
+          });
+        },
+      });
+      const catalogSword = h.world.query([ItemIdentity]).find(
+        (r) => (r.values.ItemIdentity as { name: string }).name === "Sword",
+      )!;
+      mountWithClient(h, () =>
+        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
+      );
+      fireEvent.click(screen.getByTestId(`edit-${catalogSword.id}-0`));
+      await waitFor(() => {
+        expect(h.dispatched.some((d) => d.type === CustomizeItem.name)).toBe(
+          true,
+        );
+      });
+      await waitFor(() => {
+        expect(
+          h.dispatched.some(
+            (d) => d.type === "@vtt/shell-workbench/OpenPage",
+          ),
+        ).toBe(true);
+      });
+      const open = h.dispatched.find(
+        (d) => d.type === "@vtt/shell-workbench/OpenPage",
+      );
+      expect(open).toBeDefined();
+      const target = (open!.payload as { entityId: string }).entityId;
+      expect((open!.payload as { pageKind: string }).pageKind).toBe(
+        "@vtt/items/items",
+      );
+      // Routes to the fork, NOT the shared catalog entity.
+      expect(target).not.toBe(catalogSword.id);
+      // The fork is a real entity in the world by now.
+      expect(h.world.has(target as EntityId)).toBe(true);
+      // The holder's TbCarries entry has been rebound to the fork —
+      // future edits on the fork are visible from this row.
+      const carries = h.world.get(h.characterId, [TbCarries]) as {
+        TbCarries: { entries: Array<{ itemId: string }> };
+      };
+      expect(carries.TbCarries.entries[0]!.itemId).toBe(target);
+    });
+
+    it("CustomizeItem with holder hints rebinds the matching carry entry to the new fork", async () => {
+      const h = buildCharacterHarness({
+        asGm: true,
+        plugins: [items, tbItemsTestPlugin],
+        setupWorld: ({ world, registry, characterId }) => {
+          runCatalogMerge({
+            world,
+            registry,
+            pluginName: "@vtt/test-system",
+            templates: [
+              {
+                templateId: "test/pouch",
+                traits: {
+                  ItemIdentity: { name: "Pouch of Gold" },
+                  TbItemSlotOptions: { options: { belt: 1, pack: 1 } },
+                  ItemEconomics: { value: { dice: 2, negotiated: false } },
+                },
+              },
+            ],
+          });
+          const pouchEntity = world.query([ItemIdentity]).find(
+            (r) =>
+              (r.values.ItemIdentity as { name: string }).name ===
+              "Pouch of Gold",
+          )!;
+          world.set(characterId, TbCarries, {
+            entries: [
+              {
+                slot: "belt",
+                slotIndex: 0,
+                channel: "default",
+                slotsConsumed: 1,
+                itemId: pouchEntity.id,
+                quantity: 1,
+              },
+            ],
+          });
+        },
+      });
+      const catalogPouch = h.world.query([ItemIdentity]).find(
+        (r) =>
+          (r.values.ItemIdentity as { name: string }).name === "Pouch of Gold",
+      )!;
+      const handle = h.client.dispatch(
+        CustomizeItem({
+          sourceItemId: catalogPouch.id as EntityId,
+          holderId: h.characterId,
+          entryIndex: 0,
+        }) as never,
+      );
+      await handle.ack;
+      const carries = h.world.get(h.characterId, [TbCarries]) as {
+        TbCarries: { entries: Array<{ itemId: string }> };
+      };
+      const reboundId = carries.TbCarries.entries[0]!.itemId;
+      expect(reboundId).not.toBe(catalogPouch.id);
+      // Fork inherited ItemEconomics from the catalog source.
+      const econ = h.world.get(reboundId as EntityId, [ItemEconomics]) as
+        | { ItemEconomics: { value: { dice: number; negotiated: boolean } } }
+        | undefined;
+      expect(econ?.ItemEconomics.value).toEqual({ dice: 2, negotiated: false });
+    });
+
+    it("CustomizeItem WITHOUT holder hints does not touch any TbCarries (legacy 'fork-from-workbench' path)", async () => {
+      const h = setupHarness({
+        initialEntries: ({ swordId }) => [
+          {
+            slot: "handR",
+            slotIndex: 0,
+            channel: "carried",
+            slotsConsumed: 1,
+            itemId: swordId,
+            quantity: 1,
+          },
+        ],
+      });
+      const handle = h.client.dispatch(
+        CustomizeItem({ sourceItemId: h.items.swordId }) as never,
+      );
+      await handle.ack;
+      // Sword still in hand, unchanged — the bare fork didn't touch
+      // any holder's entry.
+      const carries = h.world.get(h.characterId, [TbCarries]) as {
+        TbCarries: { entries: Array<{ itemId: string }> };
+      };
+      expect(carries.TbCarries.entries[0]!.itemId).toBe(h.items.swordId);
+    });
+  });
+
+  describe("ItemEconomics.value badge", () => {
+    it("renders `· 2D` next to the item name when value is present", () => {
+      const h = buildCharacterHarness({
+        asGm: true,
+        plugins: [items, tbItemsTestPlugin],
+        setupWorld: ({ world, characterId }) => {
+          const pouchId = world.spawn([
+            ItemIdentity({ name: "Pouch of Gold" }),
+            TbItemSlotOptions({ options: { belt: 1, pack: 1 } }),
+            ItemEconomics({ value: { dice: 2, negotiated: false } }),
+          ]);
+          world.set(characterId, TbCarries, {
+            entries: [
+              {
+                slot: "belt",
+                slotIndex: 0,
+                channel: "default",
+                slotsConsumed: 1,
+                itemId: pouchId,
+                quantity: 1,
+              },
+            ],
+          });
+        },
+      });
+      mountWithClient(h, () =>
+        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
+      );
+      const pouch = h.world.query([ItemIdentity]).find(
+        (r) =>
+          (r.values.ItemIdentity as { name: string }).name === "Pouch of Gold",
+      )!;
+      const badge = screen.getByTestId(`value-${pouch.id}-0`);
+      expect(badge).toBeInTheDocument();
+      expect(badge.textContent).toBe("· 2D");
+    });
+
+    it("renders `· 2D?` when value is negotiated", () => {
+      const h = buildCharacterHarness({
+        asGm: true,
+        plugins: [items, tbItemsTestPlugin],
+        setupWorld: ({ world, characterId }) => {
+          const gemId = world.spawn([
+            ItemIdentity({ name: "Rough Gem" }),
+            TbItemSlotOptions({ options: { pack: 1 } }),
+            ItemEconomics({ value: { dice: 2, negotiated: true } }),
+          ]);
+          world.set(characterId, TbCarries, {
+            entries: [
+              {
+                slot: "pocket",
+                slotIndex: 0,
+                channel: "default",
+                slotsConsumed: 1,
+                itemId: gemId,
+                quantity: 1,
+              },
+            ],
+          });
+        },
+      });
+      mountWithClient(h, () =>
+        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
+      );
+      const gem = h.world.query([ItemIdentity]).find(
+        (r) =>
+          (r.values.ItemIdentity as { name: string }).name === "Rough Gem",
+      )!;
+      const badge = screen.getByTestId(`value-${gem.id}-0`);
+      expect(badge.textContent).toBe("· 2D?");
+    });
+
+    it("renders no badge when ItemEconomics.value is absent", () => {
+      const h = setupHarness({
+        initialEntries: ({ swordId }) => [
+          {
+            slot: "belt",
+            slotIndex: 0,
+            channel: "default",
+            slotsConsumed: 1,
+            itemId: swordId,
+            quantity: 1,
+          },
+        ],
+      });
+      mountWithClient(h, () =>
+        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
+      );
+      expect(screen.queryByTestId(`value-${h.items.swordId}-0`)).toBeNull();
     });
   });
 });

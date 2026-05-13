@@ -83,15 +83,27 @@ export const CreateItem = defineCommand({
  *
  * Symmetric: works whether the source is a catalog-derived entity
  * or an already-forked one. Forking again creates yet another fork.
+ *
+ * Optional `holderId` + `entryIndex` — pass these when the caller is
+ * "fork the thing my character is currently carrying at entry N." The
+ * fields ride along on `ItemForked` so a holder-side system can
+ * rewrite the exact carry entry. Omitting them is the "ad-hoc fork"
+ * shape used by the workbench's Items page (where there's no holder
+ * involved).
  */
 export const CustomizeItem = defineCommand({
   name: "@vtt/items/CustomizeItem",
   schema: z.object({
     sourceItemId: EntityId,
+    holderId: EntityId.optional(),
+    entryIndex: z.number().int().min(0).optional(),
   }),
   validate: ({ cmd, world }) => {
     if (!world.has(cmd.sourceItemId)) {
       return fail(`unknown source item ${cmd.sourceItemId}`);
+    }
+    if (cmd.holderId !== undefined && !world.has(cmd.holderId)) {
+      return fail(`unknown holder ${cmd.holderId}`);
     }
     return ok();
   },
@@ -99,6 +111,8 @@ export const CustomizeItem = defineCommand({
     ItemForked({
       sourceItemId: cmd.sourceItemId,
       newItemId: world.allocateId(),
+      ...(cmd.holderId !== undefined ? { holderId: cmd.holderId } : {}),
+      ...(cmd.entryIndex !== undefined ? { entryIndex: cmd.entryIndex } : {}),
     }),
   ],
 });

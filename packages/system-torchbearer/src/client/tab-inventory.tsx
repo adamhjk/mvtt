@@ -37,10 +37,13 @@ import {
   ItemBundle,
   ItemCatalogIndex,
   ItemDerivedFrom,
+  ItemEconomics,
   ItemIdentity,
   JoinItemBundles,
   SplitItemBundle,
 } from "@vtt/items/shared";
+import { ITEMS_KIND } from "@vtt/items/client";
+import { OpenPage } from "@vtt/shell-workbench/shared";
 
 void ItemDerivedFrom;
 
@@ -1552,6 +1555,9 @@ function ItemRow(props: {
   const bundle = useTrait(props.entry.itemId, ItemBundle) as () =>
     | { count: number; capacity: number }
     | undefined;
+  const economics = useTrait(props.entry.itemId, ItemEconomics) as () =>
+    | { cost?: number; value?: { dice: number; negotiated: boolean } }
+    | undefined;
   const supply = useTrait(props.entry.itemId, TbSupply) as () =>
     | {
         supplyType: string;
@@ -1633,9 +1639,42 @@ function ItemRow(props: {
       }) as CommandInstance,
     );
   };
-  const customize = (): void => {
+  // Edit: open the item's detail page. If the row currently points at
+  // a catalog-shared template, fork first (so the user's edits don't
+  // mutate everyone else's copy) and route to the fresh fork. We pass
+  // `holderId`+`entryIndex` to CustomizeItem so TbCarryRebindOnFork
+  // rewrites THIS entry to the fork — without that, the fork would
+  // be created but the inventory row would keep pointing at the
+  // catalog template and the user's edits would never appear here.
+  const editItem = async (): Promise<void> => {
+    let targetId: EntityId = props.entry.itemId;
+    if (isCatalogTemplate(client.world, targetId)) {
+      const handle = client.dispatch(
+        CustomizeItem({
+          sourceItemId: targetId,
+          holderId: props.characterId as EntityId,
+          entryIndex: props.entryIndex,
+        }) as CommandInstance,
+      );
+      await handle.ack;
+      // After ack, our TbCarries entry has been rebound to the fork.
+      // Read it back to get the fork id we should open in the editor.
+      const got = client.world.get(props.characterId as EntityId, [TbCarries]) as
+        | {
+            TbCarries: {
+              entries: ReadonlyArray<{ itemId: string }>;
+            };
+          }
+        | undefined;
+      const reboundId = got?.TbCarries.entries[props.entryIndex]?.itemId;
+      if (!reboundId || reboundId === targetId) return;
+      targetId = reboundId as EntityId;
+    }
     void client.dispatch(
-      CustomizeItem({ sourceItemId: props.entry.itemId }) as CommandInstance,
+      OpenPage({
+        pageKind: ITEMS_KIND,
+        entityId: targetId,
+      }) as CommandInstance,
     );
   };
   const splitOne = (): void => {
@@ -1844,6 +1883,21 @@ function ItemRow(props: {
         >
           {displayName()}
         </span>
+        <Show when={economics()?.value}>
+          {(vAcc) => (
+            <small
+              style={{ color: "var(--color-fg-subtle)" }}
+              title={
+                vAcc().negotiated
+                  ? `Treasure value: ${vAcc().dice}D (negotiated)`
+                  : `Treasure value: ${vAcc().dice}D`
+              }
+              data-testid={`value-${props.entry.itemId}-${props.entryIndex}`}
+            >
+              · {vAcc().dice}D{vAcc().negotiated ? "?" : ""}
+            </small>
+          )}
+        </Show>
         <Show when={props.entry.quantity > 1}>
           <small style={{ color: "var(--color-fg-subtle)" }}>
             ×{props.entry.quantity}
@@ -2074,11 +2128,12 @@ function ItemRow(props: {
           </Show>
           <button
             type="button"
-            onClick={customize}
+            onClick={() => void editItem()}
+            data-testid={`edit-${props.entry.itemId}-${props.entryIndex}`}
             style={tinyButton()}
-            title="Customize (fork into a unique item)"
+            title="Edit this item (catalog items are forked into a unique copy first)"
           >
-            Fork
+            Edit
           </button>
           <button
             type="button"
