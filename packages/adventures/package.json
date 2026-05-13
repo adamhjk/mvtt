@@ -8,6 +8,7 @@
     "./shared": "./src/shared/index.ts",
     "./client": "./src/client/index.ts",
     "./server": "./src/server/index.ts",
+    "./server/build-from-dir": "./src/server/build-from-dir.ts",
     "./routes": "./src/server/routes.ts"
   },
   "scripts": {

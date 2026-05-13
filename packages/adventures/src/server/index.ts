@@ -44,6 +44,12 @@ export {
   type UpdateDiff,
 } from "./update-diff.js";
 export { bundleToZip, zipToBundle } from "./zip.js";
+// `buildBundleFromDir` lives at `@vtt/adventures/server/build-from-dir`
+// because it pulls in node-only modules (fs, crypto, path). Importing
+// it from the main `./server` export would leak `node:*` into every
+// downstream package that uses adventures server-side, breaking
+// `noUncheckedIndexedAccess`-strict typechecks in plugins that don't
+// install `@types/node`.
 // Note: routes (which use `node:http`) are NOT re-exported here.
 // Import them via `@vtt/adventures/routes` instead. Keeping the
 // server/index.ts free of node-only types means system plugins can

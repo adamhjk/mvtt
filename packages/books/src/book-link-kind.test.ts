@@ -17,7 +17,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { World, type EntityId } from "@vtt/substrate";
-import { Book } from "./shared/traits.js";
+import { Book, BookCanonical } from "./shared/traits.js";
 import { bookLinkKind } from "./shared/book-link-kind.js";
 import {
   pendingBookNav,
@@ -77,6 +77,45 @@ describe("bookLinkKind.parse", () => {
     const id = world.allocateId();
     world.spawnAt(id, []);
     expect(bookLinkKind.parse(id, null, world)).toBeNull();
+  });
+
+  it("resolves by canonical id (BookCanonical trait)", () => {
+    // The GM may have named the Book anything ("Scholar's Guide",
+    // "scholars-guide.pdf", "SG", …) but bound it to the
+    // tb/book/scholars-guide canonical role. Adventure / catalog
+    // content cites the canonical id so it resolves in any world.
+    const world = new World();
+    const id = world.allocateId();
+    world.spawnAt(id, [
+      Book({ name: "Scholar's Guide" }),
+      BookCanonical({ canonicalId: "tb/book/scholars-guide" }),
+    ]);
+
+    const ref = bookLinkKind.parse("tb/book/scholars-guide", "240", world);
+    expect(ref).toEqual({ bookId: id, page: 240 });
+  });
+
+  it("falls through canonical-id resolution when no Book holds the role", () => {
+    const world = new World();
+    const id = world.allocateId();
+    world.spawnAt(id, [Book({ name: "Scholar's Guide" })]);
+    // No BookCanonical trait → canonical-id lookup yields null.
+    expect(
+      bookLinkKind.parse("tb/book/scholars-guide", null, world),
+    ).toBeNull();
+  });
+
+  it("canonical-id lookup ignores book entities without the trait", () => {
+    const world = new World();
+    const a = world.allocateId();
+    world.spawnAt(a, [Book({ name: "Other Book" })]);
+    const b = world.allocateId();
+    world.spawnAt(b, [
+      Book({ name: "Real PHB" }),
+      BookCanonical({ canonicalId: "dnd/book/phb" }),
+    ]);
+    const ref = bookLinkKind.parse("dnd/book/phb", null, world);
+    expect(ref).toEqual({ bookId: b });
   });
 });
 

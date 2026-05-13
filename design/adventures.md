@@ -292,9 +292,13 @@ notes: |
   Squads of 3-6 typical. Cowardly alone.
 ```
 
-Projects to a `Character` entity (so it can be wiki-linked the same way) with the **`MonsterTemplate` marker trait**. The marker is what tells `StartEncounter` "spawn copies from this; don't bind by reference." Boss/named monsters that should be unique (`[[character:Skarra Wormtongue]]`) use the `character` block kind, not `monster`.
+Projects to a `Character` entity (so it can be wiki-linked the same way) with the **`MonsterTemplate` marker trait**. The marker is what tells `StartEncounter` *how to interpret a quantified reference* (`4× [[monster:goblin]]` → spawn four copies); it does **not** force every reference to spawn.
 
-A `monster` block can override or extend everything `character` does (full skills, will/health for named threats); the schema is a superset with `might` + `disposition` required.
+**Block-kind choice follows data shape, not uniqueness.** A named, one-of-a-kind boss is a `monster` block whenever the printed stat block lives in monster shape — Nature + Might + descriptors + per-conflict-type disposition HP + named conflict-weapon abilities (Cursed Blade, Stench of Death, etc.), with *no* will / health / skills / wises / belief / goal / instinct fields. That's true even for unique antagonists: Haathor-Vash, the Barrow Wight in the seed catalog, a named dragon, an undead king. Use `character` only when the foe has PC-shape stats: will + health + skills + wises + character-traits + belief / goal / instinct (think Beronin the Bandit Chief, a defecting captain with a full character sheet, or a sentient NPC who could plausibly Help on a test).
+
+**Bind vs spawn is decided by the quantifier in the encounter ref, not by the block kind.** A singular reference (`[[monster:Haathor-Vash]]` or `[[character:Beronin]]`) binds by id — edits flow live, conditions stick, death persists. A quantified reference (`3× [[monster:thoul]]`) spawns N fresh copies from the template at conflict-declare time. Encounter validation rejects `4× [[character:Haathor-Vash]]` (no `MonsterTemplate` marker) and `[[monster:Haathor-Vash]]` works whether or not she's the sole instance.
+
+A `monster` block can also extend `character` fields (skills, will/health for named threats) when the printed stat block actually carries them; the schema is a superset with `might` + `disposition` required.
 
 ### `item` — catalog item
 

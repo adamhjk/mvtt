@@ -17,8 +17,13 @@
 
 import { type EntityId, type World } from "@vtt/substrate";
 import { defineLinkKind, type LinkSuggestion } from "@vtt/notes/shared";
-import { Book } from "./traits.js";
-import { BookCreated, BookRemoved, BookUpdated } from "./events.js";
+import { Book, BookCanonical } from "./traits.js";
+import {
+  BookCanonicalChanged,
+  BookCreated,
+  BookRemoved,
+  BookUpdated,
+} from "./events.js";
 import { publishBookNav } from "./pending-nav.js";
 
 /**
@@ -37,14 +42,27 @@ interface BookRef {
 const BOOKS_PAGE_KIND = "@vtt/books/books";
 
 /**
- * Book link kind. Resolves `[[book:Player's Handbook]]` (entity-id
- * bodies are also accepted) and supports two anchor forms:
+ * Book link kind. Resolves `[[book:Player's Handbook]]` (entity-id and
+ * canonical-id bodies are also accepted) and supports two anchor forms:
  *
  *   - `[[book:Name#42]]` — open the book at page 42.
  *   - `[[book:Name#Chapter 1]]` — open the book and jump to the TOC
  *     entry whose title matches "Chapter 1" (case-insensitive). Falls
  *     through silently if the PDF has no embedded outline or no
  *     matching entry.
+ *
+ * Body resolution tries three forms in order:
+ *
+ *   1. Entity id (`e123`) — direct lookup. Stable inside a world but
+ *      doesn't survive a bundle round-trip into another world.
+ *   2. Canonical id (`tb/book/scholars-guide`) — looks up the Book
+ *      entity currently bound to that canonical role via the
+ *      `BookCanonical` trait. This is the portable form — adventure
+ *      bundles, catalog seeds, and plugin content cite the canonical
+ *      id so the same content resolves in any world where the GM has
+ *      uploaded and bound the rulebook.
+ *   3. Case-insensitive name match against `Book.name` — the form a
+ *      GM types into `[[`-autocomplete.
  *
  * Click semantics: navigate. The notes dispatcher routes a navigate
  * activation to OpenPage (focus an existing tab pointing at this book
@@ -63,6 +81,18 @@ export const bookLinkKind = defineLinkKind<BookRef>({
     if (/^e\d+$/.test(trimmed) && world.has(trimmed as EntityId)) {
       const got = world.get(trimmed as EntityId, [Book]);
       if (got) bookId = trimmed as EntityId;
+    }
+    // Canonical-id form. A `/` in the body is the cheap discriminator
+    // — display names virtually never contain one, plugin canonical
+    // ids always do (e.g. `tb/book/scholars-guide`).
+    if (bookId === null && trimmed.includes("/")) {
+      for (const row of world.query([Book, BookCanonical])) {
+        const v = row.values.BookCanonical as { canonicalId: string };
+        if (v.canonicalId === trimmed) {
+          bookId = row.id;
+          break;
+        }
+      }
     }
     if (bookId === null) {
       const needle = trimmed.toLowerCase();
@@ -129,5 +159,10 @@ export const bookLinkKind = defineLinkKind<BookRef>({
     }
     return out;
   },
-  indexEvents: [BookCreated.name, BookRemoved.name, BookUpdated.name],
+  indexEvents: [
+    BookCreated.name,
+    BookRemoved.name,
+    BookUpdated.name,
+    BookCanonicalChanged.name,
+  ],
 });

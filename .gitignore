@@ -40,3 +40,7 @@ pnpm-debug.log*
 *.swp
 
 reference/
+
+# adventure authoring working dirs and built bundles — content is
+# personal / per-campaign and ships out-of-band as .advt.zip imports.
+/adventures/

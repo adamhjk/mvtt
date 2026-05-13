@@ -12,10 +12,12 @@
     "typecheck": "pnpm -r typecheck",
     "license:apply": "node scripts/apply-license-header.mjs",
     "deploy": "deploy/deploy.sh",
+    "build-adventure": "tsx tools/build-adventure-bundle/build.ts",
     "reset": "rm -rf data && echo 'cleared local data — next start will prompt to create the Game Master'"
   },
   "devDependencies": {
     "@solidjs/testing-library": "^0.8.10",
+    "@vtt/adventures": "workspace:*",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/user-event": "^14.6.1",
     "canvas": "^3.2.3",
