@@ -46,7 +46,7 @@ import { BlockKindsSlot } from "@vtt/adventures/shared";
 import { PaletteCommandsSlot } from "@vtt/shell-workbench/shared";
 import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
 import { systemTorchbearer } from "./manifest.js";
-import { Identity, LevelBenefits, Pools } from "./shared/index.js";
+import { Identity, LevelBenefits, Pools, WhoYouAreNotes } from "./shared/index.js";
 import { TbWhoYouAreTabFill } from "./client/tab-who-you-are.js";
 
 const sheetSlotsTestInfra = definePlugin({
@@ -340,5 +340,42 @@ describe("Who You Are tab", () => {
     const h = harness();
     mount(h);
     expect(screen.getByText("DH p.112")).toBeInTheDocument();
+  });
+
+  describe("Notes section", () => {
+    it("renders a free-form textarea below the Allies & Enemies section", () => {
+      const h = harness();
+      mount(h);
+      const ta = screen.getByPlaceholderText(
+        /Backstory scraps, GM hooks/i,
+      ) as HTMLTextAreaElement;
+      expect(ta).toBeInTheDocument();
+      expect(ta.tagName).toBe("TEXTAREA");
+    });
+
+    it("typing into the notes textarea dispatches a SetField on WhoYouAreNotes.notes", () => {
+      const h = harness();
+      mount(h);
+      const ta = screen.getByPlaceholderText(
+        /Backstory scraps, GM hooks/i,
+      ) as HTMLTextAreaElement;
+      fireEvent.focus(ta);
+      fireEvent.input(ta, {
+        target: { value: "Met a strange tinker at the crossroads." },
+      });
+      fireEvent.blur(ta);
+      const write = h.dispatched.find(
+        (c) =>
+          c.type === SetField.name &&
+          (c.payload as { trait: string }).trait === WhoYouAreNotes.name,
+      );
+      expect(write).toBeDefined();
+      const payload = write!.payload as {
+        path: ReadonlyArray<string | number>;
+        value: string;
+      };
+      expect(payload.path).toEqual(["notes"]);
+      expect(payload.value).toBe("Met a strange tinker at the crossroads.");
+    });
   });
 });

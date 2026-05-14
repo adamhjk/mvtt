@@ -503,6 +503,24 @@ export const AlliesEnemies = defineTrait({
 });
 
 /* -------------------------------------------------------------------------
+ * WhoYouAreNotes — free-form prose on the "Who You Are" tab
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Free-form notes the player keeps on the Who You Are tab — backstory
+ * scraps, GM-given hooks, anything that doesn't fit the structured
+ * Identity / LevelBenefits / AlliesEnemies fields above it.
+ */
+export const WhoYouAreNotes = defineTrait({
+  name: "@vtt/system-torchbearer/WhoYouAreNotes",
+  schema: z
+    .object({
+      notes: z.string().max(4000).default(""),
+    })
+    .default({ notes: "" }),
+});
+
+/* -------------------------------------------------------------------------
  * SkillImprovementOpportunity — chat-timeline entity for "ready to improve"
  * ----------------------------------------------------------------------- */
 

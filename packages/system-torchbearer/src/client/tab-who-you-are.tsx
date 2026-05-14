@@ -21,7 +21,7 @@ import type { CharacterSheetTab } from "@vtt/characters/shared";
 import { SetField } from "@vtt/characters/shared";
 import { useClient, useTrait } from "@vtt/substrate/client";
 import { createMemo, For, Show, type JSX } from "solid-js";
-import { AlliesEnemies, Identity, LevelBenefits, Pools } from "../shared/index.js";
+import { AlliesEnemies, Identity, LevelBenefits, Pools, WhoYouAreNotes } from "../shared/index.js";
 import { RuleRef } from "./rule-ref.js";
 import {
   classesForStock,
@@ -112,6 +112,16 @@ function WhoYouAreTab(props: { characterId: string }): JSX.Element {
           seedEntry={(name) => ({ name, location: "", status: "" })}
           addPlaceholder="add an ally or enemy…"
           emptyHint="No allies or enemies yet — note one below as the campaign unfolds."
+        />
+      </kit.SheetSection>
+
+      <kit.SheetSection title="Notes">
+        <kit.TextAreaField
+          characterId={props.characterId}
+          trait={WhoYouAreNotes}
+          path={["notes"]}
+          rows={6}
+          placeholder="Backstory scraps, GM hooks, anything else you want to remember…"
         />
       </kit.SheetSection>
     </div>

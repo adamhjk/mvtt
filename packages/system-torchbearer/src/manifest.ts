@@ -162,6 +162,7 @@ import {
   UnequipItem,
   UseTraitOnRoll,
   WhatYouFightFor,
+  WhoYouAreNotes,
   WillCheck,
   Wises,
   // Monsters:
@@ -420,6 +421,7 @@ export const systemTorchbearer = definePlugin({
     TbInvocationRelicLink,
     InvocationPerformConsumed,
     AlliesEnemies,
+    WhoYouAreNotes,
     Heroic,
     SkillImprovementOpportunity,
     SkillLearningOpportunity,

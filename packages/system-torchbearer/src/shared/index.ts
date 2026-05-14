@@ -38,6 +38,7 @@ export {
   TownAbilities,
   TraitUsageLogged as TraitUsageLoggedTrait,
   WhatYouFightFor,
+  WhoYouAreNotes,
   Wises,
   type PinnedRollEntryT,
   type RollSpendEntry,
