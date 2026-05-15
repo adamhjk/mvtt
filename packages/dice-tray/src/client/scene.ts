@@ -1026,6 +1026,35 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
    *  (numerical drift, collision with a fresh roll), we stop
    *  watching after this so spawn() resolves. */
   const SETTLE_TIMEOUT_MS = 3500;
+  /**
+   * Per-frame velocity damping that stands in for the linear/angular
+   * damping API Havok v2 doesn't expose. Applied whenever the die's
+   * centre is within `CONTACT_Y_THRESH` of the floor (i.e. resting
+   * or sliding along the velvet, not airborne and not stacked on
+   * another die — those cases have y above the threshold). The
+   * effect is to kill the long post-bounce slide without raising
+   * per-die friction, which would cause dice to stick to each other
+   * on impact.
+   *
+   * 0.94 per frame ≈ velocity decays to 37% in ~16 frames (~0.27 s).
+   * Anything gentler (0.97+) doesn't visibly stop a fast slide
+   * before it crosses the tray; anything aggressive (0.90 or below)
+   * pins single dice mid-tumble.
+   */
+  const LINEAR_DAMP_PER_FRAME = 0.94;
+  const ANGULAR_DAMP_PER_FRAME = 0.94;
+  /** Y threshold (in world units) below which the die centre is
+   *  treated as "in contact with the floor" for damping purposes.
+   *  Floor top is at y=0; a die's centre when at rest sits at the
+   *  inscribed-sphere height of its current contact face — e.g.
+   *  cube flat: y=0.7, cube on an edge: y≈1.0, cube on a corner:
+   *  y≈1.21. Tumbling dice spend most frames above 0.8 (the original
+   *  threshold) so the original 0.8 hardly ever fired. 1.3 catches
+   *  every on-floor configuration including corner-contact moments,
+   *  while still excluding dice stacked on top of another die
+   *  (whose centres sit at y ≈ 2.1) and airborne dice (typically
+   *  y > 2.5 mid-flight). */
+  const CONTACT_Y_THRESH = 1.3;
 
   async function spawn(args: {
     spec: DieSpec;
@@ -1180,7 +1209,17 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
     const localLongAxis = new Vector3(0, 1, 0);
     const APEX_UP_DOT = 0.94; // ~20° from vertical
     const APEX_REST_FRAMES = 3;
-    const APEX_KICK_IMPULSE = 0.6; // tuned so the die definitely tips
+    /**
+     * Apex-rest tip: applied as an *angular* impulse around a random
+     * horizontal axis so the die rotates off-vertical directly. A
+     * linear impulse at the CoM (the previous approach) creates no
+     * torque on its own and relied on gravity tipping the CoM past
+     * the apex contact — fine without damping, but the contact-Y
+     * damping introduced alongside this kills the slide before
+     * gravity can do the work. Direct angular impulse is robust to
+     * any damping setting.
+     */
+    const APEX_KICK_ANG_IMPULSE = 0.35;
     let apexFrames = 0;
     const startTime = performance.now();
     await new Promise<void>((resolve) => {
@@ -1201,6 +1240,26 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
         // bias self-tapers as the die approaches face-up.
         die.agg.body.applyAngularImpulse(corr.scale(BIAS));
 
+        // Contact-gated damping. Stands in for the Havok v2 damping
+        // API (which doesn't exist). While the die centre is within
+        // CONTACT_Y_THRESH of the floor, scale both linear and
+        // angular velocity by the per-frame damping factor. The
+        // gate excludes airborne dice and stacked dice so neither
+        // gravity-driven flight nor stack-resolution dynamics get
+        // interfered with — only the floor-slide phase is damped.
+        if (mesh.position.y < CONTACT_Y_THRESH) {
+          die.agg.body.setLinearVelocity(
+            die.agg.body
+              .getLinearVelocity()
+              .scaleInPlace(LINEAR_DAMP_PER_FRAME),
+          );
+          die.agg.body.setAngularVelocity(
+            die.agg.body
+              .getAngularVelocity()
+              .scaleInPlace(ANGULAR_DAMP_PER_FRAME),
+          );
+        }
+
         const lin = die.agg.body.getLinearVelocity().lengthSquared();
         const ang = die.agg.body.getAngularVelocity().lengthSquared();
         const linOk = lin < SETTLE_LINEAR_VEL * SETTLE_LINEAR_VEL;
@@ -1218,18 +1277,19 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
             if (upDot > APEX_UP_DOT) {
               apexFrames++;
               if (apexFrames >= APEX_REST_FRAMES) {
-                // Flick laterally in a random horizontal direction.
-                // The mass × impulse is what matters for velocity;
-                // 0.6 × 0.18 ≈ 0.11 units/s is plenty to start a
-                // tumble without launching the die.
+                // Tip the die by applying an angular impulse around
+                // a random horizontal axis. This rotates the
+                // mesh-local long axis directly off vertical, which
+                // is what a linear nudge would do indirectly via
+                // gravity — except the per-frame damping now in
+                // play kills any indirect path before it works.
                 const a = Math.random() * Math.PI * 2;
-                die.agg.body.applyImpulse(
+                die.agg.body.applyAngularImpulse(
                   new Vector3(
-                    Math.cos(a) * APEX_KICK_IMPULSE,
+                    Math.cos(a) * APEX_KICK_ANG_IMPULSE,
                     0,
-                    Math.sin(a) * APEX_KICK_IMPULSE,
+                    Math.sin(a) * APEX_KICK_ANG_IMPULSE,
                   ),
-                  mesh.position,
                 );
                 apexFrames = 0;
                 calmFrames = 0;
