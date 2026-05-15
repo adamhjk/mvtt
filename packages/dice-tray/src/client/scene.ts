@@ -84,7 +84,12 @@ const VIEW_HALF_HEIGHT = 4;
  *  die in free fall (~22 × dt ≈ 0.36 per frame) can't tunnel
  *  through in a single physics step. */
 const TRAY_FLOOR_THICKNESS = 0.4;
-const SPAWN_HEIGHT = 4;
+/** Release height for thrown dice. Higher = longer arc and more
+ *  energetic landing (impact speed ∝ sqrt(2·g·h)); the wall height
+ *  must keep up so a fresh die can't clear the rim. With g=22 and
+ *  spawn-y averaging ~5.4, air time is ~0.75 s and the die lands
+ *  at ~15 u/s — a satisfying toss without flying out the top. */
+const SPAWN_HEIGHT = 7;
 const FACE_TEX_SIZE = 256;
 
 export type { DieSpec } from "./spec.js";
@@ -699,8 +704,10 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
    *  through between physics frames. */
   const PHYS_WALL_THICKNESS = 1.0;
   /** Physics wall height. Tall enough that no toss can clear it.
-   *  Walls extend from below the floor up well past spawn height. */
-  const PHYS_WALL_HEIGHT = 6.0;
+   *  Walls extend from below the floor up well past spawn height —
+   *  with SPAWN_HEIGHT=7 a die's peak (after a slight upward toss
+   *  impulse) is ~5.7, so 9.0 gives a safe margin. */
+  const PHYS_WALL_HEIGHT = 9.0;
 
   // Havok physics — initialised lazily so createTray can stay
   // synchronous. Spawn awaits this before adding the die's
@@ -1095,7 +1102,7 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
     const innerHalfDepth = halfDepth - FRAME_WIDTH;
     const spawnPos = new Vector3(
       sideX * (innerHalfWidth - 0.5 - Math.random() * 0.7),
-      SPAWN_HEIGHT * 0.6 + Math.random() * 0.7,
+      SPAWN_HEIGHT * 0.7 + Math.random() * 1.0,
       (Math.random() * 2 - 1) * Math.max(0.5, innerHalfDepth - 0.6),
     );
     mesh.position.copyFrom(spawnPos);
@@ -1131,17 +1138,20 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
       scene,
     );
 
-    // Strong sideways throw — die crosses the tray, bounces off
-    // the far wall, tumbles, settles. The X component is the
-    // largest (mostly-horizontal toss); per-die variance in
-    // throw speed and Z velocity is wide so a handful of dice
-    // diverge in mid-air rather than tracing parallel paths
-    // and stacking on top of each other when they land.
-    const throwSpeed = 9 + Math.random() * 7;
+    // Sideways throw with a gentle upward toss — die arcs across
+    // the tray, peaks mid-flight, falls, bounces off the far
+    // wall, tumbles, settles. The X component is the largest
+    // (mostly-horizontal toss); the small +Y kick adds visible
+    // hang time on top of the raised spawn height. X speed is
+    // capped so the die can't outrun gravity and clip the rim.
+    // Per-die variance in throw speed and Z velocity is wide so a
+    // handful of dice diverge in mid-air rather than tracing
+    // parallel paths and stacking on top of each other.
+    const throwSpeed = 7 + Math.random() * 5;
     agg.body.setLinearVelocity(
       new Vector3(
         -sideX * throwSpeed,
-        -1.0 - Math.random() * 2.0,
+        0.5 + Math.random() * 2.0,
         (Math.random() - 0.5) * 5.0,
       ),
     );
