@@ -29,7 +29,8 @@ import {
 import { useWorkspace } from "@vtt/shell-workbench/client";
 import { RollResolved, type DieOutcome } from "@vtt/resolution/shared";
 import { createMemo, onCleanup, onMount, type JSX } from "solid-js";
-import { createTray, tintForUser, type DieKind, type TrayHandle } from "./scene.js";
+import { createTray, tintForUser, type TrayHandle } from "./scene.js";
+import { specForOutcome, type SpawnRequest } from "./spec.js";
 
 export const DICE_TRAY_DRAWER_ID = qualifiedName("@vtt/dice-tray/tray");
 
@@ -68,48 +69,6 @@ export const DiceTrayDrawer: WorkbenchDrawer = {
     return <DiceTrayBody close={args.close} />;
   },
 };
-
-interface SpawnRequest {
-  kind: DieKind;
-  value: number;
-}
-
-/**
- * Translate a single `DieOutcome` into the spawn request(s) it
- * needs. Most kinds map 1:1; d100 expands into two dice — the
- * tens d10 (kind `100`, faces 00/10/.../90) and the units d10
- * (kind `"10u"`, faces 0..9). For value V (1..100):
- *   tens = (V === 100 ? 0 : Math.floor(V / 10) * 10)
- *   units = V % 10
- * which gives "00" + "0" = 100 by tabletop convention.
- *
- * Numeric sides we recognise (4, 6, 8, 10, 12, 20, 100) map directly;
- * Fudge → "F"; anything else (an exotic die from the parser, e.g.
- * `d7` or `d30`) falls back to a d20 silhouette so the tumble still
- * runs — the printed label is what reads, the geometry is just
- * dressing.
- */
-function spawnsForOutcome(die: DieOutcome): SpawnRequest[] {
-  if (die.sides === 100) {
-    const v = die.value;
-    const tensValue = v === 100 ? 0 : Math.floor(v / 10) * 10;
-    const unitsValue = v % 10;
-    return [
-      { kind: 100, value: tensValue },
-      { kind: "10u", value: unitsValue },
-    ];
-  }
-  let kind: DieKind;
-  if (die.sides === "F") kind = "F";
-  else if (die.sides === 4) kind = 4;
-  else if (die.sides === 6) kind = 6;
-  else if (die.sides === 8) kind = 8;
-  else if (die.sides === 10) kind = 10;
-  else if (die.sides === 12) kind = 12;
-  else if (die.sides === 20) kind = 20;
-  else kind = 20;
-  return [{ kind, value: die.value }];
-}
 
 interface PendingRoll {
   dice: DieOutcome[];
@@ -161,7 +120,7 @@ function DiceTrayBody(props: { close: () => void }): JSX.Element {
     // d100 outcome expands into a tens + units pair.
     const requests: SpawnRequest[] = [];
     for (const die of payload.dice) {
-      for (const r of spawnsForOutcome(die)) requests.push(r);
+      for (const r of specForOutcome(die)) requests.push(r);
     }
     // Tight stagger so a handful of dice releases almost
     // simultaneously — like a fist opening — rather than as a
@@ -173,7 +132,7 @@ function DiceTrayBody(props: { close: () => void }): JSX.Element {
       const delay = i * 25;
       setTimeout(() => {
         tray?.spawn({
-          kind: r.kind,
+          spec: r.spec,
           value: r.value,
           tintColor: tint,
           throwSide,
