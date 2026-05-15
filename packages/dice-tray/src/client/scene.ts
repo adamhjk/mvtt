@@ -67,6 +67,7 @@ import "@babylonjs/core/Physics/v2/physicsEngineComponent.js";
 import {
   buildD4Faces,
   buildD6Faces,
+  buildD3RolledFaces,
   buildD8Faces,
   buildD12Faces,
   buildD20Faces,
@@ -167,6 +168,12 @@ function facesForSpec(spec: DieSpec): FaceSpec[] {
       return buildTrapezohedronFaces(k, labels);
     }
     case "prism":
+      // d3 is special-cased: a realistic rolling-pin d3 has six
+      // labelled sides (1,2,3 repeated on opposite faces) and
+      // domed end caps, not a pointed triangular prism — the
+      // triangular form has no face that points straight up when
+      // the die rests on a side, making the result ambiguous.
+      if (spec.sides === 3) return buildD3RolledFaces();
       return buildPrismFaces(spec.sides);
     case "lens":
       return buildLensFaces();

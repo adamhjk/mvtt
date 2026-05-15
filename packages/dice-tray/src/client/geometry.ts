@@ -373,9 +373,107 @@ export function buildLensFaces(): FaceSpec[] {
   return faces;
 }
 
-/** Rounded N-prism / "long die" for any N ≥ 3. Used for odd N
- *  (d3, d5, d7, d9, d11, …) and any non-standard N we don't have a
- *  trapezohedron for. The shape has:
+/** Real-world "long d3" — a regular hexagonal prism (six rectangular
+ *  side faces of equal width) with rounded dome end caps. Numbers
+ *  1, 2, 3 are painted on three alternating side faces; the OPPOSITE
+ *  face of each carries the same number, so whichever side ends up
+ *  on top, its label reads correctly (the die is fair because each
+ *  number occupies exactly two of the six sides, giving each a 1/3
+ *  probability).
+ *
+ *  This is what physical d3 dice actually look like — a 3-sided
+ *  pencil with rounded ends rather than a pointy triangular prism.
+ *  The rounded caps prevent the die from balancing on a tip, and
+ *  the duplicated labels remove the ambiguity a true triangular
+ *  prism has (where no face points straight up when the die rests
+ *  on a side). */
+export function buildD3RolledFaces(): FaceSpec[] {
+  // Same body proportions as the standard prism (so a d3 looks
+  // about the same size as a d5), with shorter caps because the
+  // 2-ring dome doesn't need as much room as a pointed cone.
+  const ASPECT_L = 2.8;
+  const ASPECT_CAP = 0.55;
+  const halfHeight = ASPECT_L / 2 + ASPECT_CAP; // = 1.95
+  const R = TARGET_BOUNDING_RADIUS / halfHeight;
+  const L = ASPECT_L * R;
+  const hCap = ASPECT_CAP * R;
+  // Mid-ring radius for the dome — placed so the cap silhouette
+  // reads as a smooth bulge rather than a stepped pyramid. √½ R
+  // ≈ 0.707R puts the mid-ring midway between body radius and the
+  // apex point along a quarter-circle.
+  const midR = R * Math.SQRT1_2;
+
+  // Six body-ring vertices, evenly spaced (regular hexagon). Each
+  // pair of consecutive vertices forms one rectangular side face.
+  const N = 6;
+  const top: Vector3[] = [];
+  const bot: Vector3[] = [];
+  const topMid: Vector3[] = [];
+  const botMid: Vector3[] = [];
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    top.push(new Vector3(R * c, +L / 2, R * s));
+    bot.push(new Vector3(R * c, -L / 2, R * s));
+    topMid.push(new Vector3(midR * c, +L / 2 + hCap / 2, midR * s));
+    botMid.push(new Vector3(midR * c, -L / 2 - hCap / 2, midR * s));
+  }
+  const topApex = new Vector3(0, +L / 2 + hCap, 0);
+  const botApex = new Vector3(0, -L / 2 - hCap, 0);
+
+  const faces: FaceSpec[] = [];
+  // Labels repeat 1,2,3,1,2,3 around the hexagon so opposite
+  // faces share a value. The bias loop targets the first index
+  // matching the rolled value; the die settles with that face up
+  // (and its opposite, same-labelled, down).
+  const labels = ["1", "2", "3", "1", "2", "3"];
+  for (let i = 0; i < N; i++) {
+    const next = (i + 1) % N;
+    faces.push({
+      label: labels[i]!,
+      vertices: [top[i]!, top[next]!, bot[next]!, bot[i]!],
+    });
+  }
+  // Top dome — two rings of triangles for a rounded silhouette.
+  // Lower band: body ring → mid ring (quads). Upper band: mid
+  // ring → apex (triangles). Both marked nonLanding.
+  for (let i = 0; i < N; i++) {
+    const next = (i + 1) % N;
+    // Lower band quad — winding gives outward+up normal.
+    faces.push({
+      label: "",
+      nonLanding: true,
+      vertices: [topMid[i]!, topMid[next]!, top[next]!, top[i]!],
+    });
+    // Upper triangle to the apex.
+    faces.push({
+      label: "",
+      nonLanding: true,
+      vertices: [topApex, topMid[next]!, topMid[i]!],
+    });
+  }
+  // Bottom dome — mirror windings (outward+down).
+  for (let i = 0; i < N; i++) {
+    const next = (i + 1) % N;
+    faces.push({
+      label: "",
+      nonLanding: true,
+      vertices: [botMid[i]!, bot[i]!, bot[next]!, botMid[next]!],
+    });
+    faces.push({
+      label: "",
+      nonLanding: true,
+      vertices: [botApex, botMid[i]!, botMid[next]!],
+    });
+  }
+  return faces;
+}
+
+/** Rounded N-prism / "long die" for any N ≥ 3 (n=3 is special-cased
+ *  through `buildD3RolledFaces` for a realistic d3 silhouette). Used
+ *  for odd N (d5, d7, d9, d11, …) and any non-standard N we don't
+ *  have a trapezohedron for. The shape has:
  *    - N rectangular side faces (the rollable surfaces) carrying
  *      values 1..N
  *    - 2 cone end-caps (top apex + bottom apex, each a fan of N

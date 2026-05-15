@@ -19,6 +19,7 @@ import { describe, it, expect } from "vitest";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import {
   DIE_SIZE,
+  buildD3RolledFaces,
   buildD4Faces,
   buildD6Faces,
   buildD8Faces,
@@ -212,6 +213,52 @@ describe("buildPrismFaces", () => {
 
   it("n=30: bounding sphere matches target", () => {
     const r = maxVertexRadius(buildPrismFaces(30));
+    expect(r).toBeCloseTo(TARGET_BOUNDING_RADIUS, 5);
+  });
+});
+
+describe("buildD3RolledFaces", () => {
+  const faces = buildD3RolledFaces();
+
+  it("has six labelled side faces — 1,2,3,1,2,3 around the hexagon", () => {
+    const labelled = faces.filter((f) => !f.nonLanding);
+    expect(labelled).toHaveLength(6);
+    expect(labelled.map((f) => f.label)).toEqual([
+      "1",
+      "2",
+      "3",
+      "1",
+      "2",
+      "3",
+    ]);
+  });
+
+  it("opposite faces share the same label (each value covers 2/6 = 1/3 of the perimeter)", () => {
+    const labelled = faces.filter((f) => !f.nonLanding);
+    for (let i = 0; i < 3; i++) {
+      expect(labelled[i]!.label).toBe(labelled[i + 3]!.label);
+    }
+  });
+
+  it("side faces have horizontal outward normals pointing radially out", () => {
+    const sides = faces.filter((f) => !f.nonLanding);
+    for (const f of sides) {
+      const norm = faceNormal(f);
+      expect(Math.abs(norm.y)).toBeLessThan(0.05);
+      expect(Vector3.Dot(norm, faceCentroid(f))).toBeGreaterThan(0);
+    }
+  });
+
+  it("dome cap faces all have outward normals (no inverted triangles)", () => {
+    const caps = faces.filter((f) => f.nonLanding);
+    for (const f of caps) {
+      const norm = faceNormal(f);
+      expect(Vector3.Dot(norm, faceCentroid(f))).toBeGreaterThan(0);
+    }
+  });
+
+  it("bounding sphere matches target (apex remains the extreme point)", () => {
+    const r = maxVertexRadius(faces);
     expect(r).toBeCloseTo(TARGET_BOUNDING_RADIUS, 5);
   });
 });
