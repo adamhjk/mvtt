@@ -74,6 +74,23 @@ export const Identity = defineTrait({
       mentor: z.string().max(120).default(""),
       friend: z.string().max(120).default(""),
       enemy: z.string().max(120).default(""),
+      // Character-burning memory: which skill the player picked for
+      // Human Upbringing (DH p.29) and Social Graces (DH p.30). Empty
+      // string means "not yet picked." Specialty lives on
+      // `Skills.specialtySkillId`; hometown lives on `home`.
+      //
+      // Adding additive defaulted fields is the documented safe
+      // pattern for evolving live trait shapes — legacy stored values
+      // miss these fields, Zod fills them with "" on parse. Be aware
+      // though that `World.restore()` (snapshot/cold-boot path)
+      // bypasses Zod and stores raw deserialized values, so an
+      // Identity restored from a pre-change snapshot will be missing
+      // these fields in memory until the next `world.set` write to
+      // that entity re-parses through Zod. Always read these fields
+      // with `?? ""` defensively — the pickers in
+      // `client/tab-who-you-are.tsx` already do.
+      upbringingSkillId: z.string().max(60).default(""),
+      socialGracesSkillId: z.string().max(60).default(""),
     })
     .default({
       name: "",
@@ -87,6 +104,8 @@ export const Identity = defineTrait({
       mentor: "",
       friend: "",
       enemy: "",
+      upbringingSkillId: "",
+      socialGracesSkillId: "",
     }),
 });
 

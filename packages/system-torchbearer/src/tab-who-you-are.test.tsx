@@ -217,17 +217,26 @@ describe("Who You Are tab", () => {
     it("canonical DH stocks each surface their own Nature-question page chip", () => {
       // Each base stock has its own DH Nature-question / Upbringing
       // page; the chip beside the Stock dropdown deep-links there.
-      const cases: ReadonlyArray<{ stock: string; klass: string; page: number }> = [
-        { stock: "Halfling", klass: "Burglar", page: 35 },
-        { stock: "Human", klass: "Theurge", page: 29 },
-        { stock: "Dwarf", klass: "Outcast", page: 33 },
-        { stock: "Elf", klass: "Ranger", page: 34 },
+      //
+      // For Human/Theurge the same page (DH p.29) is also referenced by
+      // the character-burning Upbringing picker, so the chip appears
+      // twice — we assert exactly 2 to catch regressions in either
+      // surface. The other three stocks have no second chip on p.33 /
+      // p.34 / p.35, so exactly 1 there.
+      const cases: ReadonlyArray<{ stock: string; klass: string; page: number; expected: number }> = [
+        { stock: "Halfling", klass: "Burglar", page: 35, expected: 1 },
+        { stock: "Human", klass: "Theurge", page: 29, expected: 2 },
+        { stock: "Dwarf", klass: "Outcast", page: 33, expected: 1 },
+        { stock: "Elf", klass: "Ranger", page: 34, expected: 1 },
       ];
       for (const c of cases) {
         cleanup();
         const h = harness({ stock: c.stock, class: c.klass });
         mount(h);
-        expect(screen.getByText(`DH p.${c.page}`)).toBeInTheDocument();
+        expect(
+          screen.getAllByText(`DH p.${c.page}`).length,
+          `${c.stock}/${c.klass} chip count`,
+        ).toBe(c.expected);
       }
     });
   });

@@ -28,9 +28,11 @@ import {
   LevelBenefits,
   Pools,
   RawAbilities,
+  SetSpecialtySkill,
   Skills,
   WhoYouAreNotes,
 } from "../shared/index.js";
+import { getSkill } from "../shared/skills.js";
 import { RuleRef } from "./rule-ref.js";
 import {
   classesForStock,
@@ -45,6 +47,17 @@ import {
   lookupStockNatureDefaults,
   type ClassDefaults,
 } from "./tb-class-defaults.js";
+import {
+  nextSkillRating,
+  TB_SOCIAL_GRACES_SKILLS,
+  TB_SPECIALTY_SKILLS,
+  TB_UPBRINGING_SKILLS,
+} from "./tb-burning-options.js";
+import {
+  hometownsForStock,
+  lookupHometownDefaults,
+  type HometownDefaults,
+} from "./tb-hometown-defaults.js";
 
 /**
  * Levels 1-10 fate / persona spend thresholds and "Additional
@@ -242,6 +255,340 @@ function ClassStockRow(props: { characterId: string }): JSX.Element {
         </kit.FieldRow>
       </kit.SheetGroup>
       <ApplyClassDefaultsButton characterId={props.characterId} />
+      <CharacterBurningSection characterId={props.characterId} />
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------
+ * Character Burning — DH p.29-31 follow-up pickers
+ *
+ * Once the class step is done, four more "pick from a list" decisions
+ * fill out the burning chapter:
+ *   - Human Upbringing (DH p.29) — Humans & Troll Changelings only
+ *   - Where Is Your Home? (DH p.30) — settlement + trait
+ *   - Social Graces (DH p.30) — every character
+ *   - Specialty (DH p.31) — every character; reuses Skills.specialtySkillId
+ *
+ * Each picker is a dropdown; selecting an option dispatches the
+ * corresponding skill bump (and trait append for hometown). Pickers
+ * never undo a previous selection — picking Persuader after Manipulator
+ * bumps Persuader and leaves Manipulator alone, matching how the
+ * class-defaults button treats prior edits.
+ * ----------------------------------------------------------------------- */
+
+function CharacterBurningSection(props: { characterId: string }): JSX.Element {
+  const canEdit = kit.useCanEdit(props.characterId);
+  return (
+    <Show when={canEdit()}>
+      <kit.SheetGroup layout="grid" cols={2}>
+        <HumanUpbringingPicker characterId={props.characterId} />
+        <SocialGracesPicker characterId={props.characterId} />
+        <SpecialtyPicker characterId={props.characterId} />
+        <HometownPickerPair characterId={props.characterId} />
+      </kit.SheetGroup>
+    </Show>
+  );
+}
+
+/**
+ * Lookup-by-id label helper. Falls back to the bare id when the catalog
+ * doesn't know the skill (shouldn't happen given the option lists are
+ * authored from skills.ts) so the dropdown still renders something.
+ */
+function skillLabel(id: string): string {
+  return getSkill(id)?.name ?? id;
+}
+
+function isHumanOrChangeling(stock: string): boolean {
+  const s = stock.trim().toLowerCase();
+  return s === "human" || s === "troll changeling";
+}
+
+function HumanUpbringingPicker(props: { characterId: string }): JSX.Element {
+  const client = useClient();
+  const identity = useTrait(props.characterId, Identity);
+  const skills = useTrait(props.characterId, Skills);
+  const current = createMemo(() => identity()?.upbringingSkillId ?? "");
+  const visible = createMemo(() =>
+    isHumanOrChangeling(identity()?.stock ?? ""),
+  );
+
+  const onChange = (id: string): void => {
+    if (id.length === 0) return;
+    const characterId = props.characterId as EntityId;
+    const skillRating = skills()?.entries?.[id]?.rating ?? 0;
+    client.dispatch(
+      SetField({
+        characterId,
+        trait: Skills.name,
+        path: ["entries", id, "rating"],
+        value: nextSkillRating(skillRating, 3),
+      }),
+    );
+    client.dispatch(
+      SetField({
+        characterId,
+        trait: Identity.name,
+        path: ["upbringingSkillId"],
+        value: id,
+      }),
+    );
+  };
+
+  return (
+    <Show when={visible()}>
+      <kit.FieldRow label="Upbringing">
+        <select
+          class="vk-input"
+          data-testid="tb-upbringing-picker"
+          value={current()}
+          onChange={(e) => onChange(e.currentTarget.value)}
+        >
+          <option value="">— pick upbringing —</option>
+          <For each={TB_UPBRINGING_SKILLS}>
+            {(id) => <option value={id}>{skillLabel(id)}</option>}
+          </For>
+        </select>
+        <RuleRef book="DH" page={29} />
+      </kit.FieldRow>
+    </Show>
+  );
+}
+
+function SocialGracesPicker(props: { characterId: string }): JSX.Element {
+  const client = useClient();
+  const identity = useTrait(props.characterId, Identity);
+  const skills = useTrait(props.characterId, Skills);
+  const current = createMemo(() => identity()?.socialGracesSkillId ?? "");
+
+  const onChange = (id: string): void => {
+    if (id.length === 0) return;
+    const characterId = props.characterId as EntityId;
+    const skillRating = skills()?.entries?.[id]?.rating ?? 0;
+    client.dispatch(
+      SetField({
+        characterId,
+        trait: Skills.name,
+        path: ["entries", id, "rating"],
+        value: nextSkillRating(skillRating, 2),
+      }),
+    );
+    client.dispatch(
+      SetField({
+        characterId,
+        trait: Identity.name,
+        path: ["socialGracesSkillId"],
+        value: id,
+      }),
+    );
+  };
+
+  return (
+    <kit.FieldRow label="Social Graces">
+      <select
+        class="vk-input"
+        data-testid="tb-social-graces-picker"
+        value={current()}
+        onChange={(e) => onChange(e.currentTarget.value)}
+      >
+        <option value="">— pick social graces —</option>
+        <For each={TB_SOCIAL_GRACES_SKILLS}>
+          {(id) => <option value={id}>{skillLabel(id)}</option>}
+        </For>
+      </select>
+      <RuleRef book="DH" page={30} />
+    </kit.FieldRow>
+  );
+}
+
+function SpecialtyPicker(props: { characterId: string }): JSX.Element {
+  const client = useClient();
+  const skills = useTrait(props.characterId, Skills);
+  const current = createMemo(() => skills()?.specialtySkillId ?? "");
+
+  const onChange = (id: string): void => {
+    if (id.length === 0) return;
+    const characterId = props.characterId as EntityId;
+    const skillRating = skills()?.entries?.[id]?.rating ?? 0;
+    client.dispatch(
+      SetField({
+        characterId,
+        trait: Skills.name,
+        path: ["entries", id, "rating"],
+        value: nextSkillRating(skillRating, 2),
+      }),
+    );
+    // Use the existing domain command rather than a raw SetField — the
+    // SpecialtyToggleButton on the Abilities & Skills tab dispatches
+    // the same command, so the server-side handler stays the single
+    // source of truth for "skill X is the specialty."
+    client.dispatch(
+      SetSpecialtySkill({
+        characterId,
+        skillId: id,
+      }) as CommandInstance,
+    );
+  };
+
+  return (
+    <kit.FieldRow label="Specialty">
+      <select
+        class="vk-input"
+        data-testid="tb-specialty-picker"
+        value={current()}
+        onChange={(e) => onChange(e.currentTarget.value)}
+      >
+        <option value="">— pick specialty —</option>
+        <For each={TB_SPECIALTY_SKILLS}>
+          {(id) => <option value={id}>{skillLabel(id)}</option>}
+        </For>
+      </select>
+      <RuleRef book="DH" page={31} />
+    </kit.FieldRow>
+  );
+}
+
+function HometownPickerPair(props: { characterId: string }): JSX.Element {
+  const client = useClient();
+  const identity = useTrait(props.characterId, Identity);
+  const skills = useTrait(props.characterId, Skills);
+  const traits = useTrait(props.characterId, CharacterTraits);
+  const currentStock = createMemo(() => identity()?.stock ?? "");
+  const currentHomeKey = createMemo<string>(() => {
+    const match = lookupHometownDefaults(identity()?.home ?? "");
+    return match?.key ?? "";
+  });
+  const currentHometown = createMemo<HometownDefaults | null>(() =>
+    lookupHometownDefaults(identity()?.home ?? ""),
+  );
+  // The trait dropdown's current value is whichever of the hometown's
+  // two listed traits is already on the sheet. Free-text traits typed
+  // by the player (or class/Huldrekall) aren't candidates — only the
+  // two hometown options.
+  const currentHomeTrait = createMemo<string>(() => {
+    const home = currentHometown();
+    if (!home) return "";
+    const entries = traits()?.entries ?? [];
+    const match = home.traits.find((name) =>
+      entries.some((t) => t.name.toLowerCase() === name.toLowerCase()),
+    );
+    return match ?? "";
+  });
+
+  const visibleHometowns = createMemo(() => hometownsForStock(currentStock()));
+  // If the stored hometown is filtered out for the current stock
+  // (e.g. home="Elfhome" but stock just changed to Dwarf), clamp the
+  // select to "" so the dropdown shows its placeholder rather than
+  // an unselectable option. The Identity.home string itself stays
+  // untouched — the player can pick a new hometown to overwrite it.
+  const selectedHomeKey = createMemo<string>(() => {
+    const key = currentHomeKey();
+    if (key.length === 0) return "";
+    if (visibleHometowns().some((h) => h.key === key)) return key;
+    return "";
+  });
+
+  const onHomeChange = (key: string): void => {
+    if (key.length === 0) return;
+    const home = lookupHometownDefaults(key);
+    if (!home) return;
+    const characterId = props.characterId as EntityId;
+    // Snapshot the current skill ratings before dispatching any of
+    // the three SetFields. `client.dispatch` enqueues a WS send and
+    // does not synchronously update the local world, so re-reading
+    // `skills()` inside the loop would just return the same pre-dispatch
+    // snapshot anyway — but binding it once makes the read-vs-write
+    // ordering explicit and avoids any future surprise if the local
+    // world ever gains optimistic apply between dispatches.
+    const skillEntries = skills()?.entries ?? {};
+    client.dispatch(
+      SetField({
+        characterId,
+        trait: Identity.name,
+        path: ["home"],
+        value: home.label,
+      }),
+    );
+    for (const skillId of home.skills) {
+      const skillRating = skillEntries[skillId]?.rating ?? 0;
+      client.dispatch(
+        SetField({
+          characterId,
+          trait: Skills.name,
+          path: ["entries", skillId, "rating"],
+          value: nextSkillRating(skillRating, 2),
+        }),
+      );
+    }
+  };
+
+  const onTraitChange = (name: string): void => {
+    if (name.length === 0) return;
+    const characterId = props.characterId as EntityId;
+    const entries = traits()?.entries ?? [];
+    if (entries.some((t) => t.name.toLowerCase() === name.toLowerCase())) {
+      return; // Already present; rules say "start it at level 1" not "bump it."
+    }
+    client.dispatch(
+      SetField({
+        characterId,
+        trait: CharacterTraits.name,
+        path: ["entries"],
+        value: [
+          ...entries,
+          {
+            name,
+            level: 1,
+            beneficialUses: 0,
+            checks: 0,
+            usedAgainst: false,
+          },
+        ],
+      }),
+    );
+  };
+
+  return (
+    <>
+      <kit.FieldRow label="Hometown">
+        <select
+          class="vk-input"
+          data-testid="tb-hometown-picker"
+          value={selectedHomeKey()}
+          onChange={(e) => onHomeChange(e.currentTarget.value)}
+        >
+          <option value="">— pick hometown —</option>
+          <For each={visibleHometowns()}>
+            {(h) => <option value={h.key}>{h.label}</option>}
+          </For>
+        </select>
+        <RuleRef book="DH" page={30} />
+      </kit.FieldRow>
+      {/* Gate the trait sub-picker on the *visible* hometown key
+          (the one currently selectable for this stock), not just on
+          `currentHometown()`. Otherwise, after a player picks Elfhome
+          as an Elf and then switches stock to Dwarf, the dropdown
+          clamps to "" but `currentHometown()` still resolves Elfhome
+          from the stored `Identity.home` string — and the trait sub-
+          picker would happily offer Calm / Quiet to a Dwarf. */}
+      <Show when={selectedHomeKey().length > 0 && currentHometown()}>
+        {(home) => (
+          <kit.FieldRow label="Hometown trait">
+            <select
+              class="vk-input"
+              data-testid="tb-hometown-trait-picker"
+              value={currentHomeTrait()}
+              onChange={(e) => onTraitChange(e.currentTarget.value)}
+            >
+              <option value="">— pick trait —</option>
+              <For each={home().traits}>
+                {(name) => <option value={name}>{name}</option>}
+              </For>
+            </select>
+          </kit.FieldRow>
+        )}
+      </Show>
     </>
   );
 }
