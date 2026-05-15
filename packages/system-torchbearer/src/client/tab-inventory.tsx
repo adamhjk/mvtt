@@ -464,6 +464,11 @@ function CatalogPill(props: {
 }): JSX.Element {
   const client = useClient();
   const canEdit = kit.useCanEdit(props.characterId);
+  // resolveDestinations and summarizeCapacity read TbCarries off the
+  // world imperatively. Tap a reactive query so this memo refreshes
+  // when any container's contents change — otherwise picker capacity
+  // freezes until a hard reload.
+  const allCarries = useQuery([TbCarries]);
 
   // Build a synthetic "entry" for destination resolution so the same
   // resolveDestinations() machinery powers both equip-from-catalog
@@ -477,15 +482,16 @@ function CatalogPill(props: {
     quantity: 1,
   };
 
-  const destinations = createMemo(() =>
-    resolveDestinations({
+  const destinations = createMemo(() => {
+    allCarries();
+    return resolveDestinations({
       world: client.world,
       characterId: props.characterId,
       entry: syntheticEntry,
       slotKey: props.slotKey,
       slotsConsumed: props.slotsConsumed,
-    }),
-  );
+    });
+  });
 
   const equip = (dest: Destination): void => {
     void client.dispatch(
@@ -1333,6 +1339,10 @@ function GroundSlotPill(props: {
 }): JSX.Element {
   const client = useClient();
   const canEdit = kit.useCanEdit(props.characterId);
+  // resolveDestinations and summarizeCapacity read TbCarries off the
+  // world imperatively. Tap a reactive query so the picker refreshes
+  // when any container's contents change.
+  const allCarries = useQuery([TbCarries]);
 
   // Synthetic "off-character" entry purely so resolveDestinations
   // can use the same machinery; the entry has no current home, so
@@ -1346,15 +1356,16 @@ function GroundSlotPill(props: {
     quantity: 1,
   };
 
-  const destinations = createMemo(() =>
-    resolveDestinations({
+  const destinations = createMemo(() => {
+    allCarries();
+    return resolveDestinations({
       world: client.world,
       characterId: props.characterId,
       entry: syntheticEntry,
       slotKey: props.slotKey,
       slotsConsumed: props.slotsConsumed,
-    }),
-  );
+    });
+  });
 
   const pickUp = (dest: Destination): void => {
     // For body-slot destinations, dispatch PickUpItem so the server
@@ -2357,6 +2368,11 @@ function SlotPill(props: {
 }): JSX.Element {
   const client = useClient();
   const canEdit = kit.useCanEdit(props.characterId);
+  // resolveDestinations and summarizeCapacity read TbCarries off the
+  // world imperatively. Tap a reactive query so the picker refreshes
+  // when any container's contents change — without this the dropdown
+  // shows stale "X/Y" slot counts until a hard reload.
+  const allCarries = useQuery([TbCarries]);
 
   const isCurrent = createMemo(() => isCurrentSlot(props.entry, props.slotKey));
 
@@ -2365,15 +2381,16 @@ function SlotPill(props: {
   // currently sits. A sack that lived inside a backpack and was
   // dropped should still target the character's hands when [carry·2]
   // is clicked, not the backpack's slots.
-  const destinations = createMemo(() =>
-    resolveDestinations({
+  const destinations = createMemo(() => {
+    allCarries();
+    return resolveDestinations({
       world: client.world,
       characterId: props.characterId,
       entry: props.entry,
       slotKey: props.slotKey,
       slotsConsumed: props.slotsConsumed,
-    }),
-  );
+    });
+  });
 
   const place = (dest: Destination): void => {
     moveEntryToDestination({

@@ -115,6 +115,15 @@ export function SpellPicker(props: {
   excludeIds?: () => ReadonlySet<string>;
   /** Call when the user activates a row (Enter or click). */
   onActivate?: (id: string) => void;
+  /**
+   * When set, each row renders an inline "+ Add" button that fires
+   * this callback directly. The row itself becomes non-selecting —
+   * filter, click Add on the line, done. Used by Library and Spell
+   * Book where the picker exists solely to add one spell at a time;
+   * callers that need select-then-commit (multi-step source-aware
+   * flows like scribe-to-scroll) just omit this prop.
+   */
+  onRowAdd?: (id: string) => void;
   testid?: string;
 }): JSX.Element {
   const catalog = useSpellCatalog();
@@ -150,8 +159,12 @@ export function SpellPicker(props: {
           if (e.key === "Enter") {
             const first = candidates()[0];
             if (first) {
-              props.setSelected(first.id);
-              props.onActivate?.(first.id);
+              if (props.onRowAdd) {
+                props.onRowAdd(first.id);
+              } else {
+                props.setSelected(first.id);
+                props.onActivate?.(first.id);
+              }
             }
           } else if (e.key === "Escape") {
             setQuery("");
@@ -200,10 +213,14 @@ export function SpellPicker(props: {
                 role="option"
                 aria-selected={props.selected() === s.id}
                 data-testid={`spell-option-${s.id}`}
-                onClick={() => {
-                  props.setSelected(s.id);
-                  props.onActivate?.(s.id);
-                }}
+                onClick={
+                  props.onRowAdd
+                    ? undefined
+                    : () => {
+                        props.setSelected(s.id);
+                        props.onActivate?.(s.id);
+                      }
+                }
                 style={{
                   display: "flex",
                   "align-items": "center",
@@ -211,14 +228,14 @@ export function SpellPicker(props: {
                   padding: "0.35rem 0.5rem",
                   "border-radius": "var(--radius-control)",
                   background:
-                    props.selected() === s.id
+                    !props.onRowAdd && props.selected() === s.id
                       ? "var(--color-accent-soft)"
                       : "var(--color-surface-elevated)",
                   border:
-                    props.selected() === s.id
+                    !props.onRowAdd && props.selected() === s.id
                       ? "1px solid var(--color-accent)"
                       : "1px solid var(--color-border-muted)",
-                  cursor: "pointer",
+                  cursor: props.onRowAdd ? "default" : "pointer",
                   "font-size": "0.8rem",
                 }}
               >
@@ -260,6 +277,30 @@ export function SpellPicker(props: {
                     )}
                   </Show>
                 </span>
+                <Show when={props.onRowAdd}>
+                  {(add) => (
+                    <button
+                      type="button"
+                      data-testid={`${props.testid ?? "spell-picker"}-add-${s.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        add()(s.id);
+                      }}
+                      style={{
+                        padding: "0.2rem 0.5rem",
+                        "border-radius": "var(--radius-control)",
+                        border: "1px solid var(--color-accent)",
+                        background: "var(--color-accent-soft)",
+                        color: "var(--color-accent)",
+                        cursor: "pointer",
+                        "font-size": "0.7rem",
+                        "font-weight": "500",
+                      }}
+                    >
+                      + Add
+                    </button>
+                  )}
+                </Show>
               </li>
             )}
           </For>

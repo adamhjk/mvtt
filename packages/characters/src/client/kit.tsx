@@ -35,6 +35,7 @@ import {
   createMemo,
   createSignal,
   For,
+  onCleanup,
   onMount,
   Show,
   type JSX,
@@ -864,6 +865,13 @@ export function TextField(props: FieldBinding & {
     client.dispatch(buildWriteCommand(props, next, cur));
     setEditing(false);
   };
+  // Browsers (notably Firefox/WebKit) don't reliably fire `blur` when a
+  // focused element is removed from the DOM — e.g., switching sub-tabs
+  // while still editing. Treat unmount as a commit trigger so the typed
+  // value isn't silently dropped.
+  onCleanup(() => {
+    if (editing()) commit();
+  });
 
   return (
     <input
@@ -930,6 +938,9 @@ export function TextAreaField(props: FieldBinding & {
     client.dispatch(buildWriteCommand(props, next, cur));
     setEditing(false);
   };
+  onCleanup(() => {
+    if (editing()) commit();
+  });
 
   return (
     <textarea
@@ -997,6 +1008,9 @@ export function NumberField(props: FieldBinding & {
     setLocal(String(next));
     setEditing(false);
   };
+  onCleanup(() => {
+    if (editing()) commit();
+  });
 
   return (
     <input
@@ -2128,6 +2142,9 @@ function CellText(props: {
     setEditing(false);
     if (next !== props.value) props.onCommit(next);
   };
+  onCleanup(() => {
+    if (editing()) commit();
+  });
   return (
     <Show
       when={props.multiline}
@@ -2293,6 +2310,9 @@ function CellNumber(props: {
     setLocal(String(next));
     if (next !== props.value) props.onCommit(next);
   };
+  onCleanup(() => {
+    if (editing()) commit();
+  });
   return (
     <input
       type="number"

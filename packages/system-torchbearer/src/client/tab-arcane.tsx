@@ -670,7 +670,6 @@ function SpellBookCard(props: {
   const book = useTrait(props.bookId, TbSpellBook);
   const canEdit = kit.useCanEdit(props.characterId);
   const [adding, setAdding] = createSignal(false);
-  const [pickedSpellId, setPickedSpellId] = createSignal<string | null>(null);
   // Default: pick from library (the common path — RAW p.92). Toggle
   // to "all" to show the full catalog (for chargen, homebrew, or
   // cases where the GM is filling a book with a spell the player
@@ -846,10 +845,7 @@ function SpellBookCard(props: {
             <button
               type="button"
               data-testid={`open-add-to-book-${props.bookId}`}
-              onClick={() => {
-                setPickedSpellId(null);
-                setAdding(true);
-              }}
+              onClick={() => setAdding(true)}
               style={{ ...btnStyle(false), "align-self": "flex-start" }}
             >
               + Scribe spell into book
@@ -896,8 +892,8 @@ function SpellBookCard(props: {
               </button>
             </div>
             <SpellPicker
-              selected={pickedSpellId}
-              setSelected={setPickedSpellId}
+              selected={() => null}
+              setSelected={() => {}}
               candidates={activeCandidates}
               excludeIds={excludeIds}
               placeholder={
@@ -906,6 +902,14 @@ function SpellBookCard(props: {
                   : "Search all spells…"
               }
               testid={`book-add-picker-${props.bookId}`}
+              onRowAdd={(sid) =>
+                client.dispatch(
+                  AddSpellToBook({
+                    bookId: props.bookId as EntityId,
+                    spellId: sid as EntityId,
+                  }),
+                )
+              }
             />
             <Show
               when={
@@ -924,35 +928,14 @@ function SpellBookCard(props: {
                 spells to your library first.
               </p>
             </Show>
-            <div style={{ display: "flex", gap: "0.4rem" }}>
-              <button
-                type="button"
-                data-testid={`add-to-book-commit-${props.bookId}`}
-                disabled={pickedSpellId() === null}
-                onClick={() => {
-                  const sid = pickedSpellId();
-                  if (!sid) return;
-                  client.dispatch(
-                    AddSpellToBook({
-                      bookId: props.bookId as EntityId,
-                      spellId: sid as EntityId,
-                    }),
-                  );
-                  setAdding(false);
-                  setPickedSpellId(null);
-                }}
-                style={btnStyle(pickedSpellId() === null)}
-              >
-                Add
-              </button>
-              <button
-                type="button"
-                onClick={() => setAdding(false)}
-                style={btnStyle(false)}
-              >
-                Cancel
-              </button>
-            </div>
+            <button
+              type="button"
+              data-testid={`close-add-to-book-${props.bookId}`}
+              onClick={() => setAdding(false)}
+              style={{ ...btnStyle(false), "align-self": "flex-start" }}
+            >
+              Close
+            </button>
           </div>
         </Show>
       </Show>
@@ -1381,7 +1364,6 @@ function LibrarySection(props: { characterId: string }): JSX.Element {
     lib()?.spellIds ?? [],
   );
   const [adding, setAdding] = createSignal(false);
-  const [pickedSpellId, setPickedSpellId] = createSignal<string | null>(null);
   const excludeIds = createMemo(() => new Set(spellIds()));
   const catalog = useSpellCatalog();
   return (
@@ -1460,10 +1442,7 @@ function LibrarySection(props: { characterId: string }): JSX.Element {
               type="button"
               data-testid="open-add-to-library"
               disabled={catalog().length === 0}
-              onClick={() => {
-                setPickedSpellId(null);
-                setAdding(true);
-              }}
+              onClick={() => setAdding(true)}
               style={{ ...btnStyle(catalog().length === 0), "align-self": "flex-start" }}
             >
               + Add spell from catalog
@@ -1482,41 +1461,28 @@ function LibrarySection(props: { characterId: string }): JSX.Element {
             }}
           >
             <SpellPicker
-              selected={pickedSpellId}
-              setSelected={setPickedSpellId}
+              selected={() => null}
+              setSelected={() => {}}
               excludeIds={excludeIds}
               placeholder="Search catalog…"
               testid="library-add-picker"
+              onRowAdd={(sid) =>
+                client.dispatch(
+                  AddSpellToLibrary({
+                    characterId: props.characterId as EntityId,
+                    spellId: sid as EntityId,
+                  }),
+                )
+              }
             />
-            <div style={{ display: "flex", gap: "0.4rem" }}>
-              <button
-                type="button"
-                data-testid="add-to-library-commit"
-                disabled={pickedSpellId() === null}
-                onClick={() => {
-                  const sid = pickedSpellId();
-                  if (!sid) return;
-                  client.dispatch(
-                    AddSpellToLibrary({
-                      characterId: props.characterId as EntityId,
-                      spellId: sid as EntityId,
-                    }),
-                  );
-                  setAdding(false);
-                  setPickedSpellId(null);
-                }}
-                style={btnStyle(pickedSpellId() === null)}
-              >
-                Add
-              </button>
-              <button
-                type="button"
-                onClick={() => setAdding(false)}
-                style={btnStyle(false)}
-              >
-                Cancel
-              </button>
-            </div>
+            <button
+              type="button"
+              data-testid="close-add-to-library"
+              onClick={() => setAdding(false)}
+              style={{ ...btnStyle(false), "align-self": "flex-start" }}
+            >
+              Close
+            </button>
           </div>
         </Show>
       </Show>

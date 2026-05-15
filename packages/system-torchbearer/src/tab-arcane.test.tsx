@@ -289,16 +289,16 @@ describe("Arcane tab", () => {
     expect((add!.payload as { spellId: string }).spellId).toBe(spellId);
   });
 
-  it("dispatches AddSpellToLibrary when the library picker commits", async () => {
+  it("dispatches AddSpellToLibrary when the row's inline + Add is clicked", async () => {
     const h = harness();
     mount(h);
     fireEvent.click(screen.getByTestId("open-add-to-library"));
-    // Pick the first option (the picker is filtered to only show
-    // catalog spells the library doesn't already have).
+    // Inline-add: filter / scroll to the row, click + Add directly,
+    // no separate commit step.
     const spellId = (h as unknown as { _spellId: string })._spellId;
-    const opt = await screen.findByTestId(`spell-option-${spellId}`);
-    fireEvent.click(opt);
-    fireEvent.click(screen.getByTestId("add-to-library-commit"));
+    fireEvent.click(
+      await screen.findByTestId(`library-add-picker-add-${spellId}`),
+    );
     const add = h.dispatched.find((c) => c.type === AddSpellToLibrary.name);
     expect(add).toBeDefined();
     expect((add!.payload as { spellId: string }).spellId).toBe(spellId);
