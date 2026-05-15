@@ -15,13 +15,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { qualifiedName, type EntityId } from "@vtt/substrate";
+import { qualifiedName, type CommandInstance, type EntityId } from "@vtt/substrate";
 import { kit } from "@vtt/characters/client";
 import type { CharacterSheetTab } from "@vtt/characters/shared";
 import { SetField } from "@vtt/characters/shared";
 import { useClient, useTrait } from "@vtt/substrate/client";
 import { createMemo, For, Show, type JSX } from "solid-js";
-import { AlliesEnemies, Identity, LevelBenefits, Pools, WhoYouAreNotes } from "../shared/index.js";
+import {
+  AlliesEnemies,
+  CharacterTraits,
+  Identity,
+  LevelBenefits,
+  Pools,
+  RawAbilities,
+  Skills,
+  WhoYouAreNotes,
+} from "../shared/index.js";
 import { RuleRef } from "./rule-ref.js";
 import {
   classesForStock,
@@ -30,6 +39,12 @@ import {
   stocksForClass,
   type ClassStockOption,
 } from "./class-stock-options.js";
+import {
+  abilityStartingValue,
+  lookupClassDefaults,
+  lookupStockNatureDefaults,
+  type ClassDefaults,
+} from "./tb-class-defaults.js";
 
 /**
  * Levels 1-10 fate / persona spend thresholds and "Additional
@@ -178,53 +193,205 @@ function ClassStockRow(props: { characterId: string }): JSX.Element {
   };
 
   return (
-    <kit.SheetGroup layout="grid" cols={2}>
-      <kit.FieldRow label="Stock">
-        <select
+    <>
+      <kit.SheetGroup layout="grid" cols={2}>
+        <kit.FieldRow label="Stock">
+          <select
+            class="vk-input"
+            data-testid="stock-select"
+            disabled={!canEdit()}
+            value={
+              stockOptions().find((s) => namesMatch(s, stock())) ?? stock() ?? ""
+            }
+            onChange={(e) => onStockChange(e.currentTarget.value)}
+          >
+            <option value="">— pick stock —</option>
+            <For each={stockOptions()}>
+              {(s) => <option value={s}>{s}</option>}
+            </For>
+          </select>
+          <Show when={matched()?.stockPageRef}>
+            {(s) => (
+              <RuleRef book={s().book} page={s().page} />
+            )}
+          </Show>
+        </kit.FieldRow>
+        <kit.FieldRow label="Class">
+          <select
+            class="vk-input"
+            data-testid="class-select"
+            disabled={!canEdit()}
+            value={
+              classOptions().find((c) => namesMatch(c, klass())) ?? klass() ?? ""
+            }
+            onChange={(e) => onClassChange(e.currentTarget.value)}
+          >
+            <option value="">— pick class —</option>
+            <For each={classOptions()}>
+              {(c) => <option value={c}>{c}</option>}
+            </For>
+          </select>
+          <Show when={matched()}>
+            {(o) => (
+              <RuleRef
+                book={o().classPageRef.book}
+                page={o().classPageRef.page}
+              />
+            )}
+          </Show>
+        </kit.FieldRow>
+      </kit.SheetGroup>
+      <ApplyClassDefaultsButton characterId={props.characterId} />
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------
+ * Apply starting stats — one-click seeding of class-prescribed values
+ * from DH p.26-27 into the abilities, nature, skills, and traits
+ * traits. The button is only visible when both stock and class match
+ * a row in `TB_CLASS_DEFAULTS`; player-supplied non-default values are
+ * preserved (the button skips any field already non-zero / non-empty).
+ * ----------------------------------------------------------------------- */
+
+function ApplyClassDefaultsButton(props: { characterId: string }): JSX.Element {
+  const client = useClient();
+  const canEdit = kit.useCanEdit(props.characterId);
+  const identity = useTrait(props.characterId, Identity);
+  const abilities = useTrait(props.characterId, RawAbilities);
+  const skills = useTrait(props.characterId, Skills);
+  const traits = useTrait(props.characterId, CharacterTraits);
+
+  const defaults = createMemo<ClassDefaults | null>(() =>
+    lookupClassDefaults(identity()?.stock ?? "", identity()?.class ?? ""),
+  );
+  const natureDefaults = createMemo(() =>
+    lookupStockNatureDefaults(identity()?.stock ?? ""),
+  );
+
+  /**
+   * Compute the list of SetField writes the button *would* dispatch
+   * given the current trait state. Skips fields the player has
+   * already customized — Will rating already > 0 stays, a skill rated
+   * 3 stays, an existing trait list keeps everything in it.
+   */
+  const plannedWrites = createMemo<ReadonlyArray<CommandInstance>>(() => {
+    const d = defaults();
+    if (!d) return [];
+    const out: CommandInstance[] = [];
+    const characterId = props.characterId as EntityId;
+    const setField = (
+      trait: string,
+      path: ReadonlyArray<string | number>,
+      value: unknown,
+    ): void => {
+      out.push(
+        SetField({
+          characterId,
+          trait,
+          path: path as Array<string | number>,
+          value,
+        }),
+      );
+    };
+
+    const abil = abilities();
+    if ((abil?.will.rating ?? 0) === 0) {
+      setField(RawAbilities.name, ["will", "rating"], abilityStartingValue(d.will));
+    }
+    if ((abil?.health.rating ?? 0) === 0) {
+      setField(RawAbilities.name, ["health", "rating"], abilityStartingValue(d.health));
+    }
+
+    const nature = natureDefaults();
+    if (nature) {
+      if ((abil?.nature.rating ?? 0) === 0) {
+        setField(RawAbilities.name, ["nature", "rating"], nature.rating);
+      }
+      if ((abil?.nature.maximum ?? 0) === 0) {
+        setField(RawAbilities.name, ["nature", "maximum"], nature.rating);
+      }
+      if ((abil?.nature.descriptors ?? []).length === 0) {
+        setField(RawAbilities.name, ["nature", "descriptors"], nature.descriptors);
+      }
+    }
+
+    for (const s of d.skills) {
+      const entry = skills()?.entries?.[s.id];
+      if ((entry?.rating ?? 0) === 0) {
+        setField(Skills.name, ["entries", s.id, "rating"], s.rating);
+      }
+    }
+
+    const traitEntries = traits()?.entries ?? [];
+    const has = (name: string): boolean =>
+      traitEntries.some((t) => t.name.toLowerCase() === name.toLowerCase());
+    const toAppend: Array<{ name: string }> = [];
+    if (!has(d.classTrait)) toAppend.push({ name: d.classTrait });
+    // Stock-level required trait (currently only Huldrekall for Troll
+    // Changeling). Appended alongside the class trait in one write so
+    // a changeling shaman walks away with both Between Two Worlds and
+    // Huldrekall after a single click.
+    const extra = nature?.additionalTrait;
+    if (extra && !has(extra.name)) toAppend.push({ name: extra.name });
+    if (toAppend.length > 0) {
+      setField(CharacterTraits.name, ["entries"], [
+        ...traitEntries,
+        ...toAppend.map((t) => ({
+          name: t.name,
+          level: 1,
+          beneficialUses: 0,
+          checks: 0,
+          usedAgainst: false,
+        })),
+      ]);
+    }
+
+    return out;
+  });
+
+  const apply = (): void => {
+    for (const cmd of plannedWrites()) {
+      client.dispatch(cmd);
+    }
+  };
+
+  return (
+    <Show when={canEdit() && defaults() !== null}>
+      <div
+        style={{
+          display: "flex",
+          gap: "0.5rem",
+          "align-items": "center",
+          "flex-wrap": "wrap",
+        }}
+      >
+        <button
+          type="button"
           class="vk-input"
-          data-testid="stock-select"
-          disabled={!canEdit()}
-          value={
-            stockOptions().find((s) => namesMatch(s, stock())) ?? stock() ?? ""
+          data-testid="apply-class-defaults"
+          disabled={plannedWrites().length === 0}
+          title={
+            plannedWrites().length === 0
+              ? "Class starting stats already applied"
+              : `Fill in ${defaults()!.classTrait} class starting stats (DH p.${defaults()!.classTraitPage.page})`
           }
-          onChange={(e) => onStockChange(e.currentTarget.value)}
+          onClick={() => apply()}
+          style={{ "white-space": "nowrap" }}
         >
-          <option value="">— pick stock —</option>
-          <For each={stockOptions()}>
-            {(s) => <option value={s}>{s}</option>}
-          </For>
-        </select>
-        <Show when={matched()?.stockPageRef}>
-          {(s) => (
-            <RuleRef book={s().book} page={s().page} />
-          )}
-        </Show>
-      </kit.FieldRow>
-      <kit.FieldRow label="Class">
-        <select
-          class="vk-input"
-          data-testid="class-select"
-          disabled={!canEdit()}
-          value={
-            classOptions().find((c) => namesMatch(c, klass())) ?? klass() ?? ""
-          }
-          onChange={(e) => onClassChange(e.currentTarget.value)}
+          Apply starting stats
+        </button>
+        <span
+          style={{
+            "font-size": "0.75rem",
+            color: "var(--color-fg-muted)",
+          }}
         >
-          <option value="">— pick class —</option>
-          <For each={classOptions()}>
-            {(c) => <option value={c}>{c}</option>}
-          </For>
-        </select>
-        <Show when={matched()}>
-          {(o) => (
-            <RuleRef
-              book={o().classPageRef.book}
-              page={o().classPageRef.page}
-            />
-          )}
-        </Show>
-      </kit.FieldRow>
-    </kit.SheetGroup>
+          Fills Will, Health, Nature, skills, and the class trait from
+          the printed class row. Already-edited fields are preserved.
+        </span>
+      </div>
+    </Show>
   );
 }
 
