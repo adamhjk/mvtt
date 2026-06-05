@@ -199,3 +199,26 @@ export function buildBlockKindIndex(registry: Registry): BlockKindIndex {
   for (const k of all) byName.set(k.name, k);
   return { all, byName };
 }
+
+/**
+ * Build a block-kind index directly from a list of plugin definitions,
+ * without standing up a `Registry` / `World`. Reads each plugin's
+ * static `fills[BlockKindsSlot.name]` contribution — the same array the
+ * Registry would surface after `validate()`. Intended for offline tools
+ * (the bundle CLI) that want a game system's block schemas to validate
+ * authored content but don't need a live world.
+ *
+ * Later plugins win on name collisions, matching registry load order.
+ */
+export function buildBlockKindIndexFromPlugins(
+  plugins: ReadonlyArray<{ fills: Readonly<Record<string, ReadonlyArray<unknown>>> }>,
+): BlockKindIndex {
+  const all: AnyBlockKindDef[] = [];
+  for (const p of plugins) {
+    const fills = p.fills[BlockKindsSlot.name] ?? [];
+    for (const k of fills) all.push(k as AnyBlockKindDef);
+  }
+  const byName = new Map<string, AnyBlockKindDef>();
+  for (const k of all) byName.set(k.name, k);
+  return { all, byName };
+}

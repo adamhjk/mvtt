@@ -255,6 +255,7 @@ describe("TB items catalog → seed", () => {
       "tb/book/scholars-guide",
       "tb/book/loremasters-manual",
       "tb/book/dungeoneers-handbook",
+      "tb/book/cartographers-compendium",
     ]);
     expect(v.entries.map((e) => e.name)).toEqual(
       TB_CANONICAL_BOOKS.map((b) => b.name),

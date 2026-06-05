@@ -26,7 +26,7 @@ import { createMemo, type JSX } from "solid-js";
 import { TB_CANONICAL_BOOK_BY_ABBREVIATION } from "../data/seed.js";
 
 export function RuleRef(props: {
-  book: "DH" | "LMM" | "SG";
+  book: "DH" | "LMM" | "SG" | "CC";
   page: number;
   /** Optional override for the chip's visible label. */
   label?: string;

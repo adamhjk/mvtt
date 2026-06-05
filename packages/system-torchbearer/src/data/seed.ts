@@ -92,6 +92,10 @@ export const TB_CANONICAL_BOOKS = [
   { id: "tb/book/scholars-guide", name: "Torchbearer 2e: Scholar's Guide" },
   { id: "tb/book/loremasters-manual", name: "Torchbearer 2e: Loremaster's Manual" },
   { id: "tb/book/dungeoneers-handbook", name: "Torchbearer 2e: Dungeoneer's Handbook" },
+  {
+    id: "tb/book/cartographers-compendium",
+    name: "Torchbearer 2e: Cartographer's Compendium",
+  },
 ] as const;
 
 /** Map of `sourceBook` abbreviation -> canonicalId for citation rendering. */
@@ -99,19 +103,20 @@ export const TB_CANONICAL_BOOK_BY_ABBREVIATION = {
   SG: "tb/book/scholars-guide",
   LMM: "tb/book/loremasters-manual",
   DH: "tb/book/dungeoneers-handbook",
+  CC: "tb/book/cartographers-compendium",
 } as const;
 
 /**
  * Reverse lookup: canonicalId → short abbreviation. Returns the
- * abbreviation (`"SG"`, `"LMM"`, `"DH"`) for a known TB canonicalId,
- * or null for any other id (foreign plugins, future books). The
- * monster sheet uses this to render labels like "LMM p.261".
+ * abbreviation (`"SG"`, `"LMM"`, `"DH"`, `"CC"`) for a known TB
+ * canonicalId, or null for any other id (foreign plugins, future
+ * books). The monster sheet uses this to render labels like "LMM p.261".
  */
 export function tbCanonicalBookAbbreviation(
   canonicalId: string,
-): "SG" | "LMM" | "DH" | null {
+): "SG" | "LMM" | "DH" | "CC" | null {
   for (const [abbrev, id] of Object.entries(TB_CANONICAL_BOOK_BY_ABBREVIATION)) {
-    if (id === canonicalId) return abbrev as "SG" | "LMM" | "DH";
+    if (id === canonicalId) return abbrev as "SG" | "LMM" | "DH" | "CC";
   }
   return null;
 }

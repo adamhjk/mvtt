@@ -20,6 +20,9 @@ importers:
       '@vtt/adventures':
         specifier: workspace:*
         version: link:packages/adventures
+      '@vtt/system-torchbearer':
+        specifier: workspace:*
+        version: link:packages/system-torchbearer
       canvas:
         specifier: ^3.2.3
         version: 3.2.3

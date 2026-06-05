@@ -47,11 +47,25 @@ import {
   type AdventureBundle,
   type BundleManifest,
 } from "./bundle.js";
+import { validateBlockBodies } from "./block-parse-system.js";
+import type { BlockKindIndex } from "../shared/block-kinds.js";
 
 /** Options for `buildBundleFromDir`. */
 export interface BuildFromDirOptions {
   /** Absolute path to the working directory. Must contain `bundle.json`. */
   dir: string;
+  /**
+   * Optional block-kind index for the bundle's game system. When
+   * supplied, every fenced block in every page is validated against
+   * its kind's schema (the same YAML + wiki-link + Zod path the
+   * importer runs) and the build aborts with a precise report if any
+   * block is malformed. Omit to skip the check — the bundle still
+   * builds, and bad blocks surface at import time as before.
+   *
+   * The CLI builds this from the `gameSystem` named in `bundle.json`;
+   * see `tools/build-adventure-bundle/build.ts`.
+   */
+  kindIndex?: BlockKindIndex;
 }
 
 type ManifestTop = Pick<
@@ -292,6 +306,35 @@ export async function buildBundleFromDir(
   const notes: BundleManifest["notes"] = [];
   for (const entry of noteDirs) {
     notes.push(await buildNote(join(notesDir, entry.name), entry.name));
+  }
+
+  // Block-schema validation (opt-in via kindIndex). Runs the same
+  // YAML + wiki-link + Zod path the importer uses, so authoring
+  // mistakes (bad enum, missing required field, malformed YAML) fail
+  // the build here instead of silently shipping a zip that breaks on
+  // import. Reference resolution is *not* checked — that needs a
+  // seeded world and is the importer's / export-closure's job.
+  if (opts.kindIndex) {
+    const report: string[] = [];
+    for (const note of notes) {
+      for (const page of note.pages) {
+        for (const err of validateBlockBodies(page.body, opts.kindIndex)) {
+          const where = `${note.title} › ${page.title} › \`\`\`${err.kind} ${err.info}`.trim();
+          if (err.stage === "yaml" || err.issues.length === 0) {
+            report.push(`  ${where}\n      ${err.message}`);
+          } else {
+            for (const issue of err.issues) {
+              report.push(`  ${where}\n      ${issue.path}: ${issue.message}`);
+            }
+          }
+        }
+      }
+    }
+    if (report.length > 0) {
+      throw new Error(
+        `block validation failed (${report.length} issue${report.length === 1 ? "" : "s"}):\n${report.join("\n")}`,
+      );
+    }
   }
 
   // Assets.

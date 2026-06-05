@@ -20,6 +20,13 @@ export {
   PageBlocksMirrorSystem,
   blockEntityId,
   runBlockParse,
+  parseBlockBody,
+  validateBlockBodies,
+} from "./block-parse-system.js";
+export type {
+  BlockSchemaIssue,
+  BlockValidationError,
+  ParseBlockBodyResult,
 } from "./block-parse-system.js";
 export {
   buildBundle,

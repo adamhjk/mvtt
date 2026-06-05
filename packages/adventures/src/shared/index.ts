@@ -18,6 +18,7 @@
 export {
   defineBlockKind,
   buildBlockKindIndex,
+  buildBlockKindIndexFromPlugins,
   BlockKindsSlot,
   type AnyBlockKindDef,
   type BlockKindContext,

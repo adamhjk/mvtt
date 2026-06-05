@@ -110,6 +110,122 @@ interface ParseError {
 }
 
 /**
+ * One Zod issue, flattened to a path + message. The `path` is the
+ * dotted field location (`"disposition.kill"`, `"(root)"`), the
+ * `message` the human-readable reason.
+ */
+export interface BlockSchemaIssue {
+  readonly path: string;
+  readonly message: string;
+}
+
+/**
+ * Result of running a block body through the YAML + schema half of the
+ * parse pipeline — everything `projectBlock` does *before* it touches
+ * the world. Carried out by `parseBlockBody` so the importer
+ * (`projectBlock`) and the build-time validator (`validateBlockBodies`)
+ * share one code path and can never disagree about whether a block is
+ * well-formed.
+ */
+export type ParseBlockBodyResult =
+  | { ok: true; value: unknown }
+  | {
+      ok: false;
+      stage: "yaml" | "schema";
+      message: string;
+      issues?: ReadonlyArray<BlockSchemaIssue>;
+    };
+
+/**
+ * Parse + schema-validate one fenced block body, world-free. This is
+ * the shared front half of `projectBlock`: it preprocesses wiki-links
+ * to safe sentinels (so YAML's flow syntax doesn't eat `[[ … ]]` as
+ * nested arrays), runs `YAML.load`, restores the sentinels, and runs
+ * the kind's Zod schema. It deliberately stops short of `project()`,
+ * which needs a populated world to resolve wiki-links to entity ids.
+ */
+export function parseBlockBody(
+  kindDef: AnyBlockKindDef,
+  body: string,
+): ParseBlockBodyResult {
+  const { body: safeBody, table } = prepareYaml(body);
+  let yaml: unknown;
+  try {
+    yaml = YAML.load(safeBody);
+  } catch (err) {
+    return { ok: false, stage: "yaml", message: `YAML parse error: ${(err as Error).message}` };
+  }
+  const restored = restoreWikiLinks(yaml, table);
+  const parsed = kindDef.schema.safeParse(restored ?? {});
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((i) => ({
+      path: i.path.join(".") || "(root)",
+      message: i.message,
+    }));
+    const first = issues[0];
+    return {
+      ok: false,
+      stage: "schema",
+      message: first ? `${first.path}: ${first.message}` : "schema validation failed",
+      issues,
+    };
+  }
+  return { ok: true, value: parsed.data };
+}
+
+/** A single block that failed YAML/schema validation. */
+export interface BlockValidationError {
+  /** Fence info-string kind (`monster`, `encounter`, …). */
+  readonly kind: string;
+  /** Stable block key derived from the info string (the entity binding). */
+  readonly blockKey: string;
+  /** Full info string after the kind word (the author's title). */
+  readonly info: string;
+  /** Which half of the pipeline rejected the block. */
+  readonly stage: "yaml" | "schema";
+  /** Headline message (first issue, or the YAML parse error). */
+  readonly message: string;
+  /** Every schema issue (empty for YAML-stage failures). */
+  readonly issues: ReadonlyArray<BlockSchemaIssue>;
+}
+
+/**
+ * Validate every recognised fenced block in a note body against its
+ * kind's schema, world-free. This is the build-time / authoring-time
+ * counterpart to `runBlockParse`: it reuses the exact same YAML +
+ * wiki-link + schema path (`parseBlockBody`) the importer runs, but
+ * stops before `project()` (which needs a seeded world to resolve
+ * references). Unrecognised fence kinds — `setdesign`, plain code
+ * fences — are ignored, exactly as `runBlockParse` ignores them.
+ *
+ * Returns one entry per failing block; an empty array means the body
+ * is schema-clean.
+ */
+export function validateBlockBodies(
+  body: string,
+  kindIndex: BlockKindIndex,
+): BlockValidationError[] {
+  const recognizedKinds = new Set<string>(kindIndex.byName.keys());
+  const blocks = scanFencedBlocks(body, recognizedKinds);
+  const errors: BlockValidationError[] = [];
+  for (const block of blocks) {
+    const kindDef = kindIndex.byName.get(block.kind);
+    if (!kindDef) continue;
+    const res = parseBlockBody(kindDef, block.body);
+    if (res.ok) continue;
+    errors.push({
+      kind: block.kind,
+      blockKey: block.blockKey,
+      info: block.info,
+      stage: res.stage,
+      message: res.message,
+      issues: res.issues ?? [],
+    });
+  }
+  return errors;
+}
+
+/**
  * Parse one fenced block: YAML → schema-validated object → projected
  * traits. Returns null on parse/validation failure (logged via the
  * caller's error sink so the editor can surface diagnostics later).
@@ -127,31 +243,12 @@ function projectBlock(
       spawnIfMissing: ReadonlyArray<{ trait: import("@vtt/substrate").TraitMeta; value: unknown }>;
     }
   | { ok: false; message: string } {
-  // Preprocess wiki-links to safe sentinels so YAML's flow syntax
-  // doesn't eat `[[ … ]]` as nested arrays. After parsing, we walk
-  // the parsed tree and restore each sentinel to its original source
-  // text so the kind's schema sees real wiki-link strings — no
-  // quoting required by the author.
-  const { body: safeBody, table } = prepareYaml(body);
-  let yaml: unknown;
+  // YAML + schema are handled by the shared `parseBlockBody` so the
+  // build-time validator can't drift from import behaviour.
+  const parsed = parseBlockBody(kindDef, body);
+  if (!parsed.ok) return { ok: false, message: parsed.message };
   try {
-    yaml = YAML.load(safeBody);
-  } catch (err) {
-    return { ok: false, message: `YAML parse error: ${(err as Error).message}` };
-  }
-  const restored = restoreWikiLinks(yaml, table);
-  const parsed = kindDef.schema.safeParse(restored ?? {});
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    return {
-      ok: false,
-      message: first
-        ? `${first.path.join(".") || "(root)"}: ${first.message}`
-        : "schema validation failed",
-    };
-  }
-  try {
-    const projection = kindDef.project(parsed.data, { world, info, blockKey });
+    const projection = kindDef.project(parsed.value, { world, info, blockKey });
     return {
       ok: true,
       traits: projection.traits,
