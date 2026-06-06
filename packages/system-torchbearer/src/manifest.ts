@@ -295,7 +295,8 @@ import {
   TbIdentityFill,
   TbInventoryTabFill,
   TbInvocationsTabFill,
-  TbPendingRollContributor,
+  TbAtelierEditor,
+  TbRailAccessory,
   TbRollActionsFill,
   TB_ITEM_DETAIL_SECTIONS,
   TbRollChatTimelineContributor,
@@ -306,7 +307,10 @@ import {
   TbWhoYouAreTabFill,
 } from "./client/index.js";
 import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
-import { PendingRollContributorsSlot } from "@vtt/characters/shared";
+import {
+  PendingRollEditorsSlot,
+  RollAtelierRailSlot,
+} from "@vtt/characters/shared";
 import { RollActionsSlot } from "@vtt/resolution/shared";
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { PaletteCommandsSlot } from "@vtt/shell-workbench/shared";
@@ -673,7 +677,8 @@ export const systemTorchbearer = definePlugin({
       TbLightWentOutContributor,
       TbGrindTollContributor,
     ],
-    [PendingRollContributorsSlot.name]: [TbPendingRollContributor],
+    [PendingRollEditorsSlot.name]: [TbAtelierEditor],
+    [RollAtelierRailSlot.name]: [TbRailAccessory],
     [RollActionsSlot.name]: [TbRollActionsFill],
     [ItemDetailSectionsSlot.name]: [...TB_ITEM_DETAIL_SECTIONS],
     [CharacterListExclusionSlot.name]: [

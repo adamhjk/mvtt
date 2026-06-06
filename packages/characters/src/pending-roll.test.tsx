@@ -48,7 +48,7 @@ import {
   PendingRollContributorsSlot,
   type PendingRollContributor,
 } from "./shared/slot.js";
-import { PendingRollPanels } from "./client/PendingRollPanel.js";
+import { PendingRollPanels } from "./client/PendingRollPanels.js";
 import { RollableLabel } from "./client/kit.js";
 
 beforeEach(() => cleanup());

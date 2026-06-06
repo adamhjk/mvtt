@@ -67,6 +67,15 @@ import {
   CharacterListExclusionSlot,
   PendingRollContributorsSlot,
 } from "./shared/slot.js";
+import {
+  PendingRollEditorsSlot,
+  RollAtelierRailSlot,
+  RollAtelierUiState,
+  RollAtelierUiStateChanged,
+  RollAtelierUiStateMirror,
+  SetRollAtelierUiState,
+} from "./shared/atelier.js";
+import { GenericPendingRollEditor } from "./client/GenericRollEditor.js";
 
 /**
  * Test harness for plugin views and kit components that bind to a
@@ -134,7 +143,15 @@ const DEFAULT_CLIENT_ID = "test-client-1";
 const charactersTestInfra = definePlugin({
   name: "@vtt/characters-testing",
   version: "0.0.0",
-  traits: [Character, Permissions, Identity, Online, PendingRoll, Team],
+  traits: [
+    Character,
+    Permissions,
+    Identity,
+    Online,
+    PendingRoll,
+    Team,
+    RollAtelierUiState,
+  ],
   events: [
     CharacterCreated,
     CharacterRenamed,
@@ -145,6 +162,7 @@ const charactersTestInfra = definePlugin({
     PendingRollContributionRemoved,
     PendingRollCommitted,
     PendingRollCancelled,
+    RollAtelierUiStateChanged,
   ],
   commands: [
     CreateCharacter,
@@ -156,6 +174,7 @@ const charactersTestInfra = definePlugin({
     RemoveContribution,
     CommitPendingRoll,
     CancelPendingRoll,
+    SetRollAtelierUiState,
   ],
   systems: [
     CharacterSpawningSystem,
@@ -167,8 +186,17 @@ const charactersTestInfra = definePlugin({
     PendingRollContributionRemoveSystem,
     PendingRollCommitSystem,
     PendingRollCancelSystem,
+    RollAtelierUiStateMirror,
   ],
-  slots: [CharacterListExclusionSlot, PendingRollContributorsSlot],
+  slots: [
+    CharacterListExclusionSlot,
+    PendingRollContributorsSlot,
+    PendingRollEditorsSlot,
+    RollAtelierRailSlot,
+  ],
+  fills: {
+    [PendingRollEditorsSlot.name]: [GenericPendingRollEditor],
+  },
 });
 
 export function buildCharacterHarness(

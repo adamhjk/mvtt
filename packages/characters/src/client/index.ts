@@ -20,7 +20,11 @@ export { CharactersPageProvider } from "./CharactersPage.js";
 export { CharacterSheet } from "./CharacterSheet.js";
 export { SheetShell } from "./SheetShell.js";
 export { IdentityFill } from "./IdentityFill.js";
-export { PendingRollPanels } from "./PendingRollPanel.js";
+export { AtelierAutoFocusMount } from "./AtelierAutoFocusMount.js";
+export { GenericPendingRollEditor } from "./GenericRollEditor.js";
+export { PendingRollPanels } from "./PendingRollPanels.js";
+export { RollAtelier } from "./RollAtelier.js";
+export { RollAtelierPageProvider } from "./RollAtelierPageProvider.js";
 export {
   activeSpeakerId,
   setActiveSpeakerId,

@@ -61,6 +61,19 @@ export {
   type PendingRollContributorArgs,
 } from "./slot.js";
 export {
+  ROLL_ATELIER_KIND,
+  RollAtelierUiState,
+  RollAtelierUiStateChanged,
+  RollAtelierUiStateMirror,
+  SetRollAtelierUiState,
+  PendingRollEditorsSlot,
+  RollAtelierRailSlot,
+  type PendingRollEditor,
+  type PendingRollEditorArgs,
+  type RollAtelierRailAccessory,
+  type RollAtelierRailArgs,
+} from "./atelier.js";
+export {
   getAtPath,
   setAtPath,
   type Path,

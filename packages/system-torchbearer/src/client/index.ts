@@ -34,7 +34,8 @@ export {
   TbRollChatTimelineContributor,
   TbSkillLearningTimelineContributor,
 } from "./chat-timeline.js";
-export { TbPendingRollContributor } from "./pending-roll-contributor.js";
+export { TbAtelierEditor } from "./atelier/TbAtelierEditor.js";
+export { TbRailAccessory } from "./atelier/rail/TbRailAccessory.js";
 export { TbRollActionsFill } from "./tb-roll-actions-fill.js";
 export { TbRollRow } from "./tb-roll-row.js";
 export { TB_ITEM_DETAIL_SECTIONS } from "./item-detail-sections.js";

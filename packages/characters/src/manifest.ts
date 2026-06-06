@@ -21,6 +21,15 @@ import {
   PagesSlot,
   type ChatRailWidget,
 } from "@vtt/shell-workbench/shared";
+import {
+  PendingRollEditorsSlot,
+  ROLL_ATELIER_KIND,
+  RollAtelierRailSlot,
+  RollAtelierUiState,
+  RollAtelierUiStateChanged,
+  RollAtelierUiStateMirror,
+  SetRollAtelierUiState,
+} from "./shared/atelier.js";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { characterLinkKind } from "./shared/character-link-kind.js";
 import { Active, Character, CharacterToken, Team } from "./shared/traits.js";
@@ -78,9 +87,11 @@ import {
   PendingRollSpawnSystem,
 } from "./server/systems.js";
 import {
+  AtelierAutoFocusMount,
   CharactersPageProvider,
+  GenericPendingRollEditor,
   IdentityFill,
-  PendingRollPanels,
+  RollAtelierPageProvider,
 } from "./client/index.js";
 
 /**
@@ -95,16 +106,18 @@ const defaultIdentityFill: CharacterSheetRegion = {
 };
 
 /**
- * Chat-rail widget that mounts one panel per active PendingRoll
- * entity. Renders nothing when no rolls are in flight; appears when
- * an interactive rollable opens one. Priority sits above the chat
- * stream so the panel is always visible at the top of the rail when
- * present.
+ * Chat-rail widget that mounts the Atelier's auto-focus side effect.
+ * Renders nothing visible — the widget exists only to anchor the
+ * reactive `useQuery(PendingRoll)` effect that dispatches `OpenPage` on
+ * the Roll tab when a PendingRoll belonging to the current user lands.
+ *
+ * Priority is below other widgets so it doesn't take rail space (it has
+ * none to give); the chat composer + visible widgets render above it.
  */
-const pendingRollWidget: ChatRailWidget = {
-  id: qualifiedName("@vtt/characters/pending-roll-widget") as ChatRailWidget["id"],
-  priority: 80,
-  render: () => PendingRollPanels(),
+const atelierAutoFocusWidget: ChatRailWidget = {
+  id: qualifiedName("@vtt/characters/atelier-auto-focus") as ChatRailWidget["id"],
+  priority: -1000,
+  render: () => AtelierAutoFocusMount(),
 };
 
 export const characters = definePlugin({
@@ -124,6 +137,7 @@ export const characters = definePlugin({
     Team,
     Active,
     CharacterSheetUiState,
+    RollAtelierUiState,
   ],
   events: [
     CharacterCreated,
@@ -137,6 +151,7 @@ export const characters = definePlugin({
     PendingRollCommitted,
     PendingRollCancelled,
     CharacterSheetUiStateChanged,
+    RollAtelierUiStateChanged,
   ],
   commands: [
     CreateCharacter,
@@ -150,6 +165,7 @@ export const characters = definePlugin({
     CommitPendingRoll,
     CancelPendingRoll,
     SetCharacterSheetUiState,
+    SetRollAtelierUiState,
   ],
   systems: [
     CharacterSpawningSystem,
@@ -163,6 +179,7 @@ export const characters = definePlugin({
     PendingRollCommitSystem,
     PendingRollCancelSystem,
     CharacterSheetUiStateMirror,
+    RollAtelierUiStateMirror,
   ],
   slots: [
     CharacterSheetIdentitySlot,
@@ -172,13 +189,18 @@ export const characters = definePlugin({
     CharacterSheetActionsSlot,
     CharacterListExclusionSlot,
     PendingRollContributorsSlot,
+    PendingRollEditorsSlot,
+    RollAtelierRailSlot,
   ],
   fills: {
-    [PagesSlot.name]: [CharactersPageProvider],
+    [PagesSlot.name]: [CharactersPageProvider, RollAtelierPageProvider],
     [CharacterSheetIdentitySlot.name]: [defaultIdentityFill],
-    [ChatRailWidgetsSlot.name]: [pendingRollWidget],
+    [ChatRailWidgetsSlot.name]: [atelierAutoFocusWidget],
     [LinkKindsSlot.name]: [characterLinkKind],
+    [PendingRollEditorsSlot.name]: [GenericPendingRollEditor],
   },
 });
+
+void ROLL_ATELIER_KIND;
 
 export default characters;
