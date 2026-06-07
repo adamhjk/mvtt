@@ -420,11 +420,15 @@ In ECS terms: presence state is **never event-sourced**. It lives as ephemeral t
 
 ### Reconnection and late joiners
 
-Because the canonical state is an event log, reconnection is mechanical:
+Because the canonical state is an event log, reconnection is mechanical. The implemented shape: **every connection — first or Nth — is the same handshake.** The server sends `hello → snapshot → synced` on connect; the client applies the snapshot wholesale via `world.restore` (which fires reactivity for the union of old and new state, so every view refreshes). There is no client-side "events since seq #N" delta request — the client tracks `lastAppliedSeq` but recovery is always a full snapshot, which makes gap detection unnecessary by construction. (A seq-tail delta remains a possible future optimisation; the `lastAppliedSeq` plumbing is already in place.)
 
-- Client tracks the highest event sequence number it has applied.
-- On reconnect, requests "events since seq #N".
-- Server replays events from log; client catches up.
+The client side of this lives in `substrate/src/connection.ts` — a reconnecting socket wrapper owned by `startClient`:
+
+- **Auto-reconnect** with jittered exponential backoff on any close/error.
+- **Resume triggers** (`visibilitychange`, `pageshow`, `online`, `focus`) force an immediate redial when a suspended tab comes back with a dead socket — Safari kills background-tab sockets aggressively and often *without firing a close event*.
+- **Zombie watchdog**: an app-level `{kind:"ping"}` → `{kind:"pong"}` wire pair (the ws-protocol-level heartbeat is answered by the browser's network stack, invisibly to page JS). A socket that claims OPEN but has received nothing for the staleness window is forcibly recycled.
+- **Fail-fast dispatch**: while disconnected, `dispatch` resolves its ack `{ok:false, reason:"disconnected"}` immediately — commands are never queued for replay, because a command issued against a pre-disconnect world could act on state that moved during the gap. Presence publishes are dropped silently (ephemeral by design).
+- The shell shows a banner (`ConnectionBanner` in `@vtt/client`) for the reconnecting/resyncing states so a dropped socket is never invisible to the player.
 
 Late joiners get a snapshot + tail of events. Spectators are read-only late joiners. Server crash recovery is "snapshot periodically, replay events since snapshot." All of these reduce to one mechanism.
 

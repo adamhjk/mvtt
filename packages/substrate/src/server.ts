@@ -684,6 +684,13 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
           return;
         }
 
+        if (msg.data.kind === "ping") {
+          // App-level liveness probe (see ClientPingMsg in protocol.ts).
+          // Reply directly on this socket; no world or runtime involved.
+          sock.send(JSON.stringify({ kind: "pong", t: msg.data.t }));
+          return;
+        }
+
         if (msg.data.kind === "presence") {
           // Per-world presence: scoped to the originator's runtime.
           const allowList = msg.data.to;

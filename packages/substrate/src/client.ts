@@ -20,6 +20,7 @@ import { Registry } from "./registry.js";
 import { World } from "./world.js";
 import { EventBus } from "./event-bus.js";
 import { WireMsg } from "./protocol.js";
+import { createConnection } from "./connection.js";
 import type { EntityId, EventName, QualifiedName, TraitName } from "./schema.js";
 import { substrateCorePlugin } from "./core-plugin.js";
 import { runSystemsToFixpoint } from "./systems-runner.js";
@@ -72,14 +73,26 @@ export interface ClientHandle {
   readonly clientId: () => string | null;
   /** The worldId this client is connected to, as advertised by the server's hello. Null until connected. */
   readonly worldId: () => string | null;
+  /**
+   * True while a live socket is open. The client auto-reconnects on any
+   * drop (see connection.ts), so false is a transient "reconnecting…"
+   * state, not a terminal one — surface it, don't treat it as fatal.
+   */
   readonly connected: () => boolean;
   /** Highest event seq this client has applied (snapshot.atSeq or event.seq). */
   readonly lastAppliedSeq: () => number;
-  /** True once the server has sent `synced` — initial catchup is complete. */
+  /**
+   * True once the server has sent `synced` — catchup is complete. Resets
+   * to false on disconnect and flips true again after each reconnect's
+   * snapshot replay, so `connected() && !synced()` means "resyncing".
+   */
   readonly synced: () => boolean;
   dispatch(cmd: CommandInstance, opts?: { causalState?: unknown }): DispatchHandle;
   onConnect(fn: () => void): () => void;
-  /** Fires once when the client transitions from catchup to live mode. */
+  /**
+   * Fires when the client transitions from catchup to live mode — once
+   * on initial connect and again after every reconnect resync.
+   */
   onSynced(fn: () => void): () => void;
   /**
    * Per-client registry of pending optimistic-trait writes, keyed by the
@@ -174,28 +187,43 @@ export function startClient(opts: ClientOptions): ClientHandle {
     string,
     { resolve: (ack: DispatchAck) => void }
   >();
-  const sock = new WebSocket(opts.url);
 
-  sock.addEventListener("open", () => {
-    setConnected(true);
+  // The connection layer owns the socket lifecycle: auto-reconnect with
+  // backoff, resume-trigger reconnects (visibilitychange/pageshow/online),
+  // and a zombie watchdog for sockets that die without a close event —
+  // Safari's signature failure after tab suspension. Every reconnect is a
+  // fresh server handshake (hello → snapshot → synced), and the snapshot
+  // handler below resyncs the local World wholesale via `world.restore`,
+  // so missed events during the gap are recovered automatically.
+  const conn = createConnection({
+    url: opts.url,
+    onOpen: () => {
+      setConnected(true);
+    },
+    onDisconnect: () => {
+      setConnected(false);
+      // Back to catchup mode: the next connection replays a full
+      // snapshot before `synced` arrives again. UI reading `synced()`
+      // can distinguish "reconnecting" from "resyncing".
+      setSynced(false);
+      // Drain pending acks so callers awaiting them don't hang forever.
+      // Disconnect mid-dispatch is indistinguishable from a server-side
+      // failure from the caller's perspective; surface it as not-ok with
+      // a reason so UI busy-states can clear.
+      for (const pending of pendingAcks.values()) {
+        pending.resolve({ ok: false, reason: "disconnected" });
+      }
+      pendingAcks.clear();
+    },
+    // Declared below; safe because frames can only arrive after
+    // startClient returns.
+    onMessage: (data) => handleWireMessage(data),
   });
 
-  sock.addEventListener("close", () => {
-    setConnected(false);
-    // Drain pending acks so callers awaiting them don't hang forever.
-    // Disconnect mid-dispatch is indistinguishable from a server-side
-    // failure from the caller's perspective; surface it as not-ok with a
-    // reason so UI busy-states can clear.
-    for (const pending of pendingAcks.values()) {
-      pending.resolve({ ok: false, reason: "disconnected" });
-    }
-    pendingAcks.clear();
-  });
-
-  sock.addEventListener("message", (e) => {
+  const handleWireMessage = (data: string) => {
     let parsed: unknown;
     try {
-      parsed = JSON.parse(typeof e.data === "string" ? e.data : "");
+      parsed = JSON.parse(data);
     } catch {
       return;
     }
@@ -320,8 +348,11 @@ export function startClient(opts: ClientOptions): ClientHandle {
         if (subs) for (const fn of subs) fn(msg.data.payload);
         break;
       }
+      // "pong" frames exist purely to bump the connection layer's
+      // activity clock, which already happened on receipt; "ping" and
+      // "command" are client→server only and never arrive here.
     }
-  });
+  };
 
   // Presence: per-channel listeners, not buffered. Late-joining a channel
   // means you start hearing from "now"; the design is for ephemeral state
@@ -329,7 +360,10 @@ export function startClient(opts: ClientOptions): ClientHandle {
   const presenceSubs = new Map<QualifiedName, Set<(payload: unknown) => void>>();
   const presence: PresenceApi = {
     publish(channel, payload, pubOpts) {
-      sock.send(
+      // Presence is ephemeral by design — while disconnected, payloads
+      // are dropped, not queued. A stale cursor position replayed after
+      // a reconnect would be worse than no cursor at all.
+      conn.send(
         JSON.stringify({
           kind: "presence",
           channel,
@@ -368,8 +402,13 @@ export function startClient(opts: ClientOptions): ClientHandle {
       const ack = new Promise<DispatchAck>((r) => {
         resolve = r;
       });
-      pendingAcks.set(id, { resolve });
-      sock.send(
+      // Fail fast while disconnected: `send` on a non-OPEN socket is a
+      // silent browser no-op, and an ack registered after the disconnect
+      // drain would hang forever. Commands are NOT queued for replay —
+      // a command issued against a pre-disconnect world could act on
+      // state that moved during the gap; the caller sees not-ok and the
+      // user retries against the resynced world.
+      const sent = conn.send(
         JSON.stringify({
           kind: "command",
           id,
@@ -378,6 +417,11 @@ export function startClient(opts: ClientOptions): ClientHandle {
           causalState: dispatchOpts?.causalState,
         }),
       );
+      if (sent) {
+        pendingAcks.set(id, { resolve });
+      } else {
+        resolve({ ok: false, reason: "disconnected" });
+      }
       return { id, ack };
     },
     onConnect(fn) {
@@ -392,7 +436,7 @@ export function startClient(opts: ClientOptions): ClientHandle {
     },
     optimisticFlushes: createOptimisticFlushRegistry(),
     close() {
-      sock.close();
+      conn.close();
     },
   };
 }

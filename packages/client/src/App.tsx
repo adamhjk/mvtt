@@ -17,7 +17,15 @@
 
 import { RootSurface } from "@vtt/substrate";
 import { Surface } from "@vtt/substrate/client";
+import { ConnectionBanner } from "./ConnectionBanner";
 
 export function App() {
-  return <Surface name={RootSurface.name} />;
+  return (
+    <>
+      {/* Above every shell (workbench AND mobile) so a dropped socket is
+          never invisible, whatever surface is mounted. */}
+      <ConnectionBanner />
+      <Surface name={RootSurface.name} />
+    </>
+  );
 }

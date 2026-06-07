@@ -66,6 +66,29 @@ export const PresenceMsg = z.object({
   to: z.array(z.string()).optional(),
 });
 
+/**
+ * Client→server liveness probe. The server's protocol-level ws ping/pong
+ * (see HEARTBEAT_INTERVAL_MS in server.ts) is invisible to browser
+ * JavaScript — the browser's network stack answers pongs without telling
+ * the page — so a client can't use it to detect a dead pipe. Safari in
+ * particular is prone to "zombie" sockets after tab suspension or a
+ * network change: readyState stays OPEN, sends silently vanish, and no
+ * close event ever fires. The substrate client sends an app-level ping
+ * on an interval and treats prolonged silence (no pong, no other
+ * traffic) as a dead connection, recycling the socket. `t` is the
+ * sender's clock, echoed back in the pong for optional RTT measurement.
+ */
+export const ClientPingMsg = z.object({
+  kind: z.literal("ping"),
+  t: z.number(),
+});
+
+/** Server→client reply to ClientPingMsg; echoes `t` verbatim. */
+export const ServerPongMsg = z.object({
+  kind: z.literal("pong"),
+  t: z.number(),
+});
+
 export const CommandMsg = z.object({
   kind: z.literal("command"),
   id: z.string(),
@@ -135,5 +158,7 @@ export const WireMsg = z.union([
   PresenceMsg,
   EntityRevealedMsg,
   EntityHiddenMsg,
+  ClientPingMsg,
+  ServerPongMsg,
 ]);
 export type WireMsg = z.infer<typeof WireMsg>;
