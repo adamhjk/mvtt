@@ -34,7 +34,7 @@ export function InvocationsCard(props: { atelier: AtelierState }): JSX.Element {
       }
     >
       <section
-        class="flex flex-col gap-2 rounded-(--radius-card) border border-border bg-surface p-3"
+        class="flex flex-col gap-2 rounded-(--radius-card) border border-border bg-surface p-3 sm:col-span-2"
         data-testid="atelier-invocations-card"
       >
         <div class="flex items-baseline justify-between">

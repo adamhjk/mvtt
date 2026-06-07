@@ -30,30 +30,116 @@ import {
 } from "./test-helpers.jsx";
 import {
   TB_DISPOSITION_CONTRIB_KIND,
+  TB_VERSUS_CONTRIB_KIND,
   WillCheck,
 } from "../../shared/index.js";
 
 beforeEach(() => cleanup());
 
-describe("TopStrip — headline, mode badge, disposition toggle", () => {
-  it("renders a disposition toggle button", () => {
+interface DispatchedContribution {
+  type: string;
+  payload: {
+    pendingRollId: string;
+    contribution: {
+      kind: string;
+      payload: Record<string, unknown>;
+      replaces?: string;
+    };
+  };
+}
+
+describe("TopStrip — headline + mode switch", () => {
+  it("renders the three-segment mode switch with `independent` active by default", () => {
     const { h, rollId } = buildAtelierHarness({ rollableName: WillCheck.name });
     mountWithClient(h, () => mountTbEditor(rollId) as never);
-    expect(screen.getByTestId("atelier-disposition-toggle")).toBeInTheDocument();
+    expect(screen.getByTestId("atelier-mode-switch")).toBeInTheDocument();
+    expect(screen.getByTestId("atelier-mode-independent")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByTestId("atelier-mode-versus")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(screen.getByTestId("atelier-mode-disposition")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
-  it("clicking the disposition toggle dispatches a tb-disposition contribution with replaces=tb:disposition", async () => {
+  it("clicking `disposition` dispatches a tb-disposition contribution and switches the variant", async () => {
     const { h, rollId } = buildAtelierHarness({ rollableName: WillCheck.name });
     mountWithClient(h, () => mountTbEditor(rollId) as never);
-    fireEvent.click(screen.getByTestId("atelier-disposition-toggle"));
+    fireEvent.click(screen.getByTestId("atelier-mode-disposition"));
     await waitFor(() => {
-      const c = h.dispatched.find(
-        (d) => d.type === "@vtt/characters/ContributeToPendingRoll",
-      ) as { payload: { contribution: { kind: string; payload: { enabled: boolean }; replaces?: string } } } | undefined;
+      const c = (h.dispatched as DispatchedContribution[]).find(
+        (d) =>
+          d.type === "@vtt/characters/ContributeToPendingRoll" &&
+          d.payload.contribution.kind === TB_DISPOSITION_CONTRIB_KIND,
+      );
       expect(c).toBeDefined();
-      expect(c!.payload.contribution.kind).toBe(TB_DISPOSITION_CONTRIB_KIND);
       expect(c!.payload.contribution.payload.enabled).toBe(true);
       expect(c!.payload.contribution.replaces).toBe("tb:disposition");
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("atelier-editor")).toHaveAttribute(
+        "data-mode",
+        "disposition",
+      );
+    });
+  });
+
+  it("clicking `versus` parks a fresh versus id and shows the versus variant", async () => {
+    const { h, rollId } = buildAtelierHarness({ rollableName: WillCheck.name });
+    mountWithClient(h, () => mountTbEditor(rollId) as never);
+    fireEvent.click(screen.getByTestId("atelier-mode-versus"));
+    await waitFor(() => {
+      const c = (h.dispatched as DispatchedContribution[]).find(
+        (d) =>
+          d.type === "@vtt/characters/ContributeToPendingRoll" &&
+          d.payload.contribution.kind === TB_VERSUS_CONTRIB_KIND,
+      );
+      expect(c).toBeDefined();
+      expect(c!.payload.contribution.payload.versusTestId).toMatch(/^versus:/);
+      expect(c!.payload.contribution.replaces).toBe("tb:versus");
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("atelier-editor")).toHaveAttribute(
+        "data-mode",
+        "versus",
+      );
+    });
+    // No other open roll exists, so the opponent card shows its empty state.
+    expect(
+      screen.getByTestId("atelier-opponent-card").textContent,
+    ).toContain("no other open rolls");
+  });
+
+  it("switching from disposition back to `independent` clears the disposition flag", async () => {
+    const { h, rollId } = buildAtelierHarness({ rollableName: WillCheck.name });
+    mountWithClient(h, () => mountTbEditor(rollId) as never);
+    fireEvent.click(screen.getByTestId("atelier-mode-disposition"));
+    await waitFor(() => {
+      expect(screen.getByTestId("atelier-editor")).toHaveAttribute(
+        "data-mode",
+        "disposition",
+      );
+    });
+    fireEvent.click(screen.getByTestId("atelier-mode-independent"));
+    await waitFor(() => {
+      const offs = (h.dispatched as DispatchedContribution[]).filter(
+        (d) =>
+          d.type === "@vtt/characters/ContributeToPendingRoll" &&
+          d.payload.contribution.kind === TB_DISPOSITION_CONTRIB_KIND &&
+          d.payload.contribution.payload.enabled === false,
+      );
+      expect(offs.length).toBeGreaterThan(0);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("atelier-editor")).toHaveAttribute(
+        "data-mode",
+        "independent",
+      );
     });
   });
 
@@ -65,14 +151,6 @@ describe("TopStrip — headline, mode badge, disposition toggle", () => {
     // editor's headline reads that, not the TB-specific Identity.name.
     expect(strip.textContent).toContain("Tarn");
     expect(strip.textContent).toContain("Will");
-  });
-
-  it("renders an `independent` mode badge by default", () => {
-    const { h, rollId } = buildAtelierHarness({ rollableName: WillCheck.name });
-    mountWithClient(h, () => mountTbEditor(rollId) as never);
-    expect(screen.getByTestId("atelier-mode-badge").textContent).toMatch(
-      /independent/i,
-    );
   });
 });
 

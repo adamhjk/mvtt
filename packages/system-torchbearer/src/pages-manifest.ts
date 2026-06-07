@@ -19,10 +19,7 @@ import { definePlugin } from "@vtt/substrate";
 import { PagesSlot } from "@vtt/shell-workbench/shared";
 import { ConflictPageProvider } from "./conflict/client/index.js";
 import { ArcanePageProvider } from "./client/arcane-page.js";
-import {
-  MonstersPageProvider,
-  BestiaryPageAlias,
-} from "./client/monsters-page.js";
+import { MonstersPageProvider } from "./client/monsters-page.js";
 import { InvocationsPageProvider } from "./client/invocations-page.js";
 import { NpcsPageProvider } from "./client/npcs-page.js";
 
@@ -50,11 +47,6 @@ export const systemTorchbearerPages = definePlugin({
     [PagesSlot.name]: [
       ConflictPageProvider,
       MonstersPageProvider,
-      // Back-compat alias: persisted WorkspaceTab rows from before the
-      // monsters/bestiary rename still carry the old qualified-name
-      // pageKind. The alias provider delegates to MonstersPageProvider
-      // so those tabs keep working without an upgrade pass.
-      BestiaryPageAlias,
       NpcsPageProvider,
       ArcanePageProvider,
       InvocationsPageProvider,

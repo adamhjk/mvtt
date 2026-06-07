@@ -103,12 +103,24 @@ function freshVersusTestId(): string {
 }
 
 /**
+ * The three editor variants. Mode is *derived* from the mechanics state
+ * (a live versus pairing → versus; the disposition flag → disposition;
+ * otherwise independent) — there is no separate stored mode field that
+ * could drift from the contributions. `setMode` keeps the mechanics
+ * exclusive: entering a mode clears the other modes' contributions on
+ * this roll (and, for versus, on the paired peer too).
+ */
+export type AtelierMode = "independent" | "versus" | "disposition";
+
+/**
  * The full reactive bundle every card in the Atelier reads off the
  * selected PendingRoll. Lifted out of the per-card JSX so each card stays
  * thin and the dispatch wiring lives in one place — easier to test, easier
  * to keep in sync with the contribution shapes.
  */
 export interface AtelierState {
+  /** The pending roll's entity id (stable for the editor's lifetime). */
+  readonly rollId: EntityId;
   /** The PendingRoll trait value (live; null until it lands). */
   readonly pr: ReturnType<typeof useTrait<typeof PendingRoll>>;
   /** Spec preview after folding in the live contribution list. */
@@ -128,6 +140,7 @@ export interface AtelierState {
   readonly activeDispositionAddTo: Accessor<DispoAddTo | null>;
   readonly activeMonsterPool: Accessor<DispoMonsterPool>;
   readonly activeVersusId: Accessor<string | null>;
+  readonly activeMode: Accessor<AtelierMode>;
   readonly personaSpendDeclared: Accessor<number>;
   readonly channelDeclared: Accessor<"within" | "outside" | null>;
   readonly synergyDeclared: Accessor<string[]>;
@@ -160,6 +173,7 @@ export interface AtelierState {
   readonly pickObstacle: (n: number) => void;
   readonly toggleHeroic: (next: boolean) => void;
   readonly toggleDisposition: (next: boolean) => void;
+  readonly setMode: (next: AtelierMode) => void;
   readonly pickDispositionAddTo: (next: DispoAddTo) => void;
   readonly pickMonsterPool: (next: DispoMonsterPool) => void;
   readonly togglePairWith: (cand: VersusCandidate) => void;
@@ -308,6 +322,21 @@ export function useAtelier(
     } catch {
       return null;
     }
+  });
+
+  /**
+   * Derived mode, versus-first: a live versus id (even one still waiting
+   * on an opponent) shows the versus variant so the pairing is never
+   * invisible; the disposition flag comes second; the spec's own kind is
+   * a last-resort fallback. `setMode` keeps the underlying contributions
+   * mutually exclusive, so the precedence only matters for legacy rolls
+   * written before mode selection was unified.
+   */
+  const activeMode = createMemo<AtelierMode>(() => {
+    if (activeVersusId() !== null) return "versus";
+    if (activeDisposition()) return "disposition";
+    const kind = previewedSpec()?.["kind"];
+    return kind === "versus" ? "versus" : "independent";
   });
 
   const suggestedQuickButtons = createMemo<TbSuggestedQuickModifier[]>(() => {
@@ -765,6 +794,18 @@ export function useAtelier(
   };
 
   const unpair = () => {
+    // Clear the pairing on BOTH rolls. A one-sided clear would leave the
+    // peer pointing at a versus id nobody else carries — stuck in versus
+    // mode with a "?" opponent.
+    const myActive = activeVersusId();
+    if (myActive !== null) {
+      const peer = versusCandidates().find((c) => c.versusId === myActive);
+      if (peer) {
+        // togglePairWith on an already-paired candidate clears both sides.
+        togglePairWith(peer);
+        return;
+      }
+    }
     contributeRaw({
       kind: TB_VERSUS_CONTRIB_KIND,
       label: "Versus cleared",
@@ -772,6 +813,33 @@ export function useAtelier(
       payload: { versusTestId: null },
       replaces: "tb:versus",
     });
+  };
+
+  /**
+   * Switch the editor variant. Mode is derived from the mechanics
+   * contributions, so "setting" a mode means making those contributions
+   * exclusive: leaving versus unpairs (both sides), leaving disposition
+   * clears the disposition flag, and entering versus before an opponent
+   * is picked parks a fresh versus id on this roll so every viewer sees
+   * the versus variant with its pair-with list.
+   */
+  const setMode = (next: AtelierMode) => {
+    if (next === activeMode()) return;
+    if (next !== "versus" && activeVersusId() !== null) unpair();
+    if (next === "disposition") {
+      toggleDisposition(true);
+    } else if (activeDisposition()) {
+      toggleDisposition(false);
+    }
+    if (next === "versus" && activeVersusId() === null) {
+      contributeRaw({
+        kind: TB_VERSUS_CONTRIB_KIND,
+        label: "Versus test — pick an opponent",
+        fromCharacterId: initiatorCharacterId,
+        payload: { versusTestId: freshVersusTestId() },
+        replaces: "tb:versus",
+      });
+    }
   };
 
   const declarePersonaDice = (count: 1) => {
@@ -882,6 +950,7 @@ export function useAtelier(
   };
 
   return {
+    rollId,
     pr,
     previewedSpec,
     initiatorCharacterId,
@@ -895,6 +964,7 @@ export function useAtelier(
     activeDispositionAddTo,
     activeMonsterPool,
     activeVersusId,
+    activeMode,
     personaSpendDeclared,
     channelDeclared,
     synergyDeclared,
@@ -916,6 +986,7 @@ export function useAtelier(
     pickObstacle,
     toggleHeroic,
     toggleDisposition,
+    setMode,
     pickDispositionAddTo,
     pickMonsterPool,
     togglePairWith,

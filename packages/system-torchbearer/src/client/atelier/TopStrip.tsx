@@ -15,20 +15,37 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { createMemo, Show, type JSX } from "solid-js";
-import type { AtelierState } from "./use-atelier.js";
+import { createMemo, For, Show, type JSX } from "solid-js";
+import type { AtelierMode, AtelierState } from "./use-atelier.js";
 
-type Mode = "independent" | "versus" | "disposition";
+const MODES: ReadonlyArray<{ mode: AtelierMode; title: string }> = [
+  {
+    mode: "independent",
+    title: "Independent test — roll against a fixed obstacle",
+  },
+  {
+    mode: "versus",
+    title:
+      "Versus test — oppose another open roll; their successes become your obstacle (DH p.21)",
+  },
+  {
+    mode: "disposition",
+    title:
+      "Disposition roll — no obstacle, result = base + successes − team penalties (SG p.63)",
+  },
+];
 
 /**
- * Headline strip — initiator name + source label + subject + mode badge
- * + as-disposition toggle. Mirrors the chat-rail panel's headline
- * ("X is rolling Y for Z") and the per-roll mode hint, lifted out into
- * a discrete strip above the card grid.
+ * Headline strip — initiator name + source label + subject + the
+ * three-way mode switch (independent / versus / disposition). Mirrors
+ * the chat-rail panel's headline ("X is rolling Y for Z"), lifted out
+ * into a discrete strip above the card grid. The switch is the single
+ * place a roll's mode changes; picking "versus" hands off to the
+ * Opponent card's pair-with list for choosing who to oppose.
  */
 export function TopStrip(props: {
   atelier: AtelierState;
-  mode: Mode;
+  mode: AtelierMode;
 }): JSX.Element {
   const sourceLabel = createMemo<string>(() => {
     const fromSpec = props.atelier.previewedSpec()?.["source"];
@@ -69,29 +86,32 @@ export function TopStrip(props: {
           )}
         </Show>
       </h3>
-      <span
-        class="rounded-(--radius-control) bg-accent/20 px-2 py-0.5 text-[0.55rem] font-display uppercase tracking-[0.16em] text-accent"
-        data-testid="atelier-mode-badge"
+      <div
+        role="group"
+        aria-label="test mode"
+        class="ml-auto flex overflow-hidden rounded-(--radius-control) border border-border"
+        data-testid="atelier-mode-switch"
       >
-        {props.mode}
-      </span>
-      <button
-        type="button"
-        class="ml-auto rounded-(--radius-control) border border-border bg-surface px-2 py-0.5 text-[0.65rem] text-fg-muted hover:border-accent hover:text-fg transition"
-        onClick={() =>
-          props.atelier.toggleDisposition(!props.atelier.activeDisposition())
-        }
-        data-testid="atelier-disposition-toggle"
-        title={
-          props.atelier.activeDisposition()
-            ? "Clear disposition mode — back to a normal test"
-            : "Switch to a disposition roll — no obstacle, result = base + successes − team penalties"
-        }
-      >
-        {props.atelier.activeDisposition()
-          ? "as independent"
-          : "as disposition"}
-      </button>
+        <For each={MODES}>
+          {(m) => (
+            <button
+              type="button"
+              aria-pressed={props.mode === m.mode}
+              class="px-2 py-0.5 font-display text-[0.55rem] uppercase tracking-[0.16em] transition"
+              classList={{
+                "bg-accent text-accent-fg": props.mode === m.mode,
+                "bg-surface text-fg-muted hover:text-fg":
+                  props.mode !== m.mode,
+              }}
+              onClick={() => props.atelier.setMode(m.mode)}
+              data-testid={`atelier-mode-${m.mode}`}
+              title={m.title}
+            >
+              {m.mode}
+            </button>
+          )}
+        </For>
+      </div>
     </header>
   );
 }

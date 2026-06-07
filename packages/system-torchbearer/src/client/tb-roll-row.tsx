@@ -120,24 +120,36 @@ export function TbRollRow(props: TbRollRowProps): JSX.Element {
    * Might/Precedence, etc.); the chat row just flags `tied` and
    * leaves the call to the table.
    */
+  /**
+   * Comparable success count for versus resolution: raw + always-applied
+   * bonus (= RollResult.total basis on both sides). Conditional
+   * on-success/on-fail modifiers are excluded — they're gated on a
+   * pass/fail that doesn't exist until the opponent rolls.
+   */
+  const myComparable = createMemo<number | null>(() => {
+    const s = spec();
+    if (!s) return null;
+    return countSuccesses(dice(), s.successTarget) + s.bonusSuccesses;
+  });
+
   const versusVerdict = createMemo<
     { state: "won" | "lost" | "tied"; margin: number } | null
   >(() => {
     const opp = versusOpponent();
-    const s = summary();
-    if (!opp || !s) return null;
-    // Use raw + always (= RollResult.total in our notation) for both
-    // sides. Recompute mine from spec to match opponent's basis.
-    const myComparable = countSuccesses(dice(), spec()!.successTarget) +
-      spec()!.bonusSuccesses;
-    if (myComparable > opp.total) {
-      return { state: "won", margin: myComparable - opp.total };
+    const mine = myComparable();
+    if (!opp || mine === null) return null;
+    if (mine > opp.total) {
+      return { state: "won", margin: mine - opp.total };
     }
-    if (myComparable < opp.total) {
-      return { state: "lost", margin: opp.total - myComparable };
+    if (mine < opp.total) {
+      return { state: "lost", margin: opp.total - mine };
     }
     return { state: "tied", margin: 0 };
   });
+
+  const isVersus = createMemo<boolean>(
+    () => !!spec()?.versusTestId && !spec()?.dispositionMode,
+  );
 
   /**
    * Disposition value (SG p.63-64 / LM p.106 / DH p.254):
@@ -244,21 +256,50 @@ export function TbRollRow(props: TbRollRowProps): JSX.Element {
               <Show
                 when={spec()!.dispositionMode}
                 fallback={
-                  <div class="flex flex-col items-end">
-                    <strong
-                      class="font-mono text-base"
-                      classList={{
-                        "text-accent": sum().passed,
-                        "text-danger": !sum().passed,
-                      }}
-                      data-testid="tb-roll-row-success-count"
-                    >
-                      {sum().final}
-                    </strong>
-                    <span class="text-[10px] uppercase tracking-[0.12em] text-fg-subtle">
-                      {sum().passed ? "passed" : "failed"}
-                    </span>
-                  </div>
+                  <Show
+                    when={isVersus()}
+                    fallback={
+                      <div class="flex flex-col items-end">
+                        <strong
+                          class="font-mono text-base"
+                          classList={{
+                            "text-accent": sum().passed,
+                            "text-danger": !sum().passed,
+                          }}
+                          data-testid="tb-roll-row-success-count"
+                        >
+                          {sum().final}
+                        </strong>
+                        <span class="text-[10px] uppercase tracking-[0.12em] text-fg-subtle">
+                          {sum().passed ? "passed" : "failed"}
+                        </span>
+                      </div>
+                    }
+                  >
+                    {/* Versus header: no pass/fail until the opponent's
+                        roll is in — just the comparable success count.
+                        Once both rolls exist the verdict takes over. */}
+                    <div class="flex flex-col items-end">
+                      <strong
+                        class="font-mono text-base"
+                        classList={{
+                          "text-fg": versusVerdict() === null,
+                          "text-accent": versusVerdict()?.state === "won",
+                          "text-danger": versusVerdict()?.state === "lost",
+                          "text-fg-muted": versusVerdict()?.state === "tied",
+                        }}
+                        data-testid="tb-roll-row-success-count"
+                      >
+                        {myComparable() ?? sum().final}
+                      </strong>
+                      <span
+                        class="text-[10px] uppercase tracking-[0.12em] text-fg-subtle"
+                        data-testid="tb-roll-row-versus-header-state"
+                      >
+                        {versusVerdict()?.state ?? "successes"}
+                      </span>
+                    </div>
+                  </Show>
                 }
               >
                 <div class="flex flex-col items-end">
@@ -435,9 +476,6 @@ export function TbRollRow(props: TbRollRowProps): JSX.Element {
             {(_) => {
               const verdict = versusVerdict()!;
               const opp = versusOpponent()!;
-              const myComparable =
-                countSuccesses(dice(), spec()!.successTarget) +
-                spec()!.bonusSuccesses;
               return (
                 <p
                   class="mt-3 border-t border-border-muted pt-2 text-[0.75rem]"
@@ -448,7 +486,7 @@ export function TbRollRow(props: TbRollRowProps): JSX.Element {
                   }}
                   data-testid="tb-roll-row-versus-resolution"
                 >
-                  <strong class="font-mono">{myComparable}</strong>
+                  <strong class="font-mono">{myComparable()}</strong>
                   <span class="text-fg-subtle"> vs </span>
                   <strong class="font-mono">{opp.total}</strong>
                   <span class="text-fg-subtle"> ({opp.rolledByName})</span>

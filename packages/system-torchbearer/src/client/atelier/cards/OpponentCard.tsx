@@ -16,34 +16,56 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { createMemo, For, Show, type JSX } from "solid-js";
-import { previewRollable } from "@vtt/substrate";
-import { useClient } from "@vtt/substrate/client";
-import { PendingRoll, type Contribution } from "@vtt/characters/shared";
+import { previewRollable, type EntityId } from "@vtt/substrate";
+import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
+import {
+  Character,
+  PendingRoll,
+  type Contribution,
+} from "@vtt/characters/shared";
+import { Formula, RolledBy, RollResult } from "@vtt/resolution/shared";
+import { TbRollMetaSchema } from "../../../shared/index.js";
 import type { AtelierState } from "../use-atelier.js";
 
 interface PartnerProbe {
-  pool?: unknown;
   source?: unknown;
-  modifiers?: unknown;
 }
 
 /**
- * Read-only mirror of the paired opponent's emerging pool. When the
- * versus pairing is live this card shows the opponent's pool size, their
- * declared modifiers, and an "unpair" button. When no pairing is set, it
- * still occupies the slot but renders a hint that the versus pairing is
- * managed from the rail's "pair with:" candidate list.
+ * The opponent side of a versus test. When the pairing is live this card
+ * names the paired character and the skill/ability they're testing, plus
+ * an "unpair" button — deliberately NOT their pool size or modifiers;
+ * how strong the opposition is rolling stays their business until dice
+ * hit the table. Before an opponent is picked it lists the other open
+ * TB pending rolls as pair-with candidates, so the whole versus flow
+ * lives in the roll screen.
  *
  * Versus mode replaces ObstacleCard with this card — the opponent's
  * successes become the obstacle, so heroic + Ob pips don't apply.
  */
 export function OpponentCard(props: { atelier: AtelierState }): JSX.Element {
   const client = useClient();
+  // Candidates we can actually pair with: rolls not already locked into
+  // somebody else's versus test (pairing with one of those would hijack
+  // its id and silently create a three-way).
+  const pairable = createMemo(() =>
+    props.atelier
+      .versusCandidates()
+      .filter(
+        (c) =>
+          c.versusId === null ||
+          c.versusId === props.atelier.activeVersusId(),
+      ),
+  );
+  // Reactive query — the partner mirror must update live as the peer
+  // roll's contributions land/change (a bare client.world.query inside
+  // a memo wouldn't re-run when the *peer's* trait changes).
+  const allPendings = useQuery([PendingRoll]);
   const partner = createMemo(() => {
     const id = props.atelier.activeVersusId();
     if (!id) return null;
-    for (const row of client.world.query([PendingRoll])) {
-      if (row.id === props.atelier.pr()?.["initiatorCharacterId"]) continue;
+    for (const row of allPendings()) {
+      if (row.id === props.atelier.rollId) continue;
       const v = row.values.PendingRoll as {
         rollableName: string;
         initiatorCharacterId: string;
@@ -95,18 +117,40 @@ export function OpponentCard(props: { atelier: AtelierState }): JSX.Element {
     }
   });
 
-  const partnerPool = createMemo<number | null>(() => {
-    const v = partnerSpec()?.pool;
-    return typeof v === "number" ? v : null;
+  /**
+   * Pairing survives the opponent committing first: their PendingRoll
+   * despawns, but the spawned Roll entity carries the same versusTestId
+   * in its Formula.meta. Surfacing it here keeps the pairing visible
+   * (and keeps the pair-with list from offering a re-pair that would
+   * orphan the committed half) until this side rolls too.
+   */
+  const resolvedRolls = useQuery([Formula, RollResult, RolledBy]);
+  const committedPartner = createMemo<{
+    name: string;
+    source: string;
+  } | null>(() => {
+    const id = props.atelier.activeVersusId();
+    if (!id) return null;
+    for (const row of resolvedRolls()) {
+      const f = row.values.Formula as { meta?: unknown } | undefined;
+      const parsed = TbRollMetaSchema.safeParse(f?.meta);
+      if (!parsed.success) continue;
+      if (parsed.data.spec.versusTestId !== id) continue;
+      return {
+        name: (row.values.RolledBy as { displayName: string }).displayName,
+        source: parsed.data.spec.source,
+      };
+    }
+    return null;
   });
+
   const partnerSource = createMemo<string>(() => {
     const v = partnerSpec()?.source;
-    return typeof v === "string" ? v : "opponent";
-  });
-  const partnerMods = createMemo<{ value?: number; label?: string }[]>(() => {
-    const mods = partnerSpec()?.modifiers;
-    if (!Array.isArray(mods)) return [];
-    return mods as { value?: number; label?: string }[];
+    if (typeof v === "string" && v.length > 0) return v;
+    // Spec preview unavailable — fall back to the rollable's short name.
+    const p = partner();
+    if (!p) return "?";
+    return p.value.rollableName.split("/").pop() ?? p.value.rollableName;
   });
 
   return (
@@ -118,7 +162,7 @@ export function OpponentCard(props: { atelier: AtelierState }): JSX.Element {
         <span class="font-display text-[0.6rem] uppercase tracking-[0.16em] text-fg-subtle">
           Opponent
         </span>
-        <Show when={props.atelier.activeVersusId() !== null}>
+        <Show when={partner()}>
           <button
             type="button"
             onClick={() => props.atelier.unpair()}
@@ -132,47 +176,93 @@ export function OpponentCard(props: { atelier: AtelierState }): JSX.Element {
       </header>
       <Show
         when={partner()}
+        keyed
         fallback={
-          <span class="text-[0.7rem] text-fg-subtle">
-            no opponent paired — use the rail's "pair with" list
-          </span>
+          <Show
+            when={committedPartner()}
+            keyed
+            fallback={
+              <Show
+                when={pairable().length > 0}
+                fallback={
+                  <span class="text-[0.7rem] text-fg-subtle italic">
+                    no other open rolls to oppose — start the opponent's
+                    roll first
+                  </span>
+                }
+              >
+                <span class="text-[0.6rem] text-fg-subtle">pair with:</span>
+                <ul class="flex flex-col gap-0.5">
+                  <For each={pairable()}>
+                    {(c) => (
+                      <li class="flex items-center justify-between gap-2 text-[0.7rem]">
+                        <span class="truncate text-fg-muted">
+                          {c.characterName}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => props.atelier.togglePairWith(c)}
+                          class="rounded-(--radius-control) border border-border bg-surface-elevated px-2 py-0.5 text-[0.65rem] text-fg-muted hover:border-accent hover:text-fg transition"
+                          data-testid={`atelier-opponent-pair-${c.pendingRollId}`}
+                        >
+                          pair
+                        </button>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </Show>
+            }
+          >
+            {(cp) => (
+              <div
+                class="flex flex-col gap-0.5"
+                data-testid="atelier-opponent-committed"
+              >
+                <span class="font-display text-base text-fg">
+                  vs {cp.name}
+                </span>
+                <span class="font-mono text-[0.7rem] text-fg-subtle">
+                  tested {cp.source} — rolled, waiting on you
+                </span>
+              </div>
+            )}
+          </Show>
         }
       >
-        <div class="flex items-baseline gap-2">
-          <span
-            class="font-mono text-2xl text-accent"
-            data-testid="atelier-opponent-pool"
+        {(p) => (
+          <div
+            class="flex flex-col gap-0.5"
+            data-testid="atelier-opponent-partner"
           >
-            {partnerPool() ?? "?"}D
-          </span>
-          <span class="font-mono text-[0.7rem] text-fg-subtle">
-            {partnerSource()}
-          </span>
-        </div>
-        <Show when={partnerMods().length > 0}>
-          <ul class="flex flex-col gap-0.5 text-[0.65rem] font-mono text-fg-muted">
-            <For each={partnerMods()}>
-              {(m) => (
-                <li>
-                  <span
-                    classList={{
-                      "text-accent": (m.value ?? 0) > 0,
-                      "text-danger": (m.value ?? 0) < 0,
-                    }}
-                  >
-                    {(m.value ?? 0) > 0 ? "+" : ""}
-                    {m.value}
-                  </span>
-                  <span class="ml-1 text-fg-subtle">{m.label}</span>
-                </li>
-              )}
-            </For>
-          </ul>
-        </Show>
+            <span class="font-display text-base text-fg">
+              vs{" "}
+              <PartnerName
+                characterId={p.value.initiatorCharacterId as EntityId}
+              />
+            </span>
+            <span
+              class="font-mono text-[0.7rem] text-fg-subtle"
+              data-testid="atelier-opponent-source"
+            >
+              testing {partnerSource()}
+            </span>
+          </div>
+        )}
       </Show>
       <p class="text-[0.6rem] text-fg-subtle italic">
         opponent's successes are the obstacle
       </p>
     </section>
   );
+}
+
+/**
+ * Live name read at the leaf — renames propagate without re-running the
+ * partner search. Mounted under a keyed `<Show>`, so the id is stable
+ * for this component's lifetime.
+ */
+function PartnerName(props: { characterId: EntityId }): JSX.Element {
+  const c = useTrait(props.characterId, Character);
+  return <>{c()?.name ?? "?"}</>;
 }

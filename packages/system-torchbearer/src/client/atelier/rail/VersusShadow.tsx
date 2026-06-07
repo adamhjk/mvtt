@@ -17,41 +17,31 @@
 
 import { previewRollable, type EntityId } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
-import { kit } from "@vtt/characters/client";
 import {
   Character,
-  ContributeToPendingRoll,
   PendingRoll,
   type Contribution,
 } from "@vtt/characters/shared";
-import { createMemo, For, Show, type JSX } from "solid-js";
+import { Formula, RolledBy, RollResult } from "@vtt/resolution/shared";
+import { createMemo, Show, type JSX } from "solid-js";
 import {
-  TB_VERSUS_CONTRIB_KIND,
+  TbRollMetaSchema,
   versusFromContributions,
 } from "../../../shared/index.js";
 
 interface PartnerProbe {
-  pool?: unknown;
   source?: unknown;
-}
-
-interface VersusCandidate {
-  pendingRollId: string;
-  characterName: string;
 }
 
 /**
  * Rail accessory shown under the selected pill. When the selected roll
- * is paired, mirrors the partner's pool size + source. When unpaired,
- * lists other open TB pending rolls as candidates the user can pair
- * with.
- *
- * Mounts below the pill so the pairing UX is one click away without
- * occupying right-pane real estate.
+ * is paired into a versus test, names the partner and the skill/ability
+ * they're testing — deliberately NOT their pool size; the opposition's
+ * strength stays secret until the dice land. Pairing and unpairing live
+ * in the Atelier's mode switch + Opponent card — this is display-only.
  */
 export function VersusShadow(props: { rollId: EntityId }): JSX.Element {
   const client = useClient();
-  const me = kit.useMe();
   const pr = useTrait(props.rollId, PendingRoll);
   const allPendings = useQuery([PendingRoll]);
 
@@ -97,139 +87,96 @@ export function VersusShadow(props: { rollId: EntityId }): JSX.Element {
     return null;
   });
 
-  const partnerPool = createMemo<number | null>(() => {
+  const partnerSource = createMemo<string | null>(() => {
     const p = partner();
     if (!p) return null;
     const rollable = client.registry.rollables.get(p.value.rollableName);
-    if (!rollable) return null;
-    try {
-      const raw = previewRollable(
-        rollable,
-        client.world,
-        p.value.initiatorCharacterId as Parameters<typeof previewRollable>[2],
-        {
-          ...(p.value.opts as Record<string, unknown>),
-          contributions: p.value.contributions,
-        },
-      );
-      const probe = raw as PartnerProbe;
-      return typeof probe?.pool === "number" ? probe.pool : null;
-    } catch {
-      return null;
+    if (rollable) {
+      try {
+        const raw = previewRollable(
+          rollable,
+          client.world,
+          p.value.initiatorCharacterId as Parameters<typeof previewRollable>[2],
+          {
+            ...(p.value.opts as Record<string, unknown>),
+            contributions: p.value.contributions,
+          },
+        );
+        const probe = raw as PartnerProbe;
+        if (typeof probe?.source === "string" && probe.source.length > 0) {
+          return probe.source;
+        }
+      } catch {
+        /* preview failed — fall through to the rollable short name */
+      }
     }
+    return p.value.rollableName.split("/").pop() ?? p.value.rollableName;
   });
 
-  const candidates = createMemo<VersusCandidate[]>(() => {
-    if (activeVersusId() !== null) return [];
-    const out: VersusCandidate[] = [];
-    for (const row of allPendings()) {
-      if (row.id === props.rollId) continue;
-      const v = row.values.PendingRoll as { rollableName: string; initiatorCharacterId: string };
-      if (!v.rollableName.startsWith("@vtt/system-torchbearer/")) continue;
-      const char = client.world.get(v.initiatorCharacterId, [Character]) as
-        | { Character: { name: string } }
-        | undefined;
-      out.push({
-        pendingRollId: row.id,
-        characterName: char?.Character.name ?? "?",
-      });
+  // The pairing outlives the partner's commit: their PendingRoll
+  // despawns but the spawned Roll entity carries the versusTestId in
+  // its Formula.meta. Mirror that state so the pill doesn't silently
+  // drop the "vs" marker while this side is still building.
+  const resolvedRolls = useQuery([Formula, RollResult, RolledBy]);
+  const committedPartner = createMemo<{
+    name: string;
+    source: string;
+  } | null>(() => {
+    const target = activeVersusId();
+    if (!target) return null;
+    for (const row of resolvedRolls()) {
+      const f = row.values.Formula as { meta?: unknown } | undefined;
+      const parsed = TbRollMetaSchema.safeParse(f?.meta);
+      if (!parsed.success) continue;
+      if (parsed.data.spec.versusTestId !== target) continue;
+      return {
+        name: (row.values.RolledBy as { displayName: string }).displayName,
+        source: parsed.data.spec.source,
+      };
     }
-    return out;
+    return null;
   });
-
-  let counter = 0;
-  const freshId = () => {
-    counter += 1;
-    return `versus:${Date.now().toString(36)}-${counter}`;
-  };
-
-  const pair = (candidate: VersusCandidate) => {
-    const m = me();
-    if (!m) return;
-    const next = freshId();
-    const myChar = client.world.get(
-      pr()?.initiatorCharacterId as EntityId,
-      [Character],
-    ) as { Character: { name: string } } | undefined;
-    const myName = myChar?.Character.name ?? "your roll";
-    client.dispatch(
-      ContributeToPendingRoll({
-        pendingRollId: props.rollId,
-        contribution: {
-          kind: TB_VERSUS_CONTRIB_KIND,
-          label: `vs ${candidate.characterName}`,
-          fromUserId: m.userId,
-          payload: { versusTestId: next },
-          replaces: "tb:versus",
-        },
-      }) as Parameters<typeof client.dispatch>[0],
-    );
-    client.dispatch(
-      ContributeToPendingRoll({
-        pendingRollId: candidate.pendingRollId as Parameters<
-          typeof ContributeToPendingRoll
-        >[0]["pendingRollId"],
-        contribution: {
-          kind: TB_VERSUS_CONTRIB_KIND,
-          label: `vs ${myName}`,
-          fromUserId: m.userId,
-          payload: { versusTestId: next },
-          replaces: "tb:versus",
-        },
-      }) as Parameters<typeof client.dispatch>[0],
-    );
-  };
 
   return (
-    <Show when={partner() || candidates().length > 0}>
-      <div
-        class="flex flex-col gap-1 rounded-(--radius-control) border border-dashed border-border-muted bg-surface-elevated px-2 py-1"
-        data-testid="atelier-versus-shadow"
-      >
-        <Show
-          when={partner()}
-          fallback={
-            <>
+    <Show
+      when={partner()}
+      fallback={
+        <Show when={committedPartner()} keyed>
+          {(cp) => (
+            <div
+              class="flex flex-col gap-1 rounded-(--radius-control) border border-dashed border-border-muted bg-surface-elevated px-2 py-1"
+              data-testid="atelier-versus-shadow"
+            >
               <span class="font-display text-[0.55rem] uppercase tracking-[0.16em] text-fg-subtle">
-                pair with
-              </span>
-              <ul class="flex flex-col gap-0.5">
-                <For each={candidates()}>
-                  {(c) => (
-                    <li class="flex items-center justify-between text-[0.65rem]">
-                      <span class="truncate text-fg-muted">
-                        {c.characterName}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => pair(c)}
-                        class="rounded-(--radius-control) border border-border bg-surface px-1.5 py-0.5 text-[0.6rem] text-fg-muted hover:border-accent hover:text-fg transition"
-                        data-testid={`atelier-versus-pair-${c.pendingRollId}`}
-                      >
-                        pair
-                      </button>
-                    </li>
-                  )}
-                </For>
-              </ul>
-            </>
-          }
-        >
-          {(p) => (
-            <>
-              <span class="font-display text-[0.55rem] uppercase tracking-[0.16em] text-fg-subtle">
-                ◆ vs {p().characterName}
+                ◆ vs {cp.name}
               </span>
               <span
                 class="font-mono text-[0.75rem] text-fg"
-                data-testid="atelier-versus-shadow-pool"
+                data-testid="atelier-versus-shadow-committed"
               >
-                {partnerPool() ?? "?"}D building
+                rolled {cp.source} — waiting on you
               </span>
-            </>
+            </div>
           )}
         </Show>
-      </div>
+      }
+    >
+      {(p) => (
+        <div
+          class="flex flex-col gap-1 rounded-(--radius-control) border border-dashed border-border-muted bg-surface-elevated px-2 py-1"
+          data-testid="atelier-versus-shadow"
+        >
+          <span class="font-display text-[0.55rem] uppercase tracking-[0.16em] text-fg-subtle">
+            ◆ vs {p().characterName}
+          </span>
+          <span
+            class="font-mono text-[0.75rem] text-fg"
+            data-testid="atelier-versus-shadow-source"
+          >
+            testing {partnerSource() ?? "?"}
+          </span>
+        </div>
+      )}
     </Show>
   );
 }

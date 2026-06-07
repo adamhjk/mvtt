@@ -2259,6 +2259,65 @@ describe("TbRollRow — versus", () => {
     ).toBeNull();
   });
 
+  it("header shows the success count but NO pass/fail while awaiting the opponent", () => {
+    const h = harness();
+    mountWithClient(h, () => {
+      const entity = spawnTbRoll(h, {
+        spec: specWithVersus(),
+        // 3 successes (6, 5, 4, 1).
+        dice: [
+          { sides: 6, value: 6 },
+          { sides: 6, value: 5 },
+          { sides: 6, value: 4 },
+          { sides: 6, value: 1 },
+        ],
+      });
+      return TbRollRow({ entityId: entity }) as JSX.Element;
+    });
+    expect(
+      screen.getByTestId("tb-roll-row-success-count").textContent,
+    ).toBe("3");
+    expect(
+      screen.getByTestId("tb-roll-row-versus-header-state").textContent,
+    ).toBe("successes");
+    const row = screen.getByTestId("tb-roll-row");
+    expect(row.textContent).not.toMatch(/passed|failed/i);
+  });
+
+  it("header flips to the verdict once the opponent's roll is in", () => {
+    const h = harness(({ world }) => {
+      const oppId = world.allocateId();
+      world.spawnAt(oppId, [
+        Formula({
+          notation: "4d6>=4",
+          reason: "Tarn — Fighter",
+          meta: {
+            system: TB_ROLL_META_SYSTEM,
+            spec: specWithVersus({ caption: "Tarn — Fighter (versus)" }),
+          },
+        }),
+        RollResult({ total: 2, output: "x", rolledAt: 50, dice: [] }),
+        RolledBy({ userId: "u-tarn", displayName: "Tarn" }),
+      ]);
+    });
+    mountWithClient(h, () => {
+      const entity = spawnTbRoll(h, {
+        spec: specWithVersus(),
+        // 3 successes vs opponent's 2 → won.
+        dice: [
+          { sides: 6, value: 6 },
+          { sides: 6, value: 5 },
+          { sides: 6, value: 4 },
+          { sides: 6, value: 1 },
+        ],
+      });
+      return TbRollRow({ entityId: entity }) as JSX.Element;
+    });
+    expect(
+      screen.getByTestId("tb-roll-row-versus-header-state").textContent,
+    ).toBe("won");
+  });
+
   it("renders 'won by N' when own successes exceed opponent's", () => {
     const h = harness(({ world }) => {
       // Opponent's roll already exists in the world with the same key.

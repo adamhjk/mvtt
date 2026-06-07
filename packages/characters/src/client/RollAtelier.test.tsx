@@ -119,6 +119,9 @@ describe("RollAtelier shell", () => {
     const rail = screen.getByTestId("atelier-rail");
     expect(rail.textContent).toContain("Tarn");
     expect(rail.textContent).toContain("Brunhilda");
+    // Pills show WHAT is being rolled (the spec's source label, falling
+    // back to the rollable's short name), not the dice count.
+    expect(rail.textContent).toContain("skill-check");
   });
 
   it("selecting a pill mounts a generic editor in the right pane", async () => {

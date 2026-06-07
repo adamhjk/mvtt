@@ -22,7 +22,7 @@ import {
   type PendingRollEditor,
   type PendingRollEditorArgs,
 } from "@vtt/characters/shared";
-import { createMemo, Match, Show, Switch, type JSX } from "solid-js";
+import { Match, Show, Switch, type JSX } from "solid-js";
 import { useAtelier } from "./use-atelier.js";
 import { TopStrip } from "./TopStrip.jsx";
 import { TbIndependentEditor } from "./variants/Independent.jsx";
@@ -30,21 +30,12 @@ import { TbVersusEditor } from "./variants/Versus.jsx";
 import { TbDispositionEditor } from "./variants/Disposition.jsx";
 import { FooterActions } from "./cards/FooterActions.jsx";
 
-type Mode = "independent" | "versus" | "disposition";
-
 function TbAtelierEditorBody(props: {
   rollId: EntityId;
   initiatorCharacterId: EntityId;
 }): JSX.Element {
   const atelier = useAtelier(props.rollId, props.initiatorCharacterId);
-
-  const mode = createMemo<Mode>(() => {
-    if (atelier.activeDisposition()) return "disposition";
-    if (atelier.activeVersusId() !== null) return "versus";
-    const kind = atelier.previewedSpec()?.["kind"];
-    if (kind === "versus") return "versus";
-    return "independent";
-  });
+  const mode = atelier.activeMode;
 
   return (
     <article

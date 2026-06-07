@@ -43,14 +43,6 @@ import { MonsterSheet } from "./monster-sheet.js";
 export const MONSTERS_KIND = "@vtt/system-torchbearer/monsters";
 
 /**
- * Legacy qualified name for this page. Persisted `WorkspaceTab.pageKind`
- * values written before the bestiary→monsters rename still carry this
- * string; `BestiaryPageAlias` (below) is registered under it so those
- * tabs resolve to the same renderer.
- */
-const LEGACY_BESTIARY_KIND = "@vtt/system-torchbearer/bestiary";
-
-/**
  * Monsters page provider — lists every monster entity in the world
  * (entities carrying both `Character` and `TbMonster`) and renders
  * the scrolling monster sheet. Lives on its own workbench tab so the
@@ -85,21 +77,6 @@ export const MonstersPageProvider = definePageProvider({
   render: ({ tabId, entityId }) => {
     return <MonstersPage tabId={tabId} entityId={entityId} />;
   },
-});
-
-/**
- * Back-compat shim: a second page provider registered under the
- * pre-rename qualified name so persisted tabs still resolve. Delegates
- * everything to `MonstersPageProvider`.
- */
-export const BestiaryPageAlias = definePageProvider({
-  kind: LEGACY_BESTIARY_KIND,
-  icon: MonstersPageProvider.icon,
-  label: MonstersPageProvider.label,
-  reads: MonstersPageProvider.reads,
-  list: MonstersPageProvider.list,
-  defaultEntity: MonstersPageProvider.defaultEntity,
-  render: MonstersPageProvider.render,
 });
 
 function MonstersPage(props: {

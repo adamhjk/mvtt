@@ -29,7 +29,8 @@ interface RailPill {
   rollId: EntityId;
   rollableName: string;
   initiatorName: string;
-  poolPreview: number | null;
+  /** What's being rolled — ability/skill label ("Will", "Fighter", "Nature"). */
+  sourceLabel: string;
   obstaclePreview: number | null;
   badge: "independent" | "versus" | "disposition";
   openedAt: number;
@@ -69,7 +70,9 @@ export function RollAtelierRail(props: {
           | { Character: { name: string } }
           | undefined;
         const rollable = client.registry.rollables.get(v.rollableName);
-        let poolPreview: number | null = null;
+        // Fallback: the rollable's short name ("will-check") when the
+        // spec doesn't carry a friendlier source label.
+        let sourceLabel = v.rollableName.split("/").pop() ?? v.rollableName;
         let obstaclePreview: number | null = null;
         let badge: RailPill["badge"] = "independent";
         if (rollable) {
@@ -84,7 +87,9 @@ export function RollAtelierRail(props: {
               },
             ) as Record<string, unknown> | null;
             if (raw) {
-              if (typeof raw.pool === "number") poolPreview = raw.pool;
+              if (typeof raw.source === "string" && raw.source.length > 0) {
+                sourceLabel = raw.source;
+              }
               if (typeof raw.obstacle === "number") obstaclePreview = raw.obstacle;
               if (raw.dispositionMode === true) badge = "disposition";
               else if (raw.versusTestId) badge = "versus";
@@ -97,7 +102,7 @@ export function RollAtelierRail(props: {
           rollId: row.id,
           rollableName: v.rollableName,
           initiatorName: char?.Character.name ?? "(unknown)",
-          poolPreview,
+          sourceLabel,
           obstaclePreview,
           badge,
           openedAt: v.openedAt,
@@ -141,8 +146,8 @@ export function RollAtelierRail(props: {
                     {p.badge}
                   </span>
                 </span>
-                <span class="font-mono text-[0.65rem] text-fg-subtle">
-                  {p.poolPreview ?? "?"}D
+                <span class="truncate font-mono text-[0.65rem] text-fg-subtle">
+                  {p.sourceLabel}
                   <Show when={p.obstaclePreview !== null}>
                     <span> · Ob {p.obstaclePreview}</span>
                   </Show>
