@@ -25,7 +25,11 @@ import {
 import { definePlugin, defineSurface, z } from "@vtt/substrate";
 import { Identity, Name, Online } from "./shared/traits.js";
 import { identity } from "./manifest.js";
-import { PlayerListView, UserMenuView } from "./client/views.js";
+import {
+  PlayerListView,
+  PresenceHeaderView,
+  UserMenuView,
+} from "./client/views.js";
 
 beforeEach(() => cleanup());
 
@@ -109,6 +113,44 @@ describe("identity PlayerListView", () => {
     });
     mountWithClient(h, () => PlayerListView.render({}) as never);
     expect(screen.getByText(/no one connected/i)).toBeInTheDocument();
+  });
+});
+
+describe("identity PresenceHeaderView", () => {
+  it("shows a chip per connected player in the top bar", () => {
+    const h = harness({ extraPlayers: true });
+    mountWithClient(h, () => PresenceHeaderView.render({}) as never);
+    expect(screen.getByTestId("header-presence")).toBeInTheDocument();
+    expect(screen.getByTestId("header-presence-me")).toHaveTextContent("Me");
+    expect(screen.getByTestId("header-presence-alice")).toHaveTextContent(
+      "Alice",
+    );
+    expect(screen.getByTestId("header-presence-bob")).toHaveTextContent("Bob");
+  });
+
+  it("groups multiple connections from one user into a single chip", () => {
+    const h = harness();
+    h.world.spawn([
+      Identity({ userId: "me", role: "gm" }),
+      Name({ value: "Me" }),
+      Online({ clientId: "c-me-2", since: Date.now() }),
+    ]);
+    mountWithClient(h, () => PresenceHeaderView.render({}) as never);
+    expect(screen.getAllByTestId("header-presence-me")).toHaveLength(1);
+    expect(screen.getByTestId("header-presence-me").title).toMatch(/2 tabs/);
+  });
+
+  it("renders nothing when no one is connected", () => {
+    const h = buildTestClient({
+      plugins: [workbenchSurfacesStub, identity],
+    });
+    const { container } = mountWithClient(
+      h,
+      () => PresenceHeaderView.render({}) as never,
+    );
+    expect(
+      container.querySelector("[data-testid='header-presence']"),
+    ).toBeNull();
   });
 });
 

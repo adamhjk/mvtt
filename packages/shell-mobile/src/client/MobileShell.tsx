@@ -17,7 +17,7 @@
 
 import { defineView, clientOnly, RootSurface, type CommandInstance } from "@vtt/substrate";
 import { Surface, useClient, useQuery } from "@vtt/substrate/client";
-import { PendingRoll } from "@vtt/characters/shared";
+import { PendingRoll, ROLL_ATELIER_KIND } from "@vtt/characters/shared";
 import { CharacterSheet } from "@vtt/characters/client";
 import { Character } from "@vtt/characters/shared";
 import { RollResolved } from "@vtt/resolution/shared";
@@ -180,19 +180,24 @@ export const MobileShellView = defineView({
 
     const chatRailWidgets = useChatRailWidgets();
 
-    // Auto-switch to chat mode when a roll the current user initiated
-    // resolves, so they see the result without manually tapping over.
-    // We gate on `rolledByUserId` so another player rolling at the
-    // table doesn't yank you away from the character sheet you're
-    // editing. Don't switch on rolls made *from* chat mode either —
-    // the user is already there.
+    // When a roll the current user initiated resolves, open the Roll
+    // Atelier page and surface it (page mode), so they see the result
+    // without manually tapping over. Roll results live in the Atelier
+    // now, not chat — so we navigate there rather than to chat mode.
+    // We gate on `rolledByUserId` so another player rolling at the table
+    // doesn't yank you away from whatever you're doing.
     const offRoll = client.bus.on(RollResolved.name, (e) => {
       const payload = e.payload as { rolledByUserId: string };
       const meVal = me();
       if (!meVal) return;
       if (payload.rolledByUserId !== meVal.userId) return;
-      if (mode() === "chat") return;
-      setMode("chat");
+      client.dispatch(
+        OpenPage({
+          pageKind: ROLL_ATELIER_KIND as Parameters<typeof OpenPage>[0]["pageKind"],
+          entityId: null,
+        }) as CommandInstance,
+      );
+      setMode("character");
     });
     onCleanup(offRoll);
 

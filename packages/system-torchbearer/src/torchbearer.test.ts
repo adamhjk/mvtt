@@ -57,11 +57,15 @@ import {
   CharacterTraits,
   CirclesCheck,
   CONDITION_ORDER,
+  AbilityImproved,
+  AbilityImprovementOpened,
   Conditions,
   HealthCheck,
   Identity,
+  ImproveAbility,
   ImproveSkill,
   LogAdvancement,
+  readRatedAbility,
   LORE_MASTER_SKILLS,
   NatureCheck,
   OpenSkillImprovement,
@@ -4680,7 +4684,7 @@ describe("Beginner's Luck learning — Log Test increments learningTests", () =>
     expect(after.advancement).toEqual({ pass: 0, fail: 0 });
   });
 
-  it("does not emit SkillLearned on a Log Test (the click flow runs through LearnSkill)", async () => {
+  it("opens a learning opportunity (but never auto-learns) when a Log Test fills the BL track", async () => {
     const h = buildImprovementHarness();
     await spawnImproveCharacter(h.pipeline, h.registry, {
       skillId: "rider",
@@ -4707,8 +4711,59 @@ describe("Beginner's Luck learning — Log Test increments learningTests", () =>
       }) as CommandInstance,
     });
     expect(r.result.ok).toBe(true);
+    // Logging never auto-learns — that's the LearnSkill click flow.
     expect(r.events.find((e) => e.type === SkillLearned.name)).toBeUndefined();
-    expect(r.events.find((e) => e.type === SkillLearningOpened.name)).toBeUndefined();
+    // …but filling the track now opens the opportunity server-side, so the
+    // notification card appears whether or not a sheet is open.
+    expect(r.events.find((e) => e.type === SkillLearningOpened.name)).toBeDefined();
+  });
+
+  it("opens an ability improvement opportunity when a Will roll fills the track, and ImproveAbility bumps it", async () => {
+    const h = buildImprovementHarness();
+    await spawnImproveCharacter(h.pipeline, h.registry, {});
+    const charId = h.world.query([Character])[0]!.id;
+    // Will at rating 1 → a single pass fills the P/F track.
+    const ra = h.world.get(charId, [RawAbilities]) as {
+      RawAbilities: Record<string, unknown>;
+    };
+    h.world.set(charId, RawAbilities, {
+      ...ra.RawAbilities,
+      will: { rating: 1, advancement: { pass: 0, fail: 0 } },
+    });
+    const rollId = await spawnTestRoll(h.pipeline, h.registry, {
+      characterId: charId,
+      spec: { kind: "ability", source: "Will", sourceId: "will" },
+    });
+    const logged = await h.pipeline.dispatch({
+      id: "c-la-will",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: LogAdvancement({
+        rollId: rollId as Parameters<World["get"]>[0],
+        outcome: "pass",
+      }) as CommandInstance,
+    });
+    expect(logged.result.ok).toBe(true);
+    expect(
+      logged.events.find((e) => e.type === AbilityImprovementOpened.name),
+    ).toBeDefined();
+
+    // Improve commits the +1 and resets the tracks.
+    const improved = await h.pipeline.dispatch({
+      id: "c-imp-will",
+      issuedBy: "u1",
+      issuedAt: 0,
+      session: gmSession(),
+      cmd: ImproveAbility({ characterId: charId, ability: "will" }) as CommandInstance,
+    });
+    expect(improved.result.ok).toBe(true);
+    expect(
+      improved.events.find((e) => e.type === AbilityImproved.name),
+    ).toBeDefined();
+    const after = readRatedAbility(h.world, charId, "will")!;
+    expect(after.rating).toBe(2);
+    expect(after.advancement).toEqual({ pass: 0, fail: 0 });
   });
 
   it("treats a legacy entry without learningTests as 0 (no NaN write)", async () => {

@@ -34,7 +34,7 @@ import { identity } from "@vtt/identity";
 import { resolution } from "@vtt/resolution";
 import { comms } from "@vtt/comms";
 import { Identity, Online, Name } from "@vtt/identity/shared";
-import { PendingRoll, Character } from "@vtt/characters/shared";
+import { PendingRoll, Character, ROLL_ATELIER_KIND } from "@vtt/characters/shared";
 import { RollResolved } from "@vtt/resolution/shared";
 import {
   WorkspaceOwner,
@@ -348,12 +348,39 @@ describe("MobileMenu pages navigation", () => {
   });
 });
 
-describe("MobileShell auto-switch on roll", () => {
-  function spawnMe(world: import("@vtt/substrate").World, clientId: string) {
+describe("MobileShell navigates to the Atelier on roll", () => {
+  const pluginSet = [
+    identity,
+    notes,
+    characters,
+    resolution,
+    comms,
+    shellWorkbench,
+    shellMobile,
+  ];
+
+  function spawnMeAndWorkspace(
+    world: import("@vtt/substrate").World,
+    clientId: string,
+  ) {
     world.spawn([
       Identity({ userId: "me", role: "player" }),
       Name({ value: "Me" }),
       Online({ clientId, since: 0 }),
+    ]);
+    world.spawn([
+      WorkspaceOwner({ userId: "me" }),
+      Permissions({ read: actors(["me"]), write: actors(["me"]) }),
+      WorkspaceState({
+        tabs: {},
+        panes: { p1: { paneId: "p1", tabIds: [], activeTabId: null } },
+        tree: { kind: "pane", paneId: "p1" },
+        activePaneId: "p1",
+        zenPaneId: null,
+        lastInteractedAt: 0,
+        schemaVersion: 1,
+        openDrawers: {},
+      }),
     ]);
   }
 
@@ -371,57 +398,50 @@ describe("MobileShell auto-switch on roll", () => {
     });
   }
 
-  it("switches to chat mode when the current user rolls", () => {
+  it("opens the Roll Atelier page and shows it (page mode) when the current user rolls", () => {
     localStorage.setItem("mvtt-shell-preference", "mobile");
     const clientId = "test-client-1";
     const h = buildTestClient({
-      plugins: [
-        identity,
-        notes,
-        characters,
-        resolution,
-        comms,
-        shellWorkbench,
-        shellMobile,
-      ],
+      plugins: pluginSet,
       clientId,
-      setupWorld: ({ world }) => spawnMe(world, clientId),
+      setupWorld: ({ world }) => spawnMeAndWorkspace(world, clientId),
     });
     mountWithClient(h, () => MobileShellView.render({}) as never);
 
-    // Starts on the page-content panel.
-    expect(screen.getByTestId("nav-page")).toHaveAttribute(
+    // Tap over to chat first so we can prove the roll pulls us back to
+    // the page panel (where the Atelier renders), not to chat.
+    fireEvent.click(screen.getByTestId("nav-chat"));
+    expect(screen.getByTestId("nav-chat")).toHaveAttribute(
       "aria-pressed",
       "true",
     );
 
     h.bus.emit(rollResolvedBy("me"));
 
-    expect(screen.getByTestId("nav-chat")).toHaveAttribute(
+    // Landed back on the page panel…
+    expect(screen.getByTestId("nav-page")).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    expect(screen.getByTestId("nav-page")).toHaveAttribute(
+    expect(screen.getByTestId("nav-chat")).toHaveAttribute(
       "aria-pressed",
       "false",
     );
+    // …and navigated to the Roll Atelier so the result is on screen.
+    const open = h.dispatched.find((c) => c.type === OpenPage.name);
+    expect(open?.payload).toEqual({
+      pageKind: ROLL_ATELIER_KIND,
+      entityId: null,
+    });
   });
 
-  it("does not switch when another user rolls", () => {
+  it("does not navigate when another user rolls", () => {
     localStorage.setItem("mvtt-shell-preference", "mobile");
     const clientId = "test-client-1";
     const h = buildTestClient({
-      plugins: [
-        identity,
-        notes,
-        characters,
-        resolution,
-        comms,
-        shellWorkbench,
-        shellMobile,
-      ],
+      plugins: pluginSet,
       clientId,
-      setupWorld: ({ world }) => spawnMe(world, clientId),
+      setupWorld: ({ world }) => spawnMeAndWorkspace(world, clientId),
     });
     mountWithClient(h, () => MobileShellView.render({}) as never);
 
@@ -431,27 +451,18 @@ describe("MobileShell auto-switch on roll", () => {
       "aria-pressed",
       "true",
     );
-    expect(screen.getByTestId("nav-chat")).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    expect(
+      h.dispatched.find((c) => c.type === OpenPage.name),
+    ).toBeUndefined();
   });
 
   it("scrolls the chat viewport to the bottom whenever chat mode activates", async () => {
     localStorage.setItem("mvtt-shell-preference", "mobile");
     const clientId = "test-client-1";
     const h = buildTestClient({
-      plugins: [
-        identity,
-        notes,
-        characters,
-        resolution,
-        comms,
-        shellWorkbench,
-        shellMobile,
-      ],
+      plugins: pluginSet,
       clientId,
-      setupWorld: ({ world }) => spawnMe(world, clientId),
+      setupWorld: ({ world }) => spawnMeAndWorkspace(world, clientId),
     });
     const { container } = mountWithClient(h, () =>
       MobileShellView.render({}) as never,
@@ -470,8 +481,8 @@ describe("MobileShell auto-switch on roll", () => {
     });
     viewport.scrollTop = 0;
 
-    // Trigger the switch by simulating an own-user roll.
-    h.bus.emit(rollResolvedBy("me"));
+    // Activate chat mode (tab over) — the snap-to-bottom effect fires.
+    fireEvent.click(screen.getByTestId("nav-chat"));
 
     // The effect schedules the scroll via rAF; flush it and wait a tick.
     await new Promise((r) => requestAnimationFrame(() => r(null)));

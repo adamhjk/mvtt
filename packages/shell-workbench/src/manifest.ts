@@ -34,10 +34,19 @@ import {
 import {
   PagesSlot,
   PaletteCommandsSlot,
+  PaletteActionsSlot,
   ChatRailWidgetsSlot,
+  WorkbenchStatusSlot,
+  NotificationsSlot,
   WorkbenchDrawersSlot,
 } from "./shared/slots.js";
 import { allCommands } from "./shared/commands.js";
+import {
+  DismissNotification,
+  NotificationDismissed,
+  NotificationDismissals,
+  NotificationDismissedSystem,
+} from "./shared/notifications-dismiss.js";
 import {
   TabSharedApplySystem,
   WorkspaceBootstrapSystem,
@@ -54,20 +63,34 @@ export const shellWorkbench = definePlugin({
     "@vtt/identity@^0",
     "@vtt/permissions@^0",
   ],
-  traits: [WorkspaceState, WorkspaceOwner, TabSentinel],
-  events: [WorkspaceStateChanged, WorkspaceBootstrapped, TabShared],
-  commands: [...allCommands],
+  traits: [WorkspaceState, WorkspaceOwner, TabSentinel, NotificationDismissals],
+  events: [
+    WorkspaceStateChanged,
+    WorkspaceBootstrapped,
+    TabShared,
+    NotificationDismissed,
+  ],
+  commands: [...allCommands, DismissNotification],
   systems: [
     WorkspaceBootstrapSystem,
     WorkspaceStateApplySystem,
     TabSharedApplySystem,
+    NotificationDismissedSystem,
   ],
   surfaces: [
     WorkbenchHeaderSurface,
     WorkbenchChatRailSurface,
     PaletteSurface,
   ],
-  slots: [PagesSlot, PaletteCommandsSlot, ChatRailWidgetsSlot, WorkbenchDrawersSlot],
+  slots: [
+    PagesSlot,
+    PaletteCommandsSlot,
+    PaletteActionsSlot,
+    ChatRailWidgetsSlot,
+    WorkbenchStatusSlot,
+    NotificationsSlot,
+    WorkbenchDrawersSlot,
+  ],
   views: [WorkbenchView],
 });
 

@@ -79,7 +79,7 @@ import {
   RollResult,
 } from "@vtt/resolution/shared";
 import {
-  PaletteCommandsSlot,
+  NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
   WorkbenchChatRailSurface,
 } from "@vtt/shell-workbench/shared";
 import {
@@ -124,7 +124,7 @@ const sheetSlotsTestInfra = definePlugin({
     // "Spawn <Monster>" verb per catalog template (palette quick
     // lookup). Declared here so the TB fill resolves without
     // pulling the full shell-workbench package into the harness.
-    PaletteCommandsSlot,
+    NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
     // Notes-side slot torchbearer fills with `monsterLinkKind` (the
     // `!` wikilink → monsters route). Declared here so the TB fill
     // resolves without pulling the full @vtt/notes package in.
@@ -1089,7 +1089,7 @@ describe("Skill row — Beginner's Luck learning display", () => {
     expect(dots.length).toBe(4);
   });
 
-  it("dispatches OpenSkillLearning when the L track fills", async () => {
+  it("does NOT auto-open a learning opportunity from the sheet (server-side via LogAdvancement now)", async () => {
     const h = harness(({ world, characterId }) => {
       world.set(characterId, Skills, {
         entries: Object.fromEntries([
@@ -1107,9 +1107,11 @@ describe("Skill row — Beginner's Luck learning display", () => {
       });
     });
     mountFillBody(h, TbAbilitiesSkillsTabFill.render);
-    // Bump learningTests to 4 — this should trigger the
-    // tab-abilities-skills `createEffect` that dispatches
-    // OpenSkillLearning for the freshly-filled L track.
+    // Bump learningTests to 4 (full). The sheet must NOT auto-open a
+    // learning opportunity — that mount-time effect was removed because
+    // it re-flooded the notification overlay on every refresh and
+    // resurrected dismissed cards. Opportunities are opened server-side
+    // by LogAdvancement when a roll fills the track.
     h.world.set(h.characterId, Skills, {
       entries: Object.fromEntries([
         [
@@ -1123,18 +1125,11 @@ describe("Skill row — Beginner's Luck learning display", () => {
         ],
       ]),
     });
-    // Solid effects flush synchronously during world writes inside
-    // the harness, but await a microtask anyway to keep the test
-    // robust to future scheduling changes.
     await Promise.resolve();
     const opens = h.dispatched.filter(
       (c) => c.type === "@vtt/system-torchbearer/OpenSkillLearning",
     );
-    expect(opens.length).toBeGreaterThanOrEqual(1);
-    expect(opens[opens.length - 1]!.payload).toEqual({
-      characterId: h.characterId,
-      skillId: "rider",
-    });
+    expect(opens.length).toBe(0);
   });
 
   it("renders an up-arrow when the L track is full", () => {

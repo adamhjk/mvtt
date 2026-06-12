@@ -21,21 +21,104 @@ import type {
   ChatTimelineContributor,
   ChatTimelineEntry,
 } from "@vtt/comms/shared";
+import type {
+  NotificationEntry,
+  NotificationFeed,
+} from "@vtt/shell-workbench/shared";
+import {
+  ResolvedRollFeedSlot,
+  type ResolvedRollEntry,
+  type ResolvedRollFeed,
+} from "@vtt/characters/shared";
 import { Formula, RollResult, RolledBy } from "@vtt/resolution/shared";
 import { createMemo, For, Show, type JSX } from "solid-js";
 import {
+  AbilityImprovementOpportunity,
+  countSuccesses,
   DismissLightWentOut,
   GrindToll,
+  ImproveAbility,
   ImproveSkill,
   LearnSkill,
   LightWentOutNotice,
   MarkGrindToll,
+  resolveSuccessCount,
   SkillImprovementOpportunity,
   SkillLearningOpportunity,
   TB_ROLL_META_SYSTEM,
+  TbRollMetaSchema,
   type GrindCondition,
+  type TbRollSpec,
 } from "../shared/index.js";
 import { TbRollRow } from "./tb-roll-row.js";
+
+type DieFace = { sides: number | "F"; value: number };
+type RollRow = { id: string; values: Record<string, unknown> };
+
+/** Margin as a signed success delta, with a real minus glyph. */
+function signedSuccesses(n: number): string {
+  return n >= 0 ? `+${n}` : `−${Math.abs(n)}`;
+}
+
+/**
+ * Resolve a TB roll into the compact Recent-pill outcome: pass/fail (or
+ * win/loss/tie for a versus test), the success count, and the margin.
+ * Reuses the exact success model `TbRollRow` renders — `resolveSuccessCount`
+ * for independent rolls, comparable successes vs the opponent's total for
+ * versus, the dispo formula for disposition — so the pill and the full
+ * card never disagree.
+ */
+export function tbOutcome(
+  selfId: string,
+  spec: TbRollSpec,
+  dice: ReadonlyArray<DieFace>,
+  rows: ReadonlyArray<RollRow>,
+): ResolvedRollEntry["outcome"] {
+  const sum = resolveSuccessCount(spec, dice);
+  if (spec.dispositionMode) {
+    const base = spec.dispoBase ?? spec.baseDice;
+    const value = Math.max(1, base + sum.rawSuccesses + sum.always);
+    return { tone: "neutral", text: `Disposition ${value}` };
+  }
+  if (spec.versusTestId) {
+    const mine = countSuccesses(dice, spec.successTarget) + spec.bonusSuccesses;
+    let oppTotal: number | null = null;
+    for (const r of rows) {
+      if (r.id === selfId) continue;
+      const meta = (r.values.Formula as { meta?: unknown } | undefined)?.meta;
+      const parsed = TbRollMetaSchema.safeParse(meta);
+      if (!parsed.success) continue;
+      if (parsed.data.spec.versusTestId !== spec.versusTestId) continue;
+      oppTotal = (r.values.RollResult as { total: number }).total;
+      break;
+    }
+    if (oppTotal === null) return { tone: "neutral", text: `${mine}s · vs ?` };
+    const diff = mine - oppTotal;
+    if (diff > 0)
+      return {
+        tone: "success",
+        text: `Win · ${mine}s vs ${oppTotal}s · ${signedSuccesses(diff)}`,
+      };
+    if (diff < 0)
+      return {
+        tone: "fail",
+        text: `Loss · ${mine}s vs ${oppTotal}s · ${signedSuccesses(diff)}`,
+      };
+    return { tone: "neutral", text: `Tie · ${mine}s vs ${oppTotal}s` };
+  }
+  // Independent test.
+  if (spec.obstacle !== null) {
+    const margin = sum.final - spec.obstacle;
+    return {
+      tone: sum.passed ? "success" : "fail",
+      text: `${sum.passed ? "Pass" : "Fail"} · ${sum.final}s vs Ob ${spec.obstacle} · ${signedSuccesses(margin)}`,
+    };
+  }
+  return {
+    tone: sum.passed ? "success" : "fail",
+    text: `${sum.passed ? "Pass" : "Fail"} · ${sum.final}s`,
+  };
+}
 
 /**
  * Renders one open improvement opportunity as a chat-timeline row. Body
@@ -77,7 +160,7 @@ function OpportunityRow(props: { entityId: string }): JSX.Element {
             class="rounded-(--radius-card) border border-border-muted bg-surface-elevated px-3 py-2 text-sm"
             data-tb-improvement-row="true"
           >
-            <header class="flex items-baseline justify-between gap-2 text-xs">
+            <header class="flex items-baseline justify-between gap-2 pr-6 text-xs">
               <span class="font-medium text-fg">{r.characterName}</span>
               <span class="text-[0.6rem] uppercase tracking-[0.16em] text-accent">
                 advancement
@@ -109,11 +192,11 @@ function OpportunityRow(props: { entityId: string }): JSX.Element {
  * world — sorted by their `sentAt` so they interleave correctly with
  * normal chat messages.
  */
-export const TbChatTimelineContributor: ChatTimelineContributor = {
+export const TbChatTimelineContributor: NotificationFeed = {
   kind: "@vtt/system-torchbearer/skill-improvement",
   useEntries: () => {
     const rows = useQuery([SkillImprovementOpportunity]);
-    const accessor = createMemo<ChatTimelineEntry[]>(() =>
+    const accessor = createMemo<NotificationEntry[]>(() =>
       rows().map((row) => {
         const rec = row.values.SkillImprovementOpportunity as { sentAt: number };
         return {
@@ -123,7 +206,83 @@ export const TbChatTimelineContributor: ChatTimelineContributor = {
         };
       }),
     );
-    return accessor as unknown as () => ChatTimelineEntry[];
+    return accessor as unknown as () => NotificationEntry[];
+  },
+};
+
+/**
+ * Ability / town-ability improvement card — the Will / Health / Resources
+ * / Circles counterpart of `OpportunityRow`. Reads the opportunity and
+ * carries an [Improve] button dispatching `ImproveAbility`.
+ */
+function AbilityOpportunityRow(props: { entityId: string }): JSX.Element {
+  const client = useClient();
+  const record = useTrait(props.entityId, AbilityImprovementOpportunity);
+  return (
+    <Show when={record()} keyed>
+      {(rec) => {
+        const r = rec as {
+          characterId: string;
+          characterName: string;
+          ability: "will" | "health" | "resources" | "circles";
+          abilityLabel: string;
+        };
+        const improve = () => {
+          client.dispatch(
+            ImproveAbility({
+              characterId: r.characterId,
+              ability: r.ability,
+            }) as CommandInstance,
+          );
+        };
+        return (
+          <article
+            class="rounded-(--radius-card) border border-border-muted bg-surface-elevated px-3 py-2 text-sm"
+            data-tb-ability-improvement-row="true"
+          >
+            <header class="flex items-baseline justify-between gap-2 pr-6 text-xs">
+              <span class="font-medium text-fg">{r.characterName}</span>
+              <span class="text-[0.6rem] uppercase tracking-[0.16em] text-accent">
+                advancement
+              </span>
+            </header>
+            <p class="mt-1 whitespace-pre-wrap break-words text-fg-muted">
+              {`${r.characterName} improved their ${r.abilityLabel}!`}
+            </p>
+            <div class="mt-1.5 flex justify-end">
+              <button
+                type="button"
+                class="rounded-(--radius-control) border border-accent bg-transparent px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-[0.12em] text-accent transition hover:bg-accent hover:text-accent-fg"
+                title={`Improve ${r.abilityLabel}`}
+                onClick={improve}
+              >
+                Improve
+              </button>
+            </div>
+          </article>
+        );
+      }}
+    </Show>
+  );
+}
+
+export const TbAbilityImprovementFeed: NotificationFeed = {
+  kind: "@vtt/system-torchbearer/ability-improvement",
+  useEntries: () => {
+    const rows = useQuery([AbilityImprovementOpportunity]);
+    const accessor = createMemo<NotificationEntry[]>(() =>
+      rows().map((row) => {
+        const rec = row.values.AbilityImprovementOpportunity as {
+          sentAt: number;
+        };
+        return {
+          id: row.id,
+          sortKey: rec.sentAt,
+          render: () => AbilityOpportunityRow({ entityId: row.id }) as unknown,
+        };
+      }),
+    );
+    return accessor as unknown as () => NotificationEntry[];
   },
 };
 
@@ -164,7 +323,7 @@ function LearningOpportunityRow(props: { entityId: string }): JSX.Element {
             class="rounded-(--radius-card) border border-border-muted bg-surface-elevated px-3 py-2 text-sm"
             data-tb-learning-row="true"
           >
-            <header class="flex items-baseline justify-between gap-2 text-xs">
+            <header class="flex items-baseline justify-between gap-2 pr-6 text-xs">
               <span class="font-medium text-fg">{r.characterName}</span>
               <span class="text-[0.6rem] uppercase tracking-[0.16em] text-accent">
                 learning
@@ -195,11 +354,11 @@ function LearningOpportunityRow(props: { entityId: string }): JSX.Element {
  * surfacing every open `SkillLearningOpportunity` entity (one per
  * unlearned skill whose Beginner's Luck track has just filled).
  */
-export const TbSkillLearningTimelineContributor: ChatTimelineContributor = {
+export const TbSkillLearningTimelineContributor: NotificationFeed = {
   kind: "@vtt/system-torchbearer/skill-learning",
   useEntries: () => {
     const rows = useQuery([SkillLearningOpportunity]);
-    const accessor = createMemo<ChatTimelineEntry[]>(() =>
+    const accessor = createMemo<NotificationEntry[]>(() =>
       rows().map((row) => {
         const rec = row.values.SkillLearningOpportunity as { sentAt: number };
         return {
@@ -209,7 +368,7 @@ export const TbSkillLearningTimelineContributor: ChatTimelineContributor = {
         };
       }),
     );
-    return accessor as unknown as () => ChatTimelineEntry[];
+    return accessor as unknown as () => NotificationEntry[];
   },
 };
 
@@ -249,7 +408,7 @@ function LightWentOutCard(props: { entityId: string }): JSX.Element {
           class="rounded-(--radius-card) border border-border-muted bg-surface-elevated px-3 py-2 text-sm"
           data-testid={`light-out-card-${props.entityId}`}
         >
-          <header class="flex items-baseline justify-between gap-2 text-xs">
+          <header class="flex items-baseline justify-between gap-2 pr-6 text-xs">
             <span class="font-medium text-fg">{n.holderName}</span>
             <span class="text-[0.6rem] uppercase tracking-[0.16em] text-warning">
               light · turn {n.turn}
@@ -303,7 +462,7 @@ function GrindTollCard(props: { entityId: string }): JSX.Element {
           class="rounded-(--radius-card) border border-border-muted bg-surface-elevated px-3 py-2 text-sm"
           data-testid={`grind-toll-card-${props.entityId}`}
         >
-          <header class="flex items-baseline justify-between gap-2 text-xs">
+          <header class="flex items-baseline justify-between gap-2 pr-6 text-xs">
             <span class="font-medium text-fg">The grind takes its toll.</span>
             <span class="text-[0.6rem] uppercase tracking-[0.16em] text-warning">
               turn {t.turn}
@@ -372,11 +531,11 @@ function grindConditionLabel(c: GrindCondition): string {
  * a row per character with an Apply button. Once every row is
  * applied the toll entity is despawned and the card disappears.
  */
-export const TbGrindTollContributor: ChatTimelineContributor = {
+export const TbGrindTollContributor: NotificationFeed = {
   kind: "@vtt/system-torchbearer/grind-toll",
   useEntries: () => {
     const rows = useQuery([GrindToll]);
-    const accessor = createMemo<ChatTimelineEntry[]>(() =>
+    const accessor = createMemo<NotificationEntry[]>(() =>
       rows().map((row) => {
         const t = row.values.GrindToll as { sentAt: number };
         return {
@@ -386,15 +545,15 @@ export const TbGrindTollContributor: ChatTimelineContributor = {
         };
       }),
     );
-    return accessor as unknown as () => ChatTimelineEntry[];
+    return accessor as unknown as () => NotificationEntry[];
   },
 };
 
-export const TbLightWentOutContributor: ChatTimelineContributor = {
+export const TbLightWentOutContributor: NotificationFeed = {
   kind: "@vtt/system-torchbearer/light-out",
   useEntries: () => {
     const rows = useQuery([LightWentOutNotice]);
-    const accessor = createMemo<ChatTimelineEntry[]>(() =>
+    const accessor = createMemo<NotificationEntry[]>(() =>
       rows().map((row) => {
         const n = row.values.LightWentOutNotice as { sentAt: number };
         return {
@@ -404,9 +563,26 @@ export const TbLightWentOutContributor: ChatTimelineContributor = {
         };
       }),
     );
-    return accessor as unknown as () => ChatTimelineEntry[];
+    return accessor as unknown as () => NotificationEntry[];
   },
 };
+
+/** True for Roll entities this TB system claims via Formula.meta.system. */
+function isTbRoll(formula: unknown): boolean {
+  const meta = (formula as { meta?: unknown } | undefined)?.meta as
+    | { system?: unknown }
+    | undefined;
+  return !!meta && (meta as { system?: string }).system === TB_ROLL_META_SYSTEM;
+}
+
+function tbOriginOf(formula: unknown): string | null {
+  const meta = (formula as { meta?: unknown } | undefined)?.meta as
+    | { originPendingRollId?: unknown }
+    | undefined;
+  return typeof meta?.originPendingRollId === "string"
+    ? meta.originPendingRollId
+    : null;
+}
 
 export const TbRollChatTimelineContributor: ChatTimelineContributor = {
   kind: "@vtt/system-torchbearer/roll",
@@ -414,11 +590,7 @@ export const TbRollChatTimelineContributor: ChatTimelineContributor = {
     const rolls = useQuery([Formula, RollResult, RolledBy]);
     const accessor = createMemo<ChatTimelineEntry[]>(() =>
       rolls()
-        .filter((row) => {
-          const meta = (row.values.Formula as { meta?: unknown } | undefined)
-            ?.meta as { system?: unknown } | undefined;
-          return !!meta && (meta as { system?: string }).system === TB_ROLL_META_SYSTEM;
-        })
+        .filter((row) => isTbRoll(row.values.Formula))
         .map((row) => {
           const r = row.values.RollResult as { rolledAt: number };
           return {
@@ -430,4 +602,49 @@ export const TbRollChatTimelineContributor: ChatTimelineContributor = {
     );
     return accessor as unknown as () => ChatTimelineEntry[];
   },
+};
+
+/**
+ * Resolved-roll feed for the Roll Atelier — the TB counterpart of
+ * resolution's `RollAtelierFeed`. Surfaces every TB Roll entity as a
+ * "Recent" rail entry whose right-pane card is the full `TbRollRow`
+ * audit trail. The Atelier (in `@vtt/characters`) can't read TB traits
+ * or decide TB rendering, so this feed is how committed TB rolls reach it.
+ */
+export const TbRollAtelierFeed: ResolvedRollFeed = {
+  kind: "@vtt/system-torchbearer/roll",
+  useEntries: () => {
+    const rolls = useQuery([Formula, RollResult, RolledBy]);
+    const accessor = createMemo<ResolvedRollEntry[]>(() => {
+      const all = rolls() as ReadonlyArray<RollRow>;
+      return all
+        .filter((row) => isTbRoll(row.values.Formula))
+        .map((row) => {
+          const f = row.values.Formula as { notation: string; meta?: unknown };
+          const r = row.values.RollResult as {
+            rolledAt: number;
+            dice?: ReadonlyArray<DieFace>;
+          };
+          const rb = row.values.RolledBy as { displayName: string };
+          const parsed = TbRollMetaSchema.safeParse(f.meta);
+          const outcome = parsed.success
+            ? tbOutcome(row.id, parsed.data.spec, r.dice ?? [], all)
+            : undefined;
+          return {
+            id: row.id,
+            sortKey: r.rolledAt,
+            title: rb.displayName,
+            subtitle: f.notation,
+            originPendingRollId: tbOriginOf(row.values.Formula),
+            outcome,
+            render: () => TbRollRow({ entityId: row.id }) as unknown,
+          };
+        });
+    });
+    return accessor as unknown as () => ResolvedRollEntry[];
+  },
+};
+
+export const TbRollAtelierFeedFills = {
+  [ResolvedRollFeedSlot.name]: [TbRollAtelierFeed],
 };

@@ -27,7 +27,9 @@ import {
 } from "solid-js";
 import {
   WorkbenchDrawersSlot,
+  WorkbenchStatusSlot,
   type WorkbenchDrawer,
+  type WorkbenchStatusItem,
   type DrawerEdge,
 } from "../shared/slots.js";
 import { OpenDrawer, CloseDrawer } from "../shared/commands.js";
@@ -82,6 +84,16 @@ export function WorkbenchDrawers(): JSX.Element {
     drawers().filter((d) => d.edge === "bottom"),
   );
 
+  // Status-strip widgets — compact, always-visible controls pinned to the
+  // right of the bottom strip (the grind clock, etc.). Highest priority
+  // sits rightmost.
+  const statusItems = createMemo<WorkbenchStatusItem[]>(() => {
+    const fills = client.registry.fillsForSlot(
+      WorkbenchStatusSlot,
+    ) as WorkbenchStatusItem[];
+    return [...fills].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+  });
+
   // Auto-open subscriptions: dispatch OpenDrawer({keepOpen:false}) on
   // the configured event for any drawer that has autoOpenOn set. The
   // server-side OpenDrawer.apply preserves a sticky `keepOpen: true`
@@ -104,8 +116,11 @@ export function WorkbenchDrawers(): JSX.Element {
   });
 
   return (
-    <Show when={bottomDrawers().length > 0}>
-      <BottomDrawerRegion drawers={bottomDrawers()} />
+    <Show when={bottomDrawers().length > 0 || statusItems().length > 0}>
+      <BottomDrawerRegion
+        drawers={bottomDrawers()}
+        statusItems={statusItems()}
+      />
     </Show>
   );
 }
@@ -128,6 +143,7 @@ export function WorkbenchDrawers(): JSX.Element {
  */
 function BottomDrawerRegion(props: {
   drawers: WorkbenchDrawer[];
+  statusItems: WorkbenchStatusItem[];
 }): JSX.Element {
   const client = useClient();
   const ws = useWorkspace();
@@ -265,6 +281,18 @@ function BottomDrawerRegion(props: {
             );
           }}
         </For>
+        {/* Status widgets — pinned right, always visible (no drawer to
+            open). The grind clock lives here. */}
+        <Show when={props.statusItems.length > 0}>
+          <div
+            class="ml-auto flex items-center gap-2 pr-1"
+            data-testid="workbench-status-strip"
+          >
+            <For each={props.statusItems}>
+              {(s) => <>{s.render() as unknown as JSX.Element}</>}
+            </For>
+          </div>
+        </Show>
       </header>
     </aside>
   );

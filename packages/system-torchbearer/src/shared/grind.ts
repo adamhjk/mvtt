@@ -22,6 +22,7 @@ import {
   EntityId,
   fail,
   ok,
+  readTraitWithDefault,
   z,
   type EventInstance,
 } from "@vtt/substrate";
@@ -29,6 +30,8 @@ import { requireSession } from "@vtt/identity/shared";
 import { Character } from "@vtt/characters/shared";
 import { ItemIdentity } from "@vtt/items/shared";
 import { Conditions } from "./traits.js";
+import { TbMonster } from "./monster-traits.js";
+import { TbNpc } from "./npc-traits.js";
 import { EntryStateChanged } from "./items/item-events.js";
 import { TbCarries, TbSupply } from "./items/item-traits.js";
 
@@ -440,15 +443,27 @@ export const SetGrindTurn = defineCommand({
         characterName: string;
         condition: GrindCondition;
       }> = [];
-      for (const row of world.query([Character, Conditions])) {
-        const cond = row.values.Conditions as {
-          hungryThirsty?: boolean;
-          exhausted?: boolean;
-          angry?: boolean;
-          afraid?: boolean;
-          injured?: boolean;
-          sick?: boolean;
-        };
+      // Iterate every character (not just those with a Conditions trait
+      // attached) and read Conditions with its schema default, so a
+      // freshly-created PC who has never been edited still takes the
+      // grind — it's treated as `fresh` and picks up the first condition.
+      for (const row of world.query([Character])) {
+        // The grind afflicts the players' characters only — monsters and
+        // NPCs don't take adventure-phase conditions from the clock.
+        if (world.get(row.id, [TbMonster]) || world.get(row.id, [TbNpc])) {
+          continue;
+        }
+        const cond = readTraitWithDefault(world, row.id, Conditions) as
+          | {
+              hungryThirsty?: boolean;
+              exhausted?: boolean;
+              angry?: boolean;
+              afraid?: boolean;
+              injured?: boolean;
+              sick?: boolean;
+            }
+          | undefined;
+        if (!cond) continue;
         const next = nextGrindCondition(cond);
         if (!next) continue;
         const ch = row.values.Character as { name: string };

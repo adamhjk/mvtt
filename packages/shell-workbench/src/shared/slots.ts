@@ -231,6 +231,55 @@ export const PaletteCommandsSlot = defineSlot({
 });
 
 /**
+ * One dynamic, world-derived palette entry — unlike a `PaletteCommand`
+ * (a static verb), these are generated per-render from world state, so a
+ * plugin can offer "Roll Tarn — Will", "Roll Tarn — Fighter", … one entry
+ * per (character × rollable). Each carries a prebuilt `command` dispatched
+ * verbatim when the user picks it; the quick-switcher fuzzy-matches on
+ * `label` (so typing `roll tarn will` narrows to it) and shows `tag` in
+ * the left mono-caps column.
+ */
+export interface PaletteAction {
+  /** Stable key for `<For>` and result selection — unique across providers. */
+  readonly id: string;
+  /** Fuzzy-searched, shown as the entry body. */
+  readonly label: string;
+  /** Optional secondary search text / right-hand hint. */
+  readonly hint?: string;
+  /** Left mono-caps column label (e.g. "roll"). Defaults to "action". */
+  readonly tag?: string;
+  /** Dispatched verbatim when this entry is chosen. */
+  readonly command: CommandInstance;
+}
+
+/**
+ * A registered generator of dynamic palette entries. `list` runs each
+ * time the quick-switcher rebuilds its corpus (provider/world changes);
+ * `reads` declares which traits it depends on so the switcher subscribes
+ * for fine-grained reactivity, exactly like `PageProvider.reads`.
+ */
+export type PaletteActionProvider = {
+  id: QualifiedName;
+  reads: ReadonlyArray<TraitMeta>;
+  list: (ctx: PageProviderContext) => ReadonlyArray<PaletteAction>;
+};
+
+const PaletteActionProviderSchema = z.object({
+  id: QualifiedNameSchema,
+  // `reads` and `list` are runtime-opaque (a trait-array and a function);
+  // the types above are the load-bearing constraint at the call site.
+  reads: z.any(),
+  list: z.any(),
+});
+
+export const PaletteActionsSlot = defineSlot({
+  name: "@vtt/shell-workbench/palette-actions",
+  schema: PaletteActionProviderSchema,
+  description:
+    "Generators of dynamic, world-derived quick-switcher entries (e.g. 'Roll <Character> — <Ability>') that dispatch a prebuilt command when chosen.",
+});
+
+/**
  * Per-fill schema for chat-rail widgets — small components that stack
  * above the chat composer (presence indicator, dice tray summary, etc.).
  * `render` is a Solid component reference; rendered in `priority` order.
@@ -252,6 +301,75 @@ export const ChatRailWidgetsSlot = defineSlot({
   schema: ChatRailWidgetSchema,
   description:
     "Small widgets that stack above the chat composer in the right rail.",
+});
+
+/**
+ * Per-fill schema for status-strip widgets — compact, always-visible
+ * controls anchored to the **right** of the bottom drawer strip (the
+ * persistent footer that holds the dice-tray tab). Unlike a drawer,
+ * these never collapse: the whole control lives in the bar, so a GM can
+ * read and adjust the grind clock at a glance without opening anything.
+ * `render` is a Solid component; rendered right-to-left in priority order.
+ */
+const WorkbenchStatusItemSchema = z.object({
+  id: QualifiedNameSchema,
+  render: z.any(),
+  priority: z.number().optional(),
+});
+
+export type WorkbenchStatusItem = {
+  id: QualifiedName;
+  render: () => unknown;
+  priority?: number;
+};
+
+export const WorkbenchStatusSlot = defineSlot({
+  name: "@vtt/shell-workbench/status",
+  schema: WorkbenchStatusItemSchema,
+  description:
+    "Compact, always-visible widgets pinned to the right of the bottom drawer strip (e.g. the grind clock). They live in the bar — no drawer to open.",
+});
+
+/**
+ * One row in the notifications overlay. Same shape as a chat-timeline
+ * entry — these are the actionable "something happened at the table"
+ * cards (a light burns out, the grind takes its toll, a skill is ready
+ * to advance) that used to live in chat. They're entity-backed and
+ * persist until acted on, so the overlay is a live projection of those
+ * entities, not an ephemeral toast queue.
+ */
+export interface NotificationEntry {
+  /** Stable id for `<For>` keying — usually the backing entity id. */
+  readonly id: string;
+  /** Sort key (unix millis by convention); newest shown at the top. */
+  readonly sortKey: number;
+  /** Returns the card JSX. Called once per render. */
+  readonly render: () => unknown;
+}
+
+/**
+ * A registered notification feed. `useEntries` is a Solid hook invoked
+ * once during the overlay's render and must return an
+ * `Accessor<NotificationEntry[]>`. The loose return type avoids a
+ * `solid-js` import in `shared/`; the overlay casts at the call site.
+ * Structurally identical to comms's `ChatTimelineContributor`, so a card
+ * feed can move from chat to the overlay without changing its shape.
+ */
+export interface NotificationFeed {
+  readonly kind: string;
+  readonly useEntries: () => () => NotificationEntry[];
+}
+
+const NotificationFeedSchema = z.object({
+  kind: z.string().min(1),
+  useEntries: z.any(),
+});
+
+export const NotificationsSlot = defineSlot({
+  name: "@vtt/shell-workbench/notifications",
+  schema: NotificationFeedSchema,
+  description:
+    "Live feeds of actionable table-event cards (light burnout, grind toll, advancement) projected into the floating notifications overlay.",
 });
 
 /**

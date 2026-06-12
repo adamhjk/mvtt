@@ -38,8 +38,10 @@ import { OpenPage, OpenPageInNewTab } from "./shared/commands.js";
 import {
   PagesSlot,
   PaletteCommandsSlot,
+  PaletteActionsSlot,
   type PageProvider,
   type PaletteCommand,
+  type PaletteActionProvider,
 } from "./shared/slots.js";
 import { definePageProvider } from "./shared/define-page-provider.js";
 import { Palette } from "./client/Palette.js";
@@ -85,15 +87,39 @@ const noopVerb: PaletteCommand = {
   run: () => NoopCmd({}),
 };
 
+// Synthetic action command — distinct from NoopCmd so dynamic-action
+// dispatch is unambiguous, with a payload marker to assert on.
+const ActionCmd = defineCommand({
+  name: "@test/palette/Action",
+  schema: z.object({ marker: z.string() }),
+  validate: () => ok(),
+  apply: () => [],
+});
+
+// A dynamic palette-action provider — the shape the TB "roll" entries use.
+const rollActions: PaletteActionProvider = {
+  id: qualifiedName("@test/palette/roll-actions") as PaletteActionProvider["id"],
+  reads: [Note],
+  list: () => [
+    {
+      id: "test-roll-tarn-will",
+      label: "Roll Tarn — Will",
+      tag: "roll",
+      command: ActionCmd({ marker: "tarn-will" }),
+    },
+  ],
+};
+
 function harness() {
   const fillsPlugin = definePlugin({
     name: "@vtt/test-palette",
     version: "0.0.0",
     traits: [Note],
-    commands: [NoopCmd],
+    commands: [NoopCmd, ActionCmd],
     fills: {
       [PagesSlot.name]: [noteProvider],
       [PaletteCommandsSlot.name]: [noopVerb],
+      [PaletteActionsSlot.name]: [rollActions],
     },
   });
   return buildTestClient({
@@ -210,6 +236,32 @@ describe("shell-workbench Palette", () => {
     fireEvent.input(input, { target: { value: "Toggle GM" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(h.dispatched.some((c) => c.type === NoopCmd.name)).toBe(true);
+  });
+
+  it("lists dynamic palette-action entries from PaletteActionsSlot", () => {
+    const h = harness();
+    render(() => (
+      <ClientProvider value={h.client}>
+        <Palette open={true} onClose={() => {}} />
+      </ClientProvider>
+    ));
+    expect(screen.getByText("Roll Tarn — Will")).toBeInTheDocument();
+  });
+
+  it("typing 'roll tarn will' matches the action; Enter dispatches its command", () => {
+    const h = harness();
+    render(() => (
+      <ClientProvider value={h.client}>
+        <Palette open={true} onClose={() => {}} />
+      </ClientProvider>
+    ));
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    fireEvent.input(input, { target: { value: "roll tarn will" } });
+    expect(screen.getByText("Roll Tarn — Will")).toBeInTheDocument();
+    fireEvent.keyDown(input, { key: "Enter" });
+    const fired = h.dispatched.find((c) => c.type === ActionCmd.name);
+    expect(fired).toBeDefined();
+    expect(fired!.payload).toMatchObject({ marker: "tarn-will" });
   });
 
   it("Escape closes the palette via onClose", () => {

@@ -16,13 +16,17 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { definePlugin } from "@vtt/substrate";
+import { QuickRollComposerSlot } from "@vtt/characters/shared";
 import { Formula, RollResult, RolledBy } from "./shared/traits.js";
 import { RollResolved } from "./shared/events.js";
 import { RequestRoll } from "./shared/commands.js";
 import { RollChatFills } from "./shared/chat-handler.js";
 import { RollActionsSlot } from "./shared/slot.js";
 import { RollRecordingSystem } from "./server/systems.js";
-import { RollTimelineFills } from "./client/index.js";
+import {
+  RollAtelierFeedFills,
+  QuickRollComposerFill,
+} from "./client/index.js";
 
 /**
  * The dice-rolling plugin. No standalone UI — input lives in the chat
@@ -47,7 +51,14 @@ export const resolution = definePlugin({
   commands: [RequestRoll],
   systems: [RollRecordingSystem],
   slots: [RollActionsSlot],
-  fills: { ...RollChatFills, ...RollTimelineFills },
+  // Rolls used to render into chat via a ChatTimelineContributor; they
+  // now live in the Roll Atelier (RollAtelierFeed). Chat keeps only the
+  // `/r` input handler — output is the Atelier's Recent feed.
+  fills: {
+    ...RollChatFills,
+    ...RollAtelierFeedFills,
+    [QuickRollComposerSlot.name]: [QuickRollComposerFill],
+  },
 });
 
 export default resolution;

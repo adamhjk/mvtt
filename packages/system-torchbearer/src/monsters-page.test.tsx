@@ -35,7 +35,7 @@ import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { BlockKindsSlot } from "@vtt/adventures/shared";
 import {
-  PaletteCommandsSlot,
+  NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
   WorkbenchChatRailSurface,
 } from "@vtt/shell-workbench/shared";
 import { TB_SPAWN_MONSTER_PALETTE_COMMANDS } from "./client/spawn-monster-palette.js";
@@ -73,7 +73,7 @@ const sheetSlotsTestInfra = definePlugin({
     ChatTimelineContributorSlot,
     RollActionsSlot,
     ItemDetailSectionsSlot,
-    PaletteCommandsSlot,
+    NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
     // Notes-side slot torchbearer fills with `monsterLinkKind`
     // (the `!` wikilink → monsters route). Declared here so the TB
     // fill resolves without pulling the full @vtt/notes plugin.

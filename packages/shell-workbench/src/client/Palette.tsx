@@ -25,6 +25,7 @@ import {
   type JSX,
 } from "solid-js";
 import Fuse from "fuse.js";
+import type { CommandInstance } from "@vtt/substrate";
 import { useClient } from "@vtt/substrate/client";
 import {
   OpenPage,
@@ -35,6 +36,7 @@ import { useProviderContext } from "./provider-context.js";
 import {
   usePageProviders,
   usePaletteCommands,
+  usePaletteActionProviders,
   useProviderTraitsVersion,
 } from "./use-providers.js";
 import { useMe } from "./use-me.js";
@@ -72,6 +74,19 @@ type Hit =
       id: string;
       label: string;
       hint?: string;
+    }
+  | {
+      /**
+       * Dynamic, world-derived entry from a `PaletteActionProvider`
+       * (e.g. "Roll Tarn — Will"). Carries a prebuilt command dispatched
+       * on choose; `tag` fills the left mono-caps column.
+       */
+      kind: "action";
+      id: string;
+      label: string;
+      hint?: string;
+      tag?: string;
+      command: CommandInstance;
     };
 
 /**
@@ -89,6 +104,7 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
   const ctx = useProviderContext();
   const providers = usePageProviders();
   const commands = usePaletteCommands();
+  const actionProviders = usePaletteActionProviders();
   const me = useMe();
   // Rebuild the corpus when any provider-watched trait changes —
   // freshly-renamed scenes, newly-added entities, etc. Provider.list
@@ -152,6 +168,21 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
         label: c.label,
         hint: c.hint,
       });
+    }
+    // Dynamic, world-derived entries (e.g. "Roll Tarn — Will"). Each
+    // provider gates its own visibility (a player only sees rolls for
+    // characters they can write to); we just collect and fuzzy-match.
+    for (const ap of actionProviders()) {
+      for (const a of ap.list(ctx())) {
+        out.push({
+          kind: "action",
+          id: a.id,
+          label: a.label,
+          hint: a.hint,
+          tag: a.tag,
+          command: a.command,
+        });
+      }
     }
     return out;
   });
@@ -287,6 +318,9 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
       // dispatch OpenPage to focus / create the tab.
       if (hit.query.length > 0) hit.publish(hit.query);
       dispatchOpen(mode, hit.providerKind, null);
+    } else if (hit.kind === "action") {
+      // Dynamic entry — dispatch its prebuilt command verbatim.
+      client.dispatch(hit.command as never);
     } else {
       // command
       const c = commands().find((x) => x.id === hit.id);
@@ -412,13 +446,15 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
                           classList={{
                             "text-fg-muted": hit.kind === "page",
                             "text-accent":
-                              hit.kind === "prefixSearch",
+                              hit.kind === "prefixSearch" || hit.kind === "action",
                             "text-warning": hit.kind === "command",
                           }}
                         >
                           {hit.kind === "page" || hit.kind === "prefixSearch"
                             ? hit.providerLabel
-                            : "command"}
+                            : hit.kind === "action"
+                              ? hit.tag ?? "action"
+                              : "command"}
                         </span>
                         <span class="flex-1 truncate text-sm text-fg">{hit.label}</span>
                         <Show when={hit.hint}>

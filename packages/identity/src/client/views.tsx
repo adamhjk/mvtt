@@ -186,6 +186,64 @@ export const PlayerListView = defineView({
 });
 
 /**
+ * Compact connected-players indicator for the top bar. The full
+ * `PlayerListView` lived on the chat rail; with the rail retired, this
+ * gives an always-visible at-a-glance roster in the header — a chip per
+ * connected user (status dot + name, GMs accented). Hidden on the
+ * narrowest viewports to leave room for the world picker + user menu.
+ */
+export const PresenceHeaderView = defineView({
+  name: "PresenceHeader",
+  surface: WorkbenchHeaderSurfaceName,
+  priority: 10, // left of the UserMenu (priority 0)
+  render: clientOnly(() => {
+    const connections = useQuery([Identity, Name, Online]);
+    const players = createMemo<PlayerRow[]>(() => {
+      const seen = new Map<string, PlayerRow>();
+      for (const row of connections()) {
+        const id = row.values.Identity as { userId: string; role: "gm" | "player" };
+        const name = (row.values.Name as { value: string }).value;
+        const cur = seen.get(id.userId);
+        if (cur) cur.tabs += 1;
+        else seen.set(id.userId, { userId: id.userId, name, role: id.role, tabs: 1 });
+      }
+      return [...seen.values()];
+    });
+    return (
+      <Show when={players().length > 0}>
+        <div
+          class="hidden items-center gap-1.5 md:flex"
+          data-testid="header-presence"
+          aria-label="Connected players"
+        >
+          <For each={players()}>
+            {(p) => (
+              <span
+                class="inline-flex items-center gap-1 rounded-(--radius-control) border px-1.5 py-0.5 text-[0.7rem]"
+                classList={{
+                  "border-accent/40 bg-accent/10 text-accent": p.role === "gm",
+                  "border-border bg-surface text-fg-muted": p.role !== "gm",
+                }}
+                data-testid={`header-presence-${p.userId}`}
+                title={`${p.name}${p.role === "gm" ? " (GM)" : ""}${
+                  p.tabs > 1 ? ` · ${p.tabs} tabs` : ""
+                }`}
+              >
+                <span
+                  class="h-1.5 w-1.5 rounded-full bg-accent"
+                  aria-hidden
+                />
+                <span class="max-w-[7rem] truncate">{p.name}</span>
+              </span>
+            )}
+          </For>
+        </div>
+      </Show>
+    );
+  }),
+});
+
+/**
  * Header-mounted "you are signed in as …" + logout button. Replaces the
  * old client-N indicator: the connection counter is process-wide and
  * resets only on server restart, so it grew unboundedly across refreshes

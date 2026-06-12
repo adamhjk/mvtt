@@ -18,5 +18,8 @@
 export {
   RollTimelineContributor,
   RollTimelineFills,
+  RollAtelierFeed,
+  RollAtelierFeedFills,
 } from "./views";
 export { RollActionsRegion } from "./RollActionsRegion.js";
+export { QuickRollComposerFill } from "./QuickRoll.js";

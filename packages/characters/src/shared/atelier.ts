@@ -25,6 +25,7 @@ import {
   ok,
   QualifiedNameSchema,
   z,
+  type CommandInstance,
   type EntityId as EntityIdType,
   type QualifiedName,
 } from "@vtt/substrate";
@@ -59,6 +60,19 @@ export const ROLL_ATELIER_KIND = "@vtt/characters/roll-atelier";
  *
  * `railCollapsed` toggles the left rail's visibility. Mirrors the
  * Notes view's railCollapsed convention for parity.
+ *
+ * `quickRollOpen` parks the right pane on the freeform "roll arbitrary
+ * dice" composer (a `QuickRollComposerSlot` fill) instead of a pending
+ * roll's editor or a resolved roll's card. Additive field — defaulted so
+ * sentinels written before quick-roll existed decode cleanly.
+ *
+ * `selectedRollId` may now point at a *resolved* Roll entity (one shown
+ * in the rail's "Recent" section), not only a live PendingRoll — the
+ * Atelier owns a roll's whole lifecycle, so the same selection slot
+ * carries both. When it points at a PendingRoll that just committed, the
+ * shell redirects selection to the resolved roll the commit produced (it
+ * matches `Formula.meta.originPendingRollId`, surfaced on the resolved
+ * feed entry).
  */
 export const RollAtelierUiState = defineTrait({
   name: "@vtt/characters/RollAtelierUiState",
@@ -66,16 +80,21 @@ export const RollAtelierUiState = defineTrait({
     .object({
       selectedRollId: EntityId.nullable().default(null),
       railCollapsed: z.boolean().default(false),
+      quickRollOpen: z.boolean().default(false),
     })
     .default({
       selectedRollId: null,
       railCollapsed: false,
+      quickRollOpen: false,
     }),
 });
 
 const RollAtelierUiStateValue = z.object({
   selectedRollId: EntityId.nullable(),
   railCollapsed: z.boolean(),
+  // Additive: older clients (and the SetRollAtelierUiState payloads they
+  // send) predate quick-roll. Default keeps those writes parseable.
+  quickRollOpen: z.boolean().default(false),
 });
 
 export const RollAtelierUiStateChanged = defineEvent({
@@ -209,3 +228,142 @@ export const RollAtelierRailSlot = defineSlot({
   description:
     "Game-system fills that render rail-side accessories below the selected pill in the Roll Atelier — versus shadows, conflict clusters, etc.",
 });
+
+/* -------------------------------------------------------------------------
+ * Resolved-roll feed — the Atelier's "Recent rolls" rail section + the
+ * right-pane card for a committed roll.
+ *
+ * `@vtt/characters` sits *below* `@vtt/resolution` / game-system plugins
+ * in the dependency graph, so it can't read the `Formula` / `RollResult`
+ * traits (those belong to resolution) nor decide how a TB roll vs a plain
+ * `/r` roll should render. Instead the plugins that own those rolls fill
+ * this slot with a reactive feed: each fill queries its own roll entities
+ * and yields compact entries the Atelier merges, sorts, and mounts.
+ *
+ * Shape mirrors comms's `ChatTimelineContributor` deliberately — a roll
+ * card is a roll card whether it lands in chat or the Atelier — but the
+ * slot is characters-owned so the Atelier needs no upward dependency.
+ * ----------------------------------------------------------------------- */
+
+/**
+ * One resolved roll, as surfaced to the Atelier. `render` returns the
+ * full card for the right pane (reusing the same component the chat row
+ * used); `title` / `subtitle` are the compact rail-pill labels.
+ */
+export interface ResolvedRollEntry {
+  /** The resolved Roll entity id. */
+  readonly id: string;
+  /** Sort key — `RollResult.rolledAt` (unix millis), newest-largest. */
+  readonly sortKey: number;
+  /** Compact rail label — usually the roller / speaker display name. */
+  readonly title: string;
+  /** Optional secondary rail label — notation, total, source, etc. */
+  readonly subtitle?: string;
+  /**
+   * Optional resolved outcome shown prominently (and colour-coded) on the
+   * Recent pill: pass/fail (or win/loss/tie), the success count, and the
+   * margin. System-specific — the feed computes the human string and a
+   * generic `tone`; the rail just colours by tone, staying ignorant of any
+   * game system's success model. Absent for rolls with no pass/fail notion
+   * (e.g. a plain `/r` total).
+   */
+  readonly outcome?: {
+    readonly tone: "success" | "fail" | "neutral";
+    readonly text: string;
+  };
+  /**
+   * The PendingRoll this roll was committed from, when known (the commit
+   * path stamps `Formula.meta.originPendingRollId` via `tagRollWithOrigin`).
+   * The Atelier uses it to keep the just-committed roll selected: the
+   * pending pill despawns and selection redirects to the entry whose
+   * `originPendingRollId` matches. Absent for `/r` and quick rolls.
+   */
+  readonly originPendingRollId?: string | null;
+  /** Full card for the right pane. Called once per render. */
+  readonly render: () => unknown;
+}
+
+/**
+ * A registered feed of resolved rolls. `useEntries` is a Solid hook —
+ * invoked once during the Atelier's render (same constraint comms imposes
+ * on timeline contributors) — and must return an
+ * `Accessor<ResolvedRollEntry[]>`. The return type is left loose so this
+ * shared module needn't import `solid-js`; the Atelier casts at the call
+ * site.
+ */
+export interface ResolvedRollFeed {
+  readonly kind: string;
+  readonly useEntries: () => () => ResolvedRollEntry[];
+}
+
+const ResolvedRollFeedSchema = z.object({
+  kind: z.string().min(1),
+  // function values aren't structurally validated; we trust plugins
+  useEntries: z.any(),
+});
+
+export const ResolvedRollFeedSlot = defineSlot({
+  name: "@vtt/characters/resolved-roll-feeds",
+  schema: ResolvedRollFeedSchema,
+  description:
+    "Plugin-supplied feeds of resolved rolls (TB rolls, plain /r rolls, …) shown in the Roll Atelier's Recent section and right-pane card.",
+});
+
+/**
+ * A registered freeform "roll arbitrary dice" composer for the Atelier's
+ * right pane. Filled by `@vtt/resolution` (notation input → `RequestRoll`)
+ * — characters can't dispatch `RequestRoll` itself, so the composer lives
+ * on the plugin that owns the command. `onClose` returns the right pane to
+ * its normal pending/resolved view after a roll is sent (or cancelled).
+ */
+export interface QuickRollComposerArgs {
+  readonly onClose: () => void;
+}
+
+export interface QuickRollComposer {
+  id: QualifiedName;
+  priority?: number;
+  render: (args: QuickRollComposerArgs) => unknown;
+}
+
+const QuickRollComposerSchema = z.object({
+  id: QualifiedNameSchema,
+  priority: z.number().optional(),
+  render: z.any(),
+});
+
+export const QuickRollComposerSlot = defineSlot({
+  name: "@vtt/characters/quick-roll-composer",
+  schema: QuickRollComposerSchema,
+  description:
+    "A freeform dice-notation composer mounted in the Roll Atelier's right pane. The plugin owning the roll command (resolution) fills it.",
+});
+
+/**
+ * Stamp the originating PendingRoll id onto a roll command's `meta` so the
+ * resolved roll can be correlated back to the pending roll that produced
+ * it. `Formula.meta` is an open passthrough (`z.unknown()`), so this is
+ * additive and replay-safe; game-system meta (e.g. TB's `{system, spec}`)
+ * rides alongside untouched. Commands whose schema has no `meta` field
+ * simply drop it on the server's re-parse — harmless.
+ *
+ * Used by every PendingRoll editor's commit path; the resolved-roll feeds
+ * read `meta.originPendingRollId` back out for sticky selection.
+ */
+export function tagRollWithOrigin(
+  command: CommandInstance,
+  pendingRollId: EntityIdType,
+): CommandInstance {
+  const payload = (command.payload ?? {}) as Record<string, unknown>;
+  const prevMeta =
+    payload.meta && typeof payload.meta === "object" && !Array.isArray(payload.meta)
+      ? (payload.meta as Record<string, unknown>)
+      : {};
+  return {
+    type: command.type,
+    payload: {
+      ...payload,
+      meta: { ...prevMeta, originPendingRollId: pendingRollId },
+    },
+  };
+}

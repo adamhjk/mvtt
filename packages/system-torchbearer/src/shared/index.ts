@@ -258,5 +258,19 @@ export {
   tollCadence,
   type GrindCondition,
 } from "./grind.js";
+export {
+  AbilityImproved,
+  AbilityImprovementOpened,
+  AbilityImprovementOpportunity,
+  AbilityImprovedSystem,
+  AbilityImprovementOpenedSystem,
+  ImproveAbility,
+  ABILITY_LABELS,
+  abilityAdvancementNeed,
+  hasAbilityOpportunity,
+  isRatedAbilityId,
+  readRatedAbility,
+  type RatedAbilityId,
+} from "./ability-advancement.js";
 export * from "./spells/index.js";
 export * from "./invocations/index.js";

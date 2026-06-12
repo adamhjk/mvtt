@@ -34,11 +34,104 @@ import { permissions } from "@vtt/permissions";
 import { notes } from "@vtt/notes";
 import { Identity, Online, Name } from "@vtt/identity/shared";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
+import {
+  definePlugin,
+  defineTrait,
+  EntityId as EntityIdSchema,
+  qualifiedName,
+  z,
+} from "@vtt/substrate";
+import { useQuery } from "@vtt/substrate/client";
+import { createMemo } from "solid-js";
 import { characters } from "../manifest.js";
 import { Character } from "../shared/traits.js";
 import { PendingRoll } from "../shared/pending.js";
-import { RollAtelierUiState } from "../shared/atelier.js";
+import {
+  QuickRollComposerSlot,
+  ResolvedRollFeedSlot,
+  RollAtelierUiState,
+  type QuickRollComposer,
+  type ResolvedRollEntry,
+  type ResolvedRollFeed,
+} from "../shared/atelier.js";
 import { RollAtelier } from "./RollAtelier.jsx";
+
+/* --- test fixtures: a fake resolved-roll feed + quick-roll composer --- */
+
+const FakeResolvedRoll = defineTrait({
+  name: "@vtt/test/FakeResolvedRoll",
+  schema: z.object({
+    rolledAt: z.number(),
+    title: z.string(),
+    origin: EntityIdSchema.nullable().default(null),
+  }),
+});
+
+const testFeed: ResolvedRollFeed = {
+  kind: "@vtt/test/feed",
+  useEntries: () => {
+    const rows = useQuery([FakeResolvedRoll]);
+    const acc = createMemo<ResolvedRollEntry[]>(() =>
+      rows().map((r) => {
+        const v = r.values.FakeResolvedRoll as {
+          rolledAt: number;
+          title: string;
+          origin: string | null;
+        };
+        return {
+          id: r.id,
+          sortKey: v.rolledAt,
+          title: v.title,
+          subtitle: "result",
+          originPendingRollId: v.origin,
+          outcome: { tone: "success" as const, text: "Pass · 3s · +1" },
+          render: () => (
+            <div data-testid={`fake-card-${r.id}`}>{v.title} card</div>
+          ),
+        };
+      }),
+    );
+    return acc as unknown as () => ResolvedRollEntry[];
+  },
+};
+
+const testQuickRoll: QuickRollComposer = {
+  id: qualifiedName("@vtt/test/quick") as QuickRollComposer["id"],
+  render: (args) => (
+    <div data-testid="fake-quick-roll">
+      <button
+        type="button"
+        data-testid="fake-quick-roll-close"
+        onClick={() => args.onClose()}
+      >
+        done
+      </button>
+    </div>
+  ),
+};
+
+const testRollFeeds = definePlugin({
+  name: "@vtt/test-roll-feeds",
+  version: "0.0.0",
+  traits: [FakeResolvedRoll],
+  fills: {
+    [ResolvedRollFeedSlot.name]: [testFeed],
+    [QuickRollComposerSlot.name]: [testQuickRoll],
+  },
+});
+
+function spawnResolved(
+  world: import("@vtt/substrate").World,
+  args: { title: string; rolledAt: number; origin?: string },
+): string {
+  return world.spawn([
+    FakeResolvedRoll({
+      title: args.title,
+      rolledAt: args.rolledAt,
+      origin: args.origin ?? null,
+    }),
+  ]);
+}
 
 const ME = "alice";
 const SESSION = {
@@ -58,7 +151,14 @@ function seedTab(world: import("@vtt/substrate").World, tabId: string) {
 
 function harness() {
   return buildTestClient({
-    plugins: [shellWorkbench, identity, permissions, notes, characters],
+    plugins: [
+      shellWorkbench,
+      identity,
+      permissions,
+      notes,
+      characters,
+      testRollFeeds,
+    ],
     session: SESSION,
     setupWorld: ({ world }) => {
       world.spawn([
@@ -153,5 +253,111 @@ describe("RollAtelier shell", () => {
     // includes the recent character's name.
     const editor = screen.getByTestId("atelier-generic-editor");
     expect(editor.textContent).toContain("Recent");
+  });
+});
+
+describe("RollAtelier — resolved rolls", () => {
+  it("lists resolved rolls in Recent and renders the card in the right pane", async () => {
+    const h = harness();
+    seedTab(h.world, "tab-1");
+    const rollId = spawnResolved(h.world, {
+      title: "Goblin ambush",
+      rolledAt: 10,
+    });
+    mountWithClient(h, () => (
+      <RollAtelier tabId="tab-1" initialSelection={null} />
+    ));
+    // Recent pill present…
+    expect(
+      screen.getByTestId(`atelier-recent-pill-${rollId}`),
+    ).toBeInTheDocument();
+    // …showing the colour-coded outcome (pass/fail · successes · margin)…
+    const outcome = screen.getByTestId(`atelier-recent-outcome-${rollId}`);
+    expect(outcome).toHaveTextContent("Pass · 3s · +1");
+    expect(outcome).toHaveAttribute("data-tone", "success");
+    // …and with nothing pending, the right pane lands on it (newest
+    // resolved fallback), proving the feed → right-pane wiring.
+    await waitFor(() => {
+      expect(screen.getByTestId(`fake-card-${rollId}`)).toBeInTheDocument();
+    });
+  });
+
+  it("keeps the just-committed roll selected via originPendingRollId", async () => {
+    const h = harness();
+    seedTab(h.world, "tab-1");
+    const { rollId: pendingId } = spawnRoll(h.world, {
+      characterName: "Tarn",
+      openedAt: 1,
+    });
+    mountWithClient(h, () => (
+      <RollAtelier tabId="tab-1" initialSelection={null} />
+    ));
+    // Select the pending roll — its editor shows.
+    fireEvent.click(screen.getByTestId(`atelier-rail-pill-${pendingId}`));
+    await waitFor(() =>
+      expect(screen.getByTestId("atelier-generic-editor")).toBeInTheDocument(),
+    );
+    // Simulate commit: the pending roll despawns and a resolved roll
+    // appears stamped with its origin.
+    h.world.despawn(pendingId as never);
+    const resolvedId = spawnResolved(h.world, {
+      title: "Tarn's Fighter test",
+      rolledAt: 20,
+      origin: pendingId,
+    });
+    // Selection redirects to the resolved card — no empty Atelier.
+    await waitFor(() => {
+      expect(screen.getByTestId(`fake-card-${resolvedId}`)).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("atelier-generic-editor")).toBeNull();
+  });
+
+  it("opens to a newly-requested roll, overriding the persisted selection", async () => {
+    const h = harness();
+    seedTab(h.world, "tab-1");
+    const a = spawnRoll(h.world, { characterName: "Alfa", openedAt: 1 });
+    const b = spawnRoll(h.world, { characterName: "Bravo", openedAt: 2 });
+
+    // Open the Atelier targeting roll A — its editor shows.
+    mountWithClient(h, () => (
+      <RollAtelier tabId="tab-1" initialSelection={a.rollId as never} />
+    ));
+    await waitFor(() =>
+      expect(screen.getByTestId("atelier-generic-editor").textContent).toContain(
+        "Alfa",
+      ),
+    );
+
+    // Requesting roll B re-opens the same tab (same sentinel, selection
+    // already persisted to A) with a fresh initialSelection. The Atelier
+    // must land on B, not stay on A.
+    cleanup();
+    mountWithClient(h, () => (
+      <RollAtelier tabId="tab-1" initialSelection={b.rollId as never} />
+    ));
+    await waitFor(() =>
+      expect(screen.getByTestId("atelier-generic-editor").textContent).toContain(
+        "Bravo",
+      ),
+    );
+    expect(screen.getByTestId("atelier-generic-editor").textContent).not.toContain(
+      "Alfa",
+    );
+  });
+
+  it("opens the quick-roll composer and closes it", async () => {
+    const h = harness();
+    seedTab(h.world, "tab-1");
+    mountWithClient(h, () => (
+      <RollAtelier tabId="tab-1" initialSelection={null} />
+    ));
+    fireEvent.click(screen.getByTestId("atelier-quick-roll"));
+    await waitFor(() =>
+      expect(screen.getByTestId("fake-quick-roll")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId("fake-quick-roll-close"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("fake-quick-roll")).toBeNull(),
+    );
   });
 });

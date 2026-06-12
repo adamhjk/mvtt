@@ -24,7 +24,11 @@ import {
   PlayerDespawnSystem,
   PlayerLeftMirrorSystem,
 } from "./server/systems.js";
-import { PlayerListView, UserMenuView } from "./client/index.js";
+import {
+  PlayerListView,
+  PresenceHeaderView,
+  UserMenuView,
+} from "./client/index.js";
 
 export const identity = definePlugin({
   name: "@vtt/identity",
@@ -38,7 +42,7 @@ export const identity = definePlugin({
     PlayerDespawnSystem,
     PlayerLeftMirrorSystem,
   ],
-  views: [PlayerListView, UserMenuView],
+  views: [PlayerListView, PresenceHeaderView, UserMenuView],
 });
 
 export default identity;

@@ -21,8 +21,34 @@ import {
   type ChatTimelineContributor,
   type ChatTimelineEntry,
 } from "@vtt/comms/shared";
+import {
+  ResolvedRollFeedSlot,
+  type ResolvedRollEntry,
+  type ResolvedRollFeed,
+} from "@vtt/characters/shared";
 import { createMemo, Show, type Accessor } from "solid-js";
 import { Formula, RollResult, RolledBy } from "../shared/traits.js";
+
+/**
+ * True for rolls no game system has claimed via `Formula.meta.system`.
+ * Both the chat contributor and the Atelier feed render only these — a
+ * system-claimed roll (TB) is rendered by that system's own row.
+ */
+function isUnclaimedRoll(formula: unknown): boolean {
+  const meta = (formula as { meta?: unknown } | undefined)?.meta as
+    | { system?: unknown }
+    | undefined;
+  return !meta || typeof meta !== "object" || typeof meta.system !== "string";
+}
+
+function originOf(formula: unknown): string | null {
+  const meta = (formula as { meta?: unknown } | undefined)?.meta as
+    | { originPendingRollId?: unknown }
+    | undefined;
+  return typeof meta?.originPendingRollId === "string"
+    ? meta.originPendingRollId
+    : null;
+}
 
 /**
  * Card body for a single resolved-roll entity. Identical visual shape
@@ -86,14 +112,10 @@ export const RollTimelineContributor: ChatTimelineContributor = {
     const rolls = useQuery([Formula, RollResult, RolledBy]);
     const accessor: Accessor<ChatTimelineEntry[]> = createMemo(() =>
       rolls()
-        .filter((row) => {
-          // Game-system-claimed rolls (Formula.meta.system set) are
-          // rendered by that system's contributor; skip them here so
-          // chat doesn't show two rows for one roll.
-          const meta = (row.values.Formula as { meta?: unknown } | undefined)
-            ?.meta as { system?: unknown } | undefined;
-          return !meta || typeof meta !== "object" || typeof meta.system !== "string";
-        })
+        // Game-system-claimed rolls (Formula.meta.system set) are
+        // rendered by that system's contributor; skip them here so
+        // chat doesn't show two rows for one roll.
+        .filter((row) => isUnclaimedRoll(row.values.Formula))
         .map((row) => {
           const r = row.values.RollResult as { rolledAt: number };
           return {
@@ -117,4 +139,40 @@ export const RollTimelineContributor: ChatTimelineContributor = {
  */
 export const RollTimelineFills = {
   [ChatTimelineContributorSlot.name]: [RollTimelineContributor],
+};
+
+/**
+ * Resolved-roll feed for the Roll Atelier. Surfaces every unclaimed Roll
+ * entity as a "Recent" rail entry whose right-pane card reuses the same
+ * `RollRow` the chat timeline used. The Atelier (in `@vtt/characters`)
+ * can't read resolution's traits directly, so this feed is how plain `/r`
+ * and quick rolls reach it.
+ */
+export const RollAtelierFeed: ResolvedRollFeed = {
+  kind: "@vtt/resolution/roll",
+  useEntries: () => {
+    const rolls = useQuery([Formula, RollResult, RolledBy]);
+    const accessor: Accessor<ResolvedRollEntry[]> = createMemo(() =>
+      rolls()
+        .filter((row) => isUnclaimedRoll(row.values.Formula))
+        .map((row) => {
+          const f = row.values.Formula as { notation: string };
+          const r = row.values.RollResult as { rolledAt: number; total: number };
+          const rb = row.values.RolledBy as { displayName: string };
+          return {
+            id: row.id,
+            sortKey: r.rolledAt,
+            title: rb.displayName,
+            subtitle: `${f.notation} · ${r.total}`,
+            originPendingRollId: originOf(row.values.Formula),
+            render: () => <RollRow entityId={row.id} />,
+          };
+        }),
+    );
+    return accessor as unknown as () => ResolvedRollEntry[];
+  },
+};
+
+export const RollAtelierFeedFills = {
+  [ResolvedRollFeedSlot.name]: [RollAtelierFeed],
 };

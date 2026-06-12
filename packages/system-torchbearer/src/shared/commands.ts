@@ -20,6 +20,7 @@ import {
   EntityId,
   fail,
   z,
+  type EventInstance,
 } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
 import { requireWrite } from "@vtt/permissions/shared";
@@ -56,6 +57,13 @@ import {
   TraitUsageLogged,
 } from "./events.js";
 import { TbRollMetaSchema, type TbRollModifier, type TbRollSpec } from "./roll-spec.js";
+import {
+  AbilityImprovementOpened,
+  abilityAdvancementNeed,
+  hasAbilityOpportunity,
+  isRatedAbilityId,
+  readRatedAbility,
+} from "./ability-advancement.js";
 import {
   TB_MODIFIER_CONTRIB_KIND,
   versusFromContributions,
@@ -527,17 +535,117 @@ export const LogAdvancement = defineCommand({
     const rb = world.get(cmd.rollId, [RolledBy]) as
       | { RolledBy: { speakingAsCharacterId?: string } }
       | undefined;
-    const characterId = rb?.RolledBy.speakingAsCharacterId;
+    const characterId = rb?.RolledBy.speakingAsCharacterId as EntityId | undefined;
     if (!characterId) return [];
-    return [
+    const now = Date.now();
+    const events: EventInstance[] = [
       AdvancementLogged({
         rollId: cmd.rollId,
-        characterId: characterId as EntityId,
+        characterId,
         target,
         outcome: cmd.outcome,
-        loggedAt: Date.now(),
+        loggedAt: now,
       }),
     ];
+
+    // Server-authoritative opportunity creation. When this log fills the
+    // track, open the matching opportunity *here* — independent of whether
+    // anyone has the character's sheet open (the sheet only opened it as a
+    // mount-time side effect, so a roll logged with the sheet closed left
+    // no card). The sheet path still works for manual P/F edits; both
+    // dedup against an existing opportunity for this character + skill.
+    if (target.kind === "skill") {
+      const entry = readSkillEntry(world, characterId, target.id);
+      if (entry && entry.rating > 0 && entry.rating < SKILL_MAX_RATING) {
+        const need = computeAdvancement(entry.rating);
+        const pass = entry.advancement.pass + (cmd.outcome === "pass" ? 1 : 0);
+        const fail = entry.advancement.fail + (cmd.outcome === "fail" ? 1 : 0);
+        const full = pass >= need.passNeeded && fail >= need.failNeeded;
+        const exists = world
+          .query([SkillImprovementOpportunity])
+          .some((row) => {
+            const v = row.values.SkillImprovementOpportunity as {
+              characterId: string;
+              skillId: string;
+            };
+            return v.characterId === characterId && v.skillId === target.id;
+          });
+        if (full && !exists) {
+          events.push(
+            SkillImprovementOpened({
+              characterId,
+              skillId: target.id,
+              opportunityId: world.allocateId(),
+              openedAt: now,
+            }),
+          );
+        }
+      }
+    } else if (target.kind === "skill-bl") {
+      const sk = world.get(characterId, [Skills]) as
+        | {
+            Skills: {
+              entries: Record<string, { rating: number; learningTests?: number }>;
+            };
+          }
+        | undefined;
+      const entry = sk?.Skills.entries[target.id];
+      const ab = world.get(characterId, [RawAbilities]) as
+        | { RawAbilities: { nature: { rating: number; maximum: number } } }
+        | undefined;
+      const threshold = Math.max(
+        ab?.RawAbilities.nature.maximum ?? 0,
+        ab?.RawAbilities.nature.rating ?? 0,
+      );
+      const learned = (entry?.learningTests ?? 0) + 1;
+      const exists = world.query([SkillLearningOpportunity]).some((row) => {
+        const v = row.values.SkillLearningOpportunity as {
+          characterId: string;
+          skillId: string;
+        };
+        return v.characterId === characterId && v.skillId === target.id;
+      });
+      if (
+        entry &&
+        entry.rating === 0 &&
+        threshold > 0 &&
+        learned >= threshold &&
+        !exists
+      ) {
+        events.push(
+          SkillLearningOpened({
+            characterId,
+            skillId: target.id,
+            opportunityId: world.allocateId(),
+            openedAt: now,
+          }),
+        );
+      }
+    } else if (
+      (target.kind === "ability" || target.kind === "town-ability") &&
+      isRatedAbilityId(target.id)
+    ) {
+      // Will / Health / Resources / Circles advance just like skills — open
+      // the improvement opportunity when this log fills the P/F track.
+      const entry = readRatedAbility(world, characterId, target.id);
+      if (entry && entry.rating < 6) {
+        const need = abilityAdvancementNeed(entry.rating);
+        const pass = entry.advancement.pass + (cmd.outcome === "pass" ? 1 : 0);
+        const fail = entry.advancement.fail + (cmd.outcome === "fail" ? 1 : 0);
+        const full = pass >= need.passNeeded && fail >= need.failNeeded;
+        if (full && !hasAbilityOpportunity(world, characterId, target.id)) {
+          events.push(
+            AbilityImprovementOpened({
+              characterId,
+              ability: target.id,
+              opportunityId: world.allocateId(),
+              openedAt: now,
+            }),
+          );
+        }
+      }
+    }
+    return events;
   },
 });
 

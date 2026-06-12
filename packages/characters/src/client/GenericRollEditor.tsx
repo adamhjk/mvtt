@@ -38,6 +38,7 @@ import {
 } from "../shared/slot.js";
 import {
   ROLL_ATELIER_KIND,
+  tagRollWithOrigin,
   type PendingRollEditor,
   type PendingRollEditorArgs,
 } from "../shared/atelier.js";
@@ -160,7 +161,10 @@ function GenericRollEditorBody(props: { rollId: EntityId }): JSX.Element {
         contributions: v.contributions,
       },
     );
-    if (result) client.dispatch(result.command);
+    if (result)
+      client.dispatch(
+        tagRollWithOrigin(result.command, props.rollId) as CommandInstance,
+      );
     client.dispatch(
       CommitPendingRoll({ pendingRollId: props.rollId }) as CommandInstance,
     );

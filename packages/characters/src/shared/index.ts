@@ -68,10 +68,17 @@ export {
   SetRollAtelierUiState,
   PendingRollEditorsSlot,
   RollAtelierRailSlot,
+  ResolvedRollFeedSlot,
+  QuickRollComposerSlot,
+  tagRollWithOrigin,
   type PendingRollEditor,
   type PendingRollEditorArgs,
   type RollAtelierRailAccessory,
   type RollAtelierRailArgs,
+  type ResolvedRollEntry,
+  type ResolvedRollFeed,
+  type QuickRollComposer,
+  type QuickRollComposerArgs,
 } from "./atelier.js";
 export {
   getAtPath,

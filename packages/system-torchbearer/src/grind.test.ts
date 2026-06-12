@@ -27,6 +27,8 @@ import {
 import { items } from "@vtt/items";
 import { ItemIdentity } from "@vtt/items/shared";
 import { Character } from "@vtt/characters/shared";
+import { TbMonster } from "./shared/monster-traits.js";
+import { TbNpc } from "./shared/npc-traits.js";
 import {
   Conditions,
   DismissLightWentOut,
@@ -70,6 +72,8 @@ const tbGrindTestPlugin = definePlugin({
     GrindToll,
     Conditions,
     Character,
+    TbMonster,
+    TbNpc,
   ],
   events: [
     GrindTurnSet,
@@ -471,6 +475,50 @@ describe("@vtt/system-torchbearer Grind", () => {
       expect(byChar.get(setup.characterId)!.condition).toBe("exhausted");
       expect(byChar.get(eowyn)!.condition).toBe("hungryThirsty");
       expect(t.rows.every((r) => !r.applied)).toBe(true);
+    });
+
+    it("excludes monsters from the toll — only player characters take the grind", async () => {
+      const fresh = {
+        fresh: true,
+        hungryThirsty: false,
+        angry: false,
+        afraid: false,
+        exhausted: false,
+        injured: false,
+        sick: false,
+        dead: false,
+      };
+      // A monster that would otherwise pick up a condition.
+      const goblin = setup.world.spawn([
+        Character({ name: "Goblin" }),
+        TbMonster({}),
+        Conditions(fresh),
+      ]);
+      setup.world.set(setup.characterId, Conditions, fresh);
+      await dispatchAsRole(setup, { id: "g4m", cmd: SetGrindTurn({ to: 4 }) });
+      const tolls = setup.world.query([GrindToll]);
+      expect(tolls.length).toBe(1);
+      const t = tolls[0]!.values.GrindToll as {
+        rows: Array<{ characterId: string }>;
+      };
+      const ids = t.rows.map((r) => r.characterId);
+      expect(ids).toContain(setup.characterId); // PC takes the grind
+      expect(ids).not.toContain(goblin); // the monster does not
+    });
+
+    it("includes a player character with no Conditions trait yet (treated as fresh)", async () => {
+      // A freshly-created PC who's never been edited has no Conditions
+      // trait attached. The grind must still afflict them.
+      const gg = setup.world.spawn([Character({ name: "gg" })]);
+      await dispatchAsRole(setup, { id: "g4gg", cmd: SetGrindTurn({ to: 4 }) });
+      const tolls = setup.world.query([GrindToll]);
+      expect(tolls.length).toBe(1);
+      const t = tolls[0]!.values.GrindToll as {
+        rows: Array<{ characterId: string; condition: string }>;
+      };
+      const ggRow = t.rows.find((r) => r.characterId === gg);
+      expect(ggRow).toBeDefined();
+      expect(ggRow!.condition).toBe("hungryThirsty");
     });
 
     it("does NOT open a toll on a non-multiple-of-4 tick", async () => {

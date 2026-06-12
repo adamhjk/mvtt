@@ -27,9 +27,11 @@ import { useClient } from "@vtt/substrate/client";
 import {
   PagesSlot,
   PaletteCommandsSlot,
+  PaletteActionsSlot,
   ChatRailWidgetsSlot,
   type PageProvider,
   type PaletteCommand,
+  type PaletteActionProvider,
   type ChatRailWidget,
 } from "../shared/slots.js";
 
@@ -57,6 +59,7 @@ import {
 export function useProviderTraitsVersion(): Accessor<number> {
   const client = useClient();
   const providers = usePageProviders();
+  const actionProviders = usePaletteActionProviders();
   const [v, setV] = createSignal(0);
 
   // Re-subscribe whenever the set of providers changes — `onCleanup`
@@ -66,6 +69,12 @@ export function useProviderTraitsVersion(): Accessor<number> {
     const watched = new Set<TraitName>();
     for (const p of providers().values()) {
       for (const t of p.reads) watched.add(t.name);
+    }
+    // Palette action providers (e.g. the "Roll <Char> — <Ability>"
+    // generator) derive their entries from world state too — watch their
+    // reads so the corpus refreshes when a character's skills change.
+    for (const ap of actionProviders()) {
+      for (const t of ap.reads) watched.add(t.name);
     }
     if (watched.size === 0) return;
     const off = client.world.subscribe((_id, name) => {
@@ -108,6 +117,19 @@ export function usePaletteCommands(): Accessor<PaletteCommand[]> {
     const fills = client.registry.fillsForSlot(PaletteCommandsSlot) as PaletteCommand[];
     return [...fills].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
   });
+}
+
+/**
+ * The registered palette action providers (dynamic quick-switcher entry
+ * generators). Memoised on the registry contents — fills are immutable
+ * after validation, so this resolves once.
+ */
+export function usePaletteActionProviders(): Accessor<PaletteActionProvider[]> {
+  const client = useClient();
+  return createMemo(
+    () =>
+      client.registry.fillsForSlot(PaletteActionsSlot) as PaletteActionProvider[],
+  );
 }
 
 /**

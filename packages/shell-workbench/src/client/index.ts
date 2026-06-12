@@ -22,6 +22,7 @@ export { useTabSentinel } from "./use-tab-sentinel.js";
 export {
   usePageProviders,
   usePaletteCommands,
+  usePaletteActionProviders,
   useChatRailWidgets,
   useProviderTraitsVersion,
 } from "./use-providers.js";

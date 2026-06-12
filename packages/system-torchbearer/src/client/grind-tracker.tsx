@@ -16,14 +16,13 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import {
-  clientOnly,
-  defineView,
+  qualifiedName,
   type CommandInstance,
 } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
 import { createMemo, createSignal, Show, type JSX } from "solid-js";
 import { Identity, Online, Name } from "@vtt/identity/shared";
-import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
+import { type WorkbenchStatusItem } from "@vtt/shell-workbench/shared";
 import {
   GRIND_SENTINEL_ID,
   Grind,
@@ -33,16 +32,13 @@ import {
 } from "../shared/grind.js";
 
 /**
- * GM-only grind tracker for the chat rail. Shows the current
- * adventure-phase turn, a -/+ pair, and an inline manual input.
- * Hidden entirely from non-GM sessions (no need to wire up the
- * server to filter visibility — the grind itself is world-visible
- * since it determines public effects like light burnout, but the
- * controls are GM-only and the view simply doesn't render).
- *
- * Renders at priority 80 — between the player chips (90) and the
- * stream (50) — so it sits at the top of the rail just below the
- * presence area where the GM is most likely to glance.
+ * GM-only grind clock, pinned to the right of the bottom drawer strip
+ * (next to the dice-tray tab). The whole control lives in the bar — turn
+ * counter, −/+, manual input, tick warning, and the extreme toggle — so
+ * the GM reads and adjusts it at a glance with nothing to pop open.
+ * Hidden entirely from non-GM sessions (the grind itself is world-visible
+ * since it drives public effects like light burnout, but the controls are
+ * GM-only and the widget simply doesn't render).
  */
 function GrindTracker(): JSX.Element {
   const client = useClient();
@@ -95,25 +91,22 @@ function GrindTracker(): JSX.Element {
 
   return (
     <Show when={isGm()}>
-      <section
+      <div
         data-testid="grind-tracker"
-        class="rounded-(--radius-card) border border-border-muted bg-surface-elevated px-3 py-2 text-sm flex items-center gap-2"
+        class="flex items-center gap-1.5 text-xs"
       >
-        <span class="text-[0.6rem] uppercase tracking-[0.16em] text-fg-subtle">
-          Grind
-        </span>
         <span
-          class="text-[0.7rem] text-fg-subtle"
+          class="font-display text-[0.6rem] uppercase tracking-[0.14em] text-fg-subtle"
           title="Adventure-phase turn — every fourth turn imposes a condition"
         >
-          turn
+          Grind
         </span>
         <button
           type="button"
           onClick={rewind}
           disabled={turn() <= 0}
           data-testid="grind-rewind"
-          class="rounded border border-border bg-surface px-2 py-0.5 text-xs disabled:opacity-50"
+          class="rounded-(--radius-control) border border-border bg-surface px-1.5 leading-5 text-xs disabled:opacity-50"
           title="Step back one turn (e.g. mistake-correction)"
         >
           −
@@ -124,7 +117,7 @@ function GrindTracker(): JSX.Element {
           max={999}
           value={draft()}
           data-testid="grind-input"
-          class="w-14 rounded border border-border bg-surface px-1 py-0.5 text-center text-sm"
+          class="h-6 w-11 rounded-(--radius-control) border border-border bg-surface px-1 text-center text-xs"
           onInput={(e) => {
             const n = Number(e.currentTarget.value);
             if (Number.isFinite(n)) setDraft(Math.max(0, Math.floor(n)));
@@ -145,21 +138,21 @@ function GrindTracker(): JSX.Element {
           type="button"
           onClick={advance}
           data-testid="grind-advance"
-          class="rounded border border-border bg-surface px-2 py-0.5 text-xs"
+          class="rounded-(--radius-control) border border-border bg-surface px-1.5 leading-5 text-xs"
           title="Tick the grind by one turn — lit lights decrement, every fourth turn imposes a condition"
         >
           +
         </button>
         <Show when={turn() > 0 && turn() % cadence() === 0}>
           <span
-            class="text-[0.65rem] uppercase tracking-[0.14em] text-warning"
+            class="font-display text-[0.6rem] uppercase tracking-[0.14em] text-warning"
             title={`Every ${cadence()}th turn during the adventure phase, all characters earn a condition`}
           >
             tick
           </span>
         </Show>
         <label
-          class="flex items-center gap-1 text-[0.65rem] uppercase tracking-[0.14em] text-fg-subtle"
+          class="flex items-center gap-1 font-display text-[0.6rem] uppercase tracking-[0.14em] text-fg-subtle"
           title="Extreme grind: cadence drops from 4 to 3 turns (SG p.42)"
         >
           <input
@@ -170,14 +163,19 @@ function GrindTracker(): JSX.Element {
           />
           extreme
         </label>
-      </section>
+      </div>
     </Show>
   );
 }
 
-export const GrindTrackerView = defineView({
-  name: "GrindTracker",
-  surface: WorkbenchChatRailSurface,
-  priority: 80,
-  render: clientOnly(() => GrindTracker()),
-});
+/**
+ * Status-strip fill — the grind clock pinned to the right of the bottom
+ * drawer strip (alongside the dice tray), always visible for the GM.
+ */
+export const GrindTrackerStatusItem: WorkbenchStatusItem = {
+  id: qualifiedName(
+    "@vtt/system-torchbearer/grind-tracker",
+  ) as WorkbenchStatusItem["id"],
+  priority: 100,
+  render: () => GrindTracker(),
+};

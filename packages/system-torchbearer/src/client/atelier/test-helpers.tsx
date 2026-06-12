@@ -34,7 +34,7 @@ import {
 import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
 import { RollActionsSlot } from "@vtt/resolution/shared";
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
-import { PaletteCommandsSlot } from "@vtt/shell-workbench/shared";
+import { NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot } from "@vtt/shell-workbench/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { BlockKindsSlot } from "@vtt/adventures/shared";
 import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
@@ -69,7 +69,7 @@ const atelierTestInfra = definePlugin({
     ChatTimelineContributorSlot,
     RollActionsSlot,
     ItemDetailSectionsSlot,
-    PaletteCommandsSlot,
+    NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
     LinkKindsSlot,
     BlockKindsSlot,
   ],

@@ -135,6 +135,12 @@ import {
   SkillImproved,
   SkillImprovementOpened,
   SkillImprovementOpportunity,
+  AbilityImproved,
+  AbilityImprovementOpened,
+  AbilityImprovementOpportunity,
+  AbilityImprovedSystem,
+  AbilityImprovementOpenedSystem,
+  ImproveAbility,
   SkillLearned,
   SkillLearningOpened,
   SkillLearningOpportunity,
@@ -285,9 +291,10 @@ import {
   TB_SPELL_SYSTEMS,
 } from "./server/index.js";
 import {
-  GrindTrackerView,
+  GrindTrackerStatusItem,
   TbAbilitiesSkillsTabFill,
   TbActionsFill,
+  TbAbilityImprovementFeed,
   TbArcaneTabFill,
   TbChatTimelineContributor,
   TbGrindTollContributor,
@@ -299,21 +306,27 @@ import {
   TbRailAccessory,
   TbRollActionsFill,
   TB_ITEM_DETAIL_SECTIONS,
-  TbRollChatTimelineContributor,
+  TbRollAtelierFeed,
+  TbRollPaletteActions,
   TbSkillLearningTimelineContributor,
   TbTraitsWisesTabFill,
   TbVitalsFill,
   TbWhatYouFightForTabFill,
   TbWhoYouAreTabFill,
 } from "./client/index.js";
-import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
 import {
   PendingRollEditorsSlot,
+  ResolvedRollFeedSlot,
   RollAtelierRailSlot,
 } from "@vtt/characters/shared";
 import { RollActionsSlot } from "@vtt/resolution/shared";
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
-import { PaletteCommandsSlot } from "@vtt/shell-workbench/shared";
+import {
+  NotificationsSlot,
+  PaletteActionsSlot,
+  PaletteCommandsSlot,
+  WorkbenchStatusSlot,
+} from "@vtt/shell-workbench/shared";
 import { TB_SPAWN_MONSTER_PALETTE_COMMANDS } from "./client/spawn-monster-palette.js";
 import { TB_SPAWN_NPC_PALETTE_COMMANDS } from "./client/spawn-npc-palette.js";
 import { tbSeed } from "./data/seed.js";
@@ -428,6 +441,7 @@ export const systemTorchbearer = definePlugin({
     WhoYouAreNotes,
     Heroic,
     SkillImprovementOpportunity,
+    AbilityImprovementOpportunity,
     SkillLearningOpportunity,
     AdvancementLoggedTrait,
     TraitUsageLoggedTrait,
@@ -471,6 +485,8 @@ export const systemTorchbearer = definePlugin({
     PinnedRollToggled,
     SkillImproved,
     SkillImprovementOpened,
+    AbilityImproved,
+    AbilityImprovementOpened,
     SkillLearned,
     SkillLearningOpened,
     SpecialtySkillSet,
@@ -534,6 +550,7 @@ export const systemTorchbearer = definePlugin({
   ],
   commands: [
     ImproveSkill,
+    ImproveAbility,
     LearnSkill,
     LogAdvancement,
     LogSynergyAdvancement,
@@ -606,6 +623,8 @@ export const systemTorchbearer = definePlugin({
     PinnedRollToggledSystem,
     SkillImprovedSystem,
     SkillImprovementOpenedSystem,
+    AbilityImprovedSystem,
+    AbilityImprovementOpenedSystem,
     SkillLearnedSystem,
     SkillLearningOpenedSystem,
     SkillLearningSweepSystem,
@@ -656,8 +675,8 @@ export const systemTorchbearer = definePlugin({
     SpellCastRollable,
     InvocationPerformRollable,
   ],
-  views: [GrindTrackerView],
   fills: {
+    [WorkbenchStatusSlot.name]: [GrindTrackerStatusItem],
     [CharacterSheetIdentitySlot.name]: [TbIdentityFill],
     [CharacterSheetVitalsSlot.name]: [TbVitalsFill],
     [CharacterSheetTabsSlot.name]: [
@@ -670,15 +689,20 @@ export const systemTorchbearer = definePlugin({
       TbInvocationsTabFill,
     ],
     [CharacterSheetActionsSlot.name]: [TbActionsFill],
-    [ChatTimelineContributorSlot.name]: [
+    // Table-event cards (advancement / learning / grind toll / light
+    // burnout) surface in the floating notifications overlay now, not
+    // chat — so they're visible without opening the chat tab. Chat is
+    // left for player text only.
+    [NotificationsSlot.name]: [
       TbChatTimelineContributor,
-      TbRollChatTimelineContributor,
+      TbAbilityImprovementFeed,
       TbSkillLearningTimelineContributor,
       TbLightWentOutContributor,
       TbGrindTollContributor,
     ],
     [PendingRollEditorsSlot.name]: [TbAtelierEditor],
     [RollAtelierRailSlot.name]: [TbRailAccessory],
+    [ResolvedRollFeedSlot.name]: [TbRollAtelierFeed],
     [RollActionsSlot.name]: [TbRollActionsFill],
     [ItemDetailSectionsSlot.name]: [...TB_ITEM_DETAIL_SECTIONS],
     [CharacterListExclusionSlot.name]: [
@@ -696,6 +720,7 @@ export const systemTorchbearer = definePlugin({
       ...TB_SPAWN_MONSTER_PALETTE_COMMANDS,
       ...TB_SPAWN_NPC_PALETTE_COMMANDS,
     ],
+    [PaletteActionsSlot.name]: [TbRollPaletteActions],
     [BlockKindsSlot.name]: [
       itemBlockKind as never,
       characterBlockKind as never,

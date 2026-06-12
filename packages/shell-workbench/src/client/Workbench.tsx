@@ -21,10 +21,11 @@ import {
   RootSurface,
 } from "@vtt/substrate";
 import { Surface } from "@vtt/substrate/client";
-import { createSignal, Show, type JSX } from "solid-js";
+import { createSignal, For, Show, type JSX } from "solid-js";
 import { WorkspaceTreeView } from "./WorkspaceTree.js";
-import { ChatRail } from "./ChatRail.js";
 import { Palette } from "./Palette.js";
+import { NotificationsOverlay } from "./NotificationsOverlay.js";
+import { useChatRailWidgets } from "./use-providers.js";
 import { useWorkspace } from "./use-workspace.js";
 import { useWorkbenchKeybindings } from "./keybindings.js";
 import { WorkbenchHeaderSurface, PaletteSurface } from "../shared/surfaces.js";
@@ -40,15 +41,19 @@ import { WorldPicker } from "./WorldPicker.js";
  * Layout (3-row grid):
  *   ┌─ header ────────────────────────────────────────────────────┐
  *   │ logo · plugin-supplied header chips · palette trigger       │
- *   ├─────────────────────────────────────────┬───────────────────┤
- *   │ workspace tree (recursive splits)       │ chat rail         │
- *   │  - one or more panes                    │  - rail widgets   │
- *   │  - each pane is a tab strip + page      │  - chat composer  │
- *   │                                         │  - chat stream    │
- *   ├─────────────────────────────────────────┴───────────────────┤
+ *   ├──────────────────────────────────────────────────────────────┤
+ *   │ workspace tree (recursive splits) — full width                │
+ *   │  - one or more panes                                          │
+ *   │  - each pane is a tab strip + page (chat is now a page too)   │
+ *   ├──────────────────────────────────────────────────────────────┤
  *   │ bottom-edge drawer region (collapsible content + tab strip)  │
  *   └──────────────────────────────────────────────────────────────┘
  *  + ⌘K palette overlay
+ *
+ * The right-hand chat rail is retired: chat is a tab (`@vtt/comms/chat`)
+ * and roll results live in the Roll Atelier. The only remaining chat-rail
+ * fills are side-effect-only widgets (the Atelier auto-focus), hosted
+ * invisibly below so their effects stay mounted for the session.
  */
 export const WorkbenchView = defineView({
   name: "Workbench",
@@ -59,6 +64,7 @@ export const WorkbenchView = defineView({
   render: clientOnly((): JSX.Element => {
     const ws = useWorkspace();
     const me = useMe();
+    const sideEffectWidgets = useChatRailWidgets();
     const [paletteOpen, setPaletteOpen] = createSignal(false);
 
     useWorkbenchKeybindings({
@@ -139,7 +145,15 @@ export const WorkbenchView = defineView({
               )}
             </Show>
           </main>
-          <ChatRail />
+          {/* Side-effect-only chat-rail widgets (e.g. the Atelier
+              auto-focus) — hosted invisibly so their reactive effects stay
+              mounted for the whole session now that the visible rail is
+              gone. They render nothing; visible chat moved to its own tab. */}
+          <div class="hidden" aria-hidden="true" data-testid="workbench-side-effects">
+            <For each={sideEffectWidgets()}>
+              {(w) => <>{w.render() as unknown as JSX.Element}</>}
+            </For>
+          </div>
         </div>
 
         {/* ── drawers ────────────────────────────────────────────── */}
@@ -149,6 +163,11 @@ export const WorkbenchView = defineView({
             body up/down rather than overlaying it. Renders nothing if
             no drawers are registered. */}
         <WorkbenchDrawers />
+
+        {/* ── notifications ──────────────────────────────────────── */}
+        {/* Floating, top-right: actionable table-event cards (light
+            burnout, grind toll, advancement) that used to live in chat. */}
+        <NotificationsOverlay />
 
         {/* ── palette ────────────────────────────────────────────── */}
         <Palette open={paletteOpen()} onClose={() => setPaletteOpen(false)} />

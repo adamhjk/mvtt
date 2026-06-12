@@ -23,6 +23,7 @@ import { PendingRoll } from "../shared/pending.js";
 import {
   RollAtelierRailSlot,
   type RollAtelierRailAccessory,
+  type ResolvedRollEntry,
 } from "../shared/atelier.js";
 
 interface RailPill {
@@ -41,16 +42,24 @@ interface RailRow {
   values: { PendingRoll: import("../shared/pending.js").PendingRollValue };
 }
 
+/** Cap the Recent list so a long session's roll history doesn't grow the
+ * rail unbounded — the full log lives on the world; this is a shortlist. */
+const RECENT_LIMIT = 40;
+
 /**
- * Left rail of pills, one per PendingRoll entity. Sorts by `openedAt`.
- * Clicking a pill writes `selectedRollId` via the parent's setter; the
- * accessory slot fills mount under the selected pill so system-specific
- * sympathetic UI (TB versus shadow, conflict cluster) lights up.
+ * Left rail. A "Pending rolls" section of pills (one per PendingRoll,
+ * accessory slot fills mount under the selected pill) above a "Recent"
+ * section of resolved-roll pills fed by `ResolvedRollFeedSlot`. Clicking
+ * any pill writes `selectedRollId` via the parent's setter. The quick-roll
+ * affordance opens the freeform dice composer in the right pane.
  */
 export function RollAtelierRail(props: {
   rolls: RailRow[];
+  resolved: ResolvedRollEntry[];
   selectedRollId: EntityId | null;
   onSelect: (rollId: EntityId) => void;
+  onQuickRoll?: () => void;
+  quickRollActive?: boolean;
 }): JSX.Element {
   const client = useClient();
 
@@ -110,11 +119,31 @@ export function RollAtelierRail(props: {
       });
   });
 
+  const recent = createMemo<ResolvedRollEntry[]>(() =>
+    props.resolved.slice(0, RECENT_LIMIT),
+  );
+
   return (
     <nav
       class="flex flex-col gap-2 border-r border-border bg-surface-sunken px-2 py-3"
       data-testid="atelier-rail"
     >
+      <Show when={props.onQuickRoll}>
+        <button
+          type="button"
+          class="flex items-center justify-center gap-1 rounded-(--radius-control) border px-2 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.12em] transition"
+          classList={{
+            "border-accent bg-accent/15 text-fg": props.quickRollActive,
+            "border-border bg-surface text-fg-muted hover:border-accent hover:text-fg":
+              !props.quickRollActive,
+          }}
+          onClick={() => props.onQuickRoll?.()}
+          data-testid="atelier-quick-roll"
+        >
+          + Quick roll
+        </button>
+      </Show>
+
       <header class="flex items-baseline justify-between px-1">
         <h2 class="font-display text-[0.6rem] uppercase tracking-[0.16em] text-fg-subtle">
           Pending rolls
@@ -173,6 +202,62 @@ export function RollAtelierRail(props: {
           );
         }}
       </For>
+
+      <Show when={recent().length > 0}>
+        <header class="mt-2 flex items-baseline justify-between px-1">
+          <h2 class="font-display text-[0.6rem] uppercase tracking-[0.16em] text-fg-subtle">
+            Recent
+          </h2>
+          <span class="text-[0.6rem] text-fg-subtle">{recent().length}</span>
+        </header>
+        <For each={recent()}>
+          {(e) => {
+            const selected = () => props.selectedRollId === e.id;
+            return (
+              <button
+                type="button"
+                class="flex flex-col gap-0.5 rounded-(--radius-control) border px-2 py-1.5 text-left transition"
+                classList={{
+                  "border-accent bg-accent/15 text-fg": selected(),
+                  "border-border bg-surface text-fg-muted hover:border-accent hover:text-fg":
+                    !selected(),
+                }}
+                onClick={() => props.onSelect(e.id as EntityId)}
+                title={e.subtitle}
+                data-testid={`atelier-recent-pill-${e.id}`}
+                data-selected={selected()}
+              >
+                <span class="flex items-baseline justify-between gap-1">
+                  <span class="truncate text-[0.7rem] font-medium">
+                    {e.title}
+                  </span>
+                  <Show when={e.subtitle}>
+                    <span class="shrink-0 font-mono text-[0.55rem] text-fg-subtle">
+                      {e.subtitle}
+                    </span>
+                  </Show>
+                </span>
+                <Show when={e.outcome}>
+                  {(o) => (
+                    <span
+                      class="truncate text-[0.65rem] font-medium"
+                      classList={{
+                        "text-accent": o().tone === "success",
+                        "text-danger": o().tone === "fail",
+                        "text-fg-subtle": o().tone === "neutral",
+                      }}
+                      data-testid={`atelier-recent-outcome-${e.id}`}
+                      data-tone={o().tone}
+                    >
+                      {o().text}
+                    </span>
+                  )}
+                </Show>
+              </button>
+            );
+          }}
+        </For>
+      </Show>
     </nav>
   );
 }

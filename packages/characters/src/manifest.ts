@@ -23,6 +23,8 @@ import {
 } from "@vtt/shell-workbench/shared";
 import {
   PendingRollEditorsSlot,
+  QuickRollComposerSlot,
+  ResolvedRollFeedSlot,
   ROLL_ATELIER_KIND,
   RollAtelierRailSlot,
   RollAtelierUiState,
@@ -191,6 +193,8 @@ export const characters = definePlugin({
     PendingRollContributorsSlot,
     PendingRollEditorsSlot,
     RollAtelierRailSlot,
+    ResolvedRollFeedSlot,
+    QuickRollComposerSlot,
   ],
   fills: {
     [PagesSlot.name]: [CharactersPageProvider, RollAtelierPageProvider],

@@ -16,6 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { definePlugin } from "@vtt/substrate";
+import { PagesSlot } from "@vtt/shell-workbench/shared";
 import { ChatMessage } from "./shared/traits.js";
 import { MessageSent } from "./shared/events.js";
 import { SendMessage } from "./shared/commands.js";
@@ -27,6 +28,7 @@ import { MessageRecordingSystem } from "./server/systems.js";
 import {
   ChatComposerView,
   ChatStreamView,
+  ChatPageProvider,
 } from "./client/index.js";
 
 export const comms = definePlugin({
@@ -45,6 +47,7 @@ export const comms = definePlugin({
   systems: [MessageRecordingSystem],
   slots: [ChatInputHandlerSlot, ChatTimelineContributorSlot],
   views: [ChatComposerView, ChatStreamView],
+  fills: { [PagesSlot.name]: [ChatPageProvider] },
 });
 
 export default comms;

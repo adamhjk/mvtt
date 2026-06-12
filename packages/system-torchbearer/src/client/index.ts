@@ -29,17 +29,21 @@ export { TbWhoYouAreTabFill } from "./tab-who-you-are.js";
 
 export {
   TbChatTimelineContributor,
+  TbAbilityImprovementFeed,
   TbGrindTollContributor,
   TbLightWentOutContributor,
   TbRollChatTimelineContributor,
+  TbRollAtelierFeed,
   TbSkillLearningTimelineContributor,
+  tbOutcome,
 } from "./chat-timeline.js";
+export { TbRollPaletteActions, tbRollablesForCharacter } from "./roll-palette.js";
 export { TbAtelierEditor } from "./atelier/TbAtelierEditor.js";
 export { TbRailAccessory } from "./atelier/rail/TbRailAccessory.js";
 export { TbRollActionsFill } from "./tb-roll-actions-fill.js";
 export { TbRollRow } from "./tb-roll-row.js";
 export { TB_ITEM_DETAIL_SECTIONS } from "./item-detail-sections.js";
-export { GrindTrackerView } from "./grind-tracker.js";
+export { GrindTrackerStatusItem } from "./grind-tracker.js";
 export { MonsterSheet } from "./monster-sheet.js";
 export { MonstersPageProvider } from "./monsters-page.js";
 export { NpcSheet } from "./npc-sheet.js";

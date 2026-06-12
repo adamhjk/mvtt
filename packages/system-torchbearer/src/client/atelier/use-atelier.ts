@@ -28,6 +28,7 @@ import {
   ContributeToPendingRoll,
   PendingRoll,
   RemoveContribution,
+  tagRollWithOrigin,
   type Contribution,
 } from "@vtt/characters/shared";
 import { invokeRollable } from "@vtt/substrate";
@@ -937,7 +938,10 @@ export function useAtelier(
         contributions: v.contributions,
       },
     );
-    if (result) client.dispatch(result.command);
+    if (result)
+      client.dispatch(
+        tagRollWithOrigin(result.command, rollId) as CommandInstance,
+      );
     client.dispatch(
       CommitPendingRoll({ pendingRollId: rollId }) as CommandInstance,
     );

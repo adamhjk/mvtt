@@ -16,3 +16,4 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 export { ChatComposerView, ChatStreamView } from "./views";
+export { ChatPageProvider, CHAT_PAGE_KIND } from "./ChatPage";

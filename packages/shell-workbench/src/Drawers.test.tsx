@@ -29,7 +29,9 @@ import { shellWorkbench } from "./manifest.js";
 import { WorkspaceOwner, WorkspaceState } from "./shared/traits.js";
 import {
   WorkbenchDrawersSlot,
+  WorkbenchStatusSlot,
   type WorkbenchDrawer,
+  type WorkbenchStatusItem,
 } from "./shared/slots.js";
 import { OpenDrawer, CloseDrawer } from "./shared/commands.js";
 import { WorkbenchDrawers } from "./client/Drawers.js";
@@ -41,6 +43,7 @@ const ME_CLIENT = "client-me";
 
 function harness(opts?: {
   drawers?: WorkbenchDrawer[];
+  status?: WorkbenchStatusItem[];
   openDrawers?: Record<string, { openedAt: number; keepOpen?: boolean }>;
 }) {
   const drawerPlugin = definePlugin({
@@ -48,6 +51,7 @@ function harness(opts?: {
     version: "0.0.0",
     fills: {
       [WorkbenchDrawersSlot.name]: opts?.drawers ?? [],
+      [WorkbenchStatusSlot.name]: opts?.status ?? [],
     },
   });
   return buildTestClient({
@@ -100,16 +104,51 @@ function drawer(label: string, body: string, opts?: Partial<WorkbenchDrawer>): W
   };
 }
 
+function statusItem(label: string): WorkbenchStatusItem {
+  return {
+    id: qualifiedName(`@test/status/${label.toLowerCase()}`) as WorkbenchStatusItem["id"],
+    priority: 50,
+    render: () => <div data-testid={`status-${label}`}>{label}</div>,
+  };
+}
+
 describe("shell-workbench Drawers", () => {
-  it("renders nothing when no drawers are registered for the bottom edge", () => {
+  it("renders nothing when no drawers or status items are registered", () => {
     const h = harness();
     const { container } = render(() => (
       <ClientProvider value={h.client}>
         <WorkbenchDrawers />
       </ClientProvider>
     ));
-    // No bottom drawers → no aside.
+    // No bottom drawers and no status items → no aside.
     expect(container.querySelector("aside")).toBeNull();
+  });
+
+  it("renders the status strip with its widgets even when there are no drawers", () => {
+    const h = harness({ status: [statusItem("Grind")] });
+    render(() => (
+      <ClientProvider value={h.client}>
+        <WorkbenchDrawers />
+      </ClientProvider>
+    ));
+    // The bar shows even without any drawer tabs, with the widget pinned
+    // in the status strip.
+    expect(screen.getByTestId("workbench-status-strip")).toBeInTheDocument();
+    expect(screen.getByTestId("status-Grind")).toBeInTheDocument();
+  });
+
+  it("shows status widgets alongside drawer tabs in the same strip", () => {
+    const h = harness({
+      drawers: [drawer("Tray", "tray body")],
+      status: [statusItem("Grind")],
+    });
+    render(() => (
+      <ClientProvider value={h.client}>
+        <WorkbenchDrawers />
+      </ClientProvider>
+    ));
+    expect(screen.getByRole("button", { name: /Tray/i })).toBeInTheDocument();
+    expect(screen.getByTestId("status-Grind")).toBeInTheDocument();
   });
 
   it("renders one tab per registered bottom drawer", () => {

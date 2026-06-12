@@ -38,7 +38,10 @@ export {
 export {
   PagesSlot,
   PaletteCommandsSlot,
+  PaletteActionsSlot,
   ChatRailWidgetsSlot,
+  WorkbenchStatusSlot,
+  NotificationsSlot,
   WorkbenchDrawersSlot,
   type PageProvider,
   type PageProviderContext,
@@ -46,7 +49,12 @@ export {
   type PageRenderArgs,
   type PaletteCommand,
   type PaletteCommandContext,
+  type PaletteAction,
+  type PaletteActionProvider,
   type ChatRailWidget,
+  type WorkbenchStatusItem,
+  type NotificationEntry,
+  type NotificationFeed,
   type WorkbenchDrawer,
   type WorkbenchDrawerRenderArgs,
   type DrawerEdge,
@@ -72,3 +80,10 @@ export {
   findOwnerFor,
 } from "./commands.js";
 export { definePageProvider } from "./define-page-provider.js";
+export {
+  DismissNotification,
+  NotificationDismissed,
+  NotificationDismissals,
+  NotificationDismissedSystem,
+  notificationDismissalsId,
+} from "./notifications-dismiss.js";

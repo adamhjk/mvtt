@@ -69,6 +69,8 @@ import {
 } from "./shared/slot.js";
 import {
   PendingRollEditorsSlot,
+  QuickRollComposerSlot,
+  ResolvedRollFeedSlot,
   RollAtelierRailSlot,
   RollAtelierUiState,
   RollAtelierUiStateChanged,
@@ -193,6 +195,8 @@ const charactersTestInfra = definePlugin({
     PendingRollContributorsSlot,
     PendingRollEditorsSlot,
     RollAtelierRailSlot,
+    ResolvedRollFeedSlot,
+    QuickRollComposerSlot,
   ],
   fills: {
     [PendingRollEditorsSlot.name]: [GenericPendingRollEditor],

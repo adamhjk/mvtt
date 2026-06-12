@@ -155,9 +155,12 @@ describe("shell-workbench WorkbenchView", () => {
     ));
     // Bootstrap fallback should NOT be visible — workspace renders.
     expect(screen.queryByText(/Setting your workspace…/i)).toBeNull();
-    // The chat rail renders as an aside element; the main pane renders
-    // somewhere in the body. Both indicate the workbench mounted fully.
-    expect(container.querySelector("aside")).not.toBeNull();
+    // The main pane renders in the body. The chat rail has been retired
+    // (chat is its own page now), so the workbench no longer mounts an
+    // <aside>; the side-effect widget host stands in for it.
     expect(container.querySelector("main")).not.toBeNull();
+    expect(
+      container.querySelector("[data-testid='workbench-side-effects']"),
+    ).not.toBeNull();
   });
 });

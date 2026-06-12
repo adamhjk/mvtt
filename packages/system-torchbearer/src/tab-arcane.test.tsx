@@ -43,7 +43,7 @@ import { ItemDetailSectionsSlot, ItemIdentity } from "@vtt/items/shared";
 import { TbContainer } from "./shared/items/index.js";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { BlockKindsSlot } from "@vtt/adventures/shared";
-import { PaletteCommandsSlot } from "@vtt/shell-workbench/shared";
+import { NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot } from "@vtt/shell-workbench/shared";
 import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
 import { systemTorchbearer } from "./manifest.js";
 import {
@@ -77,7 +77,7 @@ const sheetSlotsTestInfra = definePlugin({
     ChatTimelineContributorSlot,
     RollActionsSlot,
     ItemDetailSectionsSlot,
-    PaletteCommandsSlot,
+    NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
     LinkKindsSlot,
     BlockKindsSlot,
   ],

@@ -34,7 +34,7 @@ import {
   SetGrindExtreme,
   SetGrindTurn,
 } from "./shared/grind.js";
-import { GrindTrackerView } from "./client/grind-tracker.js";
+import { GrindTrackerStatusItem } from "./client/grind-tracker.js";
 import { TbLightWentOutContributor } from "./client/chat-timeline.js";
 
 afterEach(() => {
@@ -78,7 +78,7 @@ function setup(opts: { asGm: boolean }) {
 describe("GrindTrackerView", () => {
   it("renders for a GM", () => {
     const h = setup({ asGm: true });
-    mountWithClient(h, () => GrindTrackerView.render({}) as never);
+    mountWithClient(h, () => GrindTrackerStatusItem.render() as never);
     expect(screen.getByTestId("grind-tracker")).toBeInTheDocument();
     expect(
       (screen.getByTestId("grind-input") as HTMLInputElement).value,
@@ -87,13 +87,13 @@ describe("GrindTrackerView", () => {
 
   it("does NOT render for a non-GM", () => {
     const h = setup({ asGm: false });
-    mountWithClient(h, () => GrindTrackerView.render({}) as never);
+    mountWithClient(h, () => GrindTrackerStatusItem.render() as never);
     expect(screen.queryByTestId("grind-tracker")).toBeNull();
   });
 
   it("clicking + dispatches SetGrindTurn(to=current+1)", async () => {
     const h = setup({ asGm: true });
-    mountWithClient(h, () => GrindTrackerView.render({}) as never);
+    mountWithClient(h, () => GrindTrackerStatusItem.render() as never);
     fireEvent.click(screen.getByTestId("grind-advance"));
     await waitFor(() => {
       expect(
@@ -106,7 +106,7 @@ describe("GrindTrackerView", () => {
 
   it("clicking − dispatches SetGrindTurn(to=current-1)", async () => {
     const h = setup({ asGm: true });
-    mountWithClient(h, () => GrindTrackerView.render({}) as never);
+    mountWithClient(h, () => GrindTrackerStatusItem.render() as never);
     fireEvent.click(screen.getByTestId("grind-rewind"));
     await waitFor(() => {
       expect(
@@ -136,7 +136,7 @@ describe("GrindTrackerView", () => {
         ]);
       },
     });
-    mountWithClient(h, () => GrindTrackerView.render({}) as never);
+    mountWithClient(h, () => GrindTrackerStatusItem.render() as never);
     expect(
       (screen.getByTestId("grind-rewind") as HTMLButtonElement).disabled,
     ).toBe(true);
@@ -144,7 +144,7 @@ describe("GrindTrackerView", () => {
 
   it("checking the extreme box dispatches SetGrindExtreme(true)", async () => {
     const h = setup({ asGm: true });
-    mountWithClient(h, () => GrindTrackerView.render({}) as never);
+    mountWithClient(h, () => GrindTrackerStatusItem.render() as never);
     const box = screen.getByTestId("grind-extreme") as HTMLInputElement;
     expect(box.checked).toBe(false);
     fireEvent.click(box);
@@ -159,7 +159,7 @@ describe("GrindTrackerView", () => {
 
   it("typing into the input + Enter dispatches SetGrindTurn(to=N)", async () => {
     const h = setup({ asGm: true });
-    mountWithClient(h, () => GrindTrackerView.render({}) as never);
+    mountWithClient(h, () => GrindTrackerStatusItem.render() as never);
     const input = screen.getByTestId("grind-input") as HTMLInputElement;
     fireEvent.input(input, { target: { value: "12" } });
     fireEvent.change(input, { target: { value: "12" } });

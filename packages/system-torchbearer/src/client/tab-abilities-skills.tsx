@@ -20,14 +20,13 @@ import { useClient, useTrait } from "@vtt/substrate/client";
 import { kit } from "@vtt/characters/client";
 import { useTraitPath } from "@vtt/substrate/client";
 import type { CharacterSheetTab } from "@vtt/characters/shared";
-import { createEffect, createMemo, For, Show, type JSX } from "solid-js";
+import { createMemo, For, Show, type JSX } from "solid-js";
 import {
   ALL_SKILLS,
   HealthCheck,
+  ImproveAbility,
   ImproveSkill,
   LearnSkill,
-  OpenSkillImprovement,
-  OpenSkillLearning,
   PinnedRolls,
   pinnedRollKey,
   RawAbilities,
@@ -111,7 +110,15 @@ function AbilityRow(props: {
   label: string;
   rollable: string;
 }): JSX.Element {
+  const client = useClient();
   const rating = useTraitPath(props.characterId, RawAbilities, [props.kind, "rating"]);
+  const improve = () =>
+    client.dispatch(
+      ImproveAbility({
+        characterId: props.characterId,
+        ability: props.kind,
+      }) as CommandInstance,
+    );
   return (
     <div
       style={{
@@ -155,6 +162,8 @@ function AbilityRow(props: {
         passPath={[props.kind, "advancement", "pass"]}
         failPath={[props.kind, "advancement", "fail"]}
         rating={typeof rating() === "number" ? (rating() as number) : 0}
+        onImprove={improve}
+        improveLabel={`Improve ${props.label}`}
       />
     </div>
   );
@@ -235,7 +244,15 @@ function TownRatedRow(props: {
   label: string;
   rollable: string;
 }): JSX.Element {
+  const client = useClient();
   const rating = useTraitPath(props.characterId, TownAbilities, [props.kind, "rating"]);
+  const improve = () =>
+    client.dispatch(
+      ImproveAbility({
+        characterId: props.characterId,
+        ability: props.kind,
+      }) as CommandInstance,
+    );
   return (
     <div
       style={{
@@ -279,6 +296,8 @@ function TownRatedRow(props: {
         passPath={[props.kind, "advancement", "pass"]}
         failPath={[props.kind, "advancement", "fail"]}
         rating={typeof rating() === "number" ? (rating() as number) : 0}
+        onImprove={improve}
+        improveLabel={`Improve ${props.label}`}
       />
     </div>
   );
@@ -368,57 +387,12 @@ function SkillRow(props: { characterId: string; skill: SkillEntry }): JSX.Elemen
       }) as CommandInstance,
     );
   };
-  // Detect "learning track just filled" transitions and ask the
-  // server to post a chat opportunity row. Mirrors the standard
-  // skill improve-track effect below — gated on canEdit so non-
-  // editor viewers don't double-post; server-side dedup means a
-  // GM also editing the same sheet won't spawn a duplicate row.
-  let learningWasFull = false;
-  createEffect(() => {
-    const full = isLearningFull();
-    if (!full) {
-      learningWasFull = false;
-      return;
-    }
-    if (learningWasFull) return;
-    learningWasFull = true;
-    if (!canEdit()) return;
-    client.dispatch(
-      OpenSkillLearning({
-        characterId: props.characterId,
-        skillId: props.skill.id,
-      }) as CommandInstance,
-    );
-  });
-  // Detect "track just became full" transitions and ask the server to
-  // post a chat opportunity row. Gated by `canEdit()` so non-editor
-  // viewers don't double-post; the server's OpenSkillImprovement
-  // dedups against existing opportunities so a GM also editing the
-  // same sheet won't cause a duplicate row.
-  let wasFull = false;
-  createEffect(() => {
-    const r = typeof rating() === "number" ? (rating() as number) : 0;
-    const p = typeof passCount() === "number" ? (passCount() as number) : 0;
-    const f = typeof failCount() === "number" ? (failCount() as number) : 0;
-    const need = kit.computeAdvancement(r);
-    const isFull = p >= need.passNeeded && f >= need.failNeeded;
-    if (!isFull) {
-      wasFull = false;
-      return;
-    }
-    // Only the just-became-full edge dispatches; subsequent renders
-    // with the same full state stay quiet.
-    if (wasFull) return;
-    wasFull = true;
-    if (r >= 6) return;
-    if (!canEdit()) return;
-    client.dispatch(
-      OpenSkillImprovement({
-        characterId: props.characterId,
-        skillId: props.skill.id,
-      }) as CommandInstance,
-    );
-  });
+  // Advancement / learning opportunities are opened server-side by
+  // `LogAdvancement` the moment a roll fills the track — independent of
+  // whether this sheet is mounted. We deliberately do NOT re-open them
+  // from a mount-time effect here: that re-created cards on every refresh
+  // (flooding the overlay) and resurrected ones the player had dismissed.
+  // The improve / learn arrows below still commit directly.
   return (
     <div
       style={{
