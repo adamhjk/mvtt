@@ -259,6 +259,17 @@ export {
   type GrindCondition,
 } from "./grind.js";
 export {
+  AssignLightCoverage,
+  ClearLightCoverage,
+  LightCoverage,
+  LightCoverageAutoClearOnBurnoutSystem,
+  LightCoverageAutoClearOnDouseSystem,
+  LightCoverageChanged,
+  LightCoverageSystem,
+  lightCoverage,
+  lightSourceKey,
+} from "./light.js";
+export {
   AbilityImproved,
   AbilityImprovementOpened,
   AbilityImprovementOpportunity,
