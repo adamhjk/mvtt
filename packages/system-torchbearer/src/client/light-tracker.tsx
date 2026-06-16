@@ -20,7 +20,12 @@ import {
   type CommandInstance,
   type EntityId,
 } from "@vtt/substrate";
-import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
+import {
+  useClient,
+  useQuery,
+  useTrait,
+  type QueryRow,
+} from "@vtt/substrate/client";
 import {
   createMemo,
   createSignal,
@@ -102,6 +107,28 @@ function useIsGm(): () => boolean {
   });
 }
 
+/**
+ * Player characters only — Characters that are neither monsters nor NPCs.
+ *
+ * `world.query([Character])` only returns the queried trait in each row's
+ * `values`, so we can't tell a PC from a monster by inspecting that row alone.
+ * Instead we query the discriminating traits directly (the idiomatic pattern,
+ * cf. monsters-page's `useQuery([Character, TbMonster])`) and subtract those
+ * ids. Each query subscribes to its own trait, so the result stays reactive
+ * as monsters/NPCs are spawned or removed.
+ */
+function usePlayerCharacters(): () => QueryRow[] {
+  const allChars = useQuery([Character]);
+  const monsters = useQuery([Character, TbMonster]);
+  const npcs = useQuery([Character, TbNpc]);
+  return createMemo(() => {
+    const excluded = new Set<EntityId>();
+    for (const r of monsters()) excluded.add(r.id);
+    for (const r of npcs()) excluded.add(r.id);
+    return allChars().filter((r) => !excluded.has(r.id));
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
@@ -136,13 +163,7 @@ function CoverageEditor(props: {
   assignment: { coveredCharacterIds: EntityId[]; maxCoverage: number } | undefined;
 }): JSX.Element {
   const client = useClient();
-  const allChars = useQuery([Character]);
-  const playerChars = createMemo(() =>
-    allChars().filter((r) => {
-      const vals = r.values as Record<string, unknown>;
-      return !vals.TbMonster && !vals.TbNpc;
-    }),
-  );
+  const playerChars = usePlayerCharacters();
 
   const covered = createMemo(
     () => new Set(props.assignment?.coveredCharacterIds ?? []),
@@ -271,18 +292,11 @@ function LightTracker(): JSX.Element {
 
   const count = createMemo(() => litSources().length);
 
-  // All player character IDs.
-  const allChars = useQuery([Character]);
-  const playerCharIds = createMemo(() => {
-    const out: EntityId[] = [];
-    for (const r of allChars()) {
-      const vals = r.values as Record<string, unknown>;
-      if (!vals.TbMonster && !vals.TbNpc) {
-        out.push(r.id as EntityId);
-      }
-    }
-    return out;
-  });
+  // All player character IDs (excludes monsters and NPCs).
+  const playerChars = usePlayerCharacters();
+  const playerCharIds = createMemo(() =>
+    playerChars().map((r) => r.id as EntityId),
+  );
 
   // Characters NOT covered by any light source.
   const inDarkness = createMemo(() => {
