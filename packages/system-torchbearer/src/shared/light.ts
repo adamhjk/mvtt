@@ -34,6 +34,18 @@ import { EntryStateChanged } from "./items/item-events.js";
 // ---------------------------------------------------------------------------
 // Coverage metadata — DH p.42-43, SG p.42-43
 // ---------------------------------------------------------------------------
+//
+// Deferred follow-ups (modelled here as classification only; mechanical
+// effects NOT yet wired — TODOs with printed-page cites):
+//   - Dim light is a +1 Ob factor on all tests except riddling (DH p.43); and
+//     darkness restricts actions to flee/riddle/argue and forbids Cartography/
+//     Scholar (DH p.43). These belong in the test/conflict pipeline, not here.
+//   - Dropped/set-down sources give dim-only light and suppress the bearer's
+//     full-light slot (DH p.44). INVARIANT until that is wired: every tracked
+//     source is treated as held/full — no UI path may show a source as dropped
+//     while still granting full light or a bearer full-light slot.
+//   - Daylight is full light for all (DH p.43); monsters see in dim light
+//     without penalty by default (DH p.174, e.g. orcs p.192). Not modelled.
 
 /**
  * How many characters each catalog light source covers.
@@ -65,6 +77,40 @@ export function lightCoverage(itemId: string, itemName?: string): number {
 }
 
 // ---------------------------------------------------------------------------
+// Holder-aware coverage helpers
+// ---------------------------------------------------------------------------
+//
+// The light bearer is *always* in the full light of the source they hold
+// (DH p.42-43: a source "provides light for N characters", the bearer being
+// one of them). We model this as the single source of truth: the holder is
+// folded into `coveredCharacterIds` and counts toward `maxCoverage`. These
+// pure helpers are shared by the server command (validate/apply) and the
+// client editor so both sides compute the same capacity.
+
+/**
+ * The effective full-light set for a source: the holder first, then any
+ * explicitly covered characters, de-duplicated and order-preserving.
+ */
+export function effectiveCovered(
+  holderId: string,
+  coveredCharacterIds: readonly string[],
+): string[] {
+  const out: string[] = [holderId];
+  for (const id of coveredCharacterIds) {
+    if (!out.includes(id)) out.push(id);
+  }
+  return out;
+}
+
+/**
+ * How many *additional* (non-holder) characters may still be placed in full
+ * light, given the source's max and the current effective covered set.
+ */
+export function assignableNonHolderSlots(max: number, effective: readonly string[]): number {
+  return Math.max(0, max - effective.length);
+}
+
+// ---------------------------------------------------------------------------
 // LightCoverage trait — lives on the grind sentinel
 // ---------------------------------------------------------------------------
 
@@ -75,11 +121,19 @@ export function lightSourceKey(holderId: string, entryIndex: number): string {
   return `${holderId}:${entryIndex}`;
 }
 
+// Light tiers (DH p.43):
+//   covered = full light (always includes the holder); counts toward maxCoverage.
+//   dim     = "dim light for N additional characters"; a separate ring of the
+//             same capacity as full light. +1 Ob factor (wiring deferred).
+//   dark    = neither covered nor dim (derived, not stored).
+// `dimCharacterIds` is additive: legacy assignments lack it, so every reader
+// must coalesce `?? []` (world.get does not re-parse stored values).
 const LightCoverageAssignment = z.object({
   holderId: EntityId,
   entryIndex: z.number().int().min(0),
   itemId: EntityId,
   coveredCharacterIds: z.array(EntityId).default([]),
+  dimCharacterIds: z.array(EntityId).default([]),
   maxCoverage: z.number().int().min(1),
 });
 
@@ -102,6 +156,10 @@ export const LightCoverageChanged = defineEvent({
     entryIndex: z.number().int().min(0),
     itemId: EntityId,
     coveredCharacterIds: z.array(EntityId),
+    // Additive: legacy LightCoverageChanged logs lack this field. Replay does
+    // not re-parse, so the mirror system coalesces `?? []` rather than relying
+    // on this default (which only applies when the event is constructed anew).
+    dimCharacterIds: z.array(EntityId).default([]),
     maxCoverage: z.number().int().min(1),
   }),
 });
@@ -116,6 +174,10 @@ export const AssignLightCoverage = defineCommand({
     holderId: EntityId,
     entryIndex: z.number().int().min(0),
     coveredCharacterIds: z.array(EntityId),
+    // Additive + optional so legacy callers (covered-only) keep working. Every
+    // current dispatch must re-send BOTH arrays as full state — apply emits a
+    // full replace, so omitting dim would wipe the stored dim ring.
+    dimCharacterIds: z.array(EntityId).default([]),
   }),
   validate: ({ cmd, world, session }) => {
     const s = requireSession({ session });
@@ -135,8 +197,21 @@ export const AssignLightCoverage = defineCommand({
     const itemName = itemGot?.ItemIdentity.name;
 
     const max = lightCoverage(entry.itemId, itemName);
-    if (cmd.coveredCharacterIds.length > max) {
+    // The holder is always in full light and occupies a slot — check the
+    // effective set so the cap (and the existing tests) count the bearer once.
+    const effective = effectiveCovered(cmd.holderId, cmd.coveredCharacterIds);
+    if (effective.length > max) {
       return fail(`this light source covers at most ${max} characters`);
+    }
+    const dim = cmd.dimCharacterIds ?? [];
+    // Dim ring has the same capacity as full light (DH p.43: "N additional").
+    if (dim.length > max) {
+      return fail(`this light source dimly lights at most ${max} characters`);
+    }
+    // A character can't be both fully lit and dim.
+    const fullSet = new Set(effective);
+    if (dim.some((id) => fullSet.has(id))) {
+      return fail("a character cannot be both in full light and dim light");
     }
     return ok();
   },
@@ -157,7 +232,9 @@ export const AssignLightCoverage = defineCommand({
         holderId: cmd.holderId,
         entryIndex: cmd.entryIndex,
         itemId: entry.itemId,
-        coveredCharacterIds: cmd.coveredCharacterIds,
+        // Holder is always present in the stored full-light set.
+        coveredCharacterIds: effectiveCovered(cmd.holderId, cmd.coveredCharacterIds),
+        dimCharacterIds: cmd.dimCharacterIds ?? [],
         maxCoverage: max,
       }),
     ];
@@ -188,7 +265,9 @@ export const ClearLightCoverage = defineCommand({
         holderId: cmd.holderId,
         entryIndex: cmd.entryIndex,
         itemId,
+        // Both rings empty is the delete signal for the mirror.
         coveredCharacterIds: [],
+        dimCharacterIds: [],
         maxCoverage: 1,
       }),
     ];
@@ -202,7 +281,8 @@ export const ClearLightCoverage = defineCommand({
 /**
  * LightCoverageSystem — universal mirror for `LightCoverageChanged`.
  * Writes the assignment into the sentinel's LightCoverage trait.
- * An empty `coveredCharacterIds` removes the key.
+ * Both rings empty (covered AND dim) removes the key — a legitimate
+ * "0 full + N dim" assignment must survive.
  */
 export const LightCoverageSystem = defineSystem({
   name: "LightCoverage",
@@ -215,7 +295,9 @@ export const LightCoverageSystem = defineSystem({
       | { LightCoverage: { assignments: Record<string, unknown> } }
       | undefined;
     const assignments = { ...(cur?.LightCoverage.assignments ?? {}) };
-    if (event.coveredCharacterIds.length === 0) {
+    // Replay safety: legacy LightCoverageChanged logs have no dimCharacterIds.
+    const dim = event.dimCharacterIds ?? [];
+    if (event.coveredCharacterIds.length === 0 && dim.length === 0) {
       delete assignments[event.key];
     } else {
       assignments[event.key] = {
@@ -223,6 +305,7 @@ export const LightCoverageSystem = defineSystem({
         entryIndex: event.entryIndex,
         itemId: event.itemId,
         coveredCharacterIds: event.coveredCharacterIds,
+        dimCharacterIds: dim,
         maxCoverage: event.maxCoverage,
       };
     }

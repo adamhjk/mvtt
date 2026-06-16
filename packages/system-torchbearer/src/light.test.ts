@@ -58,12 +58,7 @@ const testPlugin = definePlugin({
   name: "@vtt/test-light-coverage",
   version: "0",
   traits: [TbCarries, TbSupply, Grind, LightCoverage, Character],
-  events: [
-    LightCoverageChanged,
-    GrindTurnSet,
-    LightSourceWentOut,
-    EntryStateChanged,
-  ],
+  events: [LightCoverageChanged, GrindTurnSet, LightSourceWentOut, EntryStateChanged],
   commands: [AssignLightCoverage, ClearLightCoverage, SetGrindTurn, SetEntryState],
   systems: [
     LightCoverageSystem,
@@ -97,10 +92,7 @@ function makeSetup(): Setup {
   const pipeline = new CommandPipeline(registry, world, bus);
 
   // Sentinel.
-  world.spawnAt(GRIND_SENTINEL_ID, [
-    Grind({ turn: 0 }),
-    LightCoverage({ assignments: {} }),
-  ]);
+  world.spawnAt(GRIND_SENTINEL_ID, [Grind({ turn: 0 }), LightCoverage({ assignments: {} })]);
 
   // Holder character with a lit torch and a lit lantern.
   const torchId = world.spawn([
@@ -278,10 +270,7 @@ describe("AssignLightCoverage", () => {
 
     const cov = setup.world.get(GRIND_SENTINEL_ID, [LightCoverage]) as {
       LightCoverage: {
-        assignments: Record<
-          string,
-          { coveredCharacterIds: string[]; maxCoverage: number }
-        >;
+        assignments: Record<string, { coveredCharacterIds: string[]; maxCoverage: number }>;
       };
     };
     const key = lightSourceKey(setup.holderId, 0);
@@ -387,6 +376,183 @@ describe("AssignLightCoverage", () => {
       }),
     });
     expect(res.result.ok).toBe(false);
+  });
+
+  it("always includes the holder in full light, even when omitted", async () => {
+    // GM assigns only char2; the bearer is always in the light (DH p.42-43).
+    const res = await dispatchGm(setup, {
+      id: "a1",
+      cmd: AssignLightCoverage({
+        holderId: setup.holderId,
+        entryIndex: 0,
+        coveredCharacterIds: [setup.char2Id],
+      }),
+    });
+    expect(res.result.ok).toBe(true);
+    const cov = setup.world.get(GRIND_SENTINEL_ID, [LightCoverage]) as {
+      LightCoverage: {
+        assignments: Record<string, { coveredCharacterIds: string[] }>;
+      };
+    };
+    const key = lightSourceKey(setup.holderId, 0);
+    // Holder first, then the assigned companion — order-preserving dedup.
+    expect(cov.LightCoverage.assignments[key]!.coveredCharacterIds).toEqual([
+      setup.holderId,
+      setup.char2Id,
+    ]);
+  });
+
+  it("counts the holder toward maxCoverage (torch = bearer + 1)", async () => {
+    // Torch covers 2 total incl. bearer, so the GM may add exactly one other.
+    const ok2 = await dispatchGm(setup, {
+      id: "a1",
+      cmd: AssignLightCoverage({
+        holderId: setup.holderId,
+        entryIndex: 0,
+        coveredCharacterIds: [setup.char2Id],
+      }),
+    });
+    expect(ok2.result.ok).toBe(true);
+    // Adding a second non-holder would make the effective set 3 > 2.
+    const tooMany = await dispatchGm(setup, {
+      id: "a2",
+      cmd: AssignLightCoverage({
+        holderId: setup.holderId,
+        entryIndex: 0,
+        coveredCharacterIds: [setup.char2Id, setup.char3Id],
+      }),
+    });
+    expect(tooMany.result.ok).toBe(false);
+  });
+
+  it("stores a dim ring up to the source's capacity", async () => {
+    const res = await dispatchGm(setup, {
+      id: "a1",
+      cmd: AssignLightCoverage({
+        holderId: setup.holderId,
+        entryIndex: 1, // lantern, covers 3
+        coveredCharacterIds: [setup.char2Id],
+        dimCharacterIds: [setup.char3Id],
+      }),
+    });
+    expect(res.result.ok).toBe(true);
+    const cov = setup.world.get(GRIND_SENTINEL_ID, [LightCoverage]) as {
+      LightCoverage: {
+        assignments: Record<string, { dimCharacterIds: string[] }>;
+      };
+    };
+    const key = lightSourceKey(setup.holderId, 1);
+    expect(cov.LightCoverage.assignments[key]!.dimCharacterIds).toEqual([setup.char3Id]);
+  });
+
+  it("rejects a dim ring larger than the source's capacity", async () => {
+    // Torch dim capacity = 2; three dim characters is too many.
+    const res = await dispatchGm(setup, {
+      id: "a1",
+      cmd: AssignLightCoverage({
+        holderId: setup.holderId,
+        entryIndex: 0,
+        coveredCharacterIds: [],
+        dimCharacterIds: [setup.holderId, setup.char2Id, setup.char3Id],
+      }),
+    });
+    expect(res.result.ok).toBe(false);
+  });
+
+  it("rejects a character in both full and dim light", async () => {
+    const res = await dispatchGm(setup, {
+      id: "a1",
+      cmd: AssignLightCoverage({
+        holderId: setup.holderId,
+        entryIndex: 1,
+        coveredCharacterIds: [setup.char2Id],
+        dimCharacterIds: [setup.char2Id],
+      }),
+    });
+    expect(res.result.ok).toBe(false);
+  });
+
+  it("rejects the holder (implicitly full) being placed in dim light", async () => {
+    const res = await dispatchGm(setup, {
+      id: "a1",
+      cmd: AssignLightCoverage({
+        holderId: setup.holderId,
+        entryIndex: 1,
+        coveredCharacterIds: [],
+        dimCharacterIds: [setup.holderId],
+      }),
+    });
+    expect(res.result.ok).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LightCoverageSystem mirror — dim persistence, delete predicate, replay
+// ---------------------------------------------------------------------------
+
+describe("LightCoverageSystem mirror", () => {
+  let setup: Setup;
+
+  beforeEach(() => {
+    setup = makeSetup();
+  });
+
+  it("keeps a dim-only assignment (deletes only when BOTH rings empty)", () => {
+    const key = lightSourceKey(setup.holderId, 0);
+    // Systems receive the event payload with fields at the top level.
+    LightCoverageSystem.run({
+      event: {
+        type: LightCoverageChanged.name,
+        key,
+        holderId: setup.holderId,
+        entryIndex: 0,
+        itemId: setup.torchId,
+        coveredCharacterIds: [],
+        dimCharacterIds: [setup.char2Id],
+        maxCoverage: 2,
+      },
+      world: setup.world,
+    } as unknown as Parameters<typeof LightCoverageSystem.run>[0]);
+    const cov = setup.world.get(GRIND_SENTINEL_ID, [LightCoverage]) as {
+      LightCoverage: {
+        assignments: Record<string, { dimCharacterIds: string[] }>;
+      };
+    };
+    expect(cov.LightCoverage.assignments[key]).toBeDefined();
+    expect(cov.LightCoverage.assignments[key]!.dimCharacterIds).toEqual([setup.char2Id]);
+  });
+
+  it("deletes the key when both covered and dim are empty", () => {
+    const key = lightSourceKey(setup.holderId, 0);
+    setup.world.set(GRIND_SENTINEL_ID, LightCoverage, {
+      assignments: {
+        [key]: {
+          holderId: setup.holderId,
+          entryIndex: 0,
+          itemId: setup.torchId,
+          coveredCharacterIds: [setup.holderId],
+          dimCharacterIds: [],
+          maxCoverage: 2,
+        },
+      },
+    });
+    LightCoverageSystem.run({
+      event: {
+        type: LightCoverageChanged.name,
+        key,
+        holderId: setup.holderId,
+        entryIndex: 0,
+        itemId: setup.torchId,
+        coveredCharacterIds: [],
+        dimCharacterIds: [],
+        maxCoverage: 2,
+      },
+      world: setup.world,
+    } as unknown as Parameters<typeof LightCoverageSystem.run>[0]);
+    const cov = setup.world.get(GRIND_SENTINEL_ID, [LightCoverage]) as {
+      LightCoverage: { assignments: Record<string, unknown> };
+    };
+    expect(cov.LightCoverage.assignments[key]).toBeUndefined();
   });
 });
 
