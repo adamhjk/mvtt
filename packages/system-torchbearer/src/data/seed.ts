@@ -55,12 +55,7 @@ import {
   TbMonsterSpecialRules,
   TbMonsterWeapons,
 } from "../shared/monster-traits.js";
-import {
-  NpcCatalogIndex,
-  NpcTemplate,
-  TbNpc,
-  TbNpcDerivedFrom,
-} from "../shared/npc-traits.js";
+import { NpcCatalogIndex, NpcTemplate, TbNpc, TbNpcDerivedFrom } from "../shared/npc-traits.js";
 import {
   Conditions,
   Heroic,
@@ -204,7 +199,7 @@ export function templateToTraitBag(
       break;
     case "scroll": {
       const resolved = t.kind.spellTemplateId
-        ? spellIdByTemplateId[t.kind.spellTemplateId] ?? null
+        ? (spellIdByTemplateId[t.kind.spellTemplateId] ?? null)
         : null;
       bag.TbScroll = {
         spellId: resolved,
@@ -271,10 +266,7 @@ function buildRelicCatalogTemplates(
     const relicName = tmpl.performing.relicName?.trim();
     if (!relicName) continue;
     const slotOptions = parseRelicSlotOptions(tmpl.performing.relicSlot ?? "");
-    const relicTemplateId = `tb/relic/${tmpl.id.replace(
-      /^tb\/invocation\//,
-      "",
-    )}`;
+    const relicTemplateId = `tb/relic/${tmpl.id.replace(/^tb\/invocation\//, "")}`;
     out.push({
       templateId: relicTemplateId,
       traits: {
@@ -299,9 +291,7 @@ function buildRelicCatalogTemplates(
  * by `<BookCitation>`. Mirrors the abbreviation table above.
  */
 function canonicalBookIdFor(book: "DH" | "LMM"): string {
-  return book === "DH"
-    ? "tb/book/dungeoneers-handbook"
-    : "tb/book/loremasters-manual";
+  return book === "DH" ? "tb/book/dungeoneers-handbook" : "tb/book/loremasters-manual";
 }
 
 /**
@@ -355,21 +345,9 @@ function runSpellCatalogMerge(world: World, registry: Registry): void {
     if (existing && world.has(existing as never)) {
       // v1 simplicity: overwrite every trait. CustomizeSpell forks
       // outside the index, so re-seed never clobbers a forked entity.
-      world.set(
-        existing as never,
-        SpellIdentity,
-        bag.SpellIdentity as never,
-      );
-      world.set(
-        existing as never,
-        TbSpellCasting,
-        bag.TbSpellCasting as never,
-      );
-      world.set(
-        existing as never,
-        TbSpellLearning,
-        bag.TbSpellLearning as never,
-      );
+      world.set(existing as never, SpellIdentity, bag.SpellIdentity as never);
+      world.set(existing as never, TbSpellCasting, bag.TbSpellCasting as never);
+      world.set(existing as never, TbSpellLearning, bag.TbSpellLearning as never);
       const got = world.get(existing as never, [SpellDerivedFrom]) as
         | {
             SpellDerivedFrom: {
@@ -434,9 +412,7 @@ function runSpellCatalogMerge(world: World, registry: Registry): void {
   });
 }
 
-function readSpellTemplateMap(
-  world: World,
-): Readonly<Record<string, string>> {
+function readSpellTemplateMap(world: World): Readonly<Record<string, string>> {
   for (const row of world.query([SpellCatalogIndex])) {
     const v = row.values.SpellCatalogIndex as {
       pluginName: string;
@@ -454,9 +430,7 @@ function ensureSpellCatalogIndex(world: World): string {
     const v = row.values.SpellCatalogIndex as { pluginName: string };
     if (v.pluginName === PLUGIN_NAME) return row.id;
   }
-  return world.spawn([
-    SpellCatalogIndex({ pluginName: PLUGIN_NAME, entries: {} }),
-  ]);
+  return world.spawn([SpellCatalogIndex({ pluginName: PLUGIN_NAME, entries: {} })]);
 }
 
 /**
@@ -464,9 +438,7 @@ function ensureSpellCatalogIndex(world: World): string {
  * TbInvocationTemplate. Always emits InvocationIdentity +
  * TbInvocationPerforming.
  */
-function invocationTemplateToTraitBag(
-  t: TbInvocationTemplate,
-): Record<string, unknown> {
+function invocationTemplateToTraitBag(t: TbInvocationTemplate): Record<string, unknown> {
   return {
     InvocationIdentity: {
       name: t.name,
@@ -503,16 +475,8 @@ function runInvocationCatalogMerge(world: World, registry: Registry): void {
     const bag = invocationTemplateToTraitBag(tmpl);
     const existing = entries[tmpl.id];
     if (existing && world.has(existing as never)) {
-      world.set(
-        existing as never,
-        InvocationIdentity,
-        bag.InvocationIdentity as never,
-      );
-      world.set(
-        existing as never,
-        TbInvocationPerforming,
-        bag.TbInvocationPerforming as never,
-      );
+      world.set(existing as never, InvocationIdentity, bag.InvocationIdentity as never);
+      world.set(existing as never, TbInvocationPerforming, bag.TbInvocationPerforming as never);
       const got = world.get(existing as never, [InvocationDerivedFrom]) as
         | {
             InvocationDerivedFrom: {
@@ -581,9 +545,7 @@ function ensureInvocationCatalogIndex(world: World): string {
     const v = row.values.InvocationCatalogIndex as { pluginName: string };
     if (v.pluginName === PLUGIN_NAME) return row.id;
   }
-  return world.spawn([
-    InvocationCatalogIndex({ pluginName: PLUGIN_NAME, entries: {} }),
-  ]);
+  return world.spawn([InvocationCatalogIndex({ pluginName: PLUGIN_NAME, entries: {} })]);
 }
 
 /**
@@ -591,9 +553,7 @@ function ensureInvocationCatalogIndex(world: World): string {
  * merge has run, returning the `templateId → invocationEntityId` map
  * needed to wire `TbInvocationRelicLink` traits onto the relic items.
  */
-function readInvocationTemplateMap(
-  world: World,
-): Readonly<Record<string, string>> {
+function readInvocationTemplateMap(world: World): Readonly<Record<string, string>> {
   for (const row of world.query([InvocationCatalogIndex])) {
     const v = row.values.InvocationCatalogIndex as {
       pluginName: string;
@@ -615,10 +575,7 @@ function readInvocationTemplateMap(
  * Used by monster + NPC catalog merges to wire armor/gear references
  * after the items catalog has finished seeding.
  */
-function resolveCatalogItemId(
-  world: World,
-  itemTemplateId: string,
-): string | null {
+function resolveCatalogItemId(world: World, itemTemplateId: string): string | null {
   for (const row of world.query([ItemCatalogIndex])) {
     const v = row.values.ItemCatalogIndex as {
       pluginName: string;
@@ -636,9 +593,7 @@ function ensureMonsterCatalogIndex(world: World): string {
     const v = row.values.MonsterCatalogIndex as { pluginName: string };
     if (v.pluginName === PLUGIN_NAME) return row.id;
   }
-  return world.spawn([
-    MonsterCatalogIndex({ pluginName: PLUGIN_NAME, entries: {} }),
-  ]);
+  return world.spawn([MonsterCatalogIndex({ pluginName: PLUGIN_NAME, entries: {} })]);
 }
 
 function ensureNpcCatalogIndex(world: World): string {
@@ -646,9 +601,7 @@ function ensureNpcCatalogIndex(world: World): string {
     const v = row.values.NpcCatalogIndex as { pluginName: string };
     if (v.pluginName === PLUGIN_NAME) return row.id;
   }
-  return world.spawn([
-    NpcCatalogIndex({ pluginName: PLUGIN_NAME, entries: {} }),
-  ]);
+  return world.spawn([NpcCatalogIndex({ pluginName: PLUGIN_NAME, entries: {} })]);
 }
 
 /**
@@ -760,12 +713,15 @@ function buildNpcTemplateTraits(
   tmpl: TbNpcTemplate,
   resolvedGear: Array<{ itemId: string; slot: string }>,
 ): Array<{ name: import("@vtt/substrate").TraitName; value: unknown }> {
-  const skillsRecord: Record<string, {
-    rating: number;
-    advancement: { pass: number; fail: number };
-    taxed: boolean;
-    learningTests: number;
-  }> = {};
+  const skillsRecord: Record<
+    string,
+    {
+      rating: number;
+      advancement: { pass: number; fail: number };
+      taxed: boolean;
+      learningTests: number;
+    }
+  > = {};
   for (const s of ALL_SKILLS) {
     skillsRecord[s.id] = {
       rating: 0,
@@ -865,9 +821,9 @@ function buildNpcTemplateTraits(
         entries: resolvedGear.map((g) => ({
           slot: g.slot,
           slotIndex: 0,
-          channel: (g.slot === "handR" || g.slot === "handL"
-            ? "carried"
-            : "default") as "default" | "carried",
+          channel: (g.slot === "handR" || g.slot === "handL" ? "carried" : "default") as
+            | "default"
+            | "carried",
           slotsConsumed: 1,
           itemId: g.itemId,
           quantity: 1,
@@ -1034,29 +990,52 @@ function traitDefForName(name: import("@vtt/substrate").TraitName) {
   // we know we wrote in build*TemplateTraits. Order doesn't matter;
   // the lookup is O(1) on a small table.
   switch (name) {
-    case Character.name: return Character;
-    case Identity.name: return Identity;
-    case Permissions.name: return Permissions;
-    case Team.name: return Team;
-    case RawAbilities.name: return RawAbilities;
-    case TownAbilities.name: return TownAbilities;
-    case Conditions.name: return Conditions;
-    case Heroic.name: return Heroic;
-    case Pools.name: return Pools;
-    case WhatYouFightFor.name: return WhatYouFightFor;
-    case Skills.name: return Skills;
-    case Wises.name: return Wises;
-    case CharacterTraits.name: return CharacterTraits;
-    case TbCarries.name: return TbCarries;
-    case TbMonster.name: return TbMonster;
-    case TbMonsterWeapons.name: return TbMonsterWeapons;
-    case TbMonsterSpecialRules.name: return TbMonsterSpecialRules;
-    case TbMonsterDerivedFrom.name: return TbMonsterDerivedFrom;
-    case MonsterTemplate.name: return MonsterTemplate;
-    case TbNpc.name: return TbNpc;
-    case TbNpcDerivedFrom.name: return TbNpcDerivedFrom;
-    case NpcTemplate.name: return NpcTemplate;
-    default: return null;
+    case Character.name:
+      return Character;
+    case Identity.name:
+      return Identity;
+    case Permissions.name:
+      return Permissions;
+    case Team.name:
+      return Team;
+    case RawAbilities.name:
+      return RawAbilities;
+    case TownAbilities.name:
+      return TownAbilities;
+    case Conditions.name:
+      return Conditions;
+    case Heroic.name:
+      return Heroic;
+    case Pools.name:
+      return Pools;
+    case WhatYouFightFor.name:
+      return WhatYouFightFor;
+    case Skills.name:
+      return Skills;
+    case Wises.name:
+      return Wises;
+    case CharacterTraits.name:
+      return CharacterTraits;
+    case TbCarries.name:
+      return TbCarries;
+    case TbMonster.name:
+      return TbMonster;
+    case TbMonsterWeapons.name:
+      return TbMonsterWeapons;
+    case TbMonsterSpecialRules.name:
+      return TbMonsterSpecialRules;
+    case TbMonsterDerivedFrom.name:
+      return TbMonsterDerivedFrom;
+    case MonsterTemplate.name:
+      return MonsterTemplate;
+    case TbNpc.name:
+      return TbNpc;
+    case TbNpcDerivedFrom.name:
+      return TbNpcDerivedFrom;
+    case NpcTemplate.name:
+      return NpcTemplate;
+    default:
+      return null;
   }
 }
 
@@ -1134,10 +1113,7 @@ export const tbSeed: SeedFn = ({ world, registry }) => {
     world,
     registry,
     pluginName: PLUGIN_NAME,
-    templates: templatesAsCatalog(
-      spellIdByTemplateId,
-      invocationIdByTemplateId,
-    ),
+    templates: templatesAsCatalog(spellIdByTemplateId, invocationIdByTemplateId),
   });
   stripStaleContainerTraitsOnLiquidVessels(world);
   // Monsters + NPCs come AFTER items because their templates reference

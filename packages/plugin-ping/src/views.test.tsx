@@ -19,10 +19,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
 import { screen, cleanup, fireEvent } from "@solidjs/testing-library";
 import { type CommandInstance } from "@vtt/substrate";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { shellDefault } from "@vtt/shell-default";
 import { ping } from "./manifest.js";
 import { Ping } from "./shared/commands.js";

@@ -45,9 +45,7 @@ function originOf(formula: unknown): string | null {
   const meta = (formula as { meta?: unknown } | undefined)?.meta as
     | { originPendingRollId?: unknown }
     | undefined;
-  return typeof meta?.originPendingRollId === "string"
-    ? meta.originPendingRollId
-    : null;
+  return typeof meta?.originPendingRollId === "string" ? meta.originPendingRollId : null;
 }
 
 /**
@@ -70,25 +68,17 @@ function RollRow(props: { entityId: string }) {
             <span class="text-fg-subtle">rolled</span>{" "}
             <code class="font-mono text-fg-muted">{formula()!.notation}</code>
           </span>
-          <strong class="font-mono text-base text-accent">
-            {result()!.total}
-          </strong>
+          <strong class="font-mono text-base text-accent">{result()!.total}</strong>
         </header>
         <Show when={formula()!.reason}>
           {/* Reason can be arbitrarily long (a stat-check label might
               accumulate many help/modifier breakdowns). CSS truncates to
               one line; hover shows the full text. */}
-          <p
-            class="mt-1 truncate text-[11px] text-fg-muted"
-            title={formula()!.reason}
-          >
+          <p class="mt-1 truncate text-[11px] text-fg-muted" title={formula()!.reason}>
             {formula()!.reason}
           </p>
         </Show>
-        <p
-          class="mt-1 truncate font-mono text-[11px] text-fg-subtle"
-          title={result()!.output}
-        >
+        <p class="mt-1 truncate font-mono text-[11px] text-fg-subtle" title={result()!.output}>
           {result()!.output}
         </p>
       </article>

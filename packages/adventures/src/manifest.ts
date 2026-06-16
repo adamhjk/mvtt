@@ -52,11 +52,7 @@ import { yamlBlockCompletionFactory } from "./client/yaml-block-completion.js";
 export const adventures = definePlugin({
   name: "@vtt/adventures",
   version: "0.1.0",
-  dependsOn: [
-    "@vtt/substrate@^0",
-    "@vtt/notes@^0",
-    "@vtt/permissions@^0",
-  ],
+  dependsOn: ["@vtt/substrate@^0", "@vtt/notes@^0", "@vtt/permissions@^0"],
   traits: [
     AdventureProvenance,
     BlockEntityIndex,
@@ -65,11 +61,7 @@ export const adventures = definePlugin({
     PageBlocks,
     Tombstoned,
   ],
-  events: [
-    BlockEntityUpserted,
-    BlockEntityTombstoned,
-    PageBlocksParsed,
-  ],
+  events: [BlockEntityUpserted, BlockEntityTombstoned, PageBlocksParsed],
   commands: [],
   systems: [BlockParseSystem, PageBlocksMirrorSystem],
   slots: [BlockKindsSlot],

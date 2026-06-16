@@ -15,11 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  qualifiedName,
-  type EntityId,
-  type World,
-} from "@vtt/substrate";
+import { qualifiedName, type EntityId, type World } from "@vtt/substrate";
 import { Container, Graphics } from "pixi.js";
 import { LinkedCharacter, Sprite, type TokenUnderlay } from "@vtt/scene/shared";
 import { MaxHp, Vitals } from "../shared/index.js";
@@ -76,9 +72,7 @@ export const HpBarUnderlay: TokenUnderlay = {
         return;
       }
       const charId = link.LinkedCharacter.characterId;
-      const vitals = w.get(charId, [Vitals]) as
-        | { Vitals: { current: number } }
-        | undefined;
+      const vitals = w.get(charId, [Vitals]) as { Vitals: { current: number } } | undefined;
       const max = w.get(charId, [MaxHp]) as { MaxHp: number } | undefined;
       // Only draw when both traits are attached. A character with no
       // game-system projection (rare in a system-simple world but
@@ -90,9 +84,7 @@ export const HpBarUnderlay: TokenUnderlay = {
       // Re-read sprite size each draw so the bar tracks size edits
       // (the GM can resize a token via Sprite.size; we shouldn't keep
       // drawing a stale-width bar after that).
-      const sprite = w.get(tokenId, [Sprite]) as
-        | { Sprite: { size: number } }
-        | undefined;
+      const sprite = w.get(tokenId, [Sprite]) as { Sprite: { size: number } } | undefined;
       const size = sprite?.Sprite.size ?? lastSize;
       lastSize = size;
 
@@ -108,8 +100,7 @@ export const HpBarUnderlay: TokenUnderlay = {
       // Colour the foreground based on remaining ratio: green at full,
       // amber under half, red under quarter. Hard cutoffs are easier
       // for players to read at a glance than a smooth gradient.
-      const color =
-        ratio > 0.5 ? 0x2ea043 : ratio > 0.25 ? 0xd29922 : 0xcf222e;
+      const color = ratio > 0.5 ? 0x2ea043 : ratio > 0.25 ? 0xd29922 : 0xcf222e;
       const filledWidth = Math.max(0, Math.round(barWidth * ratio));
       if (filledWidth > 0) {
         fg.roundRect(barX, barY, filledWidth, barHeight, 2).fill({ color });

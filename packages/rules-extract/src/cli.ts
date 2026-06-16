@@ -93,7 +93,10 @@ async function main(): Promise<void> {
     : undefined;
 
   const tags = parsed.values.tags
-    ? parsed.values.tags.split(",").map((s) => s.trim()).filter((s) => s.length > 0)
+    ? parsed.values.tags
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
     : [];
 
   try {

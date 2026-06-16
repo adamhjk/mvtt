@@ -39,10 +39,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { bundleToZip } from "@vtt/adventures/server";
 import { buildBundleFromDir } from "@vtt/adventures/server/build-from-dir";
-import {
-  buildBlockKindIndexFromPlugins,
-  type BlockKindIndex,
-} from "@vtt/adventures/shared";
+import { buildBlockKindIndexFromPlugins, type BlockKindIndex } from "@vtt/adventures/shared";
 import type { PluginDef } from "@vtt/substrate";
 import systemTorchbearer from "@vtt/system-torchbearer";
 
@@ -98,9 +95,8 @@ function parseArgs(argv: ReadonlyArray<string>): CliArgs {
     );
   }
   const absDir = resolve(dir);
-  const absOut = out !== null
-    ? resolve(out)
-    : join(dirname(absDir), `${basename(absDir)}.advt.zip`);
+  const absOut =
+    out !== null ? resolve(out) : join(dirname(absDir), `${basename(absDir)}.advt.zip`);
   return { dir: absDir, out: absOut, blockCheck };
 }
 
@@ -140,10 +136,7 @@ async function main(): Promise<void> {
   const bundle = await buildBundleFromDir({ dir: args.dir, kindIndex });
   const zip = bundleToZip(bundle);
   await writeFile(args.out, zip);
-  const totalPages = bundle.manifest.notes.reduce(
-    (n, note) => n + note.pages.length,
-    0,
-  );
+  const totalPages = bundle.manifest.notes.reduce((n, note) => n + note.pages.length, 0);
   process.stdout.write(
     [
       `wrote ${args.out}`,

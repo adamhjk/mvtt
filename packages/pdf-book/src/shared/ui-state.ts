@@ -107,9 +107,7 @@ export const SetPdfReaderState = defineCommand({
     }),
   }),
   validate: () => ok(),
-  apply: ({ cmd }) => [
-    PdfReaderStateChanged({ entityId: cmd.entityId, value: cmd.value }),
-  ],
+  apply: ({ cmd }) => [PdfReaderStateChanged({ entityId: cmd.entityId, value: cmd.value })],
 });
 
 export const PdfReaderStateMirror = defineSystem({

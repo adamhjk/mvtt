@@ -178,18 +178,12 @@ export class Registry {
     if (this.rollables.size > 0) {
       const declaredTraits = new Set<string>(this.traits.keys());
       const declaredCommands = new Set<string>(this.commands.keys());
-      validateRollables(
-        Array.from(this.rollables.values()),
-        declaredTraits,
-        declaredCommands,
-      );
+      validateRollables(Array.from(this.rollables.values()), declaredTraits, declaredCommands);
     }
   }
 
   viewsForSurface(surface: SurfaceName): AnyViewDef[] {
-    return this.views
-      .filter((v) => v.surface === surface)
-      .sort((a, b) => b.priority - a.priority);
+    return this.views.filter((v) => v.surface === surface).sort((a, b) => b.priority - a.priority);
   }
 
   /**

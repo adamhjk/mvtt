@@ -24,20 +24,10 @@ import { z } from "@vtt/substrate";
  *
  * Citations: SG p.66-70.
  */
-export const ConflictActionEnum = z.enum([
-  "attack",
-  "defend",
-  "feint",
-  "maneuver",
-]);
+export const ConflictActionEnum = z.enum(["attack", "defend", "feint", "maneuver"]);
 export type ConflictAction = z.infer<typeof ConflictActionEnum>;
 
-export const ALL_ACTIONS: ReadonlyArray<ConflictAction> = [
-  "attack",
-  "defend",
-  "feint",
-  "maneuver",
-];
+export const ALL_ACTIONS: ReadonlyArray<ConflictAction> = ["attack", "defend", "feint", "maneuver"];
 
 /**
  * What ONE side does for a single matchup, per Scholar's Guide p.70:
@@ -218,8 +208,7 @@ export const TB_MANEUVER_EFFECTS: ReadonlyArray<ManeuverEffectDef> = [
     kind: "gainPosition",
     cost: 2,
     label: "Gain Position",
-    summary:
-      "+2D advantage to your team's next action's test. Wasted if next action has no test.",
+    summary: "+2D advantage to your team's next action's test. Wasted if next action has no test.",
   },
   {
     kind: "disarm",

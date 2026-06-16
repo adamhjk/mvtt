@@ -15,20 +15,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  type EntityId,
-  type Registry,
-  type TraitMeta,
-  type World,
-} from "@vtt/substrate";
+import { type EntityId, type Registry, type TraitMeta, type World } from "@vtt/substrate";
 import { defineLinkKind, type LinkSuggestion } from "@vtt/notes/shared";
 import { Character } from "./traits.js";
 import { CharacterListExclusionSlot } from "./slot.js";
-import {
-  CharacterCreated,
-  CharacterRenamed,
-  CharacterRemoved,
-} from "./events.js";
+import { CharacterCreated, CharacterRenamed, CharacterRemoved } from "./events.js";
 
 interface CharacterRef {
   readonly characterId: EntityId;
@@ -46,8 +37,9 @@ interface CharacterRef {
  */
 function exclusionTraits(registry: Registry | undefined): TraitMeta[] {
   if (!registry) return [];
-  const fills = (registry.fillsForSlot(CharacterListExclusionSlot) ??
-    []) as ReadonlyArray<{ matchTrait: TraitMeta }>;
+  const fills = (registry.fillsForSlot(CharacterListExclusionSlot) ?? []) as ReadonlyArray<{
+    matchTrait: TraitMeta;
+  }>;
   return fills.map((f) => f.matchTrait);
 }
 
@@ -132,9 +124,5 @@ export const characterLinkKind = defineLinkKind<CharacterRef>({
     }
     return out;
   },
-  indexEvents: [
-    CharacterCreated.name,
-    CharacterRenamed.name,
-    CharacterRemoved.name,
-  ],
+  indexEvents: [CharacterCreated.name, CharacterRenamed.name, CharacterRemoved.name],
 });

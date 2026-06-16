@@ -98,7 +98,6 @@ await Assets.load("background.ktx2");
 
 Without the side-effect import, no loader parser is registered for `.ktx2` files. The load silently does nothing (or errors) and you get `undefined` back.
 
-
 ### [HIGH] Relying on mipmaps from compressed textures in Canvas2D
 
 Compressed textures require WebGL or WebGPU. The Canvas2D backend can't sample them. If you need Canvas support, include a PNG/WebP fallback via the resolver format list:
@@ -107,11 +106,9 @@ Compressed textures require WebGL or WebGPU. The Canvas2D backend can't sample t
 Assets.add({ alias: "bg", src: "bg.{ktx2,png}" });
 ```
 
-
 ### [MEDIUM] Large Basis files in WebGL1
 
 Basis Universal transcodes to different GPU formats based on what the device supports. On WebGL1 without extensions, some devices fall back to an uncompressed format, defeating the memory savings. Check `renderer.context.supports` for supported compressed formats if you're targeting older hardware.
-
 
 ## API Reference
 

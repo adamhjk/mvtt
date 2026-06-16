@@ -18,25 +18,15 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
 import { cleanup, screen } from "@solidjs/testing-library";
-import {
-  definePlugin,
-  qualifiedName,
-  type EntityId,
-} from "@vtt/substrate";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { definePlugin, qualifiedName, type EntityId } from "@vtt/substrate";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { notes } from "@vtt/notes";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
-import {
-  TabSentinel,
-  tabSentinelEntityId,
-} from "@vtt/shell-workbench/shared";
+import { TabSentinel, tabSentinelEntityId } from "@vtt/shell-workbench/shared";
 import { characters } from "./manifest.js";
 import { CharacterSheet } from "./client/CharacterSheet.js";
 import {
@@ -75,14 +65,7 @@ interface Setup {
 function setupHarness() {
   let setup: Setup | undefined;
   const h = buildTestClient({
-    plugins: [
-      shellWorkbench,
-      identity,
-      permissions,
-      notes,
-      characters,
-      sheetTabsTestPlugin(),
-    ],
+    plugins: [shellWorkbench, identity, permissions, notes, characters, sheetTabsTestPlugin()],
     clientId: ME_CLIENT,
     session: {
       userId: ME,
@@ -97,10 +80,7 @@ function setupHarness() {
         Online({ clientId: ME_CLIENT, since: 0 }),
       ]);
       const characterId = world.allocateId();
-      world.spawnAt(characterId, [
-        Character({ name: "Krell" }),
-        Permissions(ownedBy(ME)),
-      ]);
+      world.spawnAt(characterId, [Character({ name: "Krell" }), Permissions(ownedBy(ME))]);
       const sentinelId = tabSentinelEntityId(TAB_ID);
       world.spawnAt(sentinelId, [
         TabSentinel({ tabId: TAB_ID }),
@@ -136,26 +116,20 @@ describe("SheetShell column-mode layout", () => {
 
   it("makes the shell itself the scroll container in column mode", () => {
     const h = setupHarness();
-    mountWithClient(h, () => (
-      <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />
-    ));
+    mountWithClient(h, () => <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />);
     const css = injectedSheetCss();
     expect(css).toMatch(/\.sheet-shell\s*\{[^}]*overflow-y:\s*auto/);
   });
 
   it("makes identity, actions, and the tab bar all sticky", () => {
     const h = setupHarness();
-    mountWithClient(h, () => (
-      <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />
-    ));
+    mountWithClient(h, () => <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />);
     const css = injectedSheetCss();
     expect(css).toMatch(/\.sheet-shell__identity\s*\{[^}]*position:\s*sticky/);
     expect(css).toMatch(/\.sheet-shell__identity\s*\{[^}]*top:\s*0/);
     expect(css).toMatch(/\.sheet-shell__actions\s*\{[^}]*position:\s*sticky/);
     expect(css).toMatch(/\.sheet-shell__actions\s*\{[^}]*bottom:\s*0/);
-    expect(css).toMatch(
-      /\.sheet-shell\s+\.vk-tabs__bar\s*\{[^}]*position:\s*sticky/,
-    );
+    expect(css).toMatch(/\.sheet-shell\s+\.vk-tabs__bar\s*\{[^}]*position:\s*sticky/);
     expect(css).toMatch(
       /\.sheet-shell\s+\.vk-tabs__bar\s*\{[^}]*top:\s*var\(--sheet-identity-height/,
     );
@@ -169,9 +143,7 @@ describe("SheetShell column-mode layout", () => {
     // and the tab body had `overflow-y: auto` — the bug being fixed.
     // The column-mode rail/body rules must be free of either.
     const h = setupHarness();
-    mountWithClient(h, () => (
-      <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />
-    ));
+    mountWithClient(h, () => <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />);
     const css = injectedSheetCss();
     // Split the stylesheet at the `@container` boundary so we only
     // inspect the column-mode (default) rules.
@@ -179,8 +151,7 @@ describe("SheetShell column-mode layout", () => {
     const railRule = columnCss.match(/\.sheet-shell__rail\s*\{[^}]*\}/)?.[0] ?? "";
     expect(railRule).not.toMatch(/overflow-y:\s*auto/);
     expect(railRule).not.toMatch(/max-height:/);
-    const bodyRule =
-      columnCss.match(/\.sheet-shell\s+\.vk-tabs__body\s*\{[^}]*\}/)?.[0] ?? "";
+    const bodyRule = columnCss.match(/\.sheet-shell\s+\.vk-tabs__body\s*\{[^}]*\}/)?.[0] ?? "";
     expect(bodyRule).toMatch(/overflow-y:\s*visible/);
   });
 
@@ -191,22 +162,14 @@ describe("SheetShell column-mode layout", () => {
     // scroll inventory. jsdom can't evaluate container queries, so
     // we just assert the rule exists in the injected CSS.
     const h = setupHarness();
-    mountWithClient(h, () => (
-      <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />
-    ));
+    mountWithClient(h, () => <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />);
     const css = injectedSheetCss();
     const desktopBlock =
       css.match(/@container sheet \(min-width: 1024px\)\s*\{[\s\S]*$/)?.[0] ?? "";
     expect(desktopBlock).toMatch(/\.sheet-shell\s*\{[^}]*overflow:\s*hidden/);
-    expect(desktopBlock).toMatch(
-      /\.sheet-shell__rail\s*\{[^}]*overflow-y:\s*auto/,
-    );
-    expect(desktopBlock).toMatch(
-      /\.sheet-shell\s+\.vk-tabs__body\s*\{[^}]*overflow-y:\s*auto/,
-    );
-    expect(desktopBlock).toMatch(
-      /\.sheet-shell\s+\.vk-tabs__bar\s*\{[^}]*position:\s*static/,
-    );
+    expect(desktopBlock).toMatch(/\.sheet-shell__rail\s*\{[^}]*overflow-y:\s*auto/);
+    expect(desktopBlock).toMatch(/\.sheet-shell\s+\.vk-tabs__body\s*\{[^}]*overflow-y:\s*auto/);
+    expect(desktopBlock).toMatch(/\.sheet-shell\s+\.vk-tabs__bar\s*\{[^}]*position:\s*static/);
   });
 
   it("writes --sheet-identity-height onto the shell on mount", () => {
@@ -217,9 +180,7 @@ describe("SheetShell column-mode layout", () => {
     // synchronously in onMount before observing — that's what this
     // verifies.
     const h = setupHarness();
-    mountWithClient(h, () => (
-      <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />
-    ));
+    mountWithClient(h, () => <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />);
     // The shell wrapper should be in the DOM after mount.
     const shell = document.querySelector(".sheet-shell") as HTMLElement;
     expect(shell).not.toBeNull();

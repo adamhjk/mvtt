@@ -43,10 +43,7 @@ import { ACTION_COLORS, ACTION_LABELS, ACTION_LETTERS } from "./styles.js";
  * own-side filled chips face-up, opposing-side chips face-down (the
  * substrate's per-recipient event filter does the masking).
  */
-export function ScriptInline(props: {
-  conflictId: EntityId;
-  side: ConflictSide;
-}): JSX.Element {
+export function ScriptInline(props: { conflictId: EntityId; side: ConflictSide }): JSX.Element {
   const me = useMe();
   const isGm = (): boolean => me()?.role === "gm";
   // The GM scripts the enemy side; the captain (any non-GM party
@@ -101,15 +98,10 @@ export function ScriptInline(props: {
       return s?.slots[i] ?? { status: "empty" };
     });
   });
-  const allFilled = createMemo(
-    () => slots().every((sl) => sl.status !== "empty"),
-  );
+  const allFilled = createMemo(() => slots().every((sl) => sl.status !== "empty"));
 
   return (
-    <div
-      class="flex flex-col gap-1.5 mt-1"
-      data-testid={`script-inline-${props.side}`}
-    >
+    <div class="flex flex-col gap-1.5 mt-1" data-testid={`script-inline-${props.side}`}>
       <div class="flex items-baseline justify-between">
         <span class="font-display text-[0.7rem] uppercase tracking-[0.16em] text-fg-subtle">
           Script
@@ -123,9 +115,7 @@ export function ScriptInline(props: {
           </span>
         </Show>
       </div>
-      <div
-        class="flex flex-col gap-1 rounded-(--radius-control) border border-border-muted bg-surface-elevated px-2 py-1.5"
-      >
+      <div class="flex flex-col gap-1 rounded-(--radius-control) border border-border-muted bg-surface-elevated px-2 py-1.5">
         <For each={[0, 1, 2]}>
           {(i) => (
             <ScriptRow
@@ -185,9 +175,7 @@ function ScriptRow(props: {
     return slot.performerParticipantEntityId ?? null;
   });
 
-  const performerChoices = createMemo(() =>
-    participants().filter((p) => !p.knockedOut),
-  );
+  const performerChoices = createMemo(() => participants().filter((p) => !p.knockedOut));
 
   // SetScriptSlot requires BOTH an action and a performer atomically —
   // the schema has no half-filled state. So when a user picks one
@@ -196,12 +184,8 @@ function ScriptRow(props: {
   // the performer first (from the dropdown) without us silently
   // back-filling the first roster entry as the actor — which was the
   // prior behavior, surprising for any roster of size > 1.
-  const [pendingAction, setPendingAction] = createSignal<ConflictAction | null>(
-    null,
-  );
-  const [pendingPerformer, setPendingPerformer] = createSignal<EntityId | null>(
-    null,
-  );
+  const [pendingAction, setPendingAction] = createSignal<ConflictAction | null>(null);
+  const [pendingPerformer, setPendingPerformer] = createSignal<EntityId | null>(null);
 
   // Once the slot lands as filled/revealed (server echoed our dispatch
   // or a remote edit), drop any pending halves — the slot is now the
@@ -214,17 +198,12 @@ function ScriptRow(props: {
   });
 
   // What to display: prefer slot value, fall back to local pending.
-  const displayedAction = createMemo<ConflictAction | null>(
-    () => action() ?? pendingAction(),
-  );
+  const displayedAction = createMemo<ConflictAction | null>(() => action() ?? pendingAction());
   const displayedPerformer = createMemo<EntityId | null>(
     () => performerEntityId() ?? pendingPerformer(),
   );
 
-  const dispatchSet = (
-    nextAction: ConflictAction,
-    nextPerformer: EntityId,
-  ): void => {
+  const dispatchSet = (nextAction: ConflictAction, nextPerformer: EntityId): void => {
     client.dispatch(
       SetScriptSlot({
         conflictId: props.conflictId,
@@ -278,8 +257,7 @@ function ScriptRow(props: {
         <For each={ALL_ACTIONS}>
           {(a) => {
             const showColor = (): boolean =>
-              (props.ownSide || props.slot.status === "revealed") &&
-              displayedAction() === a;
+              (props.ownSide || props.slot.status === "revealed") && displayedAction() === a;
             const showHidden = (): boolean =>
               !props.ownSide && filledOrRevealed() && props.slot.status !== "revealed";
             return (
@@ -293,14 +271,8 @@ function ScriptRow(props: {
                 aria-pressed={displayedAction() === a}
                 class="font-display font-bold w-6 h-6 rounded-sm border text-[0.7rem] transition disabled:cursor-default"
                 style={{
-                  "background-color": showColor()
-                    ? ACTION_COLORS[a]
-                    : "transparent",
-                  color: showColor()
-                    ? "white"
-                    : showHidden()
-                      ? "transparent"
-                      : ACTION_COLORS[a],
+                  "background-color": showColor() ? ACTION_COLORS[a] : "transparent",
+                  color: showColor() ? "white" : showHidden() ? "transparent" : ACTION_COLORS[a],
                   "border-color": showHidden()
                     ? "var(--color-border-muted, #ccc)"
                     : ACTION_COLORS[a],
@@ -319,11 +291,7 @@ function ScriptRow(props: {
           <span class="font-mono text-[0.7rem] text-fg-subtle truncate">
             <Show
               when={filledOrRevealed() && (props.ownSide || props.slot.status === "revealed")}
-              fallback={
-                <span class="italic">
-                  {filledOrRevealed() ? "(hidden)" : "—"}
-                </span>
-              }
+              fallback={<span class="italic">{filledOrRevealed() ? "(hidden)" : "—"}</span>}
             >
               <PerformerName
                 participantEntityId={
@@ -331,8 +299,7 @@ function ScriptRow(props: {
                     .performerParticipantEntityId
                 }
                 characterId={
-                  (props.slot as { performerCharacterId: EntityId })
-                    .performerCharacterId
+                  (props.slot as { performerCharacterId: EntityId }).performerCharacterId
                 }
                 participants={participants()}
               />
@@ -352,9 +319,7 @@ function ScriptRow(props: {
           data-testid={`performer-select-${props.side}-${props.slotIndex}`}
         >
           <option value="">— who? —</option>
-          <For each={performerChoices()}>
-            {(p) => <PerformerOption participant={p} />}
-          </For>
+          <For each={performerChoices()}>{(p) => <PerformerOption participant={p} />}</For>
         </select>
       </Show>
     </div>
@@ -372,9 +337,7 @@ function PerformerOption(props: {
   // Per-instance label wins ("Goblin 2") so multi-spawn rosters
   // disambiguate in the dropdown. Singletons fall back to the live
   // character name.
-  const display = createMemo(
-    () => props.participant.label ?? characterName(),
-  );
+  const display = createMemo(() => props.participant.label ?? characterName());
   return <option value={props.participant.entityId}>{display()}</option>;
 }
 
@@ -388,9 +351,7 @@ function PerformerName(props: {
 }): JSX.Element {
   const characterName = useCharacterName(props.characterId);
   const display = createMemo(() => {
-    const p = props.participants.find(
-      (q) => q.entityId === props.participantEntityId,
-    );
+    const p = props.participants.find((q) => q.entityId === props.participantEntityId);
     return p?.label ?? characterName();
   });
   return <>{display()}</>;
@@ -433,10 +394,8 @@ function LockToggleButton(props: {
       data-testid={`lock-toggle-${props.side}`}
       class="self-end rounded-(--radius-control) border px-3 py-1 text-xs font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
       classList={{
-        "border-accent bg-accent text-accent-fg hover:bg-accent-hover":
-          !props.locked,
-        "border-border-muted bg-surface-elevated text-fg hover:border-accent":
-          props.locked,
+        "border-accent bg-accent text-accent-fg hover:bg-accent-hover": !props.locked,
+        "border-border-muted bg-surface-elevated text-fg hover:border-accent": props.locked,
       }}
       title={
         props.locked

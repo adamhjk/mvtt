@@ -17,13 +17,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { ClientProvider } from "@vtt/substrate/client";
 import { buildTestClient } from "@vtt/substrate/client-testing";
 import { definePlugin, z } from "@vtt/substrate";
@@ -32,10 +26,7 @@ import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { notes } from "./manifest.js";
 import { ReferencePanel } from "./client/ReferencePanel.jsx";
-import {
-  NotesReferenceSlot,
-  type ReferenceProvider,
-} from "./shared/index.js";
+import { NotesReferenceSlot, type ReferenceProvider } from "./shared/index.js";
 
 beforeEach(() => cleanup());
 
@@ -102,9 +93,7 @@ describe("ReferencePanel", () => {
       </ClientProvider>
     ));
 
-    const section = document.querySelector(
-      `[data-testid="reference-section-block:demo"]`,
-    );
+    const section = document.querySelector(`[data-testid="reference-section-block:demo"]`);
     expect(section).not.toBeNull();
     expect(section?.textContent).toContain("demo");
     expect(section?.textContent).toContain("Demo fenced block for tests");
@@ -119,14 +108,10 @@ describe("ReferencePanel", () => {
     ));
 
     expect(
-      document.querySelector(
-        `[data-testid="reference-section-notes:wiki-link-syntax"]`,
-      ),
+      document.querySelector(`[data-testid="reference-section-notes:wiki-link-syntax"]`),
     ).not.toBeNull();
     expect(
-      document.querySelector(
-        `[data-testid="reference-section-notes:link-kinds"]`,
-      ),
+      document.querySelector(`[data-testid="reference-section-notes:link-kinds"]`),
     ).not.toBeNull();
   });
 
@@ -142,14 +127,10 @@ describe("ReferencePanel", () => {
     fireEvent.input(input, { target: { value: "demo" } });
 
     // demo block still matches.
-    expect(
-      document.querySelector(`[data-testid="reference-section-block:demo"]`),
-    ).not.toBeNull();
+    expect(document.querySelector(`[data-testid="reference-section-block:demo"]`)).not.toBeNull();
     // The wiki-link sections don't mention "demo" — they should drop out.
     expect(
-      document.querySelector(
-        `[data-testid="reference-section-notes:wiki-link-syntax"]`,
-      ),
+      document.querySelector(`[data-testid="reference-section-notes:wiki-link-syntax"]`),
     ).toBeNull();
   });
 
@@ -164,9 +145,7 @@ describe("ReferencePanel", () => {
     const demoSection = document.querySelector(
       `[data-testid="reference-section-block:demo"]`,
     ) as HTMLElement;
-    fireEvent.click(
-      within(demoSection).getByRole("button", { name: /insert at cursor/i }),
-    );
+    fireEvent.click(within(demoSection).getByRole("button", { name: /insert at cursor/i }));
     expect(inserted.length).toBe(1);
     expect(inserted[0]).toMatch(/^```demo example/);
   });
@@ -181,9 +160,7 @@ describe("ReferencePanel", () => {
     const section = document.querySelector(
       `[data-testid="reference-section-block:demo"]`,
     ) as HTMLElement;
-    fireEvent.click(
-      within(section).getByRole("button", { name: /show fields/i }),
-    );
+    fireEvent.click(within(section).getByRole("button", { name: /show fields/i }));
     // After expansion the field list renders as a <ul>. We assert the
     // path codes, type strings, and the enum option both appear; layout
     // (table vs. list) isn't part of the contract.

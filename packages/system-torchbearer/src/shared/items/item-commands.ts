@@ -15,14 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  ok,
-  z,
-  type EventInstance,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, ok, z, type EventInstance } from "@vtt/substrate";
 import { ItemBundle, ItemCatalogIndex, ItemForked } from "@vtt/items/shared";
 import { TbBodySlotSchema, TbEquipChannel } from "./body-slots.js";
 import {
@@ -35,11 +28,7 @@ import {
   ItemRemovedFromGround,
   ItemUnequipped,
 } from "./item-events.js";
-import {
-  ItemPosition,
-  TbCarries,
-  TbContainer,
-} from "./item-traits.js";
+import { ItemPosition, TbCarries, TbContainer } from "./item-traits.js";
 import { TbScroll, TbSpellBook } from "../spells/spell-traits.js";
 import { checkPlacementKind } from "./capacity.js";
 
@@ -341,9 +330,7 @@ export const PlaceOnGround = defineCommand({
       isCatalogEntity(world, cmd.itemId)
     ) {
       finalId = world.allocateId();
-      events.push(
-        ItemForked({ sourceItemId: cmd.itemId, newItemId: finalId }),
-      );
+      events.push(ItemForked({ sourceItemId: cmd.itemId, newItemId: finalId }));
     }
     events.push(
       ItemPlacedOnGround({
@@ -463,10 +450,7 @@ export const UnequipItem = defineCommand({
  * Used by the auto-fork rule on EquipItem (catalog containers
  * fork; non-catalog containers don't).
  */
-function isCatalogEntity(
-  world: import("@vtt/substrate").World,
-  itemId: string,
-): boolean {
+function isCatalogEntity(world: import("@vtt/substrate").World, itemId: string): boolean {
   for (const row of world.query([ItemCatalogIndex])) {
     const v = row.values.ItemCatalogIndex as { entries: Record<string, string> };
     for (const id of Object.values(v.entries)) {

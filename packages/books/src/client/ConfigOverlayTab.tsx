@@ -68,9 +68,7 @@ function ConfigTabBody(props: { bookId: string }): JSX.Element {
   // upload). Sorted priority desc, label asc — matching the dock's
   // tab ordering convention so authoring two slots feels consistent.
   const sections = createMemo<BookConfigSection[]>(() => {
-    const fills = client.registry.fillsForSlot(
-      BookConfigSectionsSlot,
-    ) as BookConfigSection[];
+    const fills = client.registry.fillsForSlot(BookConfigSectionsSlot) as BookConfigSection[];
     return [...fills].sort((a, b) => {
       const pa = a.priority ?? 0;
       const pb = b.priority ?? 0;
@@ -80,25 +78,16 @@ function ConfigTabBody(props: { bookId: string }): JSX.Element {
   });
 
   return (
-    <Show
-      when={book()}
-      fallback={<div class="text-xs text-fg-subtle">no book loaded</div>}
-    >
+    <Show when={book()} fallback={<div class="text-xs text-fg-subtle">no book loaded</div>}>
       {(b) => (
         <div class="flex h-full flex-col gap-5 overflow-y-auto">
           <Section label="Name">
-            <NameField
-              value={b().name}
-              disabled={!isGm()}
-              onCommit={(name) => update({ name })}
-            />
+            <NameField value={b().name} disabled={!isGm()} onCommit={(name) => update({ name })} />
           </Section>
           {/* Slot-filled sections (PDF upload, future projection
               settings). Each section renders its own labeled
               wrapper. */}
-          <For each={sections()}>
-            {(s) => s.render({ bookId: props.bookId }) as JSX.Element}
-          </For>
+          <For each={sections()}>{(s) => s.render({ bookId: props.bookId }) as JSX.Element}</For>
         </div>
       )}
     </Show>

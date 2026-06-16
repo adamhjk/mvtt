@@ -74,7 +74,10 @@ export function AuthGate(props: { onAuthenticated: () => void }) {
   return (
     <div class="grid min-h-screen place-items-center bg-surface px-4">
       <div class="w-full max-w-sm rounded-(--radius-card) border border-border bg-surface-elevated p-6 shadow-sm">
-        <Show when={hasGM.state === "ready"} fallback={<p class="text-sm text-fg-muted">loading…</p>}>
+        <Show
+          when={hasGM.state === "ready"}
+          fallback={<p class="text-sm text-fg-muted">loading…</p>}
+        >
           <Switch>
             <Match when={effective() === "bootstrap"}>
               <header class="mb-4">
@@ -93,7 +96,9 @@ export function AuthGate(props: { onAuthenticated: () => void }) {
             </Match>
             <Match when={effective() === "signup"}>
               <header class="mb-4">
-                <h1 class="text-lg font-semibold tracking-tight text-fg">Create a Player account</h1>
+                <h1 class="text-lg font-semibold tracking-tight text-fg">
+                  Create a Player account
+                </h1>
                 <p class="mt-1 text-xs text-fg-muted">Join an existing session as a player.</p>
               </header>
             </Match>
@@ -142,9 +147,7 @@ export function AuthGate(props: { onAuthenticated: () => void }) {
                 <Match when={effective() === "bootstrap"}>
                   {busy() ? "Creating GM…" : "Create Game Master"}
                 </Match>
-                <Match when={effective() === "signin"}>
-                  {busy() ? "Signing in…" : "Sign in"}
-                </Match>
+                <Match when={effective() === "signin"}>{busy() ? "Signing in…" : "Sign in"}</Match>
                 <Match when={effective() === "signup"}>
                   {busy() ? "Creating account…" : "Create account"}
                 </Match>

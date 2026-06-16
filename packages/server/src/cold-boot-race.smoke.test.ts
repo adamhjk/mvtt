@@ -18,11 +18,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import WebSocket from "ws";
 import { startServer, type ServerHandle } from "@vtt/substrate/server";
-import {
-  definePlugin,
-  InMemoryWorldsRepository,
-  type PersistenceAdapter,
-} from "@vtt/substrate";
+import { definePlugin, InMemoryWorldsRepository, type PersistenceAdapter } from "@vtt/substrate";
 import { Ping, PingReceived, Pong } from "@vtt/ping/shared";
 import { PongRecordingSystem } from "@vtt/ping/server";
 import { shellDefault } from "@vtt/shell-default";
@@ -76,8 +72,17 @@ function slowMemoryPersistence(delayMs: number): PersistenceAdapter {
   };
 }
 
-interface AckMsg { kind: "ack"; commandId: string; ok: boolean; reason?: string }
-interface EventMsg { kind: "event"; seq: number; event: { type: string; payload: unknown } }
+interface AckMsg {
+  kind: "ack";
+  commandId: string;
+  ok: boolean;
+  reason?: string;
+}
+interface EventMsg {
+  kind: "event";
+  seq: number;
+  event: { type: string; payload: unknown };
+}
 type Msg = AckMsg | EventMsg | { kind: "hello" | "snapshot" | "synced" | "presence" };
 
 describe("cold-boot race wire smoke", () => {
@@ -147,8 +152,7 @@ describe("cold-boot race wire smoke", () => {
     expect(acks[0]!.ok).toBe(true);
 
     const pingEvents = messages.filter(
-      (m): m is EventMsg =>
-        m.kind === "event" && m.event?.type === PingReceived.name,
+      (m): m is EventMsg => m.kind === "event" && m.event?.type === PingReceived.name,
     );
     expect(pingEvents).toHaveLength(1);
 

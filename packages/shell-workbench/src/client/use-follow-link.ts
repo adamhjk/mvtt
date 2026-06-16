@@ -17,11 +17,7 @@
 
 import type { CommandInstance, EntityId, QualifiedName } from "@vtt/substrate";
 import { useClient } from "@vtt/substrate/client";
-import {
-  OpenPage,
-  OpenPageAsSplit,
-  OpenPageInNewTab,
-} from "../shared/index.js";
+import { OpenPage, OpenPageAsSplit, OpenPageInNewTab } from "../shared/index.js";
 
 /**
  * The verb a click resolves to. Picked from keyboard modifiers by

@@ -43,9 +43,7 @@ export interface SpeakAsOption {
  * the underlying `Character` trait — keeping the shared state here
  * avoids a cycle.
  */
-const [activeSpeakerId, setActiveSpeakerId] = createSignal<string | null>(
-  null,
-);
+const [activeSpeakerId, setActiveSpeakerId] = createSignal<string | null>(null);
 
 export { activeSpeakerId, setActiveSpeakerId };
 
@@ -76,9 +74,7 @@ export function useSpeakAsOptions(): Accessor<SpeakAsOption[]> {
     const mine: SpeakAsOption[] = [];
     for (const row of rows()) {
       const c = row.values.Character as { name: string };
-      const perm = row.values.Permissions as
-        | Parameters<typeof canWrite>[1]
-        | undefined;
+      const perm = row.values.Permissions as Parameters<typeof canWrite>[1] | undefined;
       if (!canWrite(m, perm)) continue;
       mine.push({ characterId: row.id, label: c.name });
     }

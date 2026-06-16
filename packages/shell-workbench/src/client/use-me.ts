@@ -37,9 +37,7 @@ export function useMe(): Accessor<MeInfo | null> {
     const list = players();
     const cid = client.clientId();
     if (!cid) return null;
-    const found = list.find(
-      (p) => (p.values.Online as { clientId: string }).clientId === cid,
-    );
+    const found = list.find((p) => (p.values.Online as { clientId: string }).clientId === cid);
     if (!found) return null;
     const id = found.values.Identity as { userId: string; role: string };
     const nm = (found.values as { Name?: { value: string } }).Name;

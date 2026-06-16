@@ -29,11 +29,7 @@ import { DiceTrayDrawer } from "./client/DiceTrayDrawer.js";
 export const diceTray = definePlugin({
   name: "@vtt/dice-tray",
   version: "0.1.0",
-  dependsOn: [
-    "@vtt/substrate@^0",
-    "@vtt/shell-workbench@^0",
-    "@vtt/resolution@^0",
-  ],
+  dependsOn: ["@vtt/substrate@^0", "@vtt/shell-workbench@^0", "@vtt/resolution@^0"],
   fills: {
     [WorkbenchDrawersSlot.name]: [DiceTrayDrawer],
   },

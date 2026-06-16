@@ -16,13 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  CommandPipeline,
-  definePlugin,
-  EventBus,
-  Registry,
-  World,
-} from "@vtt/substrate";
+import { CommandPipeline, definePlugin, EventBus, Registry, World } from "@vtt/substrate";
 import { items } from "@vtt/items";
 import { ItemIdentity, runCatalogMerge } from "@vtt/items/shared";
 import {
@@ -76,22 +70,8 @@ const tbItemsTestPlugin = definePlugin({
     TbCarries,
     ItemPosition,
   ],
-  events: [
-    ItemEquipped,
-    ItemMoved,
-    EntryStateChanged,
-    ItemDropped,
-    ItemPickedUp,
-    ItemUnequipped,
-  ],
-  commands: [
-    EquipItem,
-    MoveItem,
-    SetEntryState,
-    DropItem,
-    PickUpItem,
-    UnequipItem,
-  ],
+  events: [ItemEquipped, ItemMoved, EntryStateChanged, ItemDropped, ItemPickedUp, ItemUnequipped],
+  commands: [EquipItem, MoveItem, SetEntryState, DropItem, PickUpItem, UnequipItem],
   systems: [
     TbItemEquipSystem,
     TbItemMoveSystem,
@@ -281,9 +261,7 @@ describe("@vtt/system-torchbearer items", () => {
           slotsConsumed: 1,
         }),
       });
-      const filler = setup.world.spawn([
-        TbItemSlotOptions({ options: { torso: 1 } }),
-      ]);
+      const filler = setup.world.spawn([TbItemSlotOptions({ options: { torso: 1 } })]);
       const res = await setup.pipeline.dispatch({
         id: "e3",
         issuedBy: "alice",
@@ -536,9 +514,7 @@ describe("@vtt/system-torchbearer items", () => {
           entries: Array<{ slot: string; state?: { lit?: boolean } }>;
         };
       };
-      expect(after.TbCarries.entries[1]!.slot).toBe(
-        `container:${backpackInstanceId}`,
-      );
+      expect(after.TbCarries.entries[1]!.slot).toBe(`container:${backpackInstanceId}`);
       expect(after.TbCarries.entries[1]!.state?.lit).toBe(false);
     });
 
@@ -784,9 +760,7 @@ describe("@vtt/system-torchbearer items", () => {
       // Bootstrap a TbCarries on the backpack with a fake "arrows" entry.
       // (We don't have a real arrows-template, but contents-on-container
       // is the only thing under test here.)
-      const arrowId = setup.world.spawn([
-        TbItemSlotOptions({ options: { pack: 1 } }),
-      ]);
+      const arrowId = setup.world.spawn([TbItemSlotOptions({ options: { pack: 1 } })]);
       setup.world.set(forkedBackpackId, TbCarries, {
         entries: [
           {
@@ -992,9 +966,7 @@ describe("@vtt/system-torchbearer items", () => {
     it("loose:<n> entries don't count toward body-slot capacity", async () => {
       // A "loose" item is staged on the character without a body
       // placement — it should not eat torso/handR/etc. capacity.
-      const filler = setup.world.spawn([
-        TbItemSlotOptions({ options: { torso: 1 } }),
-      ]);
+      const filler = setup.world.spawn([TbItemSlotOptions({ options: { torso: 1 } })]);
       setup.world.set(setup.characterId, TbCarries, {
         entries: [
           {
@@ -1038,9 +1010,7 @@ describe("@vtt/system-torchbearer items", () => {
       // Manually pack 6 mock items.
       const fillerEntries = [];
       for (let i = 0; i < 6; i++) {
-        const filler = setup.world.spawn([
-          TbItemSlotOptions({ options: { pack: 1 } }),
-        ]);
+        const filler = setup.world.spawn([TbItemSlotOptions({ options: { pack: 1 } })]);
         fillerEntries.push({
           slot: `container:${forkedBackpackId}`,
           slotIndex: i,

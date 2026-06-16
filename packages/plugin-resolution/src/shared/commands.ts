@@ -15,14 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  ok,
-  withVisibility,
-  z,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, ok, withVisibility, z } from "@vtt/substrate";
 import { DiceRoll } from "@dice-roller/rpg-dice-roller";
 import { requireSession } from "@vtt/identity/shared";
 import { actors, everyone, gmOnly, requireWrite } from "@vtt/permissions/shared";
@@ -42,9 +35,7 @@ import { RollResolved, type DieOutcome } from "./events.js";
  * appear in the result tree as plain numbers/strings, which the
  * extractor below skips.
  */
-function diceTokensFromNotation(
-  notation: string,
-): Array<{ qty: number; sides: number | "F" }> {
+function diceTokensFromNotation(notation: string): Array<{ qty: number; sides: number | "F" }> {
   const out: Array<{ qty: number; sides: number | "F" }> = [];
   // Match groups of the form `[qty]d{sides}` where sides is a positive
   // integer, `F` (Fudge), or `%` (percentile, equivalent to 100).
@@ -54,11 +45,7 @@ function diceTokensFromNotation(
     const qty = m[1] ? parseInt(m[1], 10) : 1;
     const sidesTok = m[2]!;
     const sides: number | "F" =
-      sidesTok === "F"
-        ? "F"
-        : sidesTok === "%"
-          ? 100
-          : parseInt(sidesTok, 10);
+      sidesTok === "F" ? "F" : sidesTok === "%" ? 100 : parseInt(sidesTok, 10);
     out.push({ qty, sides });
   }
   return out;
@@ -155,9 +142,7 @@ export const RequestRoll = defineCommand({
       // eslint-disable-next-line no-new
       new DiceRoll(ctx.cmd.notation);
     } catch (e) {
-      return fail(
-        `invalid notation ${JSON.stringify(ctx.cmd.notation)}: ${(e as Error).message}`,
-      );
+      return fail(`invalid notation ${JSON.stringify(ctx.cmd.notation)}: ${(e as Error).message}`);
     }
     const speakerId = ctx.cmd.speakingAsCharacterId;
     if (speakerId !== undefined) {

@@ -27,17 +27,11 @@ import {
 } from "@vtt/notes/shared";
 import { Permissions, everyone, ownedBy } from "@vtt/permissions/shared";
 import { Asset } from "@vtt/assets/shared";
-import {
-  BLOCK_ENTITY_INDEX_ID,
-  BlockEntityIndex,
-} from "../shared/traits.js";
+import { BLOCK_ENTITY_INDEX_ID, BlockEntityIndex } from "../shared/traits.js";
 import { AdventureProvenance } from "../shared/traits.js";
 import { scanFencedBlocks } from "../shared/parse-blocks.js";
 import { runBlockParse } from "./block-parse-system.js";
-import {
-  buildBlockKindIndex,
-  type BlockKindIndex,
-} from "../shared/block-kinds.js";
+import { buildBlockKindIndex, type BlockKindIndex } from "../shared/block-kinds.js";
 
 /**
  * Manifest carried at the top of every `.advt` bundle. `bundleId` is
@@ -199,9 +193,7 @@ export interface BuildBundleOptions {
    * references in note bodies and includes the bytes in the bundle.
    * Returns null when the asset is missing or unreadable.
    */
-  readonly loadAssetBytes?: (
-    assetId: EntityId,
-  ) => Uint8Array | null | Promise<Uint8Array | null>;
+  readonly loadAssetBytes?: (assetId: EntityId) => Uint8Array | null | Promise<Uint8Array | null>;
   /**
    * When true, run `computeReferenceClosure` and synthesize fenced
    * blocks for uncoverable entities (manually-created via UI, no
@@ -360,26 +352,17 @@ export async function buildBundle(
  * shapes. Returns the block strings ready to concatenate into a note
  * body.
  */
-function synthesizeCapturedBlocks(
-  world: World,
-  entityIds: ReadonlyArray<EntityId>,
-): string[] {
+function synthesizeCapturedBlocks(world: World, entityIds: ReadonlyArray<EntityId>): string[] {
   const out: string[] = [];
   for (const eid of entityIds) {
     const traits = world.traitsOn(eid);
     // Detect the entity's "kind" by trait composition.
-    const isCharacter = Array.from(traits.keys()).some(
-      (n) => n === "@vtt/characters/Character",
-    );
-    const isItem = Array.from(traits.keys()).some(
-      (n) => n === "@vtt/items/ItemIdentity",
-    );
+    const isCharacter = Array.from(traits.keys()).some((n) => n === "@vtt/characters/Character");
+    const isItem = Array.from(traits.keys()).some((n) => n === "@vtt/items/ItemIdentity");
     if (isItem) {
       const ident = traits.get(
         "@vtt/items/ItemIdentity" as unknown as import("@vtt/substrate").TraitName,
-      ) as
-        | { name: string; description: string }
-        | undefined;
+      ) as { name: string; description: string } | undefined;
       const name = ident?.name ?? eid;
       out.push(
         [
@@ -392,17 +375,9 @@ function synthesizeCapturedBlocks(
     } else if (isCharacter) {
       const ch = traits.get(
         "@vtt/characters/Character" as unknown as import("@vtt/substrate").TraitName,
-      ) as
-        | { name: string }
-        | undefined;
+      ) as { name: string } | undefined;
       const name = ch?.name ?? eid;
-      out.push(
-        [
-          `\`\`\`character ${name}`,
-          `# id: ${eid}`,
-          "```",
-        ].join("\n"),
-      );
+      out.push([`\`\`\`character ${name}`, `# id: ${eid}`, "```"].join("\n"));
     } else {
       // Unknown entity kind — emit a comment-only block so the GM
       // can manually fix it on the import side.
@@ -413,12 +388,14 @@ function synthesizeCapturedBlocks(
 }
 
 function slugForPath(title: string): string {
-  return title
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "untitled";
+  return (
+    title
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "untitled"
+  );
 }
 
 /**
@@ -565,10 +542,7 @@ function resolveRefToEntity(
   // intersection. This is the same shape StartEncounter / AwardLoot
   // already use.
   const target = body.toLowerCase();
-  for (const traitName of [
-    "@vtt/items/ItemIdentity",
-    "@vtt/characters/Character",
-  ]) {
+  for (const traitName of ["@vtt/items/ItemIdentity", "@vtt/characters/Character"]) {
     const trait = { name: traitName } as unknown as import("@vtt/substrate").TraitMeta;
     let rows: ReturnType<World["query"]>;
     try {
@@ -577,9 +551,7 @@ function resolveRefToEntity(
       continue;
     }
     for (const row of rows) {
-      const v = (row.values as Record<string, { name?: string }>)[
-        traitName.split("/").pop()!
-      ];
+      const v = (row.values as Record<string, { name?: string }>)[traitName.split("/").pop()!];
       if (v?.name && v.name.toLowerCase() === target) return row.id;
     }
   }
@@ -591,11 +563,7 @@ function isSystemSeeded(world: World, entityId: EntityId): boolean {
   for (const [traitName, value] of traits.entries()) {
     if (traitName.endsWith("DerivedFrom") || traitName.endsWith("/ItemDerivedFrom")) {
       const v = value as { pluginName?: string; overrides?: ReadonlyArray<string> };
-      if (
-        v.pluginName &&
-        v.pluginName !== "@vtt/adventures" &&
-        (v.overrides?.length ?? 0) === 0
-      ) {
+      if (v.pluginName && v.pluginName !== "@vtt/adventures" && (v.overrides?.length ?? 0) === 0) {
         return true;
       }
     }

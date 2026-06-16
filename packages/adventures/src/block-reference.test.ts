@@ -16,13 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { describe, it, expect } from "vitest";
-import {
-  definePlugin,
-  defineTrait,
-  Registry,
-  World,
-  z,
-} from "@vtt/substrate";
+import { definePlugin, defineTrait, Registry, World, z } from "@vtt/substrate";
 import { permissions } from "@vtt/permissions";
 import {
   BelongsToNote,
@@ -33,11 +27,7 @@ import {
   PageBodySet,
 } from "@vtt/notes/shared";
 import { adventures } from "./manifest.js";
-import {
-  BlockKindsSlot,
-  defineBlockKind,
-  wikiLink,
-} from "./shared/index.js";
+import { BlockKindsSlot, defineBlockKind, wikiLink } from "./shared/index.js";
 import { buildBlockReferenceSections } from "./shared/block-reference-provider.js";
 
 // A tiny stub for the notes plugin so the adventures plugin's
@@ -54,11 +44,7 @@ const notesStub = definePlugin({
   version: "0.1.0",
   traits: [Page, BelongsToNote, StubTrait],
   events: [PageBodySet],
-  slots: [
-    MarkdownPostRenderSlot,
-    EditorCompletionSourcesSlot,
-    NotesReferenceSlot,
-  ],
+  slots: [MarkdownPostRenderSlot, EditorCompletionSourcesSlot, NotesReferenceSlot],
 });
 
 const ItemSchema = z.object({
@@ -147,9 +133,7 @@ describe("buildBlockReferenceSections", () => {
     expect(byPath.weight!.type).toBe("integer (0–10)");
     expect(byPath.slot!.required).toBe(false);
     expect(byPath.carries!.type).toBe("array<wikilink:item>");
-    expect(byPath.description!.description).toBe(
-      "Free text shown on the chip",
-    );
+    expect(byPath.description!.description).toBe("Free text shown on the chip");
   });
 
   it("returns an empty list when no kinds are registered", () => {

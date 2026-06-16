@@ -17,14 +17,8 @@
 
 import type { CommandInstance } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
-import type {
-  ChatTimelineContributor,
-  ChatTimelineEntry,
-} from "@vtt/comms/shared";
-import type {
-  NotificationEntry,
-  NotificationFeed,
-} from "@vtt/shell-workbench/shared";
+import type { ChatTimelineContributor, ChatTimelineEntry } from "@vtt/comms/shared";
+import type { NotificationEntry, NotificationFeed } from "@vtt/shell-workbench/shared";
 import {
   ResolvedRollFeedSlot,
   type ResolvedRollEntry,
@@ -162,9 +156,7 @@ function OpportunityRow(props: { entityId: string }): JSX.Element {
           >
             <header class="flex items-baseline justify-between gap-2 pr-6 text-xs">
               <span class="font-medium text-fg">{r.characterName}</span>
-              <span class="text-[0.6rem] uppercase tracking-[0.16em] text-accent">
-                advancement
-              </span>
+              <span class="text-[0.6rem] uppercase tracking-[0.16em] text-accent">advancement</span>
             </header>
             <p class="mt-1 whitespace-pre-wrap break-words text-fg-muted">
               {`${r.characterName} improved at ${r.skillName}!`}
@@ -242,9 +234,7 @@ function AbilityOpportunityRow(props: { entityId: string }): JSX.Element {
           >
             <header class="flex items-baseline justify-between gap-2 pr-6 text-xs">
               <span class="font-medium text-fg">{r.characterName}</span>
-              <span class="text-[0.6rem] uppercase tracking-[0.16em] text-accent">
-                advancement
-              </span>
+              <span class="text-[0.6rem] uppercase tracking-[0.16em] text-accent">advancement</span>
             </header>
             <p class="mt-1 whitespace-pre-wrap break-words text-fg-muted">
               {`${r.characterName} improved their ${r.abilityLabel}!`}
@@ -325,9 +315,7 @@ function LearningOpportunityRow(props: { entityId: string }): JSX.Element {
           >
             <header class="flex items-baseline justify-between gap-2 pr-6 text-xs">
               <span class="font-medium text-fg">{r.characterName}</span>
-              <span class="text-[0.6rem] uppercase tracking-[0.16em] text-accent">
-                learning
-              </span>
+              <span class="text-[0.6rem] uppercase tracking-[0.16em] text-accent">learning</span>
             </header>
             <p class="mt-1 whitespace-pre-wrap break-words text-fg-muted">
               {`${r.characterName} learned ${r.skillName}!`}
@@ -397,9 +385,7 @@ function LightWentOutCard(props: { entityId: string }): JSX.Element {
       }
     | undefined;
   const remove = (): void => {
-    client.dispatch(
-      DismissLightWentOut({ noticeId: props.entityId }) as CommandInstance,
-    );
+    client.dispatch(DismissLightWentOut({ noticeId: props.entityId }) as CommandInstance);
   };
   return (
     <Show when={notice()} keyed>
@@ -579,9 +565,7 @@ function tbOriginOf(formula: unknown): string | null {
   const meta = (formula as { meta?: unknown } | undefined)?.meta as
     | { originPendingRollId?: unknown }
     | undefined;
-  return typeof meta?.originPendingRollId === "string"
-    ? meta.originPendingRollId
-    : null;
+  return typeof meta?.originPendingRollId === "string" ? meta.originPendingRollId : null;
 }
 
 export const TbRollChatTimelineContributor: ChatTimelineContributor = {

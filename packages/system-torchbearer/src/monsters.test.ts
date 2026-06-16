@@ -16,13 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  CommandPipeline,
-  definePlugin,
-  EventBus,
-  Registry,
-  World,
-} from "@vtt/substrate";
+import { CommandPipeline, definePlugin, EventBus, Registry, World } from "@vtt/substrate";
 import { items } from "@vtt/items";
 import { Character, Team } from "@vtt/characters/shared";
 import { Permissions } from "@vtt/permissions/shared";
@@ -71,10 +65,7 @@ import {
   TbSupply,
   TbWeapon,
 } from "./shared/items/item-traits.js";
-import {
-  MonsterRemovalSystem,
-  MonsterSpawningSystem,
-} from "./server/monster-systems.js";
+import { MonsterRemovalSystem, MonsterSpawningSystem } from "./server/monster-systems.js";
 import { tbSeed } from "./data/seed.js";
 
 /**
@@ -156,11 +147,7 @@ function makeSetup(): Setup {
 
 type AnyCmd = Parameters<CommandPipeline["dispatch"]>[0]["cmd"];
 
-function dispatchAsGm(
-  s: Setup,
-  cmd: AnyCmd,
-  id = "c1",
-): ReturnType<CommandPipeline["dispatch"]> {
+function dispatchAsGm(s: Setup, cmd: AnyCmd, id = "c1"): ReturnType<CommandPipeline["dispatch"]> {
   return s.pipeline.dispatch({
     id,
     issuedBy: GM_USER,
@@ -230,9 +217,7 @@ describe("@vtt/system-torchbearer monsters", () => {
         | { Character: { name: string } }
         | undefined;
       expect(character?.Character.name).toBe("Vampire Lord");
-      const team = setup.world.get(monsterId, [Team]) as
-        | { Team: { kind: string } }
-        | undefined;
+      const team = setup.world.get(monsterId, [Team]) as { Team: { kind: string } } | undefined;
       expect(team?.Team.kind).toBe("enemy");
       const monster = setup.world.get(monsterId, [TbMonster]) as
         | {
@@ -395,9 +380,7 @@ describe("@vtt/system-torchbearer monsters", () => {
         | undefined;
       // Short Sword applies to all three of kill/capture/driveOff
       // (printed K, Cap, D/O row).
-      const shortSword = weapons!.TbMonsterWeapons.entries.find(
-        (w) => w.name === "Short Sword",
-      );
+      const shortSword = weapons!.TbMonsterWeapons.entries.find((w) => w.name === "Short Sword");
       expect(shortSword).toBeDefined();
       expect(shortSword!.conflicts).toEqual(
         expect.arrayContaining(["kill", "capture", "driveOff"]),
@@ -475,14 +458,10 @@ describe("@vtt/system-torchbearer monsters", () => {
         | { TbCarries: { entries: { itemId: string; slot: string }[] } }
         | undefined;
       // Armor + one entry per monstrous weapon (Vampire Lord has 7).
-      const armorEntries = carries?.TbCarries.entries.filter(
-        (e) => e.slot === "torso",
-      );
+      const armorEntries = carries?.TbCarries.entries.filter((e) => e.slot === "torso");
       expect(armorEntries).toHaveLength(1);
       expect(armorEntries![0]!.itemId).toBe(byrnieId);
-      const weaponEntries = carries?.TbCarries.entries.filter((e) =>
-        e.slot.startsWith("loose:"),
-      );
+      const weaponEntries = carries?.TbCarries.entries.filter((e) => e.slot.startsWith("loose:"));
       expect(weaponEntries).toHaveLength(7);
     });
 
@@ -496,9 +475,7 @@ describe("@vtt/system-torchbearer monsters", () => {
       const carries = setup.world.get(monsterId, [TbCarries]) as
         | { TbCarries: { entries: { itemId: string; slot: string }[] } }
         | undefined;
-      const weaponEntries = carries!.TbCarries.entries.filter((e) =>
-        e.slot.startsWith("loose:"),
-      );
+      const weaponEntries = carries!.TbCarries.entries.filter((e) => e.slot.startsWith("loose:"));
       // Pick the first weapon entry (Hideous Bite, +1s Attack).
       const hideousBiteId = weaponEntries[0]!.itemId;
       const ident = setup.world.get(hideousBiteId as never, [ItemIdentity]) as
@@ -519,9 +496,7 @@ describe("@vtt/system-torchbearer monsters", () => {
         type: "success",
         value: 1,
       });
-      const cr = setup.world.get(hideousBiteId as never, [
-        TbConflictResource,
-      ]) as
+      const cr = setup.world.get(hideousBiteId as never, [TbConflictResource]) as
         | {
             TbConflictResource: {
               applicableConflicts: string[];
@@ -549,23 +524,16 @@ describe("@vtt/system-torchbearer monsters", () => {
         | { TbCarries: { entries: { itemId: string; slot: string }[] } }
         | undefined;
       expect(carries).toBeDefined();
-      const torsoEntries = carries!.TbCarries.entries.filter(
-        (e) => e.slot === "torso",
-      );
+      const torsoEntries = carries!.TbCarries.entries.filter((e) => e.slot === "torso");
       expect(torsoEntries).toHaveLength(0);
-      const looseEntries = carries!.TbCarries.entries.filter((e) =>
-        e.slot.startsWith("loose:"),
-      );
+      const looseEntries = carries!.TbCarries.entries.filter((e) => e.slot.startsWith("loose:"));
       expect(looseEntries).toHaveLength(7);
     });
   });
 
   describe("CreateBlankMonster", () => {
     it("spawns a minimal monster the GM can edit later", async () => {
-      const res = await dispatchAsGm(
-        setup,
-        CreateBlankMonster({ name: "Cinderclaw" }),
-      );
+      const res = await dispatchAsGm(setup, CreateBlankMonster({ name: "Cinderclaw" }));
       expect(res.result.ok).toBe(true);
       const monsterId = setup.world.query([Character, TbMonster])[0]!.id;
       const character = setup.world.get(monsterId, [Character]) as
@@ -596,10 +564,7 @@ describe("@vtt/system-torchbearer monsters", () => {
     });
 
     it("rejects from non-GM session", async () => {
-      const res = await dispatchAsPlayer(
-        setup,
-        CreateBlankMonster({ name: "Cinderclaw" }),
-      );
+      const res = await dispatchAsPlayer(setup, CreateBlankMonster({ name: "Cinderclaw" }));
       expect(res.result.ok).toBe(false);
     });
   });
@@ -613,12 +578,8 @@ describe("@vtt/system-torchbearer monsters", () => {
       // assertion: import the rollable directly + register the
       // resolution-side traits its compute reads.
       const { NatureCheck } = await import("./shared/rollables.js");
-      const { Heroic, RawAbilities, Conditions } = await import(
-        "./shared/traits.js"
-      );
-      const { Character: _Char, Team: _Team } = await import(
-        "@vtt/characters/shared"
-      );
+      const { Heroic, RawAbilities, Conditions } = await import("./shared/traits.js");
+      const { Character: _Char, Team: _Team } = await import("@vtt/characters/shared");
       void _Char;
       void _Team;
       const { definePlugin: dp } = await import("@vtt/substrate");
@@ -632,12 +593,7 @@ describe("@vtt/system-torchbearer monsters", () => {
             version: "0",
             dependsOn: ["@vtt/items@^0"],
             gameSystem: true,
-            traits: [
-              Conditions,
-              Heroic,
-              RawAbilities,
-              ...monstersTestPlugin.traits,
-            ].filter(
+            traits: [Conditions, Heroic, RawAbilities, ...monstersTestPlugin.traits].filter(
               (t, i, arr) => arr.findIndex((x) => x.name === t.name) === i,
             ),
             events: monstersTestPlugin.events,
@@ -658,11 +614,7 @@ describe("@vtt/system-torchbearer monsters", () => {
         CreateMonsterFromCatalog({ templateId: "tb/monster/vampire-lord" }),
       );
       const monsterId = richSetup.world.query([Character, TbMonster])[0]!.id;
-      const result = invokeRollable(
-        NatureCheck,
-        richSetup.world,
-        monsterId,
-      );
+      const result = invokeRollable(NatureCheck, richSetup.world, monsterId);
       // Non-null means every input trait resolved (Heroic added by
       // the spawn system; the rest by the monster traits). The
       // pending-roll panel uses the same input-resolution path, so
@@ -743,11 +695,7 @@ describe("@vtt/system-torchbearer monsters", () => {
         CreateMonsterFromCatalog({ templateId: "tb/monster/vampire-lord" }),
       );
       const monsterId = setup.world.query([Character, TbMonster])[0]!.id;
-      const res = await dispatchAsGm(
-        setup,
-        RemoveMonster({ monsterId }),
-        "c2",
-      );
+      const res = await dispatchAsGm(setup, RemoveMonster({ monsterId }), "c2");
       expect(res.result.ok).toBe(true);
       expect(setup.world.has(monsterId)).toBe(false);
     });

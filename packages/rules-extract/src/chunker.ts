@@ -103,9 +103,7 @@ function buildChunksFromOutline(args: {
     for (const sub of subSections) {
       const body = collapseWhitespace(sub.body);
       if (body.length === 0) continue;
-      const headingPath = sub.subHeading
-        ? [...here.headingPath, sub.subHeading]
-        : here.headingPath;
+      const headingPath = sub.subHeading ? [...here.headingPath, sub.subHeading] : here.headingPath;
       pushChunkOrSplit(chunks, {
         headingPath,
         pdfPage: sub.startPage,
@@ -337,11 +335,9 @@ function buildChunksFromFontSizes(args: {
         bufStartPage = page.pdfPage;
       } else if (avgSize >= h3) {
         flush();
-        headingPath = [
-          headingPath[0] ?? "",
-          headingPath[1] ?? "",
-          text.trim(),
-        ].filter((s) => s.length > 0);
+        headingPath = [headingPath[0] ?? "", headingPath[1] ?? "", text.trim()].filter(
+          (s) => s.length > 0,
+        );
         bufStartPage = page.pdfPage;
       } else {
         // Body text line. Append to current chunk buffer.
@@ -394,7 +390,9 @@ function pushChunkOrSplit(
   const cap = profile.chunkSizeTokens;
   const tokens = approxTokens(body);
   if (tokens <= cap) {
-    out.push(makeChunk({ headingPath, pdfPage, pdfPageEnd, body, pageMap, imagesByPage, corpusKey }));
+    out.push(
+      makeChunk({ headingPath, pdfPage, pdfPageEnd, body, pageMap, imagesByPage, corpusKey }),
+    );
     return;
   }
   // Over-cap: split on paragraph boundaries.
@@ -451,8 +449,7 @@ function makeChunk(args: {
   const { headingPath, pdfPage, pdfPageEnd, body, pageMap, imagesByPage, corpusKey } = args;
   const tokens = approxTokens(body);
   const printedPage = pageMap.get(pdfPage) ?? null;
-  const printedPageEnd =
-    pdfPageEnd !== null ? (pageMap.get(pdfPageEnd) ?? null) : null;
+  const printedPageEnd = pdfPageEnd !== null ? (pageMap.get(pdfPageEnd) ?? null) : null;
   const imageRefs: string[] = [];
   const startP = pdfPage;
   const endP = pdfPageEnd ?? pdfPage;
@@ -489,17 +486,19 @@ function dehyphenate(s: string): string {
 
 /** Normalise whitespace: trim, collapse runs, preserve paragraph breaks. */
 function collapseWhitespace(s: string): string {
-  return s
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n[ \t]+/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    // Strip DriveThruRPG-style per-purchase watermarks. Most TTRPG PDFs
-    // we'll process come from DTRPG and carry "<Buyer Name> (Order #N)"
-    // on every page; this drops the order ref and the immediately
-    // preceding capitalised name run.
-    .replace(/\b[A-Z][\p{L}'-]+(?:\s+[A-Z][\p{L}'-]+)*\s*\(Order\s*#\d+\)/gu, "")
-    .replace(/\(Order\s*#\d+\)/g, "")
-    .trim();
+  return (
+    s
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n[ \t]+/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      // Strip DriveThruRPG-style per-purchase watermarks. Most TTRPG PDFs
+      // we'll process come from DTRPG and carry "<Buyer Name> (Order #N)"
+      // on every page; this drops the order ref and the immediately
+      // preceding capitalised name run.
+      .replace(/\b[A-Z][\p{L}'-]+(?:\s+[A-Z][\p{L}'-]+)*\s*\(Order\s*#\d+\)/gu, "")
+      .replace(/\(Order\s*#\d+\)/g, "")
+      .trim()
+  );
 }
 
 /** Cheap token estimate: chars/4 for English-like text. */

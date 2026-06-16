@@ -69,9 +69,7 @@ export const SetSceneUiState = defineCommand({
     }),
   }),
   validate: () => ok(),
-  apply: ({ cmd }) => [
-    SceneUiStateChanged({ entityId: cmd.entityId, value: cmd.value }),
-  ],
+  apply: ({ cmd }) => [SceneUiStateChanged({ entityId: cmd.entityId, value: cmd.value })],
 });
 
 export const SceneUiStateMirror = defineSystem({

@@ -18,13 +18,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
 import { cleanup } from "@solidjs/testing-library";
-import {
-  defineSurface,
-  definePlugin,
-  defineView,
-  RootSurface,
-  z,
-} from "./index.js";
+import { defineSurface, definePlugin, defineView, RootSurface, z } from "./index.js";
 import { Surface } from "./client.js";
 import { buildTestClient, mountWithClient } from "./client-testing.js";
 
@@ -58,9 +52,7 @@ describe("Surface (single kind, fallthrough)", () => {
       views: [Hi, Lo],
     });
     const h = buildTestClient({ plugins: [plugin] });
-    const { container } = mountWithClient(h, () => (
-      <Surface name={TestSurface.name} />
-    ));
+    const { container } = mountWithClient(h, () => <Surface name={TestSurface.name} />);
     expect(container.querySelector("[data-testid='hi']")).not.toBeNull();
     expect(container.querySelector("[data-testid='lo']")).toBeNull();
   });
@@ -85,9 +77,7 @@ describe("Surface (single kind, fallthrough)", () => {
       views: [HiGate, Lo],
     });
     const h = buildTestClient({ plugins: [plugin] });
-    const { container } = mountWithClient(h, () => (
-      <Surface name={TestSurface.name} />
-    ));
+    const { container } = mountWithClient(h, () => <Surface name={TestSurface.name} />);
     expect(container.querySelector("[data-testid='lo']")).not.toBeNull();
   });
 
@@ -111,9 +101,7 @@ describe("Surface (single kind, fallthrough)", () => {
       views: [HiGate, LoGate],
     });
     const h = buildTestClient({ plugins: [plugin] });
-    const { container } = mountWithClient(h, () => (
-      <Surface name={TestSurface.name} />
-    ));
+    const { container } = mountWithClient(h, () => <Surface name={TestSurface.name} />);
     // Surface root exists but has no view-rendered children.
     expect(container.querySelector("[data-testid='lo']")).toBeNull();
     expect(container.querySelector("[data-testid='hi']")).toBeNull();
@@ -141,9 +129,7 @@ describe("Surface (single kind, fallthrough)", () => {
       views: [MobileGate, Workbench],
     });
     const h = buildTestClient({ plugins: [plugin] });
-    const { container } = mountWithClient(h, () => (
-      <Surface name={RootSurface.name} />
-    ));
+    const { container } = mountWithClient(h, () => <Surface name={RootSurface.name} />);
     expect(container.querySelector("[data-testid='workbench']")).not.toBeNull();
   });
 });

@@ -182,11 +182,7 @@ describe("link-kind registry", () => {
 
     it("resolves Note > Page > Heading by text", async () => {
       const { noteId, pageId } = await buildCave();
-      const ref = noteLinkKind.parse(
-        "Goblin Cave > Inhabitants > Tactics",
-        null,
-        world,
-      );
+      const ref = noteLinkKind.parse("Goblin Cave > Inhabitants > Tactics", null, world);
       expect(ref!.noteId).toBe(noteId);
       expect(ref!.pageId).toBe(pageId);
       expect(ref!.anchor).toMatch(/^hd:/);
@@ -194,14 +190,8 @@ describe("link-kind registry", () => {
 
     it("display renders Note › Page › Heading", async () => {
       await buildCave();
-      const ref = noteLinkKind.parse(
-        "Goblin Cave > Inhabitants > Tactics",
-        null,
-        world,
-      )!;
-      expect(noteLinkKind.display(ref, world)).toBe(
-        "Goblin Cave › Inhabitants › Tactics",
-      );
+      const ref = noteLinkKind.parse("Goblin Cave > Inhabitants > Tactics", null, world)!;
+      expect(noteLinkKind.display(ref, world)).toBe("Goblin Cave › Inhabitants › Tactics");
     });
 
     it("target points at the page when one is in the path", async () => {
@@ -212,11 +202,7 @@ describe("link-kind registry", () => {
 
     it("falls back to note when page in path doesn't resolve", async () => {
       const { noteId } = await buildCave();
-      const ref = noteLinkKind.parse(
-        "Goblin Cave > Phantom Page",
-        null,
-        world,
-      )!;
+      const ref = noteLinkKind.parse("Goblin Cave > Phantom Page", null, world)!;
       expect(ref.noteId).toBe(noteId);
       expect(ref.pageId).toBeNull();
       // Display drops the unresolved page segment.
@@ -236,41 +222,26 @@ describe("link-kind registry", () => {
 
     it("autocomplete after `Note > Page >` suggests headings", async () => {
       await buildCave();
-      const suggestions = noteLinkKind.autocomplete(
-        "Goblin Cave > Inhabitants > tact",
-        world,
-      );
+      const suggestions = noteLinkKind.autocomplete("Goblin Cave > Inhabitants > tact", world);
       expect(suggestions.length).toBe(1);
-      expect(suggestions[0]!.display).toBe(
-        "Goblin Cave › Inhabitants › Tactics",
-      );
+      expect(suggestions[0]!.display).toBe("Goblin Cave › Inhabitants › Tactics");
       // Heading body is the heading text, not the `hd:<slug>` id —
       // the parser's `resolveHeadingOnPage` handles text fallback.
-      expect(suggestions[0]!.body).toBe(
-        "Goblin Cave>Inhabitants>Tactics",
-      );
+      expect(suggestions[0]!.body).toBe("Goblin Cave>Inhabitants>Tactics");
     });
 
     it("rename Note > Page → display reflects the new page title", async () => {
       const { pageId } = await buildCave();
       const ref = noteLinkKind.parse("Goblin Cave > Inhabitants", null, world)!;
       expect(noteLinkKind.display(ref, world)).toBe("Goblin Cave › Inhabitants");
-      await dispatch(
-        pipeline,
-        RenamePage({ pageId, title: "Residents" }),
-        GM,
-      );
+      await dispatch(pipeline, RenamePage({ pageId, title: "Residents" }), GM);
       // The ref is still valid; display picks up the new page title.
       expect(noteLinkKind.display(ref, world)).toBe("Goblin Cave › Residents");
     });
 
     it("storage form note:e>e>hd:x parses round-trip", async () => {
       const { noteId, pageId } = await buildCave();
-      const ref = noteLinkKind.parse(
-        "Goblin Cave > Inhabitants > Tactics",
-        null,
-        world,
-      )!;
+      const ref = noteLinkKind.parse("Goblin Cave > Inhabitants > Tactics", null, world)!;
       const stored = `${noteId}>${pageId}>${ref.anchor}`;
       const reparsed = noteLinkKind.parse(stored, null, world);
       expect(reparsed).toEqual(ref);

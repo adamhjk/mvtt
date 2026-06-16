@@ -24,10 +24,10 @@ function Greeting(props) {
 }
 
 function App() {
-  const [name, setName] = createSignal('Ada');
+  const [name, setName] = createSignal("Ada");
   return (
     <>
-      <button onClick={() => setName('Lin')}>Change</button>
+      <button onClick={() => setName("Lin")}>Change</button>
       <Greeting name={name()} />
     </>
   );
@@ -37,10 +37,10 @@ function App() {
 If you genuinely need to pull several props apart while preserving reactivity (e.g. to forward a subset), use `splitProps`:
 
 ```tsx
-import { splitProps } from 'solid-js';
+import { splitProps } from "solid-js";
 
 function Greeting(props) {
-  const [local, others] = splitProps(props, ['name']);
+  const [local, others] = splitProps(props, ["name"]);
   return <p {...others}>Hello {local.name}!</p>;
 }
 ```
@@ -48,10 +48,10 @@ function Greeting(props) {
 And for default values, use `mergeProps` instead of `=` in a destructure:
 
 ```tsx
-import { mergeProps } from 'solid-js';
+import { mergeProps } from "solid-js";
 
 function Greeting(props) {
-  const merged = mergeProps({ name: 'Ada' }, props);
+  const merged = mergeProps({ name: "Ada" }, props);
   return <p>Hello {merged.name}!</p>;
 }
 ```

@@ -20,35 +20,21 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { buildTestClient } from "@vtt/substrate/client-testing";
 import { ClientProvider } from "@vtt/substrate/client";
-import {
-  definePlugin,
-  defineSlot,
-  defineSurface,
-  z,
-  type EntityId,
-} from "@vtt/substrate";
+import { definePlugin, defineSlot, defineSurface, z, type EntityId } from "@vtt/substrate";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { notes } from "@vtt/notes";
-import {
-  WorkspaceOwner,
-  WorkspaceState,
-} from "@vtt/shell-workbench/shared";
+import { WorkspaceOwner, WorkspaceState } from "@vtt/shell-workbench/shared";
 import { books } from "./manifest.js";
 import { BookCanonical } from "./shared/index.js";
-import {
-  __resetPendingBookNavForTests,
-  pendingBookNav,
-} from "./shared/pending-nav.js";
+import { __resetPendingBookNavForTests, pendingBookNav } from "./shared/pending-nav.js";
 import { BookCitation } from "./client/BookCitation.js";
 
 const workbenchStub = definePlugin({
   name: "@vtt/test-workbench-stub",
   version: "0.0.0",
-  slots: [
-    defineSlot({ name: "@vtt/shell-workbench/pages", schema: z.any() }),
-  ],
+  slots: [defineSlot({ name: "@vtt/shell-workbench/pages", schema: z.any() })],
   surfaces: [
     defineSurface({
       name: "@vtt/shell-workbench/header",
@@ -82,8 +68,7 @@ function harness(opts?: { boundBookId?: EntityId | true }) {
         Online({ clientId: ME_CLIENT, since: Date.now() }),
       ]);
       if (opts?.boundBookId) {
-        const bookId =
-          opts.boundBookId === true ? world.spawn([]) : opts.boundBookId;
+        const bookId = opts.boundBookId === true ? world.spawn([]) : opts.boundBookId;
         world.set(bookId, BookCanonical, {
           canonicalId: "tb/book/loremasters-manual",
         });
@@ -97,17 +82,11 @@ describe("BookCitation", () => {
     const h = harness();
     render(() => (
       <ClientProvider value={h.client}>
-        <BookCitation
-          canonicalId="tb/book/loremasters-manual"
-          page={261}
-          label="LMM p.261"
-        />
+        <BookCitation canonicalId="tb/book/loremasters-manual" page={261} label="LMM p.261" />
       </ClientProvider>
     ));
     expect(screen.queryByRole("button")).toBeNull();
-    const span = document.querySelector(
-      '[data-canonical-id="tb/book/loremasters-manual"]',
-    );
+    const span = document.querySelector('[data-canonical-id="tb/book/loremasters-manual"]');
     expect(span?.tagName).toBe("SPAN");
     expect(span?.getAttribute("data-canonical-bound")).toBe("false");
     expect(span?.textContent).toBe("LMM p.261");
@@ -120,9 +99,7 @@ describe("BookCitation", () => {
         <BookCitation canonicalId="tb/book/scholars-guide" page={178} />
       </ClientProvider>
     ));
-    const span = document.querySelector(
-      '[data-canonical-id="tb/book/scholars-guide"]',
-    );
+    const span = document.querySelector('[data-canonical-id="tb/book/scholars-guide"]');
     expect(span?.textContent).toBe("p.178");
   });
 
@@ -130,11 +107,7 @@ describe("BookCitation", () => {
     const h = harness({ boundBookId: true });
     render(() => (
       <ClientProvider value={h.client}>
-        <BookCitation
-          canonicalId="tb/book/loremasters-manual"
-          page={261}
-          label="LMM p.261"
-        />
+        <BookCitation canonicalId="tb/book/loremasters-manual" page={261} label="LMM p.261" />
       </ClientProvider>
     ));
     const btn = screen.getByRole("button") as HTMLButtonElement;
@@ -150,11 +123,7 @@ describe("BookCitation", () => {
     });
     render(() => (
       <ClientProvider value={h.client}>
-        <BookCitation
-          canonicalId="tb/book/loremasters-manual"
-          page={261}
-          label="LMM p.261"
-        />
+        <BookCitation canonicalId="tb/book/loremasters-manual" page={261} label="LMM p.261" />
       </ClientProvider>
     ));
     fireEvent.click(screen.getByRole("button"));
@@ -230,11 +199,7 @@ describe("BookCitation", () => {
     });
     render(() => (
       <ClientProvider value={h.client}>
-        <BookCitation
-          canonicalId="tb/book/loremasters-manual"
-          page={261}
-          label="LMM p.261"
-        />
+        <BookCitation canonicalId="tb/book/loremasters-manual" page={261} label="LMM p.261" />
       </ClientProvider>
     ));
     fireEvent.click(screen.getByRole("button"));
@@ -259,11 +224,7 @@ describe("BookCitation", () => {
     const h = harness();
     render(() => (
       <ClientProvider value={h.client}>
-        <BookCitation
-          canonicalId="tb/book/loremasters-manual"
-          page={261}
-          label="LMM p.261"
-        />
+        <BookCitation canonicalId="tb/book/loremasters-manual" page={261} label="LMM p.261" />
       </ClientProvider>
     ));
     expect(screen.queryByRole("button")).toBeNull();
@@ -282,20 +243,14 @@ describe("BookCitation", () => {
     });
     render(() => (
       <ClientProvider value={h.client}>
-        <BookCitation
-          canonicalId="tb/book/loremasters-manual"
-          page={261}
-          label="LMM p.261"
-        />
+        <BookCitation canonicalId="tb/book/loremasters-manual" page={261} label="LMM p.261" />
       </ClientProvider>
     ));
     expect(screen.getByRole("button")).toBeInTheDocument();
     h.world.remove(bookId, BookCanonical);
     expect(screen.queryByRole("button")).toBeNull();
     expect(
-      document.querySelector(
-        '[data-canonical-id="tb/book/loremasters-manual"]',
-      )?.tagName,
+      document.querySelector('[data-canonical-id="tb/book/loremasters-manual"]')?.tagName,
     ).toBe("SPAN");
   });
 
@@ -303,11 +258,7 @@ describe("BookCitation", () => {
     const h = harness({ boundBookId: true });
     render(() => (
       <ClientProvider value={h.client}>
-        <BookCitation
-          canonicalId="tb/book/loremasters-manual"
-          page={261}
-          label="LMM p.261"
-        />
+        <BookCitation canonicalId="tb/book/loremasters-manual" page={261} label="LMM p.261" />
       </ClientProvider>
     ));
     const btn = screen.getByRole("button");

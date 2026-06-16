@@ -38,10 +38,7 @@ interface MatrixCellHighlight {
  * derivation needed: the cells are not symmetric (Defend/Feint = —
  * but Feint/Defend = I).
  */
-function rowSymbol(
-  rowAction: ConflictAction,
-  colAction: ConflictAction,
-): "V" | "I" | "—" {
+function rowSymbol(rowAction: ConflictAction, colAction: ConflictAction): "V" | "I" | "—" {
   switch (TB_ACTION_MATRIX[rowAction][colAction]) {
     case "versus":
       return "V";
@@ -67,9 +64,7 @@ const SYMBOL_LABEL: Record<"V" | "I" | "—", string> = {
  * pulses when the resolution panel hands us a `highlight`. Click a
  * row label to expand the action's full rule text.
  */
-export function ActionMatrix(props: {
-  highlight?: MatrixCellHighlight;
-}): JSX.Element {
+export function ActionMatrix(props: { highlight?: MatrixCellHighlight }): JSX.Element {
   const [hoveredRow, setHoveredRow] = createSignal<ConflictAction | null>(null);
   const [hoveredCol, setHoveredCol] = createSignal<ConflictAction | null>(null);
   const [expanded, setExpanded] = createSignal<ConflictAction | null>(null);
@@ -86,14 +81,9 @@ export function ActionMatrix(props: {
   };
 
   return (
-    <section
-      class="px-3 py-3 border-t border-border-muted"
-      data-testid="action-matrix"
-    >
+    <section class="px-3 py-3 border-t border-border-muted" data-testid="action-matrix">
       <header class="flex items-baseline justify-between mb-2">
-        <h2 class="font-display text-sm uppercase tracking-[0.18em]">
-          Action Interaction Table
-        </h2>
+        <h2 class="font-display text-sm uppercase tracking-[0.18em]">Action Interaction Table</h2>
         <span class="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-fg-subtle">
           SG p.70
         </span>
@@ -139,9 +129,7 @@ export function ActionMatrix(props: {
                     onMouseLeave={() => setHoveredRow(null)}
                     onFocus={() => setHoveredRow(row)}
                     onBlur={() => setHoveredRow(null)}
-                    onClick={() =>
-                      setExpanded(expanded() === row ? null : row)
-                    }
+                    onClick={() => setExpanded(expanded() === row ? null : row)}
                     tabindex="0"
                     class="text-right pr-3 py-1 font-display text-[0.78rem] tracking-wider transition cursor-pointer"
                     style={{
@@ -159,8 +147,7 @@ export function ActionMatrix(props: {
                       const isActive = (): boolean =>
                         props.highlight?.partyAction === row &&
                         props.highlight?.enemyAction === col;
-                      const dim = (): boolean =>
-                        isRowDimmed(row) || isColDimmed(col);
+                      const dim = (): boolean => isRowDimmed(row) || isColDimmed(col);
                       return (
                         <td
                           class="px-3 py-1.5 border border-border-muted/60 text-base font-semibold transition"
@@ -179,10 +166,7 @@ export function ActionMatrix(props: {
                                   ? "var(--color-fg, #1A1815)"
                                   : "var(--color-fg-subtle, #888)",
                           }}
-                          title={
-                            TB_MATCHUP_NOTES[row][col] +
-                            ` — ${SYMBOL_LABEL[sym]}`
-                          }
+                          title={TB_MATCHUP_NOTES[row][col] + ` — ${SYMBOL_LABEL[sym]}`}
                           data-testid={`matrix-cell-${row}-${col}`}
                           aria-label={`${ACTION_LABELS[row]} versus ${ACTION_LABELS[col]}: ${SYMBOL_LABEL[sym]}`}
                         >
@@ -198,8 +182,7 @@ export function ActionMatrix(props: {
         </table>
       </div>
       <p class="mt-2 text-[0.7rem] text-fg-subtle italic">
-        Find your action on the left and your opponent's action along the top
-        row.
+        Find your action on the left and your opponent's action along the top row.
       </p>
       {/* Legend keyed to the V / I / — symbols in the matrix body.
           Inline-style grid template — Tailwind v4's bracketed
@@ -220,31 +203,19 @@ export function ActionMatrix(props: {
           "align-items": "baseline",
         }}
       >
-        <dt
-          class="font-mono font-semibold text-center"
-          style={{ color: "var(--color-fg)" }}
-        >
+        <dt class="font-mono font-semibold text-center" style={{ color: "var(--color-fg)" }}>
           I
         </dt>
         <dd class="text-fg-subtle">
-          Independent test. Test both actions separately; both can succeed or
-          fail.
+          Independent test. Test both actions separately; both can succeed or fail.
         </dd>
-        <dt
-          class="font-mono font-semibold text-center"
-          style={{ color: "var(--color-accent)" }}
-        >
+        <dt class="font-mono font-semibold text-center" style={{ color: "var(--color-accent)" }}>
           V
         </dt>
         <dd class="text-fg-subtle">
-          Versus test. Make a versus test between the indicated skills or
-          abilities.
+          Versus test. Make a versus test between the indicated skills or abilities.
         </dd>
-        <dt
-          class="font-mono font-semibold text-center text-fg-subtle"
-        >
-          —
-        </dt>
+        <dt class="font-mono font-semibold text-center text-fg-subtle">—</dt>
         <dd class="text-fg-subtle">
           Do not roll for your action. Your opponent rolls, but you do not.
         </dd>

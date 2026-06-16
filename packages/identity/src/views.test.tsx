@@ -18,18 +18,11 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
 import { screen, cleanup, fireEvent } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { definePlugin, defineSurface, z } from "@vtt/substrate";
 import { Identity, Name, Online } from "./shared/traits.js";
 import { identity } from "./manifest.js";
-import {
-  PlayerListView,
-  PresenceHeaderView,
-  UserMenuView,
-} from "./client/views.js";
+import { PlayerListView, PresenceHeaderView, UserMenuView } from "./client/views.js";
 
 beforeEach(() => cleanup());
 
@@ -122,9 +115,7 @@ describe("identity PresenceHeaderView", () => {
     mountWithClient(h, () => PresenceHeaderView.render({}) as never);
     expect(screen.getByTestId("header-presence")).toBeInTheDocument();
     expect(screen.getByTestId("header-presence-me")).toHaveTextContent("Me");
-    expect(screen.getByTestId("header-presence-alice")).toHaveTextContent(
-      "Alice",
-    );
+    expect(screen.getByTestId("header-presence-alice")).toHaveTextContent("Alice");
     expect(screen.getByTestId("header-presence-bob")).toHaveTextContent("Bob");
   });
 
@@ -144,13 +135,8 @@ describe("identity PresenceHeaderView", () => {
     const h = buildTestClient({
       plugins: [workbenchSurfacesStub, identity],
     });
-    const { container } = mountWithClient(
-      h,
-      () => PresenceHeaderView.render({}) as never,
-    );
-    expect(
-      container.querySelector("[data-testid='header-presence']"),
-    ).toBeNull();
+    const { container } = mountWithClient(h, () => PresenceHeaderView.render({}) as never);
+    expect(container.querySelector("[data-testid='header-presence']")).toBeNull();
   });
 });
 

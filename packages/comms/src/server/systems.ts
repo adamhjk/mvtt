@@ -16,12 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineSystem, type Visibility } from "@vtt/substrate";
-import {
-  actors,
-  everyone,
-  gmOnly,
-  Permissions,
-} from "@vtt/permissions/shared";
+import { actors, everyone, gmOnly, Permissions } from "@vtt/permissions/shared";
 import { Character } from "@vtt/characters/shared";
 import { ChatMessage } from "../shared/traits.js";
 import { MessageSent } from "../shared/events.js";

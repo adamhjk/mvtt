@@ -17,21 +17,10 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, expect, it, beforeEach } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  screen,
-  waitFor,
-} from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { mountWithClient } from "@vtt/substrate/client-testing";
-import {
-  buildAtelierHarness,
-  mountTbEditor,
-} from "../test-helpers.jsx";
-import {
-  TB_MODIFIER_CONTRIB_KIND,
-  WillCheck,
-} from "../../../shared/index.js";
+import { buildAtelierHarness, mountTbEditor } from "../test-helpers.jsx";
+import { TB_MODIFIER_CONTRIB_KIND, WillCheck } from "../../../shared/index.js";
 
 beforeEach(() => cleanup());
 
@@ -57,9 +46,9 @@ describe("ModifiersCard — TB pre-roll quick mods & labelled subform", () => {
     mountWithClient(h, () => mountTbEditor(rollId) as never);
     fireEvent.click(screen.getByTestId("atelier-quick-+1D"));
     await waitFor(() => {
-      const c = h.dispatched.find(
-        (d) => d.type === "@vtt/characters/ContributeToPendingRoll",
-      ) as { payload: { contribution: { payload: { kind: string; value: number; apply: string } } } } | undefined;
+      const c = h.dispatched.find((d) => d.type === "@vtt/characters/ContributeToPendingRoll") as
+        | { payload: { contribution: { payload: { kind: string; value: number; apply: string } } } }
+        | undefined;
       expect(c).toBeDefined();
       expect(c!.payload.contribution.payload.kind).toBe("dice");
       expect(c!.payload.contribution.payload.value).toBe(1);
@@ -72,9 +61,9 @@ describe("ModifiersCard — TB pre-roll quick mods & labelled subform", () => {
     mountWithClient(h, () => mountTbEditor(rollId) as never);
     fireEvent.click(screen.getByTestId("atelier-quick-+1s on succ."));
     await waitFor(() => {
-      const c = h.dispatched.find(
-        (d) => d.type === "@vtt/characters/ContributeToPendingRoll",
-      ) as { payload: { contribution: { kind: string; payload: { apply: string; kind: string } } } } | undefined;
+      const c = h.dispatched.find((d) => d.type === "@vtt/characters/ContributeToPendingRoll") as
+        | { payload: { contribution: { kind: string; payload: { apply: string; kind: string } } } }
+        | undefined;
       expect(c).toBeDefined();
       expect(c!.payload.contribution.kind).toBe(TB_MODIFIER_CONTRIB_KIND);
       expect(c!.payload.contribution.payload.apply).toBe("on-success");
@@ -89,20 +78,16 @@ describe("ModifiersCard — TB pre-roll quick mods & labelled subform", () => {
     // Reveal the form.
     fireEvent.click(screen.getByTestId("atelier-modifier-add-toggle"));
 
-    const valueInput = screen.getByTestId(
-      "atelier-labelled-value",
-    ) as HTMLInputElement;
-    const labelInput = screen.getByTestId(
-      "atelier-labelled-label",
-    ) as HTMLInputElement;
+    const valueInput = screen.getByTestId("atelier-labelled-value") as HTMLInputElement;
+    const labelInput = screen.getByTestId("atelier-labelled-label") as HTMLInputElement;
     fireEvent.input(valueInput, { target: { value: "2" } });
     fireEvent.input(labelInput, { target: { value: "wise: tunnel" } });
     fireEvent.click(screen.getByTestId("atelier-labelled-submit"));
 
     await waitFor(() => {
-      const c = h.dispatched.find(
-        (d) => d.type === "@vtt/characters/ContributeToPendingRoll",
-      ) as { payload: { contribution: { payload: { value: number; label: string; kind: string } } } } | undefined;
+      const c = h.dispatched.find((d) => d.type === "@vtt/characters/ContributeToPendingRoll") as
+        | { payload: { contribution: { payload: { value: number; label: string; kind: string } } } }
+        | undefined;
       expect(c).toBeDefined();
       expect(c!.payload.contribution.payload.value).toBe(2);
       expect(c!.payload.contribution.payload.label).toBe("wise: tunnel");
@@ -114,9 +99,7 @@ describe("ModifiersCard — TB pre-roll quick mods & labelled subform", () => {
     const { h, rollId } = buildAtelierHarness({ rollableName: WillCheck.name });
     mountWithClient(h, () => mountTbEditor(rollId) as never);
     fireEvent.click(screen.getByTestId("atelier-modifier-add-toggle"));
-    const submit = screen.getByTestId(
-      "atelier-labelled-submit",
-    ) as HTMLButtonElement;
+    const submit = screen.getByTestId("atelier-labelled-submit") as HTMLButtonElement;
     expect(submit.disabled).toBe(true);
     const before = h.dispatched.filter(
       (d) => d.type === "@vtt/characters/ContributeToPendingRoll",

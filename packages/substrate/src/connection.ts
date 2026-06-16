@@ -108,8 +108,7 @@ export interface ConnectionHandle {
 
 export function createConnection(opts: ConnectionOptions): ConnectionHandle {
   const makeSocket =
-    opts.makeSocket ??
-    ((url: string) => new WebSocket(url) as unknown as SocketLike);
+    opts.makeSocket ?? ((url: string) => new WebSocket(url) as unknown as SocketLike);
   const baseBackoffMs = opts.baseBackoffMs ?? 500;
   const maxBackoffMs = opts.maxBackoffMs ?? 8_000;
   const pingIntervalMs = opts.pingIntervalMs ?? 15_000;
@@ -261,10 +260,7 @@ export function createConnection(opts: ConnectionOptions): ConnectionHandle {
   // under vitest's node environment where document/window don't exist.
   const onResume = () => {
     if (closedByUser) return;
-    if (
-      typeof document !== "undefined" &&
-      document.visibilityState === "hidden"
-    ) {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
       return;
     }
     if (sock && sock.readyState === CONNECTING) return; // already retrying
@@ -281,10 +277,7 @@ export function createConnection(opts: ConnectionOptions): ConnectionHandle {
     sendPing();
   };
   const onVisibility = () => {
-    if (
-      typeof document !== "undefined" &&
-      document.visibilityState === "visible"
-    ) {
+    if (typeof document !== "undefined" && document.visibilityState === "visible") {
       onResume();
     }
   };

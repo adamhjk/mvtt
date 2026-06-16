@@ -18,16 +18,20 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { definePlugin, EntityId, Registry, World } from "@vtt/substrate";
 import { adventures } from "@vtt/adventures";
-import {
-  BlockKindsSlot,
-  buildBlockKindIndex,
-} from "@vtt/adventures/shared";
+import { BlockKindsSlot, buildBlockKindIndex } from "@vtt/adventures/shared";
 import { runBlockParse, blockEntityId } from "@vtt/adventures/server";
 import { Permissions } from "@vtt/permissions/shared";
 import { permissions as permissionsPlugin } from "@vtt/permissions";
 import { Character, Team } from "@vtt/characters/shared";
 import { ItemIdentity, ItemEconomics } from "@vtt/items/shared";
-import { Page, BelongsToNote, PageBodySet, MarkdownPostRenderSlot, EditorCompletionSourcesSlot, NotesReferenceSlot } from "@vtt/notes/shared";
+import {
+  Page,
+  BelongsToNote,
+  PageBodySet,
+  MarkdownPostRenderSlot,
+  EditorCompletionSourcesSlot,
+  NotesReferenceSlot,
+} from "@vtt/notes/shared";
 import {
   CharacterTraits,
   Conditions,
@@ -44,21 +48,11 @@ import {
   Wises,
 } from "./shared/index.js";
 import { TbCarries, TbItemSlotOptions } from "./shared/items/index.js";
-import {
-  characterBlockKind,
-  monsterBlockKind,
-} from "./shared/blocks/character.js";
+import { characterBlockKind, monsterBlockKind } from "./shared/blocks/character.js";
 import { npcBlockKind } from "./shared/blocks/npc.js";
 import { TbNpc } from "./shared/npc-traits.js";
-import {
-  SpellIdentity,
-  TbLibrary,
-  TbMemoryPalace,
-} from "./shared/spells/spell-traits.js";
-import {
-  InvocationIdentity,
-  TbInvocationRelics,
-} from "./shared/invocations/invocation-traits.js";
+import { SpellIdentity, TbLibrary, TbMemoryPalace } from "./shared/spells/spell-traits.js";
+import { InvocationIdentity, TbInvocationRelics } from "./shared/invocations/invocation-traits.js";
 
 const notesStub = definePlugin({
   name: "@vtt/notes",
@@ -83,12 +77,7 @@ const itemsStub = definePlugin({
 const tbCharacterBlocksStub = definePlugin({
   name: "@vtt/system-torchbearer-character-blocks-test",
   version: "0",
-  dependsOn: [
-    "@vtt/permissions@^0",
-    "@vtt/characters@^0",
-    "@vtt/items@^0",
-    "@vtt/adventures@^0",
-  ],
+  dependsOn: ["@vtt/permissions@^0", "@vtt/characters@^0", "@vtt/items@^0", "@vtt/adventures@^0"],
   traits: [
     Identity,
     RawAbilities,
@@ -144,10 +133,7 @@ describe("TB character block kind", () => {
     registry = s.registry;
     world = s.world;
     const noteId = world.spawn([]);
-    pageId = world.spawn([
-      Page({ title: "p", body: "", bodyRev: 0 }),
-      BelongsToNote({ noteId }),
-    ]);
+    pageId = world.spawn([Page({ title: "p", body: "", bodyRev: 0 }), BelongsToNote({ noteId })]);
   });
 
   function parseBody(body: string) {
@@ -219,9 +205,7 @@ describe("TB character block kind", () => {
   });
 
   it("Conditions and Pools are spawnIfMissing — set once, preserved on re-save", () => {
-    parseBody(
-      ["```character Test", "stock: Human", "will: 3", "```"].join("\n"),
-    );
+    parseBody(["```character Test", "stock: Human", "will: 3", "```"].join("\n"));
     const eid = blockEntityId(pageId, "test");
     // Mutate runtime state
     world.set(eid, Conditions, {
@@ -235,9 +219,7 @@ describe("TB character block kind", () => {
       dead: false,
     });
     // Re-save the block
-    parseBody(
-      ["```character Test", "stock: Human", "will: 4", "```"].join("\n"),
-    );
+    parseBody(["```character Test", "stock: Human", "will: 4", "```"].join("\n"));
     // Authored fields update
     const ra = world.get(eid, [RawAbilities]) as
       | { RawAbilities: { will: { rating: number } } }
@@ -265,7 +247,12 @@ describe("TB character block kind", () => {
     parseBody(["```character Test", "```"].join("\n"));
     const eid = blockEntityId(pageId, "test");
     const perms = world.get(eid, [Permissions]) as
-      | { Permissions: { read: { kind: string; role?: string }; write: { kind: string; role?: string } } }
+      | {
+          Permissions: {
+            read: { kind: string; role?: string };
+            write: { kind: string; role?: string };
+          };
+        }
       | undefined;
     // gmOnly() builds a role-based visibility: { kind: "role", role: "gm" }.
     expect(perms!.Permissions.read).toMatchObject({ kind: "role", role: "gm" });
@@ -322,14 +309,7 @@ describe("TB character block kind", () => {
     // Bare [[item:Signet Ring]] — no quotes. This would normally
     // break YAML (flow seq), but the adventures parser pre-escapes
     // wiki-links so authors don't have to quote them.
-    parseBody(
-      [
-        "```character Test",
-        "carries:",
-        "  - [[item:Signet Ring]]",
-        "```",
-      ].join("\n"),
-    );
+    parseBody(["```character Test", "carries:", "  - [[item:Signet Ring]]", "```"].join("\n"));
     const eid = blockEntityId(pageId, "test");
     const carries = world.get(eid, [TbCarries]) as
       | { TbCarries: { entries: ReadonlyArray<{ itemId: string }> } }
@@ -344,14 +324,7 @@ describe("TB character block kind", () => {
       ItemEconomics({}),
       TbItemSlotOptions({ options: { handR: 1, handL: 1 } }),
     ]);
-    parseBody(
-      [
-        "```character Test",
-        "carries:",
-        `  - [[item:${swordId}|Sword]]`,
-        "```",
-      ].join("\n"),
-    );
+    parseBody(["```character Test", "carries:", `  - [[item:${swordId}|Sword]]`, "```"].join("\n"));
     const eid = blockEntityId(pageId, "test");
     const carries = world.get(eid, [TbCarries]) as
       | { TbCarries: { entries: ReadonlyArray<{ itemId: string }> } }
@@ -431,9 +404,7 @@ describe("TB character block kind", () => {
       | { TbLibrary: { spellIds: ReadonlyArray<string> } }
       | undefined;
     expect(library).toBeDefined();
-    expect([...library!.TbLibrary.spellIds].sort()).toEqual(
-      [wayfinderId, majorHealingId].sort(),
-    );
+    expect([...library!.TbLibrary.spellIds].sort()).toEqual([wayfinderId, majorHealingId].sort());
 
     const palace = world.get(eid, [TbMemoryPalace]) as
       | {
@@ -452,12 +423,8 @@ describe("TB character block kind", () => {
     expect(palace!.TbMemoryPalace.capacity).toBe(3);
     expect(palace!.TbMemoryPalace.memorized).toHaveLength(2);
     // slotsConsumed mirrors the spell's printed circle.
-    const wm = palace!.TbMemoryPalace.memorized.find(
-      (m) => m.spellId === wayfinderId,
-    );
-    const mh = palace!.TbMemoryPalace.memorized.find(
-      (m) => m.spellId === majorHealingId,
-    );
+    const wm = palace!.TbMemoryPalace.memorized.find((m) => m.spellId === wayfinderId);
+    const mh = palace!.TbMemoryPalace.memorized.find((m) => m.spellId === majorHealingId);
     expect(wm?.slotsConsumed).toBe(1);
     expect(mh?.slotsConsumed).toBe(2);
 
@@ -525,10 +492,7 @@ describe("TB monster block kind", () => {
     registry = s.registry;
     world = s.world;
     const noteId = world.spawn([]);
-    pageId = world.spawn([
-      Page({ title: "p", body: "", bodyRev: 0 }),
-      BelongsToNote({ noteId }),
-    ]);
+    pageId = world.spawn([Page({ title: "p", body: "", bodyRev: 0 }), BelongsToNote({ noteId })]);
   });
 
   function parseBody(body: string) {
@@ -592,15 +556,9 @@ describe("TB monster block kind", () => {
 
   it("the marker MonsterTemplate distinguishes templates from instances", () => {
     parseBody(
-      [
-        "```monster One",
-        "might: 1",
-        "```",
-        "",
-        "```character Two",
-        "stock: Human",
-        "```",
-      ].join("\n"),
+      ["```monster One", "might: 1", "```", "", "```character Two", "stock: Human", "```"].join(
+        "\n",
+      ),
     );
     const templates = world.query([MonsterTemplate]);
     expect(templates.length).toBe(1);
@@ -633,9 +591,7 @@ describe("TB monster block kind", () => {
       dead: false,
     });
     parseBody(["```monster Goblin", "might: 5", "nature:", "  rating: 3", "```"].join("\n"));
-    const cond = world.get(eid, [Conditions]) as
-      | { Conditions: { afraid: boolean } }
-      | undefined;
+    const cond = world.get(eid, [Conditions]) as { Conditions: { afraid: boolean } } | undefined;
     expect(cond!.Conditions.afraid).toBe(true);
   });
 
@@ -688,9 +644,7 @@ describe("TB monster block kind", () => {
         }
       | undefined;
     expect(carries!.TbCarries.entries.length).toBe(2);
-    const byItem = new Map(
-      carries!.TbCarries.entries.map((e) => [e.itemId, e]),
-    );
+    const byItem = new Map(carries!.TbCarries.entries.map((e) => [e.itemId, e]));
     expect(byItem.get(clawsId)?.slot).toBe("handR"); // default-preferred hand
     expect(byItem.get(clawsId)?.channel).toBe("carried");
     expect(byItem.get(hideId)?.slot).toBe("torso");
@@ -708,10 +662,7 @@ describe("TB npc block kind", () => {
     registry = s.registry;
     world = s.world;
     const noteId = world.spawn([]);
-    pageId = world.spawn([
-      Page({ title: "p", body: "", bodyRev: 0 }),
-      BelongsToNote({ noteId }),
-    ]);
+    pageId = world.spawn([Page({ title: "p", body: "", bodyRev: 0 }), BelongsToNote({ noteId })]);
   });
 
   function parseBody(body: string) {
@@ -787,31 +738,14 @@ describe("TB npc block kind", () => {
 
   it("changing the fence kind from `character` to `npc` flips PC ↔ NPC", () => {
     // First save: as a `character` (PC) — no TbNpc trait.
-    parseBody(
-      [
-        "```character Greta",
-        "# id: greta",
-        "stock: Human",
-        "```",
-      ].join("\n"),
-    );
+    parseBody(["```character Greta", "# id: greta", "stock: Human", "```"].join("\n"));
     const eid = blockEntityId(pageId, "greta");
     expect(world.has(eid)).toBe(true);
     expect(world.get(eid, [TbNpc])).toBeUndefined();
     // Re-save: same id annotation, but now an `npc` block. The
     // entity should now carry TbNpc.
-    parseBody(
-      [
-        "```npc Greta",
-        "# id: greta",
-        "role: Folk",
-        "stock: Human",
-        "```",
-      ].join("\n"),
-    );
-    const after = world.get(eid, [TbNpc]) as
-      | { TbNpc: { role: string } }
-      | undefined;
+    parseBody(["```npc Greta", "# id: greta", "role: Folk", "stock: Human", "```"].join("\n"));
+    const after = world.get(eid, [TbNpc]) as { TbNpc: { role: string } } | undefined;
     expect(after).toBeDefined();
     expect(after!.TbNpc.role).toBe("Folk");
   });
@@ -819,9 +753,7 @@ describe("TB npc block kind", () => {
   it("a sparse npc body still gets a default role", () => {
     parseBody(["```npc Stranger", "```"].join("\n"));
     const eid = blockEntityId(pageId, "stranger");
-    const got = world.get(eid, [TbNpc]) as
-      | { TbNpc: { role: string } }
-      | undefined;
+    const got = world.get(eid, [TbNpc]) as { TbNpc: { role: string } } | undefined;
     expect(got!.TbNpc.role).toBe("Folk");
   });
 
@@ -916,19 +848,9 @@ describe("TB npc block kind", () => {
   });
 
   it("`team: party` flips an npc to the party team for friendly NPCs", () => {
-    parseBody(
-      [
-        "```npc Greta",
-        "role: Smith",
-        "team: party",
-        "```",
-      ].join("\n"),
-    );
+    parseBody(["```npc Greta", "role: Smith", "team: party", "```"].join("\n"));
     const eid = blockEntityId(pageId, "greta");
-    const got = world.get(eid, [Team]) as
-      | { Team: { kind: string } }
-      | undefined;
+    const got = world.get(eid, [Team]) as { Team: { kind: string } } | undefined;
     expect(got!.Team.kind).toBe("party");
   });
 });
-

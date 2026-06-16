@@ -172,7 +172,6 @@ app.stage.addChild(text);
 
 `Assets.load('arial.fnt')` succeeds in the default bundle and returns a `BitmapFont`, but `'pixi.js/text-bitmap'` registers the `CanvasBitmapTextPipe` and `BitmapTextPipe`. Without it, `BitmapText` renders nothing or errors at render time.
 
-
 ### [HIGH] Using Text before the font is loaded
 
 Wrong:
@@ -191,11 +190,9 @@ const text = new Text({ text: "Hi", style: { fontFamily: "Hero" } });
 
 The browser falls back to a system font if the named family isn't registered yet, then the `Text` is cached at that fallback style. Reloading the font doesn't repaint existing Text objects.
 
-
 ### [MEDIUM] Family name mismatch
 
 If you don't pass `data.family`, the family name is derived from the filename. `my_hero_font.woff` becomes `'My Hero Font'`; use exactly that string in your `TextStyle.fontFamily`, or set `data.family` to an explicit value.
-
 
 ## API Reference
 

@@ -9,7 +9,14 @@ Stores are Solid's primitive for **nested reactive state**. Each property access
 ## Import
 
 ```ts
-import { createStore, produce, reconcile, unwrap, createMutable, modifyMutable } from "solid-js/store";
+import {
+  createStore,
+  produce,
+  reconcile,
+  unwrap,
+  createMutable,
+  modifyMutable,
+} from "solid-js/store";
 ```
 
 ## `createStore`
@@ -21,7 +28,10 @@ function createStore<T extends object>(state: T, options?): [Store<T>, SetStoreF
 ```tsx
 const [state, setState] = createStore({
   user: { name: "Ada", age: 36 },
-  items: [{ id: 1, done: false }, { id: 2, done: true }],
+  items: [
+    { id: 1, done: false },
+    { id: 2, done: true },
+  ],
 });
 ```
 
@@ -32,8 +42,8 @@ const [state, setState] = createStore({
 You read store values directly — no `()` like signals:
 
 ```tsx
-return <p>Hello {state.user.name}</p>;        // reactive
-console.log(state.items[0].done);             // outside tracking — snapshot only
+return <p>Hello {state.user.name}</p>; // reactive
+console.log(state.items[0].done); // outside tracking — snapshot only
 ```
 
 Inside `createEffect`, `createMemo`, JSX, or any tracking scope, the read subscribes. Outside, it doesn't.
@@ -44,16 +54,16 @@ The setter takes a **path** followed by the new value (or an updater).
 
 ```ts
 // Top-level
-setState({ user: newUser });          // shallow-merges newUser into state.
+setState({ user: newUser }); // shallow-merges newUser into state.
 
 // Single key + value
-setState("user", { name: "Lin" });    // shallow-merges into state.user (preserves age!)
+setState("user", { name: "Lin" }); // shallow-merges into state.user (preserves age!)
 
 // Nested key + value
 setState("user", "name", "Grace");
 
 // Updater function (receives current value)
-setState("user", "age", a => a + 1);
+setState("user", "age", (a) => a + 1);
 
 // Array index
 setState("items", 0, "done", true);
@@ -67,7 +77,7 @@ setState("items", [0, 1], "done", true);
 
 // Update a range — { from, to } inclusive, optional step `by`.
 setState("items", { from: 0, to: 3 }, "done", true);
-setState("items", { from: 0, to: 9, by: 2 }, "done", true);   // every other
+setState("items", { from: 0, to: 9, by: 2 }, "done", true); // every other
 
 // Filter function — receives item (and index for arrays).
 setState("items", (it) => !it.done, "done", true);
@@ -80,7 +90,7 @@ A single `setState` call automatically wraps in `batch`, so all the affected lea
 ```ts
 setState("user", { name: "Grace" });
 // equivalent to:
-setState("user", u => ({ ...u, name: "Grace" }));
+setState("user", (u) => ({ ...u, name: "Grace" }));
 // state.user.age is preserved.
 ```
 
@@ -88,7 +98,7 @@ This is the single most ergonomic feature of stores. To **replace** instead of m
 
 ```ts
 setState("user", "name", "Grace");
-setState("user", "age", undefined);     // remove
+setState("user", "age", undefined); // remove
 ```
 
 ### Adding to arrays
@@ -98,7 +108,7 @@ setState("user", "age", undefined);     // remove
 setState("items", state.items.length, { id: 3, done: false });
 
 // Or by spread (whole-array replacement)
-setState("items", items => [...items, { id: 3, done: false }]);
+setState("items", (items) => [...items, { id: 3, done: false }]);
 ```
 
 The first form is more efficient — only `state.items.length` and the new index notify; existing elements aren't re-evaluated.
@@ -106,7 +116,7 @@ The first form is more efficient — only `state.items.length` and the new index
 ### Removing
 
 ```ts
-setState("items", items => items.filter(i => i.id !== 1));
+setState("items", (items) => items.filter((i) => i.id !== 1));
 ```
 
 Whole-array replacement — fine for small arrays. For surgical deletion in big arrays, switch to `produce`.
@@ -118,20 +128,27 @@ Lets you mutate a draft. Only works on plain objects and arrays (not `Set`/`Map`
 ```ts
 import { produce } from "solid-js/store";
 
-setState("items", produce(items => {
-  items.push({ id: 3, done: false });
-  items[0].done = true;
-}));
+setState(
+  "items",
+  produce((items) => {
+    items.push({ id: 3, done: false });
+    items[0].done = true;
+  }),
+);
 
-setState("user", produce(u => {
-  u.name = "Grace";
-  u.age = 80;
-}));
+setState(
+  "user",
+  produce((u) => {
+    u.name = "Grace";
+    u.age = 80;
+  }),
+);
 ```
 
 `produce` records the mutations and replays them through the proper setters internally, so every changed path notifies its subscribers.
 
 Use `produce` when:
+
 - You're updating multiple fields at once and the merge syntax gets noisy.
 - You're doing array mutations beyond simple push/replace.
 - You're working with deeply nested data and the path syntax becomes hard to read.
@@ -161,11 +178,12 @@ Now reorderings and middle-inserts are correctly matched.
 
 ### `merge` option
 
-By default, reconcile *replaces*. With `{ merge: true }`, it shallow-merges incoming changes into existing items.
+By default, reconcile _replaces_. With `{ merge: true }`, it shallow-merges incoming changes into existing items.
 
 ## `unwrap` — non-reactive access
 
 Returns the underlying plain object/array. Useful for:
+
 - Passing data to a non-Solid library that doesn't like proxies.
 - Logging without surprising side effects.
 - Computing snapshots.
@@ -188,13 +206,14 @@ import { createMutable } from "solid-js/store";
 
 const state = createMutable({ count: 0 });
 
-state.count++;     // notifies subscribers
+state.count++; // notifies subscribers
 state.user = { name: "Ada" };
 ```
 
 Trade-offs:
+
 - **Pro:** Less ceremony. Reads ergonomic, writes ergonomic.
-- **Con:** Harder to track *where* mutations come from. Anyone with a reference to `state` can mutate it; tests and devtools can't intercept the writes.
+- **Con:** Harder to track _where_ mutations come from. Anyone with a reference to `state` can mutate it; tests and devtools can't intercept the writes.
 
 The Solid team recommends `createStore` for most cases (the read/write separation makes debugging easier) and `createMutable` when ergonomics outweigh that.
 
@@ -203,10 +222,13 @@ The Solid team recommends `createStore` for most cases (the read/write separatio
 ```ts
 import { modifyMutable, produce, reconcile } from "solid-js/store";
 
-modifyMutable(state, produce(s => {
-  s.user.name = "Grace";
-  s.user.age = 80;
-}));
+modifyMutable(
+  state,
+  produce((s) => {
+    s.user.name = "Grace";
+    s.user.age = 80;
+  }),
+);
 ```
 
 Works just like calling `produce` on `setState`, but for mutables.
@@ -268,13 +290,17 @@ const [todos, setTodos] = createStore({
 });
 
 const addTodo = (text: string) =>
-  setTodos("list", l => [...l, { id: Date.now(), text, done: false }]);
+  setTodos("list", (l) => [...l, { id: Date.now(), text, done: false }]);
 
 const toggle = (id: number) =>
-  setTodos("list", t => t.id === id, "done", d => !d);
+  setTodos(
+    "list",
+    (t) => t.id === id,
+    "done",
+    (d) => !d,
+  );
 
-const remove = (id: number) =>
-  setTodos("list", l => l.filter(t => t.id !== id));
+const remove = (id: number) => setTodos("list", (l) => l.filter((t) => t.id !== id));
 
 const setFilter = (f: typeof todos.filter) => setTodos("filter", f);
 ```
@@ -283,7 +309,7 @@ const setFilter = (f: typeof todos.filter) => setTodos("filter", f);
 
 ```tsx
 async function rename(id: number, newName: string) {
-  setStore("users", u => u.id === id, "name", newName);  // optimistic
+  setStore("users", (u) => u.id === id, "name", newName); // optimistic
   try {
     const fresh = await api.rename(id, newName);
     setStore("users", reconcile(fresh, { key: "id" }));

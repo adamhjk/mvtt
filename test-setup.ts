@@ -29,8 +29,7 @@ if (typeof window !== "undefined") {
       unobserve(): void {}
       disconnect(): void {}
     }
-    globalThis.ResizeObserver =
-      ResizeObserverStub as unknown as typeof ResizeObserver;
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
   }
   // jsdom doesn't implement scrollIntoView. The SheetShell's sticky
   // tab bar (kit.Tabs `select`) calls it after a tab switch so the new
@@ -41,9 +40,7 @@ if (typeof window !== "undefined") {
   if (typeof Element.prototype.scrollIntoView !== "function") {
     Element.prototype.scrollIntoView = function (): void {};
   }
-  globalThis.fetch = async (
-    input: RequestInfo | URL,
-  ): Promise<Response> => {
+  globalThis.fetch = async (input: RequestInfo | URL): Promise<Response> => {
     const url = typeof input === "string" ? input : input.toString();
 
     // /api/worlds/:id/memberships → empty owner + members

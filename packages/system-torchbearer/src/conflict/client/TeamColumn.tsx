@@ -76,12 +76,8 @@ export function TeamColumn(props: {
     if (!c) return { current: 0, max: 0 };
     return props.side === "party" ? c.dispoParty : c.dispoEnemy;
   });
-  const allocated = createMemo(() =>
-    participants().reduce((s, p) => s + p.hpMax, 0),
-  );
-  const participantsBelowOne = createMemo(
-    () => participants().filter((p) => p.hpMax < 1).length,
-  );
+  const allocated = createMemo(() => participants().reduce((s, p) => s + p.hpMax, 0));
+  const participantsBelowOne = createMemo(() => participants().filter((p) => p.hpMax < 1).length);
 
   return (
     <section
@@ -125,9 +121,7 @@ export function TeamColumn(props: {
       <div>
         <Show
           when={participants().length > 0}
-          fallback={
-            <p class="text-fg-subtle italic text-xs">No participants.</p>
-          }
+          fallback={<p class="text-fg-subtle italic text-xs">No participants.</p>}
         >
           <ul class="flex flex-col gap-1.5">
             <For each={participants()}>
@@ -201,8 +195,7 @@ function DispositionBox(props: {
     if (props.max === 0) return 0;
     return Math.max(0, Math.min(100, (props.current / props.max) * 100));
   };
-  const allocationMatches = (): boolean =>
-    props.max > 0 && props.allocated === props.max;
+  const allocationMatches = (): boolean => props.max > 0 && props.allocated === props.max;
   const everyoneEngaged = (): boolean => props.participantsBelowOne === 0;
   // Compromise zones per Scholar's Guide p.75:
   //   exactly full         → no compromise (clean win)            → green
@@ -211,12 +204,7 @@ function DispositionBox(props: {
   //   few points left      → major compromise (winner barely held)→ red
   // Same on both sides — health-bar conventions read the same way
   // regardless of party or enemy. Empty bar (0/0) shows muted.
-  const compromiseLevel = ():
-    | "full"
-    | "minor"
-    | "half"
-    | "major"
-    | null => {
+  const compromiseLevel = (): "full" | "minor" | "half" | "major" | null => {
     if (props.max === 0) return null;
     if (props.current >= props.max) return "full";
     if (props.current === 0) return "major";
@@ -268,9 +256,7 @@ function DispositionBox(props: {
       <Show when={props.canEdit}>
         <div class="flex items-center gap-3 text-xs font-mono mt-1">
           <label class="flex items-center gap-1.5">
-            <span class="text-fg-subtle uppercase tracking-wider text-[0.6rem]">
-              Cur
-            </span>
+            <span class="text-fg-subtle uppercase tracking-wider text-[0.6rem]">Cur</span>
             <input
               type="number"
               min="0"
@@ -278,8 +264,7 @@ function DispositionBox(props: {
               value={props.current}
               onChange={(e) => {
                 const v = Number.parseInt(e.currentTarget.value, 10);
-                if (Number.isFinite(v))
-                  setDispo(Math.min(props.max, Math.max(0, v)), props.max);
+                if (Number.isFinite(v)) setDispo(Math.min(props.max, Math.max(0, v)), props.max);
               }}
               class="w-12 rounded-(--radius-control) border border-border bg-surface px-1.5 py-0.5 text-fg"
               data-testid={`dispo-current-${props.side}`}
@@ -287,9 +272,7 @@ function DispositionBox(props: {
             />
           </label>
           <label class="flex items-center gap-1.5">
-            <span class="text-fg-subtle uppercase tracking-wider text-[0.6rem]">
-              Max
-            </span>
+            <span class="text-fg-subtle uppercase tracking-wider text-[0.6rem]">Max</span>
             <input
               type="number"
               min="0"
@@ -324,9 +307,7 @@ function DispositionBox(props: {
           class="mt-1.5 flex items-baseline justify-between gap-2 text-[0.7rem] font-mono"
           data-testid={`dispo-allocation-${props.side}`}
         >
-          <span class="text-fg-subtle uppercase tracking-wider text-[0.6rem]">
-            allocated
-          </span>
+          <span class="text-fg-subtle uppercase tracking-wider text-[0.6rem]">allocated</span>
           <span
             class="font-semibold"
             style={{
@@ -346,8 +327,7 @@ function DispositionBox(props: {
           data-testid={`dispo-engagement-warning-${props.side}`}
         >
           {props.participantsBelowOne} participant
-          {props.participantsBelowOne === 1 ? "" : "s"} need at least 1 HP to
-          engage
+          {props.participantsBelowOne === 1 ? "" : "s"} need at least 1 HP to engage
         </p>
       </Show>
     </div>
@@ -398,10 +378,7 @@ function ParticipantRow(props: {
   const characterPermissions = useTrait(props.characterId, Permissions);
   const canEditWeapon = createMemo(() => {
     if (props.canEdit) return true;
-    return canWrite(
-      me(),
-      characterPermissions() as Parameters<typeof canWrite>[1],
-    );
+    return canWrite(me(), characterPermissions() as Parameters<typeof canWrite>[1]);
   });
 
   const carries = useTrait(props.characterId, TbCarries) as () =>
@@ -411,11 +388,7 @@ function ParticipantRow(props: {
   // For the dropdown's shared pool we restrict to catalog-derived
   // resources — monster weapons (no ItemDerivedFrom) stay with their
   // owner via the per-character carries branch only.
-  const conflictResources = useQuery([
-    TbWeapon,
-    TbConflictResource,
-    ItemDerivedFrom,
-  ]);
+  const conflictResources = useQuery([TbWeapon, TbConflictResource, ItemDerivedFrom]);
   // The per-character branch still uses the unrestricted resource
   // index so a monster's own dropdown picks up its monstrous weapons
   // (which lack ItemDerivedFrom). Reads are O(1) by id.
@@ -438,21 +411,14 @@ function ParticipantRow(props: {
     //      is carried by the lord and so excluded from anyone else's
     //      pool, even though it has a `TbConflictResource`.
     const ct = conflict()?.type;
-    const carried = new Set(
-      (carries()?.entries ?? []).map((e) => e.itemId as string),
-    );
+    const carried = new Set((carries()?.entries ?? []).map((e) => e.itemId as string));
     const ownedByAnyone = globallyCarried();
-    const matchesConflict = (cr: {
-      applicableConflicts: ReadonlyArray<string>;
-    }): boolean => {
+    const matchesConflict = (cr: { applicableConflicts: ReadonlyArray<string> }): boolean => {
       if (cr.applicableConflicts.length === 0) return true;
       if (!ct) return true;
       return cr.applicableConflicts.includes(ct);
     };
-    const crById = new Map<
-      string,
-      { applicableConflicts: ReadonlyArray<string>; kind: string }
-    >();
+    const crById = new Map<string, { applicableConflicts: ReadonlyArray<string>; kind: string }>();
     for (const row of allConflictResources()) {
       crById.set(
         row.id as string,
@@ -588,9 +554,7 @@ function ParticipantRow(props: {
           )}
         </Show>
         <Show when={props.knockedOut}>
-          <span class="ml-1 text-[0.6rem] uppercase tracking-wider text-danger">
-            ko
-          </span>
+          <span class="ml-1 text-[0.6rem] uppercase tracking-wider text-danger">ko</span>
         </Show>
       </span>
 
@@ -669,11 +633,7 @@ function ParticipantRow(props: {
         fallback={
           <Show
             when={currentWeapon()}
-            fallback={
-              <span class="font-mono text-[0.7rem] text-fg-subtle italic">
-                unarmed
-              </span>
-            }
+            fallback={<span class="font-mono text-[0.7rem] text-fg-subtle italic">unarmed</span>}
           >
             {(idAcc) => <WeaponName itemId={idAcc() as EntityId} />}
           </Show>
@@ -689,9 +649,7 @@ function ParticipantRow(props: {
           data-testid={`weapon-select-${props.participantEntityId}`}
         >
           <option value="">— unarmed —</option>
-          <For each={weaponChoices()}>
-            {(id) => <WeaponOption itemId={id} />}
-          </For>
+          <For each={weaponChoices()}>{(id) => <WeaponOption itemId={id} />}</For>
         </select>
       </Show>
     </article>
@@ -699,16 +657,12 @@ function ParticipantRow(props: {
 }
 
 function WeaponOption(props: { itemId: EntityId }): JSX.Element {
-  const ident = useTrait(props.itemId, ItemIdentity) as () =>
-    | { name: string }
-    | undefined;
+  const ident = useTrait(props.itemId, ItemIdentity) as () => { name: string } | undefined;
   return <option value={props.itemId}>{ident()?.name ?? "(item)"}</option>;
 }
 
 function WeaponName(props: { itemId: EntityId }): JSX.Element {
-  const ident = useTrait(props.itemId, ItemIdentity) as () =>
-    | { name: string }
-    | undefined;
+  const ident = useTrait(props.itemId, ItemIdentity) as () => { name: string } | undefined;
   return (
     <span class="text-xs text-fg-subtle font-mono truncate max-w-[8rem]">
       {ident()?.name ?? "(item)"}

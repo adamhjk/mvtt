@@ -1,6 +1,6 @@
 ---
 name: solid-jsx
-description: "Use this skill when writing or debugging JSX in Solid (SolidJS): single-root requirement, self-closing tags, dynamic expressions in `{ }`, the difference between HTML attributes and JSX properties, fragments (`<>...</>`), inline styles requiring `{{ }}` (object) or `{`...`}` (string), the order in which expressions are applied to elements (matters for `<input type=\"range\">`), event handler casing, and how Solid compiles JSX into DOM operations directly (no virtual DOM). Triggers on: JSX, fragment, single root, self-closing, expression, JSX in Solid, properties vs attributes, inline style, JSX compiles, DOM nodes, double curly braces."
+description: 'Use this skill when writing or debugging JSX in Solid (SolidJS): single-root requirement, self-closing tags, dynamic expressions in `{ }`, the difference between HTML attributes and JSX properties, fragments (`<>...</>`), inline styles requiring `{{ }}` (object) or `{`...`}` (string), the order in which expressions are applied to elements (matters for `<input type="range">`), event handler casing, and how Solid compiles JSX into DOM operations directly (no virtual DOM). Triggers on: JSX, fragment, single root, self-closing, expression, JSX in Solid, properties vs attributes, inline style, JSX compiles, DOM nodes, double curly braces.'
 license: MIT
 ---
 
@@ -19,7 +19,7 @@ into something like:
 ```ts
 const _tmpl = template(`<h1>Hello </h1>`);
 const el = _tmpl();
-insert(el, name);   // creates a reactive computation that updates the text node when `name` changes
+insert(el, name); // creates a reactive computation that updates the text node when `name` changes
 ```
 
 Key consequences:
@@ -80,12 +80,14 @@ Solid's JSX maps each prop in JSX to either a property or an attribute, dependin
 Two important consequences:
 
 - **`class` not `className`.** Solid uses HTML's actual attribute name. (`className` was deprecated in 1.4.)
-- **Some elements care about attribute order.** A famous case is `<input type="range" min={0} max={100} value={50} />` — set `value` *after* `min`/`max` or browsers will clamp it. Solid emits expressions in source order.
+- **Some elements care about attribute order.** A famous case is `<input type="range" min={0} max={100} value={50} />` — set `value` _after_ `min`/`max` or browsers will clamp it. Solid emits expressions in source order.
 
 ## Static vs dynamic
 
 ```tsx
-<button class="primary" disabled={isDisabled()}>{label()}</button>
+<button class="primary" disabled={isDisabled()}>
+  {label()}
+</button>
 ```
 
 Solid's compiler optimizes **static** parts (the `class="primary"`) into the cloned template, and only wires up the **dynamic** parts (the `disabled` and the text) to reactive computations. The more you keep static, the cheaper the component.
@@ -123,7 +125,11 @@ Use `<For>` or `<Index>`, never raw `.map`:
 ```tsx
 <ul>
   <For each={items()}>
-    {(item, i) => <li>{i()}: {item.name}</li>}
+    {(item, i) => (
+      <li>
+        {i()}: {item.name}
+      </li>
+    )}
   </For>
 </ul>
 ```
@@ -195,8 +201,8 @@ The `ref` attribute is a write target — Solid assigns the element to your vari
 {
   "compilerOptions": {
     "jsx": "preserve",
-    "jsxImportSource": "solid-js"
-  }
+    "jsxImportSource": "solid-js",
+  },
 }
 ```
 

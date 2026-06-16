@@ -94,10 +94,7 @@ export function readRatedAbility(
 export function isAbilityTrackFull(entry: RatedEntry): boolean {
   if (entry.rating >= ABILITY_MAX_RATING) return false;
   const need = abilityAdvancementNeed(entry.rating);
-  return (
-    entry.advancement.pass >= need.passNeeded &&
-    entry.advancement.fail >= need.failNeeded
-  );
+  return entry.advancement.pass >= need.passNeeded && entry.advancement.fail >= need.failNeeded;
 }
 
 /* -------------------------------------------------------------------------
@@ -172,14 +169,10 @@ export const ImproveAbility = defineCommand({
     }
     const need = abilityAdvancementNeed(entry.rating);
     if (entry.advancement.pass < need.passNeeded) {
-      return fail(
-        `pass track not full: ${entry.advancement.pass} of ${need.passNeeded}`,
-      );
+      return fail(`pass track not full: ${entry.advancement.pass} of ${need.passNeeded}`);
     }
     if (entry.advancement.fail < need.failNeeded) {
-      return fail(
-        `fail track not full: ${entry.advancement.fail} of ${need.failNeeded}`,
-      );
+      return fail(`fail track not full: ${entry.advancement.fail} of ${need.failNeeded}`);
     }
     return requireWrite(ctx, ctx.cmd.characterId);
   },

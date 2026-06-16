@@ -85,7 +85,7 @@ const [user] = createResource(userId, async (id) => {
   return r.json();
 });
 
-setUserId(2);   // user resource refetches with id=2.
+setUserId(2); // user resource refetches with id=2.
 ```
 
 ### Skipping the fetch
@@ -106,7 +106,7 @@ const [me] = createResource(token, async (t) => {
 
 ```ts
 type ResourceFetcher<S, T, R = unknown> = (
-  source: S,                                          // current source value (or `true` if no source)
+  source: S, // current source value (or `true` if no source)
   info: { value: T | undefined; refetching: R | boolean },
 ) => T | Promise<T>;
 ```
@@ -126,23 +126,23 @@ const [posts] = createResource(page, async (p, { value, refetching }) => {
 
 The return is a callable accessor with extra properties:
 
-| Property | Type | Meaning |
-|---|---|---|
-| `resource()` | `T \| undefined` | Current value. `undefined` until first resolution (unless `initialValue` was set). |
-| `resource.state` | `"unresolved" \| "pending" \| "ready" \| "refreshing" \| "errored"` | State machine. |
-| `resource.loading` | `boolean` | True while pending or refreshing. |
-| `resource.error` | `any` | Set if the fetcher rejected/threw. |
-| `resource.latest` | `T \| undefined` | Last successfully resolved value, even while refreshing. |
+| Property           | Type                                                                | Meaning                                                                            |
+| ------------------ | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `resource()`       | `T \| undefined`                                                    | Current value. `undefined` until first resolution (unless `initialValue` was set). |
+| `resource.state`   | `"unresolved" \| "pending" \| "ready" \| "refreshing" \| "errored"` | State machine.                                                                     |
+| `resource.loading` | `boolean`                                                           | True while pending or refreshing.                                                  |
+| `resource.error`   | `any`                                                               | Set if the fetcher rejected/threw.                                                 |
+| `resource.latest`  | `T \| undefined`                                                    | Last successfully resolved value, even while refreshing.                           |
 
 ### State machine
 
-| State | When | `loading` | `error` | `latest` |
-|---|---|---|---|---|
-| `unresolved` | Initial, no fetch yet (source returned falsy) | `false` | `undefined` | `undefined` |
-| `pending` | Fetching, no previous value | `true` | `undefined` | `undefined` |
-| `ready` | Fetched successfully | `false` | `undefined` | `T` |
-| `refreshing` | Fetching again, previous value still available | `true` | `undefined` | `T` |
-| `errored` | Fetcher rejected | `false` | `any` | `undefined` |
+| State        | When                                           | `loading` | `error`     | `latest`    |
+| ------------ | ---------------------------------------------- | --------- | ----------- | ----------- |
+| `unresolved` | Initial, no fetch yet (source returned falsy)  | `false`   | `undefined` | `undefined` |
+| `pending`    | Fetching, no previous value                    | `true`    | `undefined` | `undefined` |
+| `ready`      | Fetched successfully                           | `false`   | `undefined` | `T`         |
+| `refreshing` | Fetching again, previous value still available | `true`    | `undefined` | `T`         |
+| `errored`    | Fetcher rejected                               | `false`   | `any`       | `undefined` |
 
 Use `latest` when you want to keep showing the previous data while a refresh runs:
 
@@ -161,7 +161,7 @@ const [user, { mutate, refetch }] = createResource(userId, fetchUser);
 Overwrites the resource value locally without calling the fetcher. Useful for optimistic UI:
 
 ```ts
-mutate(prev => ({ ...prev!, name: "New name" }));
+mutate((prev) => ({ ...prev!, name: "New name" }));
 await api.updateName("New name");
 // (then refetch to confirm)
 refetch();
@@ -170,8 +170,8 @@ refetch();
 ### `refetch` — re-run without changing source
 
 ```ts
-await refetch();          // re-run with the same source
-await refetch("manual");  // re-run; info.refetching === "manual"
+await refetch(); // re-run with the same source
+await refetch("manual"); // re-run; info.refetching === "manual"
 ```
 
 ## Integration with `<Suspense>`
@@ -183,12 +183,12 @@ import { createResource, Suspense } from "solid-js";
 
 function Profile() {
   const [user] = createResource(fetchUser);
-  return <p>{user()?.name}</p>;     // suspends until ready
+  return <p>{user()?.name}</p>; // suspends until ready
 }
 
 <Suspense fallback={<p>Loading...</p>}>
   <Profile />
-</Suspense>
+</Suspense>;
 ```
 
 Multiple resources under one `<Suspense>` all suspend together — the boundary doesn't reveal until **all** are ready (or `latest` is available across a refresh, depending on options).
@@ -198,7 +198,13 @@ Multiple resources under one `<Suspense>` all suspend together — the boundary 
 If the fetcher throws, the error propagates up to the nearest `<ErrorBoundary>` whose `fallback` is rendered:
 
 ```tsx
-<ErrorBoundary fallback={(err, reset) => <div>Failed: {String(err)} <button onClick={reset}>Retry</button></div>}>
+<ErrorBoundary
+  fallback={(err, reset) => (
+    <div>
+      Failed: {String(err)} <button onClick={reset}>Retry</button>
+    </div>
+  )}
+>
   <Suspense fallback={<p>Loading...</p>}>
     <Profile />
   </Suspense>
@@ -215,7 +221,7 @@ When provided, the resource starts in `ready` and the type narrows to exclude `u
 
 ```ts
 const [user] = createResource(fetchUser, { initialValue: { name: "...", id: 0 } });
-user();   // never undefined
+user(); // never undefined
 ```
 
 ### `name`
@@ -262,7 +268,7 @@ const [items] = createResource(page, fetchPage);
 
 ```ts
 async function rename(newName: string) {
-  mutate(u => ({ ...u!, name: newName }));
+  mutate((u) => ({ ...u!, name: newName }));
   await api.rename(newName);
   refetch();
 }
@@ -271,7 +277,7 @@ async function rename(newName: string) {
 ### Conditional fetching (gating)
 
 ```ts
-const [auth] = createResource(loggedIn, async (yes) => yes ? fetchUser() : null);
+const [auth] = createResource(loggedIn, async (yes) => (yes ? fetchUser() : null));
 ```
 
 ## Common pitfalls

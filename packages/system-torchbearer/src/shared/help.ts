@@ -113,10 +113,7 @@ interface RollContext {
  *
  * Skills/abilities at rating 0 are filtered (DH p.37 "Rating 0 Help").
  */
-export function eligibleHelpFor(
-  roll: RollContext,
-  helper: HelperContext,
-): HelpOption[] {
+export function eligibleHelpFor(roll: RollContext, helper: HelperContext): HelpOption[] {
   const out: HelpOption[] = [];
   if (roll.kind === "skill") {
     appendSkillOptions(out, roll.sourceId, helper);
@@ -148,11 +145,7 @@ export function eligibleHelpFor(
   return out;
 }
 
-function appendSkillOptions(
-  out: HelpOption[],
-  skillId: string,
-  helper: HelperContext,
-): void {
+function appendSkillOptions(out: HelpOption[], skillId: string, helper: HelperContext): void {
   const skill = getSkill(skillId);
   // Same-skill help wins the top slot.
   const same = helper.skills.get(skillId) ?? 0;
@@ -178,11 +171,7 @@ function appendSkillOptions(
   }
 }
 
-function appendBlAbility(
-  out: HelpOption[],
-  bl: BeginnersLuck,
-  helper: HelperContext,
-): void {
+function appendBlAbility(out: HelpOption[], bl: BeginnersLuck, helper: HelperContext): void {
   const r = bl === "will" ? helper.will : helper.health;
   if (r <= 0) return;
   out.push({
@@ -193,11 +182,7 @@ function appendBlAbility(
   });
 }
 
-function appendAbilityOption(
-  out: HelpOption[],
-  abilityId: string,
-  helper: HelperContext,
-): void {
+function appendAbilityOption(out: HelpOption[], abilityId: string, helper: HelperContext): void {
   if (abilityId === "will" && helper.will > 0) {
     out.push({
       id: "ability:will",
@@ -259,10 +244,7 @@ function appendTownAbilityOption(
  *   `help:<helperCharacterId>:<optionId>`
  * where `<optionId>` is e.g. `skill:fighter` or `ability:will`.
  */
-export function helpProvidedBy(
-  helperCharacterId: string,
-  optionId: string,
-): string {
+export function helpProvidedBy(helperCharacterId: string, optionId: string): string {
   return `help:${helperCharacterId}:${optionId}`;
 }
 

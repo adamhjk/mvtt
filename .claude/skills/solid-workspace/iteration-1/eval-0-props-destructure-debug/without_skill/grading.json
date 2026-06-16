@@ -1,5 +1,9 @@
 {
   "expectations": [
-    {"text": "Output exists and addresses the prompt", "passed": true, "evidence": "answer.md is present and substantive"}
+    {
+      "text": "Output exists and addresses the prompt",
+      "passed": true,
+      "evidence": "answer.md is present and substantive"
+    }
   ]
 }

@@ -24,10 +24,7 @@ import { TbNpc } from "./shared/npc-traits.js";
 const noModifiers = { modifiers: { meta: false, shift: false, alt: false } };
 
 function spawnNpc(world: World, name: string, role = "Folk"): string {
-  return world.spawn([
-    Character({ name }),
-    TbNpc({ role, description: "", pageRef: null }),
-  ]);
+  return world.spawn([Character({ name }), TbNpc({ role, description: "", pageRef: null })]);
 }
 
 function spawnPc(world: World, name: string): string {

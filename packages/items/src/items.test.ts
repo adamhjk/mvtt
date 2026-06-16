@@ -16,12 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  CommandPipeline,
-  EventBus,
-  Registry,
-  World,
-} from "@vtt/substrate";
+import { CommandPipeline, EventBus, Registry, World } from "@vtt/substrate";
 import {
   CreateItem,
   CustomizeItem,
@@ -71,9 +66,7 @@ describe("@vtt/items", () => {
       expect(v.value.overrides).toEqual([]);
     });
     it("ItemEconomics treasure value rejects negative dice", () => {
-      expect(() =>
-        ItemEconomics({ value: { dice: -1, negotiated: false } } as never),
-      ).toThrow();
+      expect(() => ItemEconomics({ value: { dice: -1, negotiated: false } } as never)).toThrow();
     });
   });
 
@@ -556,8 +549,8 @@ describe("@vtt/items", () => {
       const aId = all.find(
         (r) =>
           (r.values.ItemIdentity as { name: string }).name === opts.a.name &&
-          (world.get(r.id, [ItemBundle]) as { ItemBundle: { count: number } })
-            .ItemBundle.count === opts.a.count,
+          (world.get(r.id, [ItemBundle]) as { ItemBundle: { count: number } }).ItemBundle.count ===
+            opts.a.count,
       )!.id;
       const bId = all.find((r) => r.id !== aId)!.id;
       return { aId, bId };

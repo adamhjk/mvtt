@@ -40,10 +40,7 @@ export interface ClientOptions {
  */
 export interface PresenceApi {
   publish(channel: string, payload: unknown, opts?: { to?: string[] }): void;
-  subscribe<T = unknown>(
-    channel: string,
-    fn: (payload: T) => void,
-  ): () => void;
+  subscribe<T = unknown>(channel: string, fn: (payload: T) => void): () => void;
 }
 
 /**
@@ -183,10 +180,7 @@ export function startClient(opts: ClientOptions): ClientHandle {
   const syncedListeners = new Set<() => void>();
   // commandId -> deferred ack. Set on dispatch, drained on the matching
   // `ack` wire frame (or on disconnect, see the close handler below).
-  const pendingAcks = new Map<
-    string,
-    { resolve: (ack: DispatchAck) => void }
-  >();
+  const pendingAcks = new Map<string, { resolve: (ack: DispatchAck) => void }>();
 
   // The connection layer owns the socket lifecycle: auto-reconnect with
   // backoff, resume-trigger reconnects (visibilitychange/pageshow/online),
@@ -450,12 +444,6 @@ export function useClient(): ClientHandle {
   return c;
 }
 
-export {
-  Surface,
-  useTrait,
-  useTraitPath,
-  useQuery,
-  createOptimisticTrait,
-} from "./reactivity.jsx";
+export { Surface, useTrait, useTraitPath, useQuery, createOptimisticTrait } from "./reactivity.jsx";
 export type { QueryRow, OptimisticTraitOptions } from "./reactivity.jsx";
 export type { PluginDef } from "./define.js";

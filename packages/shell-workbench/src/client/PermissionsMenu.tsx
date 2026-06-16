@@ -23,15 +23,7 @@ import {
   canWrite,
   type VisibilityShape,
 } from "@vtt/permissions/shared";
-import {
-  createMemo,
-  createResource,
-  createSignal,
-  For,
-  onCleanup,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, createResource, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { WorkspaceTab } from "../shared/traits.js";
 import { useMe } from "./use-me.js";
@@ -65,9 +57,7 @@ export function PermissionsMenu(props: { tab: WorkspaceTab }): JSX.Element {
   const entityId = createMemo(() => props.tab.entityId);
 
   return (
-    <Show when={entityId()}>
-      {(idAcc) => <PermissionsMenuForEntity entityId={idAcc()} />}
-    </Show>
+    <Show when={entityId()}>{(idAcc) => <PermissionsMenuForEntity entityId={idAcc()} />}</Show>
   );
 }
 
@@ -78,9 +68,7 @@ function PermissionsMenuForEntity(props: { entityId: string }): JSX.Element {
   const [members] = useWorldMembers();
 
   const [open, setOpen] = createSignal(false);
-  const [pos, setPos] = createSignal<{ top: number; left: number } | null>(
-    null,
-  );
+  const [pos, setPos] = createSignal<{ top: number; left: number } | null>(null);
   let buttonEl: HTMLButtonElement | undefined;
   let menuEl: HTMLDivElement | undefined;
 
@@ -109,10 +97,7 @@ function PermissionsMenuForEntity(props: { entityId: string }): JSX.Element {
   };
 
   const isWriter = createMemo(() =>
-    canWrite(
-      me(),
-      permissions() as Parameters<typeof canWrite>[1],
-    ),
+    canWrite(me(), permissions() as Parameters<typeof canWrite>[1]),
   );
 
   return (
@@ -225,9 +210,7 @@ function AxisControl(props: {
         <select
           disabled={props.disabled}
           value={kindOf(props.value)}
-          onChange={(e) =>
-            setKind(e.currentTarget.value as "everyone" | "gm" | "users")
-          }
+          onChange={(e) => setKind(e.currentTarget.value as "everyone" | "gm" | "users")}
           class="flex-1 rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-xs text-fg outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
         >
           <option value="everyone">Everyone</option>
@@ -301,10 +284,9 @@ function useWorldMembers() {
     () => client.worldId(),
     async (worldId) => {
       if (!worldId) return null;
-      const res = await fetch(
-        `/api/worlds/${encodeURIComponent(worldId)}/memberships`,
-        { credentials: "same-origin" },
-      );
+      const res = await fetch(`/api/worlds/${encodeURIComponent(worldId)}/memberships`, {
+        credentials: "same-origin",
+      });
       if (!res.ok) return null;
       const body = (await res.json()) as MembershipsResponse;
       return {

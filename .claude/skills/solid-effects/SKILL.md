@@ -69,12 +69,13 @@ function onMount(fn: () => void): void;
 
 ```tsx
 onMount(async () => {
-  const data = await fetch("/api/data").then(r => r.json());
+  const data = await fetch("/api/data").then((r) => r.json());
   setData(data);
 });
 ```
 
 `onMount` is sugar for `createEffect(() => untrack(fn))` — it runs the callback once after the component mounts and tracks no dependencies. Use when:
+
 - You want to do something exactly once when a component appears.
 - You're running async setup whose result you'll dump into a signal.
 - You need DOM access through `ref` (refs are populated before `onMount` runs).
@@ -88,6 +89,7 @@ function onCleanup(fn: () => void): void;
 ```
 
 `onCleanup` schedules a function to run when the surrounding reactive owner is disposed. The owner is:
+
 - The component → cleanup runs when the component unmounts.
 - The current `createEffect` run → cleanup runs when the effect re-runs (before the new run) **and** when the effect is finally disposed.
 - The current `createRoot` → cleanup runs when `dispose()` is called.
@@ -103,12 +105,12 @@ function Clock() {
 
 ### `onCleanup` inside an effect — important pattern
 
-When you call `onCleanup` *inside* `createEffect`, the cleanup runs **before each re-run** of that effect, not just on dispose. This is exactly how you write a "subscribe to thing X, unsubscribe on next change":
+When you call `onCleanup` _inside_ `createEffect`, the cleanup runs **before each re-run** of that effect, not just on dispose. This is exactly how you write a "subscribe to thing X, unsubscribe on next change":
 
 ```tsx
 createEffect(() => {
   const id = userId();
-  const sub = subscribeToUser(id, payload => setUser(payload));
+  const sub = subscribeToUser(id, (payload) => setUser(payload));
   onCleanup(() => sub.unsubscribe());
 });
 ```
@@ -118,6 +120,7 @@ Each time `userId()` changes: the previous subscription cleans up, then the effe
 ## Lifecycle ordering
 
 For a single component mount:
+
 1. Component function runs (synchronously).
 2. JSX is created. Refs are populated.
 3. Component is mounted into the DOM.
@@ -125,6 +128,7 @@ For a single component mount:
 5. `onMount` and `createEffect` callbacks fire (after the next microtask, post-paint).
 
 For an unmount:
+
 1. All `onCleanup` callbacks registered during the component's lifetime fire (children-first).
 
 ## Nested effects
@@ -146,7 +150,7 @@ A common refinement is to lift the inner effect into a separate function or `unt
 
 ```ts
 interface EffectOptions {
-  name?: string;     // dev-tool label
+  name?: string; // dev-tool label
 }
 ```
 
@@ -181,33 +185,39 @@ createEffect(() => {
 });
 ```
 
-### Run an effect *only* on changes (skip the initial)
+### Run an effect _only_ on changes (skip the initial)
 
 Use `on` with `defer: true`:
 
 ```tsx
 import { createEffect, on } from "solid-js";
 
-createEffect(on(count, c => {
-  console.log("count changed to", c);
-}, { defer: true }));
+createEffect(
+  on(
+    count,
+    (c) => {
+      console.log("count changed to", c);
+    },
+    { defer: true },
+  ),
+);
 ```
 
 See `solid-reactive-utilities` for `on`.
 
 ## Common pitfalls
 
-- **Calling the signal *outside* the effect's callback.** `createEffect(count())` is broken — you call `count()` once, get the value, and pass it. The effect body is empty. It must be `createEffect(() => count())`.
+- **Calling the signal _outside_ the effect's callback.** `createEffect(count())` is broken — you call `count()` once, get the value, and pass it. The effect body is empty. It must be `createEffect(() => count())`.
 - **Reading a signal in `console.log` at the top of a component.** That fires once at mount. To watch it, put the read in `createEffect`.
 - **Adding cleanup outside an owner.** `onCleanup` only works inside an effect, root, or component body. Outside any of those it's a no-op (and may warn).
-- **Closing over `props.foo` or destructured values.** The same destructure-breaks-reactivity rule applies inside effects. Read `props.foo` *inside* the effect, not above.
+- **Closing over `props.foo` or destructured values.** The same destructure-breaks-reactivity rule applies inside effects. Read `props.foo` _inside_ the effect, not above.
 - **Effects that infinitely loop.** Writing to a signal you also read in the same effect re-fires it. Use a memo or carefully untrack.
 
 ## Server vs client
 
 `createEffect` and `onMount` only run on the client. During SSR (`renderToString*`) they are skipped. `onCleanup` runs on the client during teardown; during SSR it doesn't run because nothing is teardown.
 
-For "I need this to run during SSR too" use `createRenderEffect` *or* perform the work inline in the component body. For "I need data on first render including SSR" use `createResource`.
+For "I need this to run during SSR too" use `createRenderEffect` _or_ perform the work inline in the component body. For "I need data on first render including SSR" use `createResource`.
 
 ## Related
 

@@ -85,9 +85,7 @@ describe("reconnect wire smoke", () => {
   const sockets: WebSocket[] = [];
 
   const connect = (): WebSocket => {
-    const ws = new WebSocket(
-      `ws://127.0.0.1:${handle.port}/ws?worldId=${worldId}`,
-    );
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws?worldId=${worldId}`);
     sockets.push(ws);
     return ws;
   };
@@ -171,13 +169,9 @@ describe("reconnect wire smoke", () => {
     const snapshot = (await inbox3.waitFor("snapshot")) as WireFrame & {
       state: { entities: Record<string, Record<string, unknown>> };
     };
-    const pongs = Object.values(snapshot.state.entities).filter(
-      (traits) => Pong.name in traits,
-    );
+    const pongs = Object.values(snapshot.state.entities).filter((traits) => Pong.name in traits);
     expect(pongs).toHaveLength(1);
-    expect((pongs[0]![Pong.name] as { message: string }).message).toBe(
-      "missed-me",
-    );
+    expect((pongs[0]![Pong.name] as { message: string }).message).toBe("missed-me");
 
     const synced = (await inbox3.waitFor("synced")) as WireFrame & {
       atSeq: number;

@@ -39,9 +39,15 @@ export const Scene = defineTrait({
     widthPx: z.number().int().min(1).max(16384).default(2100),
     heightPx: z.number().int().min(1).max(16384).default(1400),
     /** Hex string with leading #, e.g. "#1a1a1a". */
-    backgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#1a1a1a"),
+    backgroundColor: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/)
+      .default("#1a1a1a"),
     /** Color of the grid lines drawn over the background. */
-    gridColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#2a2a2a"),
+    gridColor: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/)
+      .default("#2a2a2a"),
     /**
      * Asset entity holding the background image bytes (canonical).
      * Post-refactor uploads go through

@@ -51,16 +51,13 @@ export function ObstacleCard(props: { atelier: AtelierState }): JSX.Element {
               aria-checked={props.atelier.activeObstacle() === n}
               class="inline-flex h-7 w-7 items-center justify-center rounded-(--radius-control) border font-mono text-[0.75rem] transition"
               classList={{
-                "border-accent bg-accent text-accent-fg":
-                  props.atelier.activeObstacle() === n,
+                "border-accent bg-accent text-accent-fg": props.atelier.activeObstacle() === n,
                 "border-border bg-surface-elevated text-fg-muted hover:border-accent hover:text-fg":
                   props.atelier.activeObstacle() !== n,
               }}
               onClick={() => props.atelier.pickObstacle(n)}
               title={
-                props.atelier.activeObstacle() === n
-                  ? `Click to clear Ob ${n}`
-                  : `Set Ob ${n}`
+                props.atelier.activeObstacle() === n ? `Click to clear Ob ${n}` : `Set Ob ${n}`
               }
               data-testid={`atelier-obstacle-pip-${n}`}
             >
@@ -78,8 +75,7 @@ export function ObstacleCard(props: { atelier: AtelierState }): JSX.Element {
           type="button"
           class="rounded-(--radius-control) border px-2 py-0.5 text-[0.7rem] transition"
           classList={{
-            "border-accent bg-accent text-accent-fg":
-              props.atelier.panelHeroic() === true,
+            "border-accent bg-accent text-accent-fg": props.atelier.panelHeroic() === true,
             "border-border bg-surface-elevated text-fg-muted hover:border-accent hover:text-fg":
               props.atelier.panelHeroic() !== true,
           }}
@@ -92,8 +88,7 @@ export function ObstacleCard(props: { atelier: AtelierState }): JSX.Element {
           type="button"
           class="rounded-(--radius-control) border px-2 py-0.5 text-[0.7rem] transition"
           classList={{
-            "border-accent bg-accent text-accent-fg":
-              props.atelier.panelHeroic() === false,
+            "border-accent bg-accent text-accent-fg": props.atelier.panelHeroic() === false,
             "border-border bg-surface-elevated text-fg-muted hover:border-accent hover:text-fg":
               props.atelier.panelHeroic() !== false,
           }}

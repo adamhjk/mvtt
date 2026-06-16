@@ -53,10 +53,7 @@ export function splitFieldPath(path: string): FieldPath {
  * (which is a programmer error in the caller — but the system
  * receiver should refuse rather than throw).
  */
-export function findTraitByShortName(
-  registry: Registry,
-  shortName: string,
-): TraitMeta | null {
+export function findTraitByShortName(registry: Registry, shortName: string): TraitMeta | null {
   for (const t of registry.traits.values()) {
     const tShort = t.name.split("/").pop();
     if (tShort === shortName) return t;
@@ -100,11 +97,7 @@ export function applyEditedField(args: {
   return { trait, newValue: next };
 }
 
-function deepSet(
-  src: unknown,
-  subPath: ReadonlyArray<string>,
-  value: unknown,
-): unknown {
+function deepSet(src: unknown, subPath: ReadonlyArray<string>, value: unknown): unknown {
   if (subPath.length === 0) return value;
   const [head, ...rest] = subPath as [string, ...string[]];
   if (Array.isArray(src)) {

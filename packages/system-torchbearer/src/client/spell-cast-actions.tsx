@@ -26,11 +26,7 @@
 // a small confirmation footer.
 
 import { useClient, useTrait } from "@vtt/substrate/client";
-import {
-  createMemo,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, Show, type JSX } from "solid-js";
 import { Formula } from "@vtt/resolution/shared";
 import {
   BurnScroll,
@@ -64,9 +60,7 @@ export function SpellCastActions(props: { rollId: string }): JSX.Element {
   const formula = useTrait(props.rollId, Formula);
   const consumed = useTrait(props.rollId, SpellCastConsumed);
   const me = kit.useMe();
-  const spellCast = createMemo<SpellCastContext | null>(() =>
-    readSpellCast(formula()?.meta),
-  );
+  const spellCast = createMemo<SpellCastContext | null>(() => readSpellCast(formula()?.meta));
 
   // Owner-or-GM gating — players see the cast row, but only the
   // rolling character's controllers and the GM can commit consume.

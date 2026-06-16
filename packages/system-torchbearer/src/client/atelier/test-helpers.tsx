@@ -15,14 +15,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  definePlugin,
-  type EntityId,
-} from "@vtt/substrate";
-import {
-  buildCharacterHarness,
-  type CharacterHarness,
-} from "@vtt/characters/testing";
+import { definePlugin, type EntityId } from "@vtt/substrate";
+import { buildCharacterHarness, type CharacterHarness } from "@vtt/characters/testing";
 import {
   CharacterSheetIdentitySlot,
   CharacterSheetVitalsSlot,
@@ -34,7 +28,12 @@ import {
 import { ChatTimelineContributorSlot } from "@vtt/comms/shared";
 import { RollActionsSlot } from "@vtt/resolution/shared";
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
-import { NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot } from "@vtt/shell-workbench/shared";
+import {
+  NotificationsSlot,
+  PaletteActionsSlot,
+  PaletteCommandsSlot,
+  WorkbenchStatusSlot,
+} from "@vtt/shell-workbench/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { BlockKindsSlot } from "@vtt/adventures/shared";
 import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
@@ -69,7 +68,10 @@ const atelierTestInfra = definePlugin({
     ChatTimelineContributorSlot,
     RollActionsSlot,
     ItemDetailSectionsSlot,
-    NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
+    NotificationsSlot,
+    PaletteActionsSlot,
+    PaletteCommandsSlot,
+    WorkbenchStatusSlot,
     LinkKindsSlot,
     BlockKindsSlot,
   ],
@@ -147,12 +149,15 @@ export function buildAtelierHarness(args: AtelierTestArgs): {
         },
       });
       if (args.skills && Object.keys(args.skills).length > 0) {
-        const entries: Record<string, {
-          rating: number;
-          advancement: { pass: number; fail: number };
-          taxed: boolean;
-          learningTests: number;
-        }> = {};
+        const entries: Record<
+          string,
+          {
+            rating: number;
+            advancement: { pass: number; fail: number };
+            taxed: boolean;
+            learningTests: number;
+          }
+        > = {};
         for (const [id, rating] of Object.entries(args.skills)) {
           entries[id] = {
             rating,

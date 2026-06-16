@@ -54,9 +54,7 @@ function indexKey(noteId: EntityId, blockKey: string): string {
 
 function ensureBlockEntityIndex(world: World): void {
   if (!world.has(BLOCK_ENTITY_INDEX_ID)) {
-    world.spawnAt(BLOCK_ENTITY_INDEX_ID, [
-      BlockEntityIndex({ entries: {} }),
-    ]);
+    world.spawnAt(BLOCK_ENTITY_INDEX_ID, [BlockEntityIndex({ entries: {} })]);
   }
 }
 
@@ -144,10 +142,7 @@ export type ParseBlockBodyResult =
  * the kind's Zod schema. It deliberately stops short of `project()`,
  * which needs a populated world to resolve wiki-links to entity ids.
  */
-export function parseBlockBody(
-  kindDef: AnyBlockKindDef,
-  body: string,
-): ParseBlockBodyResult {
+export function parseBlockBody(kindDef: AnyBlockKindDef, body: string): ParseBlockBodyResult {
   const { body: safeBody, table } = prepareYaml(body);
   let yaml: unknown;
   try {
@@ -328,13 +323,7 @@ export function runBlockParse(
     seenKeys.add(ik);
     const kindDef = kindIndex.byName.get(block.kind);
     if (!kindDef) continue;
-    const proj = projectBlock(
-      kindDef,
-      block.body,
-      block.info,
-      block.blockKey,
-      world,
-    );
+    const proj = projectBlock(kindDef, block.body, block.info, block.blockKey, world);
     if (!proj.ok) {
       errors.push({ kind: block.kind, blockKey: block.blockKey, message: proj.message });
       continue;

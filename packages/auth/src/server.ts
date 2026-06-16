@@ -101,9 +101,9 @@ export function createAuth(opts: AuthOptions): MvttAuth {
 
   const hasGameMaster = (): boolean => {
     try {
-      const row = db
-        .prepare(`SELECT COUNT(*) AS c FROM "user" WHERE role = ?`)
-        .get("gm") as { c: number } | undefined;
+      const row = db.prepare(`SELECT COUNT(*) AS c FROM "user" WHERE role = ?`).get("gm") as
+        | { c: number }
+        | undefined;
       return (row?.c ?? 0) > 0;
     } catch {
       // Table may not exist yet (migration hasn't run); treat as no GM.

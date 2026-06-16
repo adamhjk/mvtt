@@ -65,9 +65,7 @@ export function runSystemsToFixpoint(
 
   const applicableDerivations = dirty
     ? registry.derivations.filter((d) =>
-        side === "server"
-          ? d.where === "server" || d.where === "both"
-          : d.where === "both",
+        side === "server" ? d.where === "server" || d.where === "both" : d.where === "both",
       )
     : [];
 

@@ -137,9 +137,7 @@ interface Setup {
   arrowsId: EntityId;
 }
 
-function spawnItems(
-  world: import("@vtt/substrate").World,
-): Setup {
+function spawnItems(world: import("@vtt/substrate").World): Setup {
   const swordId = world.spawn([
     ItemIdentity({ name: "Sword" }),
     TbItemSlotOptions({ options: { carried: 1, belt: 1 } }),
@@ -166,18 +164,16 @@ function spawnItems(
   return { swordId, backpackId, arrowsId };
 }
 
-function setupHarness(opts?: {
-  initialEntries?: (s: Setup) => Array<Record<string, unknown>>;
-}) {
-  let cap: { setup: Setup } = { setup: { swordId: "" as EntityId, backpackId: "" as EntityId, arrowsId: "" as EntityId } };
+function setupHarness(opts?: { initialEntries?: (s: Setup) => Array<Record<string, unknown>> }) {
+  let cap: { setup: Setup } = {
+    setup: { swordId: "" as EntityId, backpackId: "" as EntityId, arrowsId: "" as EntityId },
+  };
   const h = buildCharacterHarness({
     asGm: true,
     plugins: [items, tbItemsTestPlugin],
     setupWorld: ({ world, characterId }) => {
       cap.setup = spawnItems(world);
-      const initial = opts?.initialEntries
-        ? opts.initialEntries(cap.setup)
-        : [];
+      const initial = opts?.initialEntries ? opts.initialEntries(cap.setup) : [];
       world.set(characterId, TbCarries, { entries: initial });
     },
   });
@@ -187,9 +183,7 @@ function setupHarness(opts?: {
 describe("Tab body — Inventory (slot-roof)", () => {
   it("renders every body-slot panel", () => {
     const h = setupHarness();
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     expect(screen.getByText("Head")).toBeInTheDocument();
     expect(screen.getByText("Neck")).toBeInTheDocument();
     expect(screen.getByText("Right Hand · carried")).toBeInTheDocument();
@@ -215,15 +209,9 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
-    expect(
-      screen.getByTestId(`pill-${h.items.swordId}-carried`),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId(`pill-${h.items.swordId}-belt`),
-    ).toBeInTheDocument();
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
+    expect(screen.getByTestId(`pill-${h.items.swordId}-carried`)).toBeInTheDocument();
+    expect(screen.getByTestId(`pill-${h.items.swordId}-belt`)).toBeInTheDocument();
   });
 
   it("clicking the currently-occupied pill is a no-op (it shows ✓)", async () => {
@@ -239,9 +227,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     const pill = screen.getByTestId(`pill-${h.items.swordId}-carried`);
     expect(pill.textContent).toContain("✓");
     fireEvent.click(pill);
@@ -264,9 +250,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     const beltPill = screen.getByTestId(`pill-${h.items.swordId}-belt`);
     fireEvent.click(beltPill);
     await waitFor(() => {
@@ -291,16 +275,10 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`pill-${h.items.swordId}-carried`));
-    expect(
-      screen.getByTestId(`picker-${h.characterId}:handR-carried`),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId(`picker-${h.characterId}:handL-carried`),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId(`picker-${h.characterId}:handR-carried`)).toBeInTheDocument();
+    expect(screen.getByTestId(`picker-${h.characterId}:handL-carried`)).toBeInTheDocument();
   });
 
   it("[pack·1] on arrows with one container goes straight to that container", async () => {
@@ -324,9 +302,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`pill-${h.items.arrowsId}-pack`));
     await waitFor(() => {
       expect(h.dispatched.some((d) => d.type === EquipItem.name)).toBe(true);
@@ -382,16 +358,10 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`pill-${h.items.arrowsId}-pack`));
-    expect(
-      screen.getByTestId(`picker-container:${h.items.backpackId}`),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId(`picker-container:${sackId}`),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId(`picker-container:${h.items.backpackId}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`picker-container:${sackId}`)).toBeInTheDocument();
   });
 
   it("Drop button removes the entry from the holder and stamps an ItemPosition for the world-shared ground", async () => {
@@ -407,9 +377,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`drop-${h.items.swordId}-0`));
     await new Promise((r) => setTimeout(r, 0));
     await waitFor(() => {
@@ -434,14 +402,10 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`missing-${h.items.swordId}-0`));
     await waitFor(() => {
-      expect(
-        h.dispatched.some((d) => d.type === SetEntryState.name),
-      ).toBe(true);
+      expect(h.dispatched.some((d) => d.type === SetEntryState.name)).toBe(true);
     });
     const ev = h.dispatched.find((d) => d.type === SetEntryState.name)!;
     const payload = ev.payload as {
@@ -484,9 +448,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
 
     it("typing in the search filters catalog entries", () => {
       const h = setupWithCatalog();
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
       const search = screen.getByTestId("catalog-search") as HTMLInputElement;
       fireEvent.input(search, { target: { value: "swo" } });
       expect(screen.getByText("Sword")).toBeInTheDocument();
@@ -495,9 +457,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
 
     it("clicking a catalog pill dispatches EquipItem with the chosen slot", async () => {
       const h = setupWithCatalog();
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
       fireEvent.input(screen.getByTestId("catalog-search"), {
         target: { value: "sword" },
       });
@@ -506,9 +466,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
         const v = r.values.ItemIdentity as { name: string };
         return v.name === "Sword";
       })!;
-      fireEvent.click(
-        screen.getByTestId(`catalog-pill-${swordRow.id}-belt`),
-      );
+      fireEvent.click(screen.getByTestId(`catalog-pill-${swordRow.id}-belt`));
       await waitFor(() => {
         expect(h.dispatched.some((d) => d.type === EquipItem.name)).toBe(true);
       });
@@ -544,9 +502,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
           });
         },
       });
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
       fireEvent.input(screen.getByTestId("catalog-search"), {
         target: { value: "back" },
       });
@@ -556,13 +512,9 @@ describe("Tab body — Inventory (slot-roof)", () => {
       // Two consecutive clicks. The pipeline serializes them; we
       // need to drain the microtask queue between fireEvents AND
       // after the second click so the test reads post-equip state.
-      fireEvent.click(
-        screen.getByTestId(`catalog-pill-${backpack.id}-torso`),
-      );
+      fireEvent.click(screen.getByTestId(`catalog-pill-${backpack.id}-torso`));
       await new Promise((r) => setTimeout(r, 0));
-      fireEvent.click(
-        screen.getByTestId(`catalog-pill-${backpack.id}-torso`),
-      );
+      fireEvent.click(screen.getByTestId(`catalog-pill-${backpack.id}-torso`));
       await new Promise((r) => setTimeout(r, 0));
       await waitFor(
         () => {
@@ -570,9 +522,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
             TbCarries: { entries: Array<{ slotsConsumed: number }> };
           };
           if (carries.TbCarries.entries.length !== 2) {
-            throw new Error(
-              `expected 2 entries, got ${carries.TbCarries.entries.length}`,
-            );
+            throw new Error(`expected 2 entries, got ${carries.TbCarries.entries.length}`);
           }
         },
         { timeout: 2000 },
@@ -617,9 +567,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
           });
         },
       });
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
       // Equip via [belt·1] first so the sword sits on the belt.
       fireEvent.input(screen.getByTestId("catalog-search"), {
         target: { value: "swo" },
@@ -646,9 +594,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
       await new Promise((r) => setTimeout(r, 0));
       fireEvent.click(screen.getByTestId(`pill-${sword.id}-carried`));
       // Picker open with R/L choices. Pick R.
-      fireEvent.click(
-        screen.getByTestId(`picker-${h.characterId}:handR-carried`),
-      );
+      fireEvent.click(screen.getByTestId(`picker-${h.characterId}:handR-carried`));
       // The pipeline is async — fireEvent returns immediately but
       // the dispatch promise resolves on the next microtask. Drain
       // it before reading state.
@@ -676,17 +622,11 @@ describe("Tab body — Inventory (slot-roof)", () => {
       x: 0,
       y: 0,
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     // The sword renders inside the "On the Ground" zone with its
     // slot-option pills available.
-    expect(
-      screen.getByTestId(`ground-pill-${h.items.swordId}-belt`),
-    ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByTestId(`ground-pill-${h.items.swordId}-belt`),
-    );
+    expect(screen.getByTestId(`ground-pill-${h.items.swordId}-belt`)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(`ground-pill-${h.items.swordId}-belt`));
     await new Promise((r) => setTimeout(r, 0));
     await waitFor(() => {
       expect(h.dispatched.some((d) => d.type === PickUpItem.name)).toBe(true);
@@ -709,12 +649,8 @@ describe("Tab body — Inventory (slot-roof)", () => {
       x: 0,
       y: 0,
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
-    expect(
-      screen.getByTestId(`ground-item-${h.items.swordId}`),
-    ).toBeInTheDocument();
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
+    expect(screen.getByTestId(`ground-item-${h.items.swordId}`)).toBeInTheDocument();
   });
 
   it("missing items show pills and clicking one clears `lost`", async () => {
@@ -731,9 +667,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`pill-${h.items.swordId}-belt`));
     await waitFor(() => {
       expect(
@@ -765,9 +699,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
     const orig = window.confirm;
     window.confirm = () => true;
     try {
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
       fireEvent.click(screen.getByTestId(`remove-${h.items.swordId}-0`));
       await new Promise((r) => setTimeout(r, 0));
       await waitFor(() => {
@@ -775,12 +707,8 @@ describe("Tab body — Inventory (slot-roof)", () => {
           throw new Error("expected sword entity destroyed");
         }
       });
-      expect(
-        h.dispatched.some((d) => d.type === UnequipItem.name),
-      ).toBe(true);
-      expect(
-        h.dispatched.some((d) => d.type === "@vtt/items/DestroyItem"),
-      ).toBe(true);
+      expect(h.dispatched.some((d) => d.type === UnequipItem.name)).toBe(true);
+      expect(h.dispatched.some((d) => d.type === "@vtt/items/DestroyItem")).toBe(true);
     } finally {
       window.confirm = orig;
     }
@@ -805,9 +733,9 @@ describe("Tab body — Inventory (slot-roof)", () => {
             },
           ],
         });
-        const swordEntity = world.query([ItemIdentity]).find(
-          (r) => (r.values.ItemIdentity as { name: string }).name === "Sword",
-        )!;
+        const swordEntity = world
+          .query([ItemIdentity])
+          .find((r) => (r.values.ItemIdentity as { name: string }).name === "Sword")!;
         world.set(characterId, TbCarries, {
           entries: [
             {
@@ -822,25 +750,19 @@ describe("Tab body — Inventory (slot-roof)", () => {
         });
       },
     });
-    const swordEntity = h.world.query([ItemIdentity]).find(
-      (r) => (r.values.ItemIdentity as { name: string }).name === "Sword",
-    )!;
+    const swordEntity = h.world
+      .query([ItemIdentity])
+      .find((r) => (r.values.ItemIdentity as { name: string }).name === "Sword")!;
     const orig = window.confirm;
     window.confirm = () => true;
     try {
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
-      fireEvent.click(
-        screen.getByTestId(`remove-${swordEntity.id}-0`),
-      );
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
+      fireEvent.click(screen.getByTestId(`remove-${swordEntity.id}-0`));
       await waitFor(() => {
         expect(h.dispatched.some((d) => d.type === UnequipItem.name)).toBe(true);
       });
       // Catalog entity is preserved — no DestroyItem dispatched.
-      expect(
-        h.dispatched.some((d) => d.type === "@vtt/items/DestroyItem"),
-      ).toBe(false);
+      expect(h.dispatched.some((d) => d.type === "@vtt/items/DestroyItem")).toBe(false);
       expect(h.world.has(swordEntity.id)).toBe(true);
     } finally {
       window.confirm = orig;
@@ -869,9 +791,9 @@ describe("Tab body — Inventory (slot-roof)", () => {
         });
       },
     });
-    const catalogSword = h.world.query([ItemIdentity]).find(
-      (r) => (r.values.ItemIdentity as { name: string }).name === "Sword",
-    )!;
+    const catalogSword = h.world
+      .query([ItemIdentity])
+      .find((r) => (r.values.ItemIdentity as { name: string }).name === "Sword")!;
     // Catalog item placed directly on ground (no fork — gear-shaped
     // catalog items reach the ground as themselves; only containers
     // auto-fork on PlaceOnGround).
@@ -893,9 +815,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
     const orig = window.confirm;
     window.confirm = () => true;
     try {
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
       // Remove the ad-hoc one — should destroy.
       fireEvent.click(screen.getByTestId(`ground-remove-${adhocSword}`));
       await new Promise((r) => setTimeout(r, 0));
@@ -943,9 +863,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`drop-${h.items.arrowsId}-0`));
     await new Promise((r) => setTimeout(r, 0));
     await waitFor(() => {
@@ -958,9 +876,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
       expect(h.world.get(h.items.arrowsId, [ItemPosition])).toBeDefined();
     });
     // Visible in the world-shared On the Ground zone.
-    expect(
-      screen.getByTestId(`ground-item-${h.items.arrowsId}`),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId(`ground-item-${h.items.arrowsId}`)).toBeInTheDocument();
   });
 
   it("marking a container's content missing surfaces it in the character's Missing zone", async () => {
@@ -988,9 +904,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`missing-${h.items.arrowsId}-0`));
     await waitFor(() => {
       const bp = h.world.get(h.items.backpackId, [TbCarries]) as {
@@ -1015,9 +929,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
       x: 0,
       y: 0,
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`ground-pill-${sackId}-carried`));
     await new Promise((r) => setTimeout(r, 0));
     await waitFor(() => {
@@ -1077,9 +989,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`ground-pill-${sackId}-carried`));
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
@@ -1122,9 +1032,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
       x: 0,
       y: 0,
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`ground-pill-${sackId}-pack`));
     await new Promise((r) => setTimeout(r, 0));
     await waitFor(() => {
@@ -1164,18 +1072,13 @@ describe("Tab body — Inventory (slot-roof)", () => {
         });
       },
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.input(screen.getByTestId("catalog-search"), {
       target: { value: "large" },
     });
     const catalogSack = h.world
       .query([ItemIdentity])
-      .find(
-        (r) =>
-          (r.values.ItemIdentity as { name: string }).name === "Large Sack",
-      )!;
+      .find((r) => (r.values.ItemIdentity as { name: string }).name === "Large Sack")!;
     fireEvent.click(screen.getByTestId(`catalog-drop-${catalogSack.id}`));
     await new Promise((r) => setTimeout(r, 0));
     await waitFor(() => {
@@ -1221,9 +1124,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`pill-${sackId}-carried`));
     await new Promise((r) => setTimeout(r, 0));
     await waitFor(() => {
@@ -1232,9 +1133,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
       };
       const sackEntry = c.TbCarries.entries.find((e) => e.slot === "hands");
       if (!sackEntry) {
-        throw new Error(
-          `expected entry at slot=hands; got ${JSON.stringify(c.TbCarries.entries)}`,
-        );
+        throw new Error(`expected entry at slot=hands; got ${JSON.stringify(c.TbCarries.entries)}`);
       }
       expect(sackEntry.slot).toBe("hands");
       expect(sackEntry.slotsConsumed).toBe(2);
@@ -1267,30 +1166,21 @@ describe("Tab body — Inventory (slot-roof)", () => {
         });
       },
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.input(screen.getByTestId("catalog-search"), {
       target: { value: "large" },
     });
     const catalogSack = h.world
       .query([ItemIdentity])
-      .find(
-        (r) =>
-          (r.values.ItemIdentity as { name: string }).name === "Large Sack",
-      )!;
-    fireEvent.click(
-      screen.getByTestId(`catalog-pill-${catalogSack.id}-carried`),
-    );
+      .find((r) => (r.values.ItemIdentity as { name: string }).name === "Large Sack")!;
+    fireEvent.click(screen.getByTestId(`catalog-pill-${catalogSack.id}-carried`));
     await new Promise((r) => setTimeout(r, 0));
     await waitFor(() => {
       const c = h.world.get(h.characterId, [TbCarries]) as {
         TbCarries: { entries: Array<{ slot: string; channel: string }> };
       };
       if (c.TbCarries.entries.length !== 1) {
-        throw new Error(
-          `expected 1 entry, got ${c.TbCarries.entries.length}`,
-        );
+        throw new Error(`expected 1 entry, got ${c.TbCarries.entries.length}`);
       }
     });
     const c = h.world.get(h.characterId, [TbCarries]) as {
@@ -1322,23 +1212,17 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     // The sack should appear in both R-carried and L-carried panels
     // — there are two ItemRows for the same itemId.
     const sackNames = screen.getAllByText("Large Sack");
     expect(sackNames.length).toBeGreaterThanOrEqual(2);
     // Right-hand carried panel header: "Right Hand · carried (1/1)".
-    const rightHand = screen.getByText(/^Right Hand · carried/).closest(
-      "section",
-    )!;
+    const rightHand = screen.getByText(/^Right Hand · carried/).closest("section")!;
     expect(rightHand.textContent).toContain("1/1");
     expect(rightHand.getAttribute("data-overfull")).toBe("false");
     // Left-hand carried panel: same.
-    const leftHand = screen.getByText(/^Left Hand · carried/).closest(
-      "section",
-    )!;
+    const leftHand = screen.getByText(/^Left Hand · carried/).closest("section")!;
     expect(leftHand.textContent).toContain("1/1");
     expect(leftHand.getAttribute("data-overfull")).toBe("false");
   });
@@ -1364,9 +1248,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     expect(screen.getByText("Sword #1")).toBeInTheDocument();
     expect(screen.getByText("Sword #2")).toBeInTheDocument();
   });
@@ -1394,9 +1276,7 @@ describe("Tab body — Inventory (slot-roof)", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     // Find the Torso panel header — its capacity readout includes the
     // ⚠ glyph when overfull.
     const torsoPanel = screen.getByText("Torso").closest("section")!;
@@ -1435,23 +1315,17 @@ describe("Bundle items in the inventory", () => {
 
   it("renders count/capacity next to a stacked item's name", () => {
     const h = setupTorches({ count: 4, capacity: 4 });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     const badge = screen.getByTestId(`bundle-count-${h.torchId}-0`);
     expect(badge.textContent).toBe("4/4");
   });
 
   it("Split 1 dispatches SplitItemBundle and the holder ends up with two carries entries", async () => {
     const h = setupTorches({ count: 4, capacity: 4 });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`split-${h.torchId}-0`));
     await waitFor(() => {
-      expect(
-        h.dispatched.some((d) => d.type === SplitItemBundle.name),
-      ).toBe(true);
+      expect(h.dispatched.some((d) => d.type === SplitItemBundle.name)).toBe(true);
     });
     await waitFor(() => {
       const carries = h.world.get(h.characterId, [TbCarries]) as {
@@ -1466,9 +1340,7 @@ describe("Bundle items in the inventory", () => {
     const carries = h.world.get(h.characterId, [TbCarries]) as {
       TbCarries: { entries: Array<{ itemId: string }> };
     };
-    const newId = carries.TbCarries.entries.find(
-      (e) => e.itemId !== h.torchId,
-    )!.itemId;
+    const newId = carries.TbCarries.entries.find((e) => e.itemId !== h.torchId)!.itemId;
     const nb = h.world.get(newId as EntityId, [ItemBundle]) as {
       ItemBundle: { count: number; capacity: number };
     };
@@ -1478,9 +1350,7 @@ describe("Bundle items in the inventory", () => {
 
   it("hides the Split button when count is 1", () => {
     const h = setupTorches({ count: 1, capacity: 4 });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     expect(screen.queryByTestId(`split-${h.torchId}-0`)).toBeNull();
   });
 
@@ -1537,9 +1407,7 @@ describe("Bundle items in the inventory", () => {
       a: { count: 1, capacity: 4 },
       b: { count: 2, capacity: 4 },
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     expect(screen.getByTestId(`combine-${h.aId}-0`)).toBeInTheDocument();
     expect(screen.getByTestId(`combine-${h.bId}-1`)).toBeInTheDocument();
   });
@@ -1550,9 +1418,7 @@ describe("Bundle items in the inventory", () => {
       b: { count: 1, capacity: 4 },
       sameKind: false,
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     expect(screen.queryByTestId(`combine-${h.aId}-0`)).toBeNull();
     expect(screen.queryByTestId(`combine-${h.bId}-1`)).toBeNull();
   });
@@ -1562,9 +1428,7 @@ describe("Bundle items in the inventory", () => {
       a: { count: 1, capacity: 4 },
       b: { count: 4, capacity: 4 },
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     // A's only peer (B) is full → A has no destination → button hidden.
     expect(screen.queryByTestId(`combine-${h.aId}-0`)).toBeNull();
     // B's only peer (A) has headroom → B can pour into A → button shown.
@@ -1596,9 +1460,7 @@ describe("Bundle items in the inventory", () => {
         });
       },
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     // The "carried" pill is the carry-in-hand placement option.
     const pill = screen.getByTestId(`pill-${torchId}-carried`);
     fireEvent.click(pill);
@@ -1620,19 +1482,15 @@ describe("Bundle items in the inventory", () => {
       };
       // Two entries: original stack of 3 in pack/torso, new singleton in handR or handL.
       expect(carries.TbCarries.entries.length).toBe(2);
-      const handEntry = carries.TbCarries.entries.find(
-        (e) => e.channel === "carried",
-      );
+      const handEntry = carries.TbCarries.entries.find((e) => e.channel === "carried");
       expect(handEntry).toBeTruthy();
       expect(handEntry!.itemId).not.toBe(torchId);
-      const handBundle = h.world.get(handEntry!.itemId as EntityId, [
-        ItemBundle,
-      ]) as { ItemBundle: { count: number } };
+      const handBundle = h.world.get(handEntry!.itemId as EntityId, [ItemBundle]) as {
+        ItemBundle: { count: number };
+      };
       expect(handBundle.ItemBundle.count).toBe(1);
       // The original stack is decremented to 3 and stayed put.
-      const stackEntry = carries.TbCarries.entries.find(
-        (e) => e.itemId === torchId,
-      );
+      const stackEntry = carries.TbCarries.entries.find((e) => e.itemId === torchId);
       expect(stackEntry).toBeTruthy();
       const stackBundle = h.world.get(torchId, [ItemBundle]) as {
         ItemBundle: { count: number };
@@ -1666,9 +1524,7 @@ describe("Bundle items in the inventory", () => {
         });
       },
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`pill-${torchId}-pouch`));
     // Pouch may need a picker; if so, click the first option.
     await new Promise((r) => setTimeout(r, 0));
@@ -1735,9 +1591,7 @@ describe("Bundle items in the inventory", () => {
         });
       },
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     const toggle = screen.getByTestId(`peek-toggle-row-${backpackId}-0`);
     expect(toggle).toBeInTheDocument();
     // Contents not yet shown.
@@ -1783,17 +1637,13 @@ describe("Bundle items in the inventory", () => {
         });
       },
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     const toggle = screen.getByTestId(`peek-toggle-ground-${sackId}`);
     fireEvent.click(toggle);
     await waitFor(() => {
       expect(screen.getByTestId(`peek-${sackId}`)).toBeInTheDocument();
     });
-    expect(
-      screen.getByTestId(`peek-${sackId}`).textContent,
-    ).toContain("Copper Coins");
+    expect(screen.getByTestId(`peek-${sackId}`).textContent).toContain("Copper Coins");
   });
 
   it("peek-inside: empty container does NOT show expand toggle", () => {
@@ -1823,12 +1673,8 @@ describe("Bundle items in the inventory", () => {
         });
       },
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
-    expect(
-      screen.queryByTestId(`peek-toggle-row-${backpackId}-0`),
-    ).toBeNull();
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
+    expect(screen.queryByTestId(`peek-toggle-row-${backpackId}-0`)).toBeNull();
   });
 
   it("clicking a target dispatches JoinItemBundles and dest absorbs src", async () => {
@@ -1836,15 +1682,11 @@ describe("Bundle items in the inventory", () => {
       a: { count: 1, capacity: 4 },
       b: { count: 2, capacity: 4 },
     });
-    mountWithClient(h, () =>
-      TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-    );
+    mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
     fireEvent.click(screen.getByTestId(`combine-${h.aId}-0`));
     fireEvent.click(screen.getByTestId(`combine-target-${h.bId}`));
     await waitFor(() => {
-      expect(
-        h.dispatched.some((d) => d.type === JoinItemBundles.name),
-      ).toBe(true);
+      expect(h.dispatched.some((d) => d.type === JoinItemBundles.name)).toBe(true);
     });
     await waitFor(() => {
       // src destroyed (full transfer), dest count = 3
@@ -1875,32 +1717,18 @@ describe("Bundle items in the inventory", () => {
           },
         ],
       });
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
       fireEvent.click(screen.getByTestId(`edit-${h.items.swordId}-0`));
       await waitFor(() => {
-        expect(
-          h.dispatched.some(
-            (d) => d.type === "@vtt/shell-workbench/OpenPage",
-          ),
-        ).toBe(true);
+        expect(h.dispatched.some((d) => d.type === "@vtt/shell-workbench/OpenPage")).toBe(true);
       });
       // No fork happened — the standalone sword is already a private
       // entity; Edit just navigates to its detail page.
-      expect(h.dispatched.some((d) => d.type === CustomizeItem.name)).toBe(
-        false,
-      );
-      const open = h.dispatched.find(
-        (d) => d.type === "@vtt/shell-workbench/OpenPage",
-      );
+      expect(h.dispatched.some((d) => d.type === CustomizeItem.name)).toBe(false);
+      const open = h.dispatched.find((d) => d.type === "@vtt/shell-workbench/OpenPage");
       expect(open).toBeDefined();
-      expect((open!.payload as { pageKind: string }).pageKind).toBe(
-        "@vtt/items/items",
-      );
-      expect((open!.payload as { entityId: string }).entityId).toBe(
-        h.items.swordId,
-      );
+      expect((open!.payload as { pageKind: string }).pageKind).toBe("@vtt/items/items");
+      expect((open!.payload as { entityId: string }).entityId).toBe(h.items.swordId);
     });
 
     it("Edit on a catalog-template entry forks first, rebinds the carry entry, then opens the fork's detail page", async () => {
@@ -1923,9 +1751,9 @@ describe("Bundle items in the inventory", () => {
               },
             ],
           });
-          const swordEntity = world.query([ItemIdentity]).find(
-            (r) => (r.values.ItemIdentity as { name: string }).name === "Sword",
-          )!;
+          const swordEntity = world
+            .query([ItemIdentity])
+            .find((r) => (r.values.ItemIdentity as { name: string }).name === "Sword")!;
           world.set(characterId, TbCarries, {
             entries: [
               {
@@ -1940,33 +1768,21 @@ describe("Bundle items in the inventory", () => {
           });
         },
       });
-      const catalogSword = h.world.query([ItemIdentity]).find(
-        (r) => (r.values.ItemIdentity as { name: string }).name === "Sword",
-      )!;
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
+      const catalogSword = h.world
+        .query([ItemIdentity])
+        .find((r) => (r.values.ItemIdentity as { name: string }).name === "Sword")!;
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
       fireEvent.click(screen.getByTestId(`edit-${catalogSword.id}-0`));
       await waitFor(() => {
-        expect(h.dispatched.some((d) => d.type === CustomizeItem.name)).toBe(
-          true,
-        );
+        expect(h.dispatched.some((d) => d.type === CustomizeItem.name)).toBe(true);
       });
       await waitFor(() => {
-        expect(
-          h.dispatched.some(
-            (d) => d.type === "@vtt/shell-workbench/OpenPage",
-          ),
-        ).toBe(true);
+        expect(h.dispatched.some((d) => d.type === "@vtt/shell-workbench/OpenPage")).toBe(true);
       });
-      const open = h.dispatched.find(
-        (d) => d.type === "@vtt/shell-workbench/OpenPage",
-      );
+      const open = h.dispatched.find((d) => d.type === "@vtt/shell-workbench/OpenPage");
       expect(open).toBeDefined();
       const target = (open!.payload as { entityId: string }).entityId;
-      expect((open!.payload as { pageKind: string }).pageKind).toBe(
-        "@vtt/items/items",
-      );
+      expect((open!.payload as { pageKind: string }).pageKind).toBe("@vtt/items/items");
       // Routes to the fork, NOT the shared catalog entity.
       expect(target).not.toBe(catalogSword.id);
       // The fork is a real entity in the world by now.
@@ -1999,11 +1815,9 @@ describe("Bundle items in the inventory", () => {
               },
             ],
           });
-          const pouchEntity = world.query([ItemIdentity]).find(
-            (r) =>
-              (r.values.ItemIdentity as { name: string }).name ===
-              "Pouch of Gold",
-          )!;
+          const pouchEntity = world
+            .query([ItemIdentity])
+            .find((r) => (r.values.ItemIdentity as { name: string }).name === "Pouch of Gold")!;
           world.set(characterId, TbCarries, {
             entries: [
               {
@@ -2018,10 +1832,9 @@ describe("Bundle items in the inventory", () => {
           });
         },
       });
-      const catalogPouch = h.world.query([ItemIdentity]).find(
-        (r) =>
-          (r.values.ItemIdentity as { name: string }).name === "Pouch of Gold",
-      )!;
+      const catalogPouch = h.world
+        .query([ItemIdentity])
+        .find((r) => (r.values.ItemIdentity as { name: string }).name === "Pouch of Gold")!;
       const handle = h.client.dispatch(
         CustomizeItem({
           sourceItemId: catalogPouch.id as EntityId,
@@ -2055,9 +1868,7 @@ describe("Bundle items in the inventory", () => {
           },
         ],
       });
-      const handle = h.client.dispatch(
-        CustomizeItem({ sourceItemId: h.items.swordId }) as never,
-      );
+      const handle = h.client.dispatch(CustomizeItem({ sourceItemId: h.items.swordId }) as never);
       await handle.ack;
       // Sword still in hand, unchanged — the bare fork didn't touch
       // any holder's entry.
@@ -2093,13 +1904,10 @@ describe("Bundle items in the inventory", () => {
           });
         },
       });
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
-      const pouch = h.world.query([ItemIdentity]).find(
-        (r) =>
-          (r.values.ItemIdentity as { name: string }).name === "Pouch of Gold",
-      )!;
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
+      const pouch = h.world
+        .query([ItemIdentity])
+        .find((r) => (r.values.ItemIdentity as { name: string }).name === "Pouch of Gold")!;
       const badge = screen.getByTestId(`value-${pouch.id}-0`);
       expect(badge).toBeInTheDocument();
       expect(badge.textContent).toBe("· 2D");
@@ -2129,13 +1937,10 @@ describe("Bundle items in the inventory", () => {
           });
         },
       });
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
-      const gem = h.world.query([ItemIdentity]).find(
-        (r) =>
-          (r.values.ItemIdentity as { name: string }).name === "Rough Gem",
-      )!;
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
+      const gem = h.world
+        .query([ItemIdentity])
+        .find((r) => (r.values.ItemIdentity as { name: string }).name === "Rough Gem")!;
       const badge = screen.getByTestId(`value-${gem.id}-0`);
       expect(badge.textContent).toBe("· 2D?");
     });
@@ -2153,9 +1958,7 @@ describe("Bundle items in the inventory", () => {
           },
         ],
       });
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
       expect(screen.queryByTestId(`value-${h.items.swordId}-0`)).toBeNull();
     });
   });
@@ -2194,16 +1997,12 @@ describe("Bundle items in the inventory", () => {
           });
         },
       });
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
       expect(screen.getByTestId(`pip-${rationId}-0-0`)).toBeInTheDocument();
       expect(screen.getByTestId(`pip-${rationId}-0-1`)).toBeInTheDocument();
       expect(screen.getByTestId(`pip-${rationId}-0-2`)).toBeInTheDocument();
       expect(screen.queryByTestId(`pip-${rationId}-0-3`)).toBeNull();
-      expect(screen.getByTestId(`bundle-count-${rationId}-0`).textContent).toBe(
-        "2/3",
-      );
+      expect(screen.getByTestId(`bundle-count-${rationId}-0`).textContent).toBe("2/3");
     });
 
     it("clicking a filled pip drops the count to that index", async () => {
@@ -2227,9 +2026,7 @@ describe("Bundle items in the inventory", () => {
           });
         },
       });
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
       // Clicking the 2nd filled pip (index 1) drops count to 1.
       fireEvent.click(screen.getByTestId(`pip-${rationId}-0-1`));
       await waitFor(() => {
@@ -2264,9 +2061,7 @@ describe("Bundle items in the inventory", () => {
           });
         },
       });
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
       // Clicking the 3rd (hollow) pip (index 2) restores to count 3.
       fireEvent.click(screen.getByTestId(`pip-${rationId}-0-2`));
       await waitFor(() => {
@@ -2316,12 +2111,8 @@ describe("Bundle items in the inventory", () => {
           });
         },
       });
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
-      const sel = screen.getByTestId(
-        `liquid-${bottleId}-0`,
-      ) as HTMLSelectElement;
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
+      const sel = screen.getByTestId(`liquid-${bottleId}-0`) as HTMLSelectElement;
       expect(sel.value).toBe("wine");
     });
 
@@ -2346,12 +2137,8 @@ describe("Bundle items in the inventory", () => {
           });
         },
       });
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
-      const sel = screen.getByTestId(
-        `liquid-${bottleId}-0`,
-      ) as HTMLSelectElement;
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
+      const sel = screen.getByTestId(`liquid-${bottleId}-0`) as HTMLSelectElement;
       fireEvent.change(sel, { target: { value: "water" } });
       await waitFor(() => {
         const dispatched = h.dispatched.find(
@@ -2389,9 +2176,7 @@ describe("Bundle items in the inventory", () => {
           });
         },
       });
-      mountWithClient(h, () =>
-        TbInventoryTabFill.render({ characterId: h.characterId }) as never,
-      );
+      mountWithClient(h, () => TbInventoryTabFill.render({ characterId: h.characterId }) as never);
       expect(screen.queryByTestId(`liquid-${rationId}-0`)).toBeNull();
     });
   });

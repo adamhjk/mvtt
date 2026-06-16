@@ -66,8 +66,7 @@ describe("prepareYaml / restoreWikiLinks", () => {
   });
 
   it("preserves multiple links in document order", () => {
-    const body =
-      "carries:\n  - [[item:a]]\n  - [[item:b]]\n  - [[item:c]]";
+    const body = "carries:\n  - [[item:a]]\n  - [[item:b]]\n  - [[item:c]]";
     expect(roundTrip(body)).toEqual({
       carries: ["[[item:a]]", "[[item:b]]", "[[item:c]]"],
     });

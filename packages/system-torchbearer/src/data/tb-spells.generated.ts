@@ -222,7 +222,8 @@ export const TB_SPELL_TEMPLATES: ReadonlyArray<TbSpellTemplate> = [
       castingTime: "one-turn",
       duration: "Variable (see below)",
       materials: "A drop of pure honey smeared on the caster’s lips",
-      focus: "Strands of thread with the victim’s name whispered over them and woven into a ring worn by the caster",
+      focus:
+        "Strands of thread with the victim’s name whispered over them and woven into a ring worn by the caster",
     },
     learning: { scribeOb: 2, learnOb: 3 },
   },

@@ -31,7 +31,7 @@ from the algorithmic approach in dice-box's
 `src/components/Dice.js#getRollResult` — read the collider mesh's
 triangles, look up each face-id's value via `colliderFaceMap`, then
 compute mesh-local face normals. dice-box uses these normals to
-*detect* the face value after physics settles; we use them in
+_detect_ the face value after physics settles; we use them in
 reverse — given a target value, compute the rotation that aligns
 that face with world-up. The implementation was authored from
 scratch following the same data flow.

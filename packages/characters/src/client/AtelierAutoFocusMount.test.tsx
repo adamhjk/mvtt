@@ -18,10 +18,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, expect, it, beforeEach } from "vitest";
 import { cleanup, waitFor } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
@@ -73,7 +70,10 @@ function spawnRoll(
       contributions: [],
       openedAt: args.openedAt,
     }),
-    Permissions({ read: { kind: "everyone" }, write: { kind: "users", userIds: [args.initiatorUserId] } }),
+    Permissions({
+      read: { kind: "everyone" },
+      write: { kind: "users", userIds: [args.initiatorUserId] },
+    }),
   ]);
 }
 
@@ -87,13 +87,9 @@ describe("AtelierAutoFocusMount", () => {
     spawnRoll(h.world, { initiatorUserId: ME, openedAt: 1 });
 
     await waitFor(() => {
-      const openPages = h.dispatched.filter(
-        (c) => c.type === "@vtt/shell-workbench/OpenPage",
-      );
+      const openPages = h.dispatched.filter((c) => c.type === "@vtt/shell-workbench/OpenPage");
       expect(openPages.length).toBeGreaterThan(0);
-      const last = openPages.at(-1) as
-        | { payload: { pageKind: string } }
-        | undefined;
+      const last = openPages.at(-1) as { payload: { pageKind: string } } | undefined;
       expect(last?.payload.pageKind).toBe(ROLL_ATELIER_KIND);
     });
   });
@@ -106,9 +102,7 @@ describe("AtelierAutoFocusMount", () => {
 
     // Give the effect a tick to run.
     await new Promise((r) => setTimeout(r, 50));
-    const openPages = h.dispatched.filter(
-      (c) => c.type === "@vtt/shell-workbench/OpenPage",
-    );
+    const openPages = h.dispatched.filter((c) => c.type === "@vtt/shell-workbench/OpenPage");
     expect(openPages.length).toBe(0);
   });
 
@@ -122,9 +116,7 @@ describe("AtelierAutoFocusMount", () => {
     h.world.subscribe(() => undefined);
 
     await waitFor(() => {
-      const openPages = h.dispatched.filter(
-        (c) => c.type === "@vtt/shell-workbench/OpenPage",
-      );
+      const openPages = h.dispatched.filter((c) => c.type === "@vtt/shell-workbench/OpenPage");
       // Exactly one OpenPage per spawned mine — not three.
       expect(openPages.length).toBe(2);
     });

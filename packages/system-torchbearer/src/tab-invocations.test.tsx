@@ -42,7 +42,12 @@ import {
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { BlockKindsSlot } from "@vtt/adventures/shared";
-import { NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot } from "@vtt/shell-workbench/shared";
+import {
+  NotificationsSlot,
+  PaletteActionsSlot,
+  PaletteCommandsSlot,
+  WorkbenchStatusSlot,
+} from "@vtt/shell-workbench/shared";
 import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
 import { systemTorchbearer } from "./manifest.js";
 import {
@@ -70,7 +75,10 @@ const sheetSlotsTestInfra = definePlugin({
     ChatTimelineContributorSlot,
     RollActionsSlot,
     ItemDetailSectionsSlot,
-    NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
+    NotificationsSlot,
+    PaletteActionsSlot,
+    PaletteCommandsSlot,
+    WorkbenchStatusSlot,
     LinkKindsSlot,
     BlockKindsSlot,
   ],
@@ -159,8 +167,9 @@ function harness(): CharacterHarness & { _theurgeId: string; _shamanInvocId: str
 }
 
 function mount(h: CharacterHarness): void {
-  mountWithClient(h, () =>
-    TbInvocationsTabFill.render({ characterId: h.characterId }) as JSX.Element,
+  mountWithClient(
+    h,
+    () => TbInvocationsTabFill.render({ characterId: h.characterId }) as JSX.Element,
   );
 }
 
@@ -215,9 +224,7 @@ describe("Invocations tab", () => {
     fireEvent.click(screen.getByTestId(`toggle-relic-${h._theurgeId}`));
     const acquired = h.dispatched.find((d) => d.type === AcquireRelic.name);
     expect(acquired).toBeDefined();
-    expect(
-      (acquired!.payload as { invocationId: string }).invocationId,
-    ).toBe(h._theurgeId);
+    expect((acquired!.payload as { invocationId: string }).invocationId).toBe(h._theurgeId);
     // The harness's command pipeline applies the dispatch on the
     // microtask queue — wait for the held-relics section to render
     // (both lists' "Drop relic" labels appear once the trait write
@@ -234,9 +241,7 @@ describe("Invocations tab", () => {
     fireEvent.click(screen.getByTestId(`toggle-relic-${h._theurgeId}`));
     // After the dispatch lands on the microtask queue, the
     // held-relics list renders an entry with the same invocation id.
-    expect(
-      await screen.findByTestId(`held-relic-${h._theurgeId}`),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId(`held-relic-${h._theurgeId}`)).toBeInTheDocument();
   });
 
   it("fuzzy-searches the available list by name", async () => {
@@ -263,15 +268,15 @@ describe("Invocations tab", () => {
       }),
     ]);
     // Drop the new entry into the catalog index so it's resolvable.
-    const indexRow = h.world
-      .query([InvocationCatalogIndex])
-      .find(() => true)!;
+    const indexRow = h.world.query([InvocationCatalogIndex]).find(() => true)!;
     h.world.set(indexRow.id, InvocationCatalogIndex, {
       pluginName: "@vtt/system-torchbearer",
       entries: {
-        ...(indexRow.values.InvocationCatalogIndex as {
-          entries: Record<string, string>;
-        }).entries,
+        ...(
+          indexRow.values.InvocationCatalogIndex as {
+            entries: Record<string, string>;
+          }
+        ).entries,
         "tb/invocation/theurge/inspiring-aura": secondId,
       },
     });
@@ -291,9 +296,7 @@ describe("Invocations tab", () => {
     mount(h);
     // Theurge is single-tradition → pills suppressed.
     expect(screen.queryByTestId("invocations-tradition-all")).toBeNull();
-    expect(
-      screen.queryByTestId("invocations-tradition-theurge"),
-    ).toBeNull();
+    expect(screen.queryByTestId("invocations-tradition-theurge")).toBeNull();
   });
 
   it("shows tradition pills when multiple traditions are allowed (no class set)", () => {
@@ -316,12 +319,8 @@ describe("Invocations tab", () => {
     });
     mount(h);
     expect(screen.getByTestId("invocations-tradition-all")).toBeInTheDocument();
-    expect(
-      screen.getByTestId("invocations-tradition-theurge"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTestId("invocations-tradition-shaman"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("invocations-tradition-theurge")).toBeInTheDocument();
+    expect(screen.getByTestId("invocations-tradition-shaman")).toBeInTheDocument();
 
     // Both invocations visible by default.
     expect(screen.getByText("Bone Knitter")).toBeInTheDocument();

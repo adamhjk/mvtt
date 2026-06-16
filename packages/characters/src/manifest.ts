@@ -16,11 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { definePlugin, qualifiedName } from "@vtt/substrate";
-import {
-  ChatRailWidgetsSlot,
-  PagesSlot,
-  type ChatRailWidget,
-} from "@vtt/shell-workbench/shared";
+import { ChatRailWidgetsSlot, PagesSlot, type ChatRailWidget } from "@vtt/shell-workbench/shared";
 import {
   PendingRollEditorsSlot,
   QuickRollComposerSlot,

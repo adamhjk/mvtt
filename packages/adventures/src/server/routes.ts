@@ -16,11 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type {
-  EntityId,
-  WorldId,
-  WorldsRegistry,
-} from "@vtt/substrate";
+import type { EntityId, WorldId, WorldsRegistry } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
 import { buildBlockKindIndex } from "../shared/block-kinds.js";
 import { buildBundle, type BuildBundleOptions } from "./bundle.js";
@@ -213,8 +209,7 @@ export async function handleAdventureExport(
     const bundleOpts = deps.loadAssetBytes
       ? {
           ...opts,
-          loadAssetBytes: (assetId: EntityId) =>
-            deps.loadAssetBytes!(worldId, assetId),
+          loadAssetBytes: (assetId: EntityId) => deps.loadAssetBytes!(worldId, assetId),
         }
       : opts;
     const bundle = await buildBundle(runtime.world, bundleOpts);

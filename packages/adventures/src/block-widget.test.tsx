@@ -17,13 +17,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  definePlugin,
-  defineTrait,
-  Registry,
-  World,
-  z,
-} from "@vtt/substrate";
+import { definePlugin, defineTrait, Registry, World, z } from "@vtt/substrate";
 import { permissions } from "@vtt/permissions";
 import {
   Page,
@@ -34,11 +28,7 @@ import {
   NotesReferenceSlot,
 } from "@vtt/notes/shared";
 import { adventures } from "./manifest.js";
-import {
-  BlockKindsSlot,
-  buildBlockKindIndex,
-  defineBlockKind,
-} from "./shared/index.js";
+import { BlockKindsSlot, buildBlockKindIndex, defineBlockKind } from "./shared/index.js";
 import { runBlockParse, blockEntityId } from "./server/block-parse-system.js";
 import { mountBlockWidgets } from "./client/block-widget.js";
 
@@ -54,9 +44,7 @@ const statKind = defineBlockKind({
   description: "A test stat block",
   schema: z.object({ label: z.string().min(1), value: z.number().int() }),
   display: (entityId, world) => {
-    const got = world.get(entityId, [Stat]) as
-      | { Stat: { label: string } }
-      | undefined;
+    const got = world.get(entityId, [Stat]) as { Stat: { label: string } } | undefined;
     return got?.Stat.label ?? "stat";
   },
   actions: [
@@ -118,10 +106,7 @@ describe("mountBlockWidgets", () => {
     registry = s.registry;
     world = s.world;
     const noteId = world.spawn([]);
-    pageId = world.spawn([
-      Page({ title: "p", body: "", bodyRev: 0 }),
-      BelongsToNote({ noteId }),
-    ]);
+    pageId = world.spawn([Page({ title: "p", body: "", bodyRev: 0 }), BelongsToNote({ noteId })]);
   });
 
   function setupContainer(body: string): HTMLElement {
@@ -149,9 +134,7 @@ describe("mountBlockWidgets", () => {
   }
 
   it("replaces a <pre><code language-stat> with a widget div", () => {
-    const container = setupContainer(
-      ["```stat Hello", "label: a", "value: 1", "```"].join("\n"),
-    );
+    const container = setupContainer(["```stat Hello", "label: a", "value: 1", "```"].join("\n"));
     document.body.appendChild(container);
     mountBlockWidgets(container, { world, registry, worldId: "test" });
     const widgets = container.querySelectorAll(".block-widget");
@@ -170,9 +153,7 @@ describe("mountBlockWidgets", () => {
   });
 
   it("renders non-gm actions but hides gm-only actions when no session role", () => {
-    const container = setupContainer(
-      ["```stat Hello", "label: a", "value: 1", "```"].join("\n"),
-    );
+    const container = setupContainer(["```stat Hello", "label: a", "value: 1", "```"].join("\n"));
     document.body.appendChild(container);
     mountBlockWidgets(container, { world, registry, worldId: "test" });
     const buttons = container.querySelectorAll(".block-widget-action");
@@ -181,14 +162,10 @@ describe("mountBlockWidgets", () => {
   });
 
   it("clicking an action button invokes the action's run handler", () => {
-    const container = setupContainer(
-      ["```stat Hello", "label: a", "value: 1", "```"].join("\n"),
-    );
+    const container = setupContainer(["```stat Hello", "label: a", "value: 1", "```"].join("\n"));
     document.body.appendChild(container);
     mountBlockWidgets(container, { world, registry, worldId: "test" });
-    const button = container.querySelector(
-      ".block-widget-action",
-    ) as HTMLButtonElement;
+    const button = container.querySelector(".block-widget-action") as HTMLButtonElement;
     button.click();
     expect(dispatched.length).toBe(1);
     expect(dispatched[0]!.id).toBe(blockEntityId(pageId as never, "hello"));

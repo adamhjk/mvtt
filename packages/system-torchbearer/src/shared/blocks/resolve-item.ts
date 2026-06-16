@@ -95,16 +95,7 @@ export function defaultSlotForItem(itemId: EntityId, world: World): string | nul
   // feet, pocket — picks the most "important" worn location first.
   // For an item that fits in multiple slots the author can always
   // override.
-  const preference = [
-    "handR",
-    "handL",
-    "torso",
-    "head",
-    "neck",
-    "belt",
-    "feet",
-    "pocket",
-  ];
+  const preference = ["handR", "handL", "torso", "head", "neck", "belt", "feet", "pocket"];
   for (const slot of preference) {
     if (slot in opts.TbItemSlotOptions.options) return slot;
   }
@@ -118,11 +109,7 @@ export function defaultSlotForItem(itemId: EntityId, world: World): string | nul
  * the GM put a sword in a slot the catalog didn't list, which we
  * permit; the equip UI would have asked.
  */
-export function slotsConsumedFor(
-  itemId: EntityId,
-  slot: string,
-  world: World,
-): number {
+export function slotsConsumedFor(itemId: EntityId, slot: string, world: World): number {
   const opts = world.get(itemId, [TbItemSlotOptions]) as
     | { TbItemSlotOptions: { options: Record<string, number> } }
     | undefined;

@@ -56,9 +56,7 @@ export const pendingBookNav: Accessor<PendingBookNav | null> = pending;
  * receiving projection view subscribes via `pendingBookNav` and
  * navigates the moment the doc + (for TOC nav) outline are ready.
  */
-export function publishBookNav(
-  req: Omit<PendingBookNav, "nonce">,
-): void {
+export function publishBookNav(req: Omit<PendingBookNav, "nonce">): void {
   nonceCounter += 1;
   setPending({ ...req, nonce: nonceCounter });
 }

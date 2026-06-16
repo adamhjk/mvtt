@@ -17,14 +17,7 @@
 
 import { type CommandInstance, type EventName } from "@vtt/substrate";
 import { useClient } from "@vtt/substrate/client";
-import {
-  createEffect,
-  createMemo,
-  For,
-  onCleanup,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createEffect, createMemo, For, onCleanup, Show, type JSX } from "solid-js";
 import {
   WorkbenchDrawersSlot,
   WorkbenchStatusSlot,
@@ -62,9 +55,7 @@ export function WorkbenchDrawers(): JSX.Element {
   const client = useClient();
 
   const drawers = createMemo<WorkbenchDrawer[]>(() => {
-    const fills = client.registry.fillsForSlot(
-      WorkbenchDrawersSlot,
-    ) as WorkbenchDrawer[];
+    const fills = client.registry.fillsForSlot(WorkbenchDrawersSlot) as WorkbenchDrawer[];
     const byId = new Map<string, WorkbenchDrawer>();
     for (const d of fills) {
       const cur = byId.get(d.id);
@@ -80,17 +71,13 @@ export function WorkbenchDrawers(): JSX.Element {
     });
   });
 
-  const bottomDrawers = createMemo(() =>
-    drawers().filter((d) => d.edge === "bottom"),
-  );
+  const bottomDrawers = createMemo(() => drawers().filter((d) => d.edge === "bottom"));
 
   // Status-strip widgets — compact, always-visible controls pinned to the
   // right of the bottom strip (the grind clock, etc.). Highest priority
   // sits rightmost.
   const statusItems = createMemo<WorkbenchStatusItem[]>(() => {
-    const fills = client.registry.fillsForSlot(
-      WorkbenchStatusSlot,
-    ) as WorkbenchStatusItem[];
+    const fills = client.registry.fillsForSlot(WorkbenchStatusSlot) as WorkbenchStatusItem[];
     return [...fills].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
   });
 
@@ -104,9 +91,7 @@ export function WorkbenchDrawers(): JSX.Element {
     for (const d of ds) {
       if (!d.autoOpenOn) continue;
       const off = client.bus.on(d.autoOpenOn as EventName, () => {
-        client.dispatch(
-          OpenDrawer({ id: d.id, keepOpen: false }) as CommandInstance,
-        );
+        client.dispatch(OpenDrawer({ id: d.id, keepOpen: false }) as CommandInstance);
       });
       cleanups.push(off);
     }
@@ -117,10 +102,7 @@ export function WorkbenchDrawers(): JSX.Element {
 
   return (
     <Show when={bottomDrawers().length > 0 || statusItems().length > 0}>
-      <BottomDrawerRegion
-        drawers={bottomDrawers()}
-        statusItems={statusItems()}
-      />
+      <BottomDrawerRegion drawers={bottomDrawers()} statusItems={statusItems()} />
     </Show>
   );
 }
@@ -153,8 +135,7 @@ function BottomDrawerRegion(props: {
   // — that's how the dice tray's bus subscription survives across
   // close/reopen cycles).
   const bodies = props.drawers.map((d) => {
-    const close = () =>
-      client.dispatch(CloseDrawer({ id: d.id }) as CommandInstance);
+    const close = () => client.dispatch(CloseDrawer({ id: d.id }) as CommandInstance);
     const initialSize = d.defaultSize ?? DEFAULT_SIZE_FOR_EDGE[d.edge];
     const body = d.render({ close, size: initialSize }) as JSX.Element;
     return { drawer: d, body };
@@ -211,14 +192,10 @@ function BottomDrawerRegion(props: {
     const opened = ws.state()?.openDrawers ?? {};
     for (const other of props.drawers) {
       if (other.id !== drawer.id && opened[other.id]) {
-        client.dispatch(
-          CloseDrawer({ id: other.id }) as CommandInstance,
-        );
+        client.dispatch(CloseDrawer({ id: other.id }) as CommandInstance);
       }
     }
-    client.dispatch(
-      OpenDrawer({ id: drawer.id, keepOpen: true }) as CommandInstance,
-    );
+    client.dispatch(OpenDrawer({ id: drawer.id, keepOpen: true }) as CommandInstance);
   };
 
   return (
@@ -233,14 +210,9 @@ function BottomDrawerRegion(props: {
       >
         <For each={bodies}>
           {(b) => {
-            const visible = createMemo(
-              () => activeDrawer()?.id === b.drawer.id,
-            );
+            const visible = createMemo(() => activeDrawer()?.id === b.drawer.id);
             return (
-              <div
-                class="h-full w-full"
-                style={{ display: visible() ? "block" : "none" }}
-              >
+              <div class="h-full w-full" style={{ display: visible() ? "block" : "none" }}>
                 {b.body}
               </div>
             );
@@ -267,7 +239,9 @@ function BottomDrawerRegion(props: {
                 aria-pressed={isActive()}
               >
                 <Show when={d.icon}>
-                  <span aria-hidden class="text-[0.85rem]">{d.icon}</span>
+                  <span aria-hidden class="text-[0.85rem]">
+                    {d.icon}
+                  </span>
                 </Show>
                 <span>{d.label}</span>
                 <Show when={isActive()}>
@@ -284,13 +258,8 @@ function BottomDrawerRegion(props: {
         {/* Status widgets — pinned right, always visible (no drawer to
             open). The grind clock lives here. */}
         <Show when={props.statusItems.length > 0}>
-          <div
-            class="ml-auto flex items-center gap-2 pr-1"
-            data-testid="workbench-status-strip"
-          >
-            <For each={props.statusItems}>
-              {(s) => <>{s.render() as unknown as JSX.Element}</>}
-            </For>
+          <div class="ml-auto flex items-center gap-2 pr-1" data-testid="workbench-status-strip">
+            <For each={props.statusItems}>{(s) => <>{s.render() as unknown as JSX.Element}</>}</For>
           </div>
         </Show>
       </header>

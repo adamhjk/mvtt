@@ -15,14 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  createResource,
-  createSignal,
-  Match,
-  Show,
-  Switch,
-  type JSX,
-} from "solid-js";
+import { createResource, createSignal, Match, Show, Switch, type JSX } from "solid-js";
 
 interface WorldSummary {
   id: string;
@@ -95,17 +88,10 @@ async function fetchGameSystems(): Promise<GameSystemSummary[]> {
  * tears down and rebuilds the client on the same page.
  */
 export function WorldGate(props: {
-  children: (ctx: {
-    worldId: string;
-    session: SessionInfo;
-    worlds: WorldSummary[];
-  }) => JSX.Element;
+  children: (ctx: { worldId: string; session: SessionInfo; worlds: WorldSummary[] }) => JSX.Element;
 }): JSX.Element {
   const [data, { refetch }] = createResource(async () => {
-    const [worldsRes, systems] = await Promise.all([
-      fetchWorldsAndMe(),
-      fetchGameSystems(),
-    ]);
+    const [worldsRes, systems] = await Promise.all([fetchWorldsAndMe(), fetchGameSystems()]);
     const session: SessionInfo = {
       userId: worldsRes.me.userId,
       isGlobalGm: worldsRes.me.role === "gm",
@@ -224,14 +210,9 @@ export function WorldGate(props: {
  * least one world to use the app. Submitting redirects to the new
  * world via `?worldId=`.
  */
-function CreateFirstWorld(props: {
-  systems: GameSystemSummary[];
-  userId: string;
-}): JSX.Element {
+function CreateFirstWorld(props: { systems: GameSystemSummary[]; userId: string }): JSX.Element {
   const [name, setName] = createSignal("My Table");
-  const [gameSystem, setGameSystem] = createSignal(
-    props.systems[0]?.name ?? "",
-  );
+  const [gameSystem, setGameSystem] = createSignal(props.systems[0]?.name ?? "");
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
@@ -278,13 +259,10 @@ function CreateFirstWorld(props: {
     <div class="grid min-h-screen place-items-center bg-surface px-4">
       <div class="w-full max-w-md rounded-(--radius-card) border border-border bg-surface-elevated p-6 shadow-sm">
         <header class="mb-4">
-          <h1 class="text-lg font-semibold tracking-tight text-fg">
-            Create your first world
-          </h1>
+          <h1 class="text-lg font-semibold tracking-tight text-fg">Create your first world</h1>
           <p class="mt-1 text-xs text-fg-muted">
-            A world is one campaign or table. The game system you pick
-            decides which mechanics are available — it can't be changed
-            later.
+            A world is one campaign or table. The game system you pick decides which mechanics are
+            available — it can't be changed later.
           </p>
         </header>
         <form onSubmit={submit} class="flex flex-col gap-3">
@@ -342,8 +320,7 @@ function NoWorldsYet(): JSX.Element {
           You haven't been invited to any worlds yet
         </h1>
         <p class="mt-2 text-xs text-fg-muted">
-          Ask your Game Master to add you to a world. Once they do,
-          refresh this page.
+          Ask your Game Master to add you to a world. Once they do, refresh this page.
         </p>
       </div>
     </div>

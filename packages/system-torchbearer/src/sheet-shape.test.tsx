@@ -73,13 +73,12 @@ import {
   TbWhatYouFightForTabFill,
   TbWhoYouAreTabFill,
 } from "./client/index.js";
+import { Formula, RolledBy, RollResult } from "@vtt/resolution/shared";
 import {
-  Formula,
-  RolledBy,
-  RollResult,
-} from "@vtt/resolution/shared";
-import {
-  NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
+  NotificationsSlot,
+  PaletteActionsSlot,
+  PaletteCommandsSlot,
+  WorkbenchStatusSlot,
   WorkbenchChatRailSurface,
 } from "@vtt/shell-workbench/shared";
 import {
@@ -124,7 +123,10 @@ const sheetSlotsTestInfra = definePlugin({
     // "Spawn <Monster>" verb per catalog template (palette quick
     // lookup). Declared here so the TB fill resolves without
     // pulling the full shell-workbench package into the harness.
-    NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
+    NotificationsSlot,
+    PaletteActionsSlot,
+    PaletteCommandsSlot,
+    WorkbenchStatusSlot,
     // Notes-side slot torchbearer fills with `monsterLinkKind` (the
     // `!` wikilink → monsters route). Declared here so the TB fill
     // resolves without pulling the full @vtt/notes package in.
@@ -335,7 +337,6 @@ describe("Conditions ladder", () => {
     expect(last.path).toEqual(["sick"]);
     expect(last.value).toBe(true);
   });
-
 });
 
 /* -------------------------------------------------------------------------
@@ -368,9 +369,7 @@ describe("Tab body — Allies & Enemies editor", () => {
   it("shows the empty-state hint when no entries are recorded", () => {
     const h = harness();
     mountFillBody(h, TbWhoYouAreTabFill.render);
-    expect(
-      screen.getByText(/no allies or enemies yet/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/no allies or enemies yet/i)).toBeInTheDocument();
   });
 
   it("renders the three column headers", () => {
@@ -395,12 +394,8 @@ describe("Tab body — Allies & Enemies editor", () => {
 
     const rows = rowsRoot().querySelectorAll(".vk-rows__row");
     expect(rows).toHaveLength(2);
-    expect((rows[0]!.querySelectorAll("input")[0] as HTMLInputElement).value).toBe(
-      "Wren",
-    );
-    expect((rows[1]!.querySelectorAll("input")[2] as HTMLInputElement).value).toBe(
-      "enemy",
-    );
+    expect((rows[0]!.querySelectorAll("input")[0] as HTMLInputElement).value).toBe("Wren");
+    expect((rows[1]!.querySelectorAll("input")[2] as HTMLInputElement).value).toBe("enemy");
   });
 
   it("typing a name + Enter in the add row dispatches SetField with seeded entry", () => {
@@ -430,9 +425,9 @@ describe("Tab body — Allies & Enemies editor", () => {
 
     fireEvent.click(screen.getByLabelText("remove row 1"));
     const cmd = h.dispatched.find((c) => c.type === SetField.name);
-    expect(
-      (cmd!.payload as { value: { name: string }[] }).value.map((e) => e.name),
-    ).toEqual(["Olin"]);
+    expect((cmd!.payload as { value: { name: string }[] }).value.map((e) => e.name)).toEqual([
+      "Olin",
+    ]);
   });
 });
 
@@ -523,9 +518,9 @@ describe("Tab body — Nature Descriptors", () => {
     mountFillBody(h, TbAbilitiesSkillsTabFill.render);
 
     expect(screen.getByText("Nature Descriptors")).toBeInTheDocument();
-    const pillTexts = Array.from(
-      descriptorsRoot().querySelectorAll(".vk-tag__text"),
-    ).map((n) => n.textContent);
+    const pillTexts = Array.from(descriptorsRoot().querySelectorAll(".vk-tag__text")).map(
+      (n) => n.textContent,
+    );
     expect(pillTexts).toEqual(["Boasting", "Demanding", "Running"]);
   });
 
@@ -584,10 +579,7 @@ describe("Tab body — Nature Descriptors", () => {
     fireEvent.keyDown(input, { key: "Backspace" });
     const cmd = h.dispatched.find((c) => c.type === SetField.name);
     expect(cmd).toBeDefined();
-    expect((cmd!.payload as { value: string[] }).value).toEqual([
-      "Boasting",
-      "Demanding",
-    ]);
+    expect((cmd!.payload as { value: string[] }).value).toEqual(["Boasting", "Demanding"]);
   });
 
   it("blank or whitespace-only input does not dispatch on Enter", () => {
@@ -645,9 +637,7 @@ describe("Tab body — Traits & Wises", () => {
   it("renders entries as editable rows with their column values", () => {
     const h = harness(({ world, characterId }) => {
       world.set(characterId, CharacterTraits, {
-        entries: [
-          { name: "Stubborn", level: 2, beneficialUses: 1, checks: 0 },
-        ],
+        entries: [{ name: "Stubborn", level: 2, beneficialUses: 1, checks: 0 }],
       });
       world.set(characterId, Wises, {
         entries: [
@@ -696,9 +686,7 @@ describe("Tab body — Traits & Wises", () => {
   it("clicking a beneficial-uses dot dispatches SetField with the new spend count", () => {
     const h = harness(({ world, characterId }) => {
       world.set(characterId, CharacterTraits, {
-        entries: [
-          { name: "Stubborn", level: 2, beneficialUses: 0, checks: 0 },
-        ],
+        entries: [{ name: "Stubborn", level: 2, beneficialUses: 0, checks: 0 }],
       });
     });
     mountFillBody(h, TbTraitsWisesTabFill.render);
@@ -708,13 +696,12 @@ describe("Tab body — Traits & Wises", () => {
     fireEvent.click(dots[1]!); // click second dot → set to 2
     const cmd = h.dispatched.find(
       (c) =>
-        c.type === SetField.name &&
-        (c.payload as { trait: string }).trait === CharacterTraits.name,
+        c.type === SetField.name && (c.payload as { trait: string }).trait === CharacterTraits.name,
     );
     expect(cmd).toBeDefined();
-    expect(
-      (cmd!.payload as { value: { beneficialUses: number }[] }).value[0]!.beneficialUses,
-    ).toBe(2);
+    expect((cmd!.payload as { value: { beneficialUses: number }[] }).value[0]!.beneficialUses).toBe(
+      2,
+    );
   });
 
   it("renders a 'vs Self' checkbox per trait reflecting usedAgainst", () => {
@@ -741,9 +728,7 @@ describe("Tab body — Traits & Wises", () => {
   it("clicking a trait's 'vs Self' checkbox dispatches SetField with the flag flipped", () => {
     const h = harness(({ world, characterId }) => {
       world.set(characterId, CharacterTraits, {
-        entries: [
-          { name: "Reckless", level: 1, beneficialUses: 0, checks: 1, usedAgainst: true },
-        ],
+        entries: [{ name: "Reckless", level: 1, beneficialUses: 0, checks: 1, usedAgainst: true }],
       });
     });
     mountFillBody(h, TbTraitsWisesTabFill.render);
@@ -755,13 +740,12 @@ describe("Tab body — Traits & Wises", () => {
     fireEvent.click(checkbox);
     const cmd = h.dispatched.find(
       (c) =>
-        c.type === SetField.name &&
-        (c.payload as { trait: string }).trait === CharacterTraits.name,
+        c.type === SetField.name && (c.payload as { trait: string }).trait === CharacterTraits.name,
     );
     expect(cmd).toBeDefined();
-    expect(
-      (cmd!.payload as { value: { usedAgainst: boolean }[] }).value[0]!.usedAgainst,
-    ).toBe(false);
+    expect((cmd!.payload as { value: { usedAgainst: boolean }[] }).value[0]!.usedAgainst).toBe(
+      false,
+    );
   });
 
   it("renders the four wise checkboxes with the right initial state", () => {
@@ -787,15 +771,12 @@ describe("Tab body — Traits & Wises", () => {
     const h = harness();
     mountFillBody(h, TbTraitsWisesTabFill.render);
 
-    const traitAddInput = rowsRoots()[0]!.querySelector(
-      ".vk-rows__add-input",
-    ) as HTMLInputElement;
+    const traitAddInput = rowsRoots()[0]!.querySelector(".vk-rows__add-input") as HTMLInputElement;
     fireEvent.input(traitAddInput, { target: { value: "Stubborn" } });
     fireEvent.keyDown(traitAddInput, { key: "Enter" });
     const cmd = h.dispatched.find(
       (c) =>
-        c.type === SetField.name &&
-        (c.payload as { trait: string }).trait === CharacterTraits.name,
+        c.type === SetField.name && (c.payload as { trait: string }).trait === CharacterTraits.name,
     );
     expect(cmd).toBeDefined();
     expect((cmd!.payload as { value: unknown[] }).value).toEqual([
@@ -807,15 +788,11 @@ describe("Tab body — Traits & Wises", () => {
     const h = harness();
     mountFillBody(h, TbTraitsWisesTabFill.render);
 
-    const wiseAddInput = rowsRoots()[1]!.querySelector(
-      ".vk-rows__add-input",
-    ) as HTMLInputElement;
+    const wiseAddInput = rowsRoots()[1]!.querySelector(".vk-rows__add-input") as HTMLInputElement;
     fireEvent.input(wiseAddInput, { target: { value: "Mushroom-wise" } });
     fireEvent.keyDown(wiseAddInput, { key: "Enter" });
     const cmd = h.dispatched.find(
-      (c) =>
-        c.type === SetField.name &&
-        (c.payload as { trait: string }).trait === Wises.name,
+      (c) => c.type === SetField.name && (c.payload as { trait: string }).trait === Wises.name,
     );
     expect(cmd).toBeDefined();
     expect((cmd!.payload as { value: unknown[] }).value).toEqual([
@@ -839,9 +816,7 @@ describe("Tab body — Traits & Wises", () => {
     ) as HTMLInputElement;
     fireEvent.click(passCheck);
     const cmd = h.dispatched.find(
-      (c) =>
-        c.type === SetField.name &&
-        (c.payload as { trait: string }).trait === Wises.name,
+      (c) => c.type === SetField.name && (c.payload as { trait: string }).trait === Wises.name,
     );
     expect((cmd!.payload as { value: { pass: boolean }[] }).value[0]!.pass).toBe(true);
   });
@@ -849,9 +824,7 @@ describe("Tab body — Traits & Wises", () => {
   it("editing a trait's level clamps to the 1–3 range", () => {
     const h = harness(({ world, characterId }) => {
       world.set(characterId, CharacterTraits, {
-        entries: [
-          { name: "Stubborn", level: 2, beneficialUses: 0, checks: 0 },
-        ],
+        entries: [{ name: "Stubborn", level: 2, beneficialUses: 0, checks: 0 }],
       });
     });
     mountFillBody(h, TbTraitsWisesTabFill.render);
@@ -865,8 +838,7 @@ describe("Tab body — Traits & Wises", () => {
     fireEvent.blur(levelInput);
     const cmd = h.dispatched.find(
       (c) =>
-        c.type === SetField.name &&
-        (c.payload as { trait: string }).trait === CharacterTraits.name,
+        c.type === SetField.name && (c.payload as { trait: string }).trait === CharacterTraits.name,
     );
     expect((cmd!.payload as { value: { level: number }[] }).value[0]!.level).toBe(3);
   });
@@ -885,12 +857,11 @@ describe("Tab body — Traits & Wises", () => {
     fireEvent.click(screen.getAllByLabelText("remove row 1")[0]!);
     const cmd = h.dispatched.find(
       (c) =>
-        c.type === SetField.name &&
-        (c.payload as { trait: string }).trait === CharacterTraits.name,
+        c.type === SetField.name && (c.payload as { trait: string }).trait === CharacterTraits.name,
     );
-    expect(
-      (cmd!.payload as { value: { name: string }[] }).value.map((e) => e.name),
-    ).toEqual(["Quiet"]);
+    expect((cmd!.payload as { value: { name: string }[] }).value.map((e) => e.name)).toEqual([
+      "Quiet",
+    ]);
   });
 });
 
@@ -1008,12 +979,8 @@ describe("Skill row — Beginner's Luck learning display", () => {
       });
     });
     mountFillBody(h, TbAbilitiesSkillsTabFill.render);
-    expect(
-      screen.queryByTestId("tb-skill-learning-rating-rider"),
-    ).toBeNull();
-    expect(
-      screen.queryByTestId("tb-skill-learning-track-rider"),
-    ).toBeNull();
+    expect(screen.queryByTestId("tb-skill-learning-rating-rider")).toBeNull();
+    expect(screen.queryByTestId("tb-skill-learning-track-rider")).toBeNull();
   });
 
   it("shows X + L track once a Beginner's Luck test has been logged", () => {
@@ -1035,9 +1002,7 @@ describe("Skill row — Beginner's Luck learning display", () => {
     mountFillBody(h, TbAbilitiesSkillsTabFill.render);
     const x = screen.getByTestId("tb-skill-learning-rating-rider");
     expect(x.textContent).toBe("X");
-    expect(
-      screen.getByTestId("tb-skill-learning-track-rider"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("tb-skill-learning-track-rider")).toBeInTheDocument();
   });
 
   it("hides the L track again once the skill has been learned (rating > 0)", () => {
@@ -1057,12 +1022,8 @@ describe("Skill row — Beginner's Luck learning display", () => {
       });
     });
     mountFillBody(h, TbAbilitiesSkillsTabFill.render);
-    expect(
-      screen.queryByTestId("tb-skill-learning-rating-rider"),
-    ).toBeNull();
-    expect(
-      screen.queryByTestId("tb-skill-learning-track-rider"),
-    ).toBeNull();
+    expect(screen.queryByTestId("tb-skill-learning-rating-rider")).toBeNull();
+    expect(screen.queryByTestId("tb-skill-learning-track-rider")).toBeNull();
   });
 
   it("sizes the L track to the character's max Nature rating", () => {
@@ -1149,9 +1110,7 @@ describe("Skill row — Beginner's Luck learning display", () => {
       });
     });
     mountFillBody(h, TbAbilitiesSkillsTabFill.render);
-    expect(
-      screen.getByTestId("tb-skill-learn-arrow-rider"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("tb-skill-learn-arrow-rider")).toBeInTheDocument();
   });
 
   it("does not render the up-arrow while the L track is below max Nature", () => {
@@ -1171,9 +1130,7 @@ describe("Skill row — Beginner's Luck learning display", () => {
       });
     });
     mountFillBody(h, TbAbilitiesSkillsTabFill.render);
-    expect(
-      screen.queryByTestId("tb-skill-learn-arrow-rider"),
-    ).toBeNull();
+    expect(screen.queryByTestId("tb-skill-learn-arrow-rider")).toBeNull();
   });
 
   it("dispatches LearnSkill when the up-arrow is clicked", () => {
@@ -1194,9 +1151,7 @@ describe("Skill row — Beginner's Luck learning display", () => {
     });
     mountFillBody(h, TbAbilitiesSkillsTabFill.render);
     fireEvent.click(screen.getByTestId("tb-skill-learn-arrow-rider"));
-    const learns = h.dispatched.filter(
-      (c) => c.type === "@vtt/system-torchbearer/LearnSkill",
-    );
+    const learns = h.dispatched.filter((c) => c.type === "@vtt/system-torchbearer/LearnSkill");
     expect(learns.length).toBeGreaterThanOrEqual(1);
     expect(learns[learns.length - 1]!.payload).toEqual({
       characterId: h.characterId,
@@ -1244,9 +1199,7 @@ describe("Skill rolling", () => {
     fireEvent.click(clickTarget);
 
     const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
-    const opens = dispatched.filter(
-      (d) => d.type === "@vtt/characters/OpenPendingRoll",
-    );
+    const opens = dispatched.filter((d) => d.type === "@vtt/characters/OpenPendingRoll");
     expect(opens.length).toBeGreaterThanOrEqual(1);
     const last = opens[opens.length - 1]!.payload as {
       rollableName: string;
@@ -1273,17 +1226,12 @@ describe("Skill rolling", () => {
     fireEvent.click(target);
   }
 
-  function assertOpened(
-    h: CharacterHarness,
-    rollableName: string,
-  ): void {
-    const opens = h.dispatched.filter(
-      (d) => d.type === "@vtt/characters/OpenPendingRoll",
-    );
+  function assertOpened(h: CharacterHarness, rollableName: string): void {
+    const opens = h.dispatched.filter((d) => d.type === "@vtt/characters/OpenPendingRoll");
     expect(opens.length).toBeGreaterThanOrEqual(1);
-    expect(
-      (opens[opens.length - 1]!.payload as { rollableName: string }).rollableName,
-    ).toBe(rollableName);
+    expect((opens[opens.length - 1]!.payload as { rollableName: string }).rollableName).toBe(
+      rollableName,
+    );
   }
 
   it("clicking the Will label opens a pending roll for Will", () => {
@@ -1397,11 +1345,7 @@ describe("Skill row — specialty toggle", () => {
     const h = harness(({ world, characterId }) => {
       world.set(characterId, Skills, {
         entries: Object.fromEntries(
-          [
-            "alchemist",
-            "fighter",
-            "scout",
-          ].map((id) => [
+          ["alchemist", "fighter", "scout"].map((id) => [
             id,
             {
               rating: 1,
@@ -1418,21 +1362,19 @@ describe("Skill row — specialty toggle", () => {
 
     expect(screen.getByTestId("tb-specialty-toggle-scout").textContent).toBe("★");
     expect(screen.getByTestId("tb-specialty-toggle-fighter").textContent).toBe("☆");
-    expect(
-      screen.getByTestId("tb-specialty-toggle-scout").getAttribute("aria-pressed"),
-    ).toBe("true");
-    expect(
-      screen.getByTestId("tb-specialty-toggle-fighter").getAttribute("aria-pressed"),
-    ).toBe("false");
+    expect(screen.getByTestId("tb-specialty-toggle-scout").getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+    expect(screen.getByTestId("tb-specialty-toggle-fighter").getAttribute("aria-pressed")).toBe(
+      "false",
+    );
   });
 
   it("clicking the currently-marked skill clears the specialty (skillId: null)", () => {
     const h = harness(({ world, characterId }) => {
       world.set(characterId, Skills, {
         entries: Object.fromEntries(
-          [
-            "scout",
-          ].map((id) => [
+          ["scout"].map((id) => [
             id,
             {
               rating: 1,
@@ -1495,18 +1437,10 @@ describe("Pin-to-actions-bar toggle", () => {
     const h = harness();
     mountFillBody(h, TbAbilitiesSkillsTabFill.render);
 
-    expect(
-      screen.getByTestId("tb-pin-toggle-ability-will").textContent,
-    ).toBe("■");
-    expect(
-      screen.getByTestId("tb-pin-toggle-ability-health").textContent,
-    ).toBe("■");
-    expect(
-      screen.getByTestId("tb-pin-toggle-ability-nature").textContent,
-    ).toBe("□");
-    expect(
-      screen.getByTestId("tb-pin-toggle-skill-scout").textContent,
-    ).toBe("□");
+    expect(screen.getByTestId("tb-pin-toggle-ability-will").textContent).toBe("■");
+    expect(screen.getByTestId("tb-pin-toggle-ability-health").textContent).toBe("■");
+    expect(screen.getByTestId("tb-pin-toggle-ability-nature").textContent).toBe("□");
+    expect(screen.getByTestId("tb-pin-toggle-skill-scout").textContent).toBe("□");
   });
 
   it("reflects PinnedRolls trait state after a write", () => {
@@ -1520,18 +1454,10 @@ describe("Pin-to-actions-bar toggle", () => {
     });
     mountFillBody(h, TbAbilitiesSkillsTabFill.render);
 
-    expect(
-      screen.getByTestId("tb-pin-toggle-ability-will").textContent,
-    ).toBe("□");
-    expect(
-      screen.getByTestId("tb-pin-toggle-ability-health").textContent,
-    ).toBe("□");
-    expect(
-      screen.getByTestId("tb-pin-toggle-ability-nature").textContent,
-    ).toBe("■");
-    expect(
-      screen.getByTestId("tb-pin-toggle-skill-scout").textContent,
-    ).toBe("■");
+    expect(screen.getByTestId("tb-pin-toggle-ability-will").textContent).toBe("□");
+    expect(screen.getByTestId("tb-pin-toggle-ability-health").textContent).toBe("□");
+    expect(screen.getByTestId("tb-pin-toggle-ability-nature").textContent).toBe("■");
+    expect(screen.getByTestId("tb-pin-toggle-skill-scout").textContent).toBe("■");
   });
 });
 
@@ -1554,9 +1480,7 @@ describe("Actions bar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Roll Will" }));
 
     const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
-    const opens = dispatched.filter(
-      (d) => d.type === "@vtt/characters/OpenPendingRoll",
-    );
+    const opens = dispatched.filter((d) => d.type === "@vtt/characters/OpenPendingRoll");
     expect(opens.length).toBeGreaterThanOrEqual(1);
     expect((opens[0]!.payload as { rollableName: string }).rollableName).toBe(
       "@vtt/system-torchbearer/will-check",
@@ -1579,14 +1503,10 @@ describe("Actions bar", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Tap Nature" }));
     const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
-    const opens = dispatched.filter(
-      (d) => d.type === "@vtt/characters/OpenPendingRoll",
-    );
+    const opens = dispatched.filter((d) => d.type === "@vtt/characters/OpenPendingRoll");
     const tap = opens.find((d) => {
       const p = d.payload as { rollableName: string; opts: { tap?: boolean } };
-      return (
-        p.rollableName === "@vtt/system-torchbearer/nature-check" && p.opts.tap === true
-      );
+      return p.rollableName === "@vtt/system-torchbearer/nature-check" && p.opts.tap === true;
     });
     expect(tap).toBeDefined();
   });
@@ -1600,15 +1520,10 @@ describe("Actions bar", () => {
     mountFillBody(h, TbActionsFill.render);
     fireEvent.click(screen.getByRole("button", { name: "Roll Scout" }));
     const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
-    const opens = dispatched.filter(
-      (d) => d.type === "@vtt/characters/OpenPendingRoll",
-    );
+    const opens = dispatched.filter((d) => d.type === "@vtt/characters/OpenPendingRoll");
     const scoutRoll = opens.find((d) => {
       const p = d.payload as { rollableName: string; opts: { skillId?: string } };
-      return (
-        p.rollableName === "@vtt/system-torchbearer/skill-check"
-        && p.opts.skillId === "scout"
-      );
+      return p.rollableName === "@vtt/system-torchbearer/skill-check" && p.opts.skillId === "scout";
     });
     expect(scoutRoll).toBeDefined();
   });
@@ -1633,11 +1548,9 @@ describe("Skill-improvement chat row", () => {
       ]);
     });
     mountWithClient(h, () => {
-      const entries = (
-        TbChatTimelineContributor.useEntries() as unknown as Accessor<
-          ChatTimelineEntry[]
-        >
-      );
+      const entries = TbChatTimelineContributor.useEntries() as unknown as Accessor<
+        ChatTimelineEntry[]
+      >;
       return <For each={entries()}>{(e) => e.render() as never}</For>;
     });
 
@@ -1659,20 +1572,16 @@ describe("Skill-improvement chat row", () => {
       ]);
     });
     mountWithClient(h, () => {
-      const entries = (
-        TbChatTimelineContributor.useEntries() as unknown as Accessor<
-          ChatTimelineEntry[]
-        >
-      );
+      const entries = TbChatTimelineContributor.useEntries() as unknown as Accessor<
+        ChatTimelineEntry[]
+      >;
       return <For each={entries()}>{(e) => e.render() as never}</For>;
     });
 
     fireEvent.click(screen.getByRole("button", { name: /improve/i }));
 
     const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
-    const imp = dispatched.find(
-      (d) => d.type === "@vtt/system-torchbearer/ImproveSkill",
-    );
+    const imp = dispatched.find((d) => d.type === "@vtt/system-torchbearer/ImproveSkill");
     expect(imp).toBeDefined();
     expect(imp!.payload).toEqual({
       characterId: h.characterId,
@@ -1685,9 +1594,7 @@ describe("Skill-improvement chat row", () => {
     let captured: ChatTimelineEntry[] = [];
     mountWithClient(h, () => {
       const entries = (
-        TbChatTimelineContributor.useEntries() as unknown as Accessor<
-          ChatTimelineEntry[]
-        >
+        TbChatTimelineContributor.useEntries() as unknown as Accessor<ChatTimelineEntry[]>
       )();
       captured = entries;
       return <div />;
@@ -1767,9 +1674,7 @@ describe("TbRollRow", () => {
       });
       return TbRollRow({ entityId: entity }) as JSX.Element;
     });
-    expect(
-      screen.getByTestId("tb-roll-row-success-count").textContent,
-    ).toBe("2");
+    expect(screen.getByTestId("tb-roll-row-success-count").textContent).toBe("2");
     expect(screen.getByText("passed")).toBeInTheDocument();
     expect(screen.getByText(/vs Ob 2/)).toBeInTheDocument();
   });
@@ -1929,9 +1834,7 @@ describe("TbRollRow", () => {
       });
       return TbRollRow({ entityId: entity }) as JSX.Element;
     });
-    expect(
-      screen.getByTestId("tb-roll-row-success-count").textContent,
-    ).toBe("0");
+    expect(screen.getByTestId("tb-roll-row-success-count").textContent).toBe("0");
     expect(screen.getByText("failed")).toBeInTheDocument();
   });
 
@@ -1972,9 +1875,7 @@ describe("TbRollRow", () => {
       return TbRollRow({ entityId: entity }) as JSX.Element;
     });
     // 2 raw successes + 1 conditional (fired since pass) = 3.
-    expect(
-      screen.getByTestId("tb-roll-row-success-count").textContent,
-    ).toBe("3");
+    expect(screen.getByTestId("tb-roll-row-success-count").textContent).toBe("3");
     const breakdown = screen.getByTestId("tb-roll-row-success-breakdown");
     expect(breakdown.textContent).toContain("(conditional)");
   });
@@ -2012,9 +1913,7 @@ describe("TbRollRow", () => {
       return TbRollRow({ entityId: entity }) as JSX.Element;
     });
     expect(screen.getByText(/auto-fail/i)).toBeInTheDocument();
-    expect(
-      screen.getByTestId("tb-roll-row-success-count").textContent,
-    ).toBe("0");
+    expect(screen.getByTestId("tb-roll-row-success-count").textContent).toBe("0");
   });
 
   it("renders every modifier in the spec as a chip", () => {
@@ -2105,9 +2004,7 @@ describe("TbRollRow — disposition", () => {
       });
       return TbRollRow({ entityId: entity }) as JSX.Element;
     });
-    expect(
-      screen.getByTestId("tb-roll-row-disposition-badge"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("tb-roll-row-disposition-badge")).toBeInTheDocument();
   });
 
   it("shows base + successes = disposition value (no obstacle line)", () => {
@@ -2125,15 +2022,9 @@ describe("TbRollRow — disposition", () => {
       });
       return TbRollRow({ entityId: entity }) as JSX.Element;
     });
-    expect(
-      screen.getByTestId("tb-roll-row-disposition-value").textContent,
-    ).toBe("6");
-    expect(
-      screen.getByTestId("tb-roll-row-disposition-breakdown"),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByTestId("tb-roll-row-resolution"),
-    ).toBeNull();
+    expect(screen.getByTestId("tb-roll-row-disposition-value").textContent).toBe("6");
+    expect(screen.getByTestId("tb-roll-row-disposition-breakdown")).toBeInTheDocument();
+    expect(screen.queryByTestId("tb-roll-row-resolution")).toBeNull();
   });
 
   it("folds team penalties into the disposition (base 4 + 2 successes - 1 H&T = 5)", () => {
@@ -2166,9 +2057,7 @@ describe("TbRollRow — disposition", () => {
       return TbRollRow({ entityId: entity }) as JSX.Element;
     });
     // Disposition = 4 (base) + 2 (raw) + (-1) (always) = 5.
-    expect(
-      screen.getByTestId("tb-roll-row-disposition-value").textContent,
-    ).toBe("5");
+    expect(screen.getByTestId("tb-roll-row-disposition-value").textContent).toBe("5");
   });
 
   it("floors disposition at 1 even when penalties drive it negative (SG p.47)", () => {
@@ -2189,9 +2078,7 @@ describe("TbRollRow — disposition", () => {
       });
       return TbRollRow({ entityId: entity }) as JSX.Element;
     });
-    expect(
-      screen.getByTestId("tb-roll-row-disposition-value").textContent,
-    ).toBe("1");
+    expect(screen.getByTestId("tb-roll-row-disposition-value").textContent).toBe("1");
   });
 });
 
@@ -2246,12 +2133,8 @@ describe("TbRollRow — versus", () => {
       });
       return TbRollRow({ entityId: entity }) as JSX.Element;
     });
-    expect(
-      screen.getByTestId("tb-roll-row-versus-awaiting"),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByTestId("tb-roll-row-versus-resolution"),
-    ).toBeNull();
+    expect(screen.getByTestId("tb-roll-row-versus-awaiting")).toBeInTheDocument();
+    expect(screen.queryByTestId("tb-roll-row-versus-resolution")).toBeNull();
   });
 
   it("header shows the success count but NO pass/fail while awaiting the opponent", () => {
@@ -2269,12 +2152,8 @@ describe("TbRollRow — versus", () => {
       });
       return TbRollRow({ entityId: entity }) as JSX.Element;
     });
-    expect(
-      screen.getByTestId("tb-roll-row-success-count").textContent,
-    ).toBe("3");
-    expect(
-      screen.getByTestId("tb-roll-row-versus-header-state").textContent,
-    ).toBe("successes");
+    expect(screen.getByTestId("tb-roll-row-success-count").textContent).toBe("3");
+    expect(screen.getByTestId("tb-roll-row-versus-header-state").textContent).toBe("successes");
     const row = screen.getByTestId("tb-roll-row");
     expect(row.textContent).not.toMatch(/passed|failed/i);
   });
@@ -2308,9 +2187,7 @@ describe("TbRollRow — versus", () => {
       });
       return TbRollRow({ entityId: entity }) as JSX.Element;
     });
-    expect(
-      screen.getByTestId("tb-roll-row-versus-header-state").textContent,
-    ).toBe("won");
+    expect(screen.getByTestId("tb-roll-row-versus-header-state").textContent).toBe("won");
   });
 
   it("renders 'won by N' when own successes exceed opponent's", () => {
@@ -2384,10 +2261,10 @@ describe("TbRollRow — versus", () => {
       });
       return TbRollRow({ entityId: entity }) as JSX.Element;
     });
-    expect(screen.getByTestId("tb-roll-row-versus-resolution").textContent)
-      .toContain("lost");
-    expect(screen.getByTestId("tb-roll-row-versus-margin").textContent)
-      .toContain("margin of failure: 3");
+    expect(screen.getByTestId("tb-roll-row-versus-resolution").textContent).toContain("lost");
+    expect(screen.getByTestId("tb-roll-row-versus-margin").textContent).toContain(
+      "margin of failure: 3",
+    );
   });
 
   it("renders 'tied' when opponent and own success counts match", () => {
@@ -2441,9 +2318,7 @@ describe("TbRollRow — versus", () => {
       return TbRollRow({ entityId: entity }) as JSX.Element;
     });
     expect(screen.queryByTestId("tb-roll-row-resolution")).toBeNull();
-    expect(
-      screen.getByTestId("tb-roll-row-versus-awaiting"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("tb-roll-row-versus-awaiting")).toBeInTheDocument();
   });
 });
 
@@ -2546,9 +2421,7 @@ describe("TbRollRow — log advancement", () => {
       return TbRollRow({ entityId: rollId }) as JSX.Element;
     });
     fireEvent.click(screen.getByTestId("tb-roll-row-log-advancement"));
-    const dispatched = h.dispatched.find(
-      (c) => c.type === LogAdvancement.name,
-    );
+    const dispatched = h.dispatched.find((c) => c.type === LogAdvancement.name);
     expect(dispatched).toBeDefined();
     expect(dispatched!.payload).toEqual({
       rollId,
@@ -2585,9 +2458,7 @@ describe("TbRollRow — log advancement", () => {
       });
       return TbRollRow({ entityId: id }) as JSX.Element;
     });
-    expect(
-      screen.queryByTestId("tb-roll-row-log-advancement"),
-    ).toBeNull();
+    expect(screen.queryByTestId("tb-roll-row-log-advancement")).toBeNull();
   });
 
   it("hides the button when the AdvancementLogged trait is already attached", () => {
@@ -2624,12 +2495,10 @@ describe("TbRollRow — log advancement", () => {
       });
       return TbRollRow({ entityId: rollId }) as JSX.Element;
     });
-    expect(
-      screen.queryByTestId("tb-roll-row-log-advancement"),
-    ).toBeNull();
-    expect(
-      screen.getByTestId("tb-roll-row-advancement-confirmation").textContent,
-    ).toContain("Pass logged for Fighter");
+    expect(screen.queryByTestId("tb-roll-row-log-advancement")).toBeNull();
+    expect(screen.getByTestId("tb-roll-row-advancement-confirmation").textContent).toContain(
+      "Pass logged for Fighter",
+    );
   });
 
   it("hides the Log Pass button when the pass column is already at threshold (DH p.108)", () => {
@@ -2820,9 +2689,7 @@ describe("TbRollRow — log advancement", () => {
       return TbRollRow({ entityId: rollId }) as JSX.Element;
     });
     fireEvent.click(screen.getByTestId("tb-roll-row-log-advancement"));
-    const dispatched = h.dispatched.find(
-      (c) => c.type === LogAdvancement.name,
-    );
+    const dispatched = h.dispatched.find((c) => c.type === LogAdvancement.name);
     expect(dispatched).toBeDefined();
     expect(dispatched!.payload).toEqual({ rollId, outcome: "pass" });
   });
@@ -2860,12 +2727,10 @@ describe("TbRollRow — log advancement", () => {
       });
       return TbRollRow({ entityId: rollId }) as JSX.Element;
     });
-    expect(
-      screen.queryByTestId("tb-roll-row-log-advancement"),
-    ).toBeNull();
-    expect(
-      screen.getByTestId("tb-roll-row-advancement-confirmation").textContent,
-    ).toContain("Learning test logged for Rider");
+    expect(screen.queryByTestId("tb-roll-row-log-advancement")).toBeNull();
+    expect(screen.getByTestId("tb-roll-row-advancement-confirmation").textContent).toContain(
+      "Learning test logged for Rider",
+    );
   });
 
   it("hides the button while a versus test is awaiting an opponent", () => {
@@ -2896,9 +2761,7 @@ describe("TbRollRow — log advancement", () => {
       });
       return TbRollRow({ entityId: id }) as JSX.Element;
     });
-    expect(
-      screen.queryByTestId("tb-roll-row-log-advancement"),
-    ).toBeNull();
+    expect(screen.queryByTestId("tb-roll-row-log-advancement")).toBeNull();
   });
 });
 
@@ -2939,9 +2802,7 @@ describe("TbRollChatTimelineContributor", () => {
     let entries: ChatTimelineEntry[] = [];
     mountWithClient(h, () => {
       entries = (
-        TbRollChatTimelineContributor.useEntries() as unknown as Accessor<
-          ChatTimelineEntry[]
-        >
+        TbRollChatTimelineContributor.useEntries() as unknown as Accessor<ChatTimelineEntry[]>
       )();
       return <div />;
     });
@@ -2971,9 +2832,7 @@ describe("TbRollChatTimelineContributor", () => {
     let entries: ChatTimelineEntry[] = [];
     mountWithClient(h, () => {
       entries = (
-        TbRollChatTimelineContributor.useEntries() as unknown as Accessor<
-          ChatTimelineEntry[]
-        >
+        TbRollChatTimelineContributor.useEntries() as unknown as Accessor<ChatTimelineEntry[]>
       )();
       return <div />;
     });

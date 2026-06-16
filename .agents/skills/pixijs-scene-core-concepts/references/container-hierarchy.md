@@ -185,7 +185,6 @@ group.addChild(sprite, otherSprite);
 
 Sprite, Graphics, Text, Mesh, ParticleContainer, DOMContainer, and GifSprite all set `allowChildren = false`. Adding children logs a deprecation warning and will become a hard error. Use a plain `Container` to group.
 
-
 ### [HIGH] Destroying the parent without `children: true`
 
 Wrong:
@@ -201,7 +200,6 @@ levelContainer.destroy({ children: true });
 ```
 
 Plain `destroy()` only removes the parent. Its children become orphans; still in memory, still referencing textures. For a clean teardown, always pass `{ children: true }`, and include `texture: true` / `textureSource: true` when you also want to release GPU memory.
-
 
 ### [MEDIUM] Mutating `children` during iteration
 
@@ -222,7 +220,6 @@ for (const child of [...parent.children]) {
 ```
 
 `removeChild` splices the array, shifting indices. Iterating the live array misses elements or processes some twice. Snapshot before iterating.
-
 
 ## API Reference
 

@@ -15,14 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  fail,
-  matches,
-  ok,
-  type Result,
-  type Visibility,
-  type World,
-} from "@vtt/substrate";
+import { fail, matches, ok, type Result, type Visibility, type World } from "@vtt/substrate";
 import { type Role, parseAuthSession } from "@vtt/auth";
 import { Permissions } from "./traits.js";
 
@@ -34,10 +27,7 @@ import { Permissions } from "./traits.js";
  * Returns Result so the caller can chain — keeps the validate body
  * readable when checks compose.
  */
-export function requireRole(
-  ctx: { session?: unknown },
-  role: Role,
-): Result {
+export function requireRole(ctx: { session?: unknown }, role: Role): Result {
   const s = parseAuthSession(ctx.session);
   if (!s) return fail("not authenticated");
   if (s.role !== role) return fail(`requires role: ${role}`);
@@ -58,10 +48,7 @@ export function requireRole(
  * (a player listed in `Permissions.write.userIds` has full edit
  * rights), and ownership is just "I am in the users list."
  */
-export function requireWrite(
-  ctx: { session?: unknown; world: World },
-  entityId: string,
-): Result {
+export function requireWrite(ctx: { session?: unknown; world: World }, entityId: string): Result {
   const s = parseAuthSession(ctx.session);
   if (!s) return fail("not authenticated");
   if (s.role === "gm") return ok();

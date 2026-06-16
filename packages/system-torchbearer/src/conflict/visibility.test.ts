@@ -62,9 +62,15 @@ interface Captured {
   events: EventInstance[];
 }
 
-async function dispatchAndCapture(opts: {
-  emitted: Captured;
-}): Promise<{ world: World; pipeline: CommandPipeline; bus: EventBus; registry: Registry; partyChar: EntityId; enemyChar: EntityId; conflictId: EntityId }> {
+async function dispatchAndCapture(opts: { emitted: Captured }): Promise<{
+  world: World;
+  pipeline: CommandPipeline;
+  bus: EventBus;
+  registry: Registry;
+  partyChar: EntityId;
+  enemyChar: EntityId;
+  conflictId: EntityId;
+}> {
   const registry = new Registry();
   registry.load(permissions);
   registry.load(conflictTestPlugin);
@@ -106,20 +112,14 @@ async function dispatchAndCapture(opts: {
   if (!conflictId) throw new Error("no conflict");
   // Force phase to scripting.
   world.set(conflictId, TbConflict, {
-    ...((world.get(conflictId, [TbConflict]) as any).TbConflict),
+    ...(world.get(conflictId, [TbConflict]) as any).TbConflict,
   });
   return { world, pipeline, bus, registry, partyChar, enemyChar, conflictId };
 }
 
-function findParticipantId(
-  world: World,
-  characterId: EntityId,
-  side: "party" | "enemy",
-): EntityId {
+function findParticipantId(world: World, characterId: EntityId, side: "party" | "enemy"): EntityId {
   for (const row of world.query([TbConflictParticipant])) {
-    const p = row.values.TbConflictParticipant as ReturnType<
-      typeof TbConflictParticipant
-    >["value"];
+    const p = row.values.TbConflictParticipant as ReturnType<typeof TbConflictParticipant>["value"];
     if (p.characterId === characterId && p.side === side) return row.id;
   }
   throw new Error(`no participant for ${characterId}/${side}`);
@@ -139,11 +139,7 @@ describe("conflict event visibility (side-scoping)", () => {
         side: "party",
         slotIndex: 0,
         action: "attack",
-        performerParticipantEntityId: findParticipantId(
-          ctx.world,
-          ctx.partyChar,
-          "party",
-        ),
+        performerParticipantEntityId: findParticipantId(ctx.world, ctx.partyChar, "party"),
         weaponItemId: null,
       }),
       session: PLAYER,
@@ -172,11 +168,7 @@ describe("conflict event visibility (side-scoping)", () => {
         side: "enemy",
         slotIndex: 0,
         action: "defend",
-        performerParticipantEntityId: findParticipantId(
-          ctx.world,
-          ctx.enemyChar,
-          "enemy",
-        ),
+        performerParticipantEntityId: findParticipantId(ctx.world, ctx.enemyChar, "enemy"),
         weaponItemId: null,
       }),
       session: GM,
@@ -205,11 +197,7 @@ describe("conflict event visibility (side-scoping)", () => {
           side: "party",
           slotIndex: i,
           action: "attack",
-          performerParticipantEntityId: findParticipantId(
-            ctx.world,
-            ctx.partyChar,
-            "party",
-          ),
+          performerParticipantEntityId: findParticipantId(ctx.world, ctx.partyChar, "party"),
           weaponItemId: null,
         }),
         session: PLAYER,

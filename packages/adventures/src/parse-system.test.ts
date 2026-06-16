@@ -31,7 +31,14 @@ import {
   z,
 } from "@vtt/substrate";
 import { permissions } from "@vtt/permissions";
-import { Page, BelongsToNote, PageBodySet, MarkdownPostRenderSlot, EditorCompletionSourcesSlot, NotesReferenceSlot } from "@vtt/notes/shared";
+import {
+  Page,
+  BelongsToNote,
+  PageBodySet,
+  MarkdownPostRenderSlot,
+  EditorCompletionSourcesSlot,
+  NotesReferenceSlot,
+} from "@vtt/notes/shared";
 
 // Minimal notes-stub: registers only the traits/event @vtt/adventures
 // needs (Page, BelongsToNote, PageBodySet) without dragging in the
@@ -86,9 +93,7 @@ const statKind = defineBlockKind({
     const p = parsed as z.infer<typeof StatSchema>;
     return {
       traits: [{ trait: Stat, value: { label: p.label, value: p.value } }],
-      spawnIfMissing: [
-        { trait: StubInitialState, value: { spawnedAt: 12345 } },
-      ],
+      spawnIfMissing: [{ trait: StubInitialState, value: { spawnedAt: 12345 } }],
     };
   },
 });
@@ -178,9 +183,7 @@ describe("BlockParseSystem — diff loop", () => {
     expect(world.has(id)).toBe(true);
     parse("nothing here\n");
     expect(world.has(id)).toBe(true); // not despawned
-    const tombstone = world.get(id, [Tombstoned]) as
-      | { Tombstoned: { reason: string } }
-      | undefined;
+    const tombstone = world.get(id, [Tombstoned]) as { Tombstoned: { reason: string } } | undefined;
     expect(tombstone).toBeDefined();
     expect(tombstone!.Tombstoned.reason).toBe("block-removed");
   });
@@ -198,7 +201,16 @@ describe("BlockParseSystem — diff loop", () => {
 
   it("emits PageBlocksParsed with the block list", () => {
     const events = parse(
-      ["```stat foo", "label: a", "value: 1", "```", "```stat bar", "label: b", "value: 2", "```"].join("\n"),
+      [
+        "```stat foo",
+        "label: a",
+        "value: 1",
+        "```",
+        "```stat bar",
+        "label: b",
+        "value: 2",
+        "```",
+      ].join("\n"),
     );
     expect(events.length).toBeGreaterThanOrEqual(1);
     const pbp = events.find((e) => e.type.endsWith("PageBlocksParsed"));
@@ -224,9 +236,7 @@ describe("BlockParseSystem — diff loop", () => {
   });
 
   it("survives a YAML parse error (logs, does not crash, does not materialize)", () => {
-    expect(() =>
-      parse(["```stat bad", "label: [unbalanced", "```"].join("\n")),
-    ).not.toThrow();
+    expect(() => parse(["```stat bad", "label: [unbalanced", "```"].join("\n"))).not.toThrow();
     expect(world.query([Stat])).toHaveLength(0);
   });
 
@@ -269,9 +279,7 @@ describe("BlockParseSystem — PageBlocks mirror trait", () => {
     // runner would do this; we're exercising the pure pipeline).
     const pbp = events.find((e) => e.type.endsWith("PageBlocksParsed"))!;
     world.set(pageId, PageBlocks, {
-      blocks: ((pbp.payload as { blocks: ReadonlyArray<unknown> }).blocks).map(
-        (b) => b as never,
-      ),
+      blocks: (pbp.payload as { blocks: ReadonlyArray<unknown> }).blocks.map((b) => b as never),
     });
     const got = world.get(pageId, [PageBlocks]) as
       | { PageBlocks: { blocks: ReadonlyArray<{ kind: string; blockKey: string }> } }

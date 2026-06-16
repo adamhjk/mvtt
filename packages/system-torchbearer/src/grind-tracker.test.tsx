@@ -18,10 +18,7 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { definePlugin, type EntityId } from "@vtt/substrate";
 import { Identity, Online } from "@vtt/identity/shared";
 import { Name } from "@vtt/identity/shared";
@@ -80,9 +77,7 @@ describe("GrindTrackerView", () => {
     const h = setup({ asGm: true });
     mountWithClient(h, () => GrindTrackerStatusItem.render() as never);
     expect(screen.getByTestId("grind-tracker")).toBeInTheDocument();
-    expect(
-      (screen.getByTestId("grind-input") as HTMLInputElement).value,
-    ).toBe("3");
+    expect((screen.getByTestId("grind-input") as HTMLInputElement).value).toBe("3");
   });
 
   it("does NOT render for a non-GM", () => {
@@ -96,9 +91,7 @@ describe("GrindTrackerView", () => {
     mountWithClient(h, () => GrindTrackerStatusItem.render() as never);
     fireEvent.click(screen.getByTestId("grind-advance"));
     await waitFor(() => {
-      expect(
-        h.dispatched.some((d) => d.type === SetGrindTurn.name),
-      ).toBe(true);
+      expect(h.dispatched.some((d) => d.type === SetGrindTurn.name)).toBe(true);
     });
     const ev = h.dispatched.find((d) => d.type === SetGrindTurn.name)!;
     expect((ev.payload as { to: number }).to).toBe(4);
@@ -109,9 +102,7 @@ describe("GrindTrackerView", () => {
     mountWithClient(h, () => GrindTrackerStatusItem.render() as never);
     fireEvent.click(screen.getByTestId("grind-rewind"));
     await waitFor(() => {
-      expect(
-        h.dispatched.some((d) => d.type === SetGrindTurn.name),
-      ).toBe(true);
+      expect(h.dispatched.some((d) => d.type === SetGrindTurn.name)).toBe(true);
     });
     const ev = h.dispatched.find((d) => d.type === SetGrindTurn.name)!;
     expect((ev.payload as { to: number }).to).toBe(2);
@@ -137,9 +128,7 @@ describe("GrindTrackerView", () => {
       },
     });
     mountWithClient(h, () => GrindTrackerStatusItem.render() as never);
-    expect(
-      (screen.getByTestId("grind-rewind") as HTMLButtonElement).disabled,
-    ).toBe(true);
+    expect((screen.getByTestId("grind-rewind") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("checking the extreme box dispatches SetGrindExtreme(true)", async () => {
@@ -149,9 +138,7 @@ describe("GrindTrackerView", () => {
     expect(box.checked).toBe(false);
     fireEvent.click(box);
     await waitFor(() => {
-      expect(
-        h.dispatched.some((d) => d.type === SetGrindExtreme.name),
-      ).toBe(true);
+      expect(h.dispatched.some((d) => d.type === SetGrindExtreme.name)).toBe(true);
     });
     const ev = h.dispatched.find((d) => d.type === SetGrindExtreme.name)!;
     expect((ev.payload as { extreme: boolean }).extreme).toBe(true);
@@ -164,9 +151,7 @@ describe("GrindTrackerView", () => {
     fireEvent.input(input, { target: { value: "12" } });
     fireEvent.change(input, { target: { value: "12" } });
     await waitFor(() => {
-      expect(
-        h.dispatched.some((d) => d.type === SetGrindTurn.name),
-      ).toBe(true);
+      expect(h.dispatched.some((d) => d.type === SetGrindTurn.name)).toBe(true);
     });
     const ev = h.dispatched.find((d) => d.type === SetGrindTurn.name)!;
     expect((ev.payload as { to: number }).to).toBe(12);

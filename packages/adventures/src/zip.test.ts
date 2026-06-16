@@ -71,9 +71,7 @@ describe("bundleToZip / zipToBundle", () => {
     const withAsset: AdventureBundle = {
       manifest: {
         ...m,
-        assets: [
-          { sha256: sha, name: "thing.bin", mime: "application/octet-stream", bytes: 5 },
-        ],
+        assets: [{ sha256: sha, name: "thing.bin", mime: "application/octet-stream", bytes: 5 }],
       },
       assets: new Map([[sha, bytes]]),
     };
@@ -92,8 +90,7 @@ describe("bundleToZip / zipToBundle", () => {
     // The earlier deserializer tried to recover per-page splits by
     // scanning the .md file for `\n\n# ` and truncated everything
     // before the first heading off the body. This test guards the fix.
-    const headingHeavy =
-      "# Massive Fight\n\n# Bad guys\n![[asset:e713]]\n\nNarrative.";
+    const headingHeavy = "# Massive Fight\n\n# Bad guys\n![[asset:e713]]\n\nNarrative.";
     const bundle: AdventureBundle = {
       manifest: {
         bundleId: "uuid-headings",
@@ -106,9 +103,7 @@ describe("bundleToZip / zipToBundle", () => {
           {
             bundlePath: "notes/headings.md",
             title: "Headings",
-            pages: [
-              { title: "Page", body: headingHeavy, sha256: "0".repeat(64) },
-            ],
+            pages: [{ title: "Page", body: headingHeavy, sha256: "0".repeat(64) }],
           },
         ],
         assets: [],

@@ -16,21 +16,14 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { createMemo, createSignal, onCleanup, type Accessor, For } from "solid-js";
-import {
-  createStore,
-  reconcile,
-  unwrap,
-  type SetStoreFunction,
-  type Store,
-} from "solid-js/store";
+import { createStore, reconcile, unwrap, type SetStoreFunction, type Store } from "solid-js/store";
 import type { AnyViewDef, CommandInstance, TraitMeta } from "./define.js";
 import type { EntityId, SurfaceName, TraitName } from "./schema.js";
 import { useClient } from "./client.js";
 import { readTraitWithDefault } from "./derivation.js";
 
-type TraitValue<T extends TraitMeta> = T extends TraitMeta<infer S>
-  ? import("zod").z.infer<S>
-  : never;
+type TraitValue<T extends TraitMeta> =
+  T extends TraitMeta<infer S> ? import("zod").z.infer<S> : never;
 
 /**
  * Returns a Solid accessor that tracks one trait on one entity.
@@ -53,7 +46,7 @@ export function useTrait<T extends TraitMeta>(
     const resolved =
       next === undefined
         ? undefined
-        : (((next as Record<string, unknown>)[shortName(trait.name)]) as TraitValue<T>);
+        : ((next as Record<string, unknown>)[shortName(trait.name)] as TraitValue<T>);
     // Wrap in a thunk so Solid's setter type doesn't mistake a value-shaped
     // payload for the (prev) => next overload — TraitValue<T> can include
     // `Function`-shaped fields after zod v4's type widening.
@@ -334,10 +327,7 @@ export function useQuery(traits: ReadonlyArray<TraitMeta>): Accessor<QueryRow[]>
  * next candidate. Once a view renders, all lower-priority views are
  * skipped.
  */
-export function Surface(props: {
-  name: SurfaceName;
-  context?: Record<string, unknown>;
-}) {
+export function Surface(props: { name: SurfaceName; context?: Record<string, unknown> }) {
   const client = useClient();
   const surface = client.registry.surfaces.get(props.name);
   if (!surface) {
@@ -347,9 +337,7 @@ export function Surface(props: {
 
   if (surface.kind === "per-entity") {
     return (
-      <For each={views}>
-        {(view) => <PerEntityView view={view} extra={props.context ?? {}} />}
-      </For>
+      <For each={views}>{(view) => <PerEntityView view={view} extra={props.context ?? {}} />}</For>
     );
   }
 
@@ -363,22 +351,13 @@ export function Surface(props: {
     return null;
   }
 
-  return (
-    <For each={views}>
-      {(view) => <>{view.render(props.context ?? {}) as unknown}</>}
-    </For>
-  );
+  return <For each={views}>{(view) => <>{view.render(props.context ?? {}) as unknown}</>}</For>;
 }
 
-function PerEntityView(props: {
-  view: AnyViewDef;
-  extra: Record<string, unknown>;
-}) {
+function PerEntityView(props: { view: AnyViewDef; extra: Record<string, unknown> }) {
   const client = useClient();
   const requires = props.view.requires;
-  const [ids, setIds] = createSignal<EntityId[]>(
-    client.world.query(requires).map((r) => r.id),
-  );
+  const [ids, setIds] = createSignal<EntityId[]>(client.world.query(requires).map((r) => r.id));
   const watched = new Set<TraitName>(requires.map((t) => t.name));
   const off = client.world.subscribe((_id, name) => {
     if (!watched.has(name)) return;

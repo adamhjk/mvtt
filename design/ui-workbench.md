@@ -4,11 +4,11 @@
 
 ## The problem
 
-Existing VTTs solve "show me my character sheet, the scene, the journal" with floating draggable windows. This is the most-cited UX failure of the genre — players spend more time arranging windows than playing. mvtt's scaffold today goes the other way: a fixed `Header / Main / Sidebar / Footer` grid that's fine for one view at a time but doesn't scale to "I want to see my sheet *and* the map" or "I want to switch to my journal without losing my place."
+Existing VTTs solve "show me my character sheet, the scene, the journal" with floating draggable windows. This is the most-cited UX failure of the genre — players spend more time arranging windows than playing. mvtt's scaffold today goes the other way: a fixed `Header / Main / Sidebar / Footer` grid that's fine for one view at a time but doesn't scale to "I want to see my sheet _and_ the map" or "I want to switch to my journal without losing my place."
 
 ## Approach
 
-A single tabbed workspace where every tab is a *Page* (a plugin's content type bound to a specific entity). Tabs can be split into edge-docked panes (left/right/top/bottom). A fuzzy command palette navigates and acts on the same Page registry. Two quick-focus modes — pane cycle and zen-maximize — keep keyboard hands productive. Chat is a persistent right rail.
+A single tabbed workspace where every tab is a _Page_ (a plugin's content type bound to a specific entity). Tabs can be split into edge-docked panes (left/right/top/bottom). A fuzzy command palette navigates and acts on the same Page registry. Two quick-focus modes — pane cycle and zen-maximize — keep keyboard hands productive. Chat is a persistent right rail.
 
 Three properties make this defensible against the same window-juggling drift:
 
@@ -18,12 +18,12 @@ Three properties make this defensible against the same window-juggling drift:
 
 ## Considered alternatives
 
-| Option | Shape | Rejected because |
-|---|---|---|
-| **Stage + tray** | One scene/map dominates; pinned pages peek from a bottom dock. | Privileges scene over sheet/journal. Fits combat-heavy systems; misses narrative play. |
-| **Pure split (no tabs)** | Every visible thing is a pane; max 2. | Hard cap was right but no standby slots — wanting a third thing means swapping a pane. |
-| **Pure tabs (no splits)** | Browser-style tabs only. | Reintroduces "where did I leave my sheet" — same failure mode as floating windows along one axis. |
-| **Floating windows** | The genre default. | The thing we're fixing. |
+| Option                    | Shape                                                          | Rejected because                                                                                  |
+| ------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Stage + tray**          | One scene/map dominates; pinned pages peek from a bottom dock. | Privileges scene over sheet/journal. Fits combat-heavy systems; misses narrative play.            |
+| **Pure split (no tabs)**  | Every visible thing is a pane; max 2.                          | Hard cap was right but no standby slots — wanting a third thing means swapping a pane.            |
+| **Pure tabs (no splits)** | Browser-style tabs only.                                       | Reintroduces "where did I leave my sheet" — same failure mode as floating windows along one axis. |
+| **Floating windows**      | The genre default.                                             | The thing we're fixing.                                                                           |
 
 The chosen design is split + tabs + palette: bounded space for what you're actively working with, indexed search for everything else.
 
@@ -99,10 +99,10 @@ The palette searches **Pages ∪ palette-commands** — both contributed via slo
 
 Two modes, both reach the active pane without the mouse:
 
-| Hotkey | Action |
-|---|---|
-| `⌘1` … `⌘4` | Focus pane N (in tree order). Tabs and chat keep their state. |
-| `⌘.` | Zen — temporarily hide every pane except the active one. Press again to restore. |
+| Hotkey      | Action                                                                           |
+| ----------- | -------------------------------------------------------------------------------- |
+| `⌘1` … `⌘4` | Focus pane N (in tree order). Tabs and chat keep their state.                    |
+| `⌘.`        | Zen — temporarily hide every pane except the active one. Press again to restore. |
 
 The active pane is the focus target for `+ new tab`, palette `⏎`, and the split keystrokes (`⌘\`, `⌘-`).
 
@@ -110,25 +110,25 @@ The active pane is the focus target for `+ new tab`, palette `⏎`, and the spli
 
 The palette is what makes this graceful at every size — navigation no longer depends on seeing the splits.
 
-| Width        | Workspace             | Tabs           | Chat rail        | Palette                |
-|--------------|-----------------------|----------------|------------------|------------------------|
-| ≥1024 px     | full split tree       | as drawn       | docked right     | overlay on hotkey      |
-| 640–1023 px  | one pane visible, others reachable via a pane switcher in the header | as drawn | bottom edge-sheet on tap | overlay on hotkey      |
-| <640 px      | one pane              | swipeable strip, one tab at a time | full-screen sheet | becomes **primary navigation** — tap a search button in the header |
+| Width       | Workspace                                                            | Tabs                               | Chat rail                | Palette                                                            |
+| ----------- | -------------------------------------------------------------------- | ---------------------------------- | ------------------------ | ------------------------------------------------------------------ |
+| ≥1024 px    | full split tree                                                      | as drawn                           | docked right             | overlay on hotkey                                                  |
+| 640–1023 px | one pane visible, others reachable via a pane switcher in the header | as drawn                           | bottom edge-sheet on tap | overlay on hotkey                                                  |
+| <640 px     | one pane                                                             | swipeable strip, one tab at a time | full-screen sheet        | becomes **primary navigation** — tap a search button in the header |
 
 The mental model is identical at every width — splits collapse, but tabs and palette remain. There's no separate "mobile" model to learn.
 
 ## Vocabulary
 
-| Term | Meaning |
-|---|---|
-| **Page** | A `(pageKind, entityId)` pair. The unit a tab points at. |
-| **PageKind** | A category of content a plugin can render (`Characters`, `Scenes`, `Journals`). Plugin-namespaced (`@vtt/scene/scenes`, `@vtt/character/characters`). |
-| **PageProvider** | A plugin contribution: an icon, label, `listEntities(ctx) → Page[]`, and `render(entityId) → ViewRef` for one PageKind. |
-| **Tab** | A Page plus per-tab UI state (scroll position, sub-tab inside a sheet). Belongs to exactly one Pane. |
-| **Pane** | A leaf in the workspace tree. Holds an ordered list of Tabs and an active Tab. |
-| **Workspace** | A tree whose internal nodes are split-axis containers (`row` or `column` with proportions) and whose leaves are Panes. |
-| **Workbench** | The shell plugin (`@vtt/shell-workbench`) that owns the whole layout. |
+| Term             | Meaning                                                                                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Page**         | A `(pageKind, entityId)` pair. The unit a tab points at.                                                                                              |
+| **PageKind**     | A category of content a plugin can render (`Characters`, `Scenes`, `Journals`). Plugin-namespaced (`@vtt/scene/scenes`, `@vtt/character/characters`). |
+| **PageProvider** | A plugin contribution: an icon, label, `listEntities(ctx) → Page[]`, and `render(entityId) → ViewRef` for one PageKind.                               |
+| **Tab**          | A Page plus per-tab UI state (scroll position, sub-tab inside a sheet). Belongs to exactly one Pane.                                                  |
+| **Pane**         | A leaf in the workspace tree. Holds an ordered list of Tabs and an active Tab.                                                                        |
+| **Workspace**    | A tree whose internal nodes are split-axis containers (`row` or `column` with proportions) and whose leaves are Panes.                                |
+| **Workbench**    | The shell plugin (`@vtt/shell-workbench`) that owns the whole layout.                                                                                 |
 
 ## Architecture
 
@@ -140,23 +140,23 @@ Replaces `@vtt/shell-default` as the standard shell. Coexistence is not a goal �
 
 #### Slots declared
 
-| Slot | Filled by | Schema (sketch) |
-|---|---|---|
-| `@vtt/shell-workbench/pages` | every plugin that owns first-class user-facing content | `{ kind: PageKindName; icon; label; listEntities: (ctx) => Page[]; render: (entityId) => ViewRef }` |
-| `@vtt/shell-workbench/palette-commands` | any plugin that wants verbs in the palette | `{ id: QualifiedName; label; hint?; run: (ctx) => void }` |
-| `@vtt/shell-workbench/chat-rail-widgets` | dice tray, initiative tracker, presence indicator, etc. | stacked above the chat composer |
+| Slot                                     | Filled by                                               | Schema (sketch)                                                                                     |
+| ---------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `@vtt/shell-workbench/pages`             | every plugin that owns first-class user-facing content  | `{ kind: PageKindName; icon; label; listEntities: (ctx) => Page[]; render: (entityId) => ViewRef }` |
+| `@vtt/shell-workbench/palette-commands`  | any plugin that wants verbs in the palette              | `{ id: QualifiedName; label; hint?; run: (ctx) => void }`                                           |
+| `@vtt/shell-workbench/chat-rail-widgets` | dice tray, initiative tracker, presence indicator, etc. | stacked above the chat composer                                                                     |
 
-A `PageProvider`'s `render` returns a Solid component (view ref). If a plugin author wants *other* plugins to extend the rendering of one of their pages (e.g. a journal page with a "comments" extension point), they declare their own `single` or `stacked` surface and mount it inside their `render`. That's a plugin-design choice, not a substrate concern.
+A `PageProvider`'s `render` returns a Solid component (view ref). If a plugin author wants _other_ plugins to extend the rendering of one of their pages (e.g. a journal page with a "comments" extension point), they declare their own `single` or `stacked` surface and mount it inside their `render`. That's a plugin-design choice, not a substrate concern.
 
 #### Surfaces declared
 
-| Surface | Kind | Notes |
-|---|---|---|
-| `WorkbenchRootSurface` | single | The new fill of `RootSurface`. |
-| `WorkbenchHeaderSurface` | stacked | Replaces `HeaderSurface`. Logo, presence chips, palette trigger, GM tools. |
-| `PaletteSurface` | stacked | Palette overlay; plugins can drop ad-hoc UI here (e.g. a date picker for a "schedule next session" command). |
+| Surface                  | Kind    | Notes                                                                                                        |
+| ------------------------ | ------- | ------------------------------------------------------------------------------------------------------------ |
+| `WorkbenchRootSurface`   | single  | The new fill of `RootSurface`.                                                                               |
+| `WorkbenchHeaderSurface` | stacked | Replaces `HeaderSurface`. Logo, presence chips, palette trigger, GM tools.                                   |
+| `PaletteSurface`         | stacked | Palette overlay; plugins can drop ad-hoc UI here (e.g. a date picker for a "schedule next session" command). |
 
-The page-render surface point is *the slot*, not a new surface kind. The Workbench reads the active tab, looks up the PageProvider for its `pageKind`, and mounts `provider.render(entityId)`.
+The page-render surface point is _the slot_, not a new surface kind. The Workbench reads the active tab, looks up the PageProvider for its `pageKind`, and mounts `provider.render(entityId)`.
 
 #### Views
 
@@ -171,16 +171,16 @@ The page-render surface point is *the slot*, not a new surface kind. The Workben
 
 Workspace mutations go through the substrate's `CommandPipeline` like any other command — they validate against current `WorkspaceState`, emit events, and replicate to the user's other connections via the visibility filter.
 
-| Command | Effect |
-|---|---|
-| `OpenPage` | Activate or open a Tab for `(pageKind, entityId)` in the active Pane. |
-| `OpenPageInNewTab` | Open in a new Tab in the active Pane. |
-| `OpenPageAsSplit` | Open in a new Pane split off the active one (direction param). |
-| `CloseTab` | Remove a Tab. If the Pane empties, collapse it from the tree. |
-| `MoveTab` | Drag a Tab to another Pane (or to an edge to spawn a new Pane). |
-| `RetargetTab` | Change the `pageKind` or `entityId` of an existing Tab in place. |
-| `FocusPane` | `⌘N`. |
-| `ToggleZen` | `⌘.`. |
+| Command            | Effect                                                                |
+| ------------------ | --------------------------------------------------------------------- |
+| `OpenPage`         | Activate or open a Tab for `(pageKind, entityId)` in the active Pane. |
+| `OpenPageInNewTab` | Open in a new Tab in the active Pane.                                 |
+| `OpenPageAsSplit`  | Open in a new Pane split off the active one (direction param).        |
+| `CloseTab`         | Remove a Tab. If the Pane empties, collapse it from the tree.         |
+| `MoveTab`          | Drag a Tab to another Pane (or to an edge to spawn a new Pane).       |
+| `RetargetTab`      | Change the `pageKind` or `entityId` of an existing Tab in place.      |
+| `FocusPane`        | `⌘N`.                                                                 |
+| `ToggleZen`        | `⌘.`.                                                                 |
 
 Workspace events are marked **`transient: true`** (skip the durable event log) and **`broadcast: true`** (replicate over the wire to the user's other connections). The trait itself persists; only the per-mutation events are ephemeral. Cold boot loads the latest snapshot — no UI-mutation history to replay.
 
@@ -247,30 +247,30 @@ That's the whole developer-facing surface. Multiple PageKinds per plugin (`Chara
 
 ### Decisions worth noting
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Empty-entity tabs | First-class — a tab can have `entityId: null` and the provider's `render` shows whatever it wants ("pick a character to view"). | Makes "I want to browse Characters" a normal operation; avoids forcing every provider to invent a "no entity" state. |
-| Sub-extension within a page | Lives inside the provider's `render`, not in the slot schema. The journal plugin declares its own `JournalPageContentSurface` (stacked) and mounts it. | Keeps the workbench slot schema small. Each provider that wants extension points ships its own surface. |
-| `list` shape | One-shot reactive collection, not paginated. | Sufficient until a single provider has 10k+ entities. When that breaks, providers can opt into a `searchEntities(query) → results` form alongside `list`. |
-| What providers register | The *kind*, not enumerated Pages. | Mirrors how trait/event/command definers register types, not instances. The workbench projects the kind across whatever entities `list` returns. |
-| Picker vs palette | Same `list` output drives both. | One source of truth, two presentations: filtered-by-kind in the dropdown, fuzzy-across-all in the palette. |
+| Decision                    | Choice                                                                                                                                                 | Rationale                                                                                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Empty-entity tabs           | First-class — a tab can have `entityId: null` and the provider's `render` shows whatever it wants ("pick a character to view").                        | Makes "I want to browse Characters" a normal operation; avoids forcing every provider to invent a "no entity" state.                                      |
+| Sub-extension within a page | Lives inside the provider's `render`, not in the slot schema. The journal plugin declares its own `JournalPageContentSurface` (stacked) and mounts it. | Keeps the workbench slot schema small. Each provider that wants extension points ships its own surface.                                                   |
+| `list` shape                | One-shot reactive collection, not paginated.                                                                                                           | Sufficient until a single provider has 10k+ entities. When that breaks, providers can opt into a `searchEntities(query) → results` form alongside `list`. |
+| What providers register     | The _kind_, not enumerated Pages.                                                                                                                      | Mirrors how trait/event/command definers register types, not instances. The workbench projects the kind across whatever entities `list` returns.          |
+| Picker vs palette           | Same `list` output drives both.                                                                                                                        | One source of truth, two presentations: filtered-by-kind in the dropdown, fuzzy-across-all in the palette.                                                |
 
 ## Persistence: layered defaults
 
 Workspace state splits into four layers, with two natural homes:
 
-| Layer | What | Home | Scope key |
-|---|---|---|---|
-| 1. Chrome prefs | Chat rail width, palette hotkey, theme | `@vtt/identity` user record (extended) | `userId` |
-| 2. Layout template | Preferred initial split shape, default-on-join Pages | `@vtt/identity` user record (extended) | `userId` |
-| 3. Concrete tabs & tree | Tabs, split tree, active tab | `WorkspaceState` trait on a per-user sentinel entity in the World | `(worldId, userId)` |
-| 4. Per-tab UI state | Scroll position, sub-tab inside a sheet | Same `WorkspaceState` trait | `(worldId, userId, tabId)` |
+| Layer                   | What                                                 | Home                                                              | Scope key                  |
+| ----------------------- | ---------------------------------------------------- | ----------------------------------------------------------------- | -------------------------- |
+| 1. Chrome prefs         | Chat rail width, palette hotkey, theme               | `@vtt/identity` user record (extended)                            | `userId`                   |
+| 2. Layout template      | Preferred initial split shape, default-on-join Pages | `@vtt/identity` user record (extended)                            | `userId`                   |
+| 3. Concrete tabs & tree | Tabs, split tree, active tab                         | `WorkspaceState` trait on a per-user sentinel entity in the World | `(worldId, userId)`        |
+| 4. Per-tab UI state     | Scroll position, sub-tab inside a sheet              | Same `WorkspaceState` trait                                       | `(worldId, userId, tabId)` |
 
 Layers 1 & 2 follow the user across worlds because they're aesthetic / templating — independent of which entities exist. Layers 3 & 4 are world-bound because they reference `entityId`s that only exist inside one world. Persisting them globally would break on every game switch.
 
 ### The per-user sentinel entity
 
-The `Player` entity declared by `@vtt/identity` is *transient* (recreated per WS connection; never persisted). Workspace state is *durable*, so it cannot live on `Player`.
+The `Player` entity declared by `@vtt/identity` is _transient_ (recreated per WS connection; never persisted). Workspace state is _durable_, so it cannot live on `Player`.
 
 The Workbench plugin spawns and owns a separate **`WorkspaceOwner`** entity per user per world:
 
@@ -311,7 +311,7 @@ A system listens to `@vtt/identity/PlayerJoined`:
 2. If absent, fetch the user's global template from `@vtt/identity` (layers 1 & 2).
 3. Materialize an initial `WorkspaceState` from the template:
    - Apply layout template (default: one pane).
-   - Resolve "default-on-join Pages" against the current world (e.g. *open the active Scene + the user's primary Character*). Skip any Pages that don't resolve.
+   - Resolve "default-on-join Pages" against the current world (e.g. _open the active Scene + the user's primary Character_). Skip any Pages that don't resolve.
 4. Spawn the entity with `OwnedBy{userId}` + `EntityVisibility{actors:[userId]}` + the materialized `WorkspaceState`.
 
 First-join in a fresh game thus opens a usable workspace immediately rather than a blank pane.
@@ -322,24 +322,24 @@ First-join in a fresh game thus opens a usable workspace immediately rather than
 
 ## Failure modes
 
-| Mode | Mitigation |
-|---|---|
-| **Stale entity reference** — a tab points at a deleted entity. | The pane renders an empty state with the same picker the tab header uses; the tab's `entityId` becomes `null` until the user picks a new target. |
-| **Removed PageKind** — a plugin uninstalls or renames its provider. | Tabs carry `(pageKind, schemaVersion)`. Unknown kinds render the same empty state with a "this tab needs plugin X" banner. PageKind renames ship a migration in the renaming plugin's manifest. |
-| **Tab tree corruption** — a bad merge or crashed mutation leaves the tree malformed. | `WorkspaceState` is Zod-validated at the trait boundary. On parse failure the bootstrap system replaces with a fresh state from template; lost work is bounded to tab arrangement. |
-| **Workspace cruft** | GC system above. |
-| **Schema drift across plugin versions** — palette-command shapes change. | Same versioning story as PageKind: command id is plugin-namespaced; entries that don't resolve are dropped silently. |
+| Mode                                                                                 | Mitigation                                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Stale entity reference** — a tab points at a deleted entity.                       | The pane renders an empty state with the same picker the tab header uses; the tab's `entityId` becomes `null` until the user picks a new target.                                                |
+| **Removed PageKind** — a plugin uninstalls or renames its provider.                  | Tabs carry `(pageKind, schemaVersion)`. Unknown kinds render the same empty state with a "this tab needs plugin X" banner. PageKind renames ship a migration in the renaming plugin's manifest. |
+| **Tab tree corruption** — a bad merge or crashed mutation leaves the tree malformed. | `WorkspaceState` is Zod-validated at the trait boundary. On parse failure the bootstrap system replaces with a fresh state from template; lost work is bounded to tab arrangement.              |
+| **Workspace cruft**                                                                  | GC system above.                                                                                                                                                                                |
+| **Schema drift across plugin versions** — palette-command shapes change.             | Same versioning story as PageKind: command id is plugin-namespaced; entries that don't resolve are dropped silently.                                                                            |
 
 ## Migration from `@vtt/shell-default`
 
-| Step | Change |
-|---|---|
-| 1 | Land `@vtt/shell-workbench` alongside `@vtt/shell-default`. Boot picks one or the other. |
-| 2 | Move existing widgets currently filling `HeaderSurface` / `SidebarSurface` to one of: (a) the chat rail (presence, dice tray) via `chat-rail-widgets`, (b) palette commands (`/r`, `/ping`), or (c) Pages where they're substantial enough to warrant a tab. |
-| 3 | `@vtt/scene` adds a `PageProvider` for `Scenes` (one Page per scene, `render = SceneCanvasView`). `SceneToolbarSurface` becomes per-page contextual chrome. |
-| 4 | `@vtt/comms` keeps `ChatStreamSurface`; the Workbench mounts it inside the right rail. No comms-side change. |
-| 5 | A future `@vtt/character` plugin (when it lands) ships a `Characters` PageProvider out of the box. |
-| 6 | Default server bundle swaps `@vtt/shell-default` for `@vtt/shell-workbench`. The old shell stays in tree as a reference exemplar but is no longer the default. |
+| Step | Change                                                                                                                                                                                                                                                       |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1    | Land `@vtt/shell-workbench` alongside `@vtt/shell-default`. Boot picks one or the other.                                                                                                                                                                     |
+| 2    | Move existing widgets currently filling `HeaderSurface` / `SidebarSurface` to one of: (a) the chat rail (presence, dice tray) via `chat-rail-widgets`, (b) palette commands (`/r`, `/ping`), or (c) Pages where they're substantial enough to warrant a tab. |
+| 3    | `@vtt/scene` adds a `PageProvider` for `Scenes` (one Page per scene, `render = SceneCanvasView`). `SceneToolbarSurface` becomes per-page contextual chrome.                                                                                                  |
+| 4    | `@vtt/comms` keeps `ChatStreamSurface`; the Workbench mounts it inside the right rail. No comms-side change.                                                                                                                                                 |
+| 5    | A future `@vtt/character` plugin (when it lands) ships a `Characters` PageProvider out of the box.                                                                                                                                                           |
+| 6    | Default server bundle swaps `@vtt/shell-default` for `@vtt/shell-workbench`. The old shell stays in tree as a reference exemplar but is no longer the default.                                                                                               |
 
 ## Non-goals
 
@@ -366,7 +366,7 @@ And a deletion of `@vtt/shell-default` from the same table once consumers have m
 
 ## Known gaps (deferred deliberately, with the trigger that ends the deferral)
 
-- **Optimistic prediction for workspace mutations** — same gap as the rest of the system (per `scaffold-mapping.md`). Workspace mutations are *especially* sensitive to wait — clicking a tab should feel instant. Trigger: end-to-end `OpenPage` round-trip exceeds ~50 ms on local dev.
+- **Optimistic prediction for workspace mutations** — same gap as the rest of the system (per `scaffold-mapping.md`). Workspace mutations are _especially_ sensitive to wait — clicking a tab should feel instant. Trigger: end-to-end `OpenPage` round-trip exceeds ~50 ms on local dev.
 - **Field-level visibility on `WorkspaceState`** — currently the entire `WorkspaceState` trait delivers as one unit, scoped per user. If a future feature wants partial sharing (e.g. "co-pilot mode" where a player can hand a single tab to the GM), field redaction lands the same time as it does for the rest of the system.
 - **PageKind migration framework** — schemaVersion field is reserved on tabs; the actual migration registry isn't built yet. Trigger: the first PageKind rename in a shipped plugin.
 - **Workspace presets** — see Non-goals. Trigger: more than one user asks for it.

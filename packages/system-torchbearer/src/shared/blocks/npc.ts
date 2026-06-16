@@ -78,11 +78,7 @@ export type NpcBlockParsed = z.infer<typeof NpcBlockSchema>;
  * the YAML `notes` field; `pageRef` is null for block-authored NPCs
  * (the field only resolves when the catalog NPC seeder fills it).
  */
-function projectNpc(
-  parsed: NpcBlockParsed,
-  info: string,
-  ctx: BlockKindContext,
-): EntityProjection {
+function projectNpc(parsed: NpcBlockParsed, info: string, ctx: BlockKindContext): EntityProjection {
   const base = buildCharacterTraitWrites(parsed, info, ctx);
   return {
     traits: [

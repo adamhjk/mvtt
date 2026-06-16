@@ -69,9 +69,7 @@ export const SetBooksUiState = defineCommand({
     }),
   }),
   validate: () => ok(),
-  apply: ({ cmd }) => [
-    BooksUiStateChanged({ entityId: cmd.entityId, value: cmd.value }),
-  ],
+  apply: ({ cmd }) => [BooksUiStateChanged({ entityId: cmd.entityId, value: cmd.value })],
 });
 
 export const BooksUiStateMirror = defineSystem({

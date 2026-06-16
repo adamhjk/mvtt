@@ -43,10 +43,7 @@
 
 const SENTINEL_PREFIX = "WIKILINK_";
 const SENTINEL_SUFFIX = "";
-const SENTINEL_RE = new RegExp(
-  `${SENTINEL_PREFIX}(\\d+)${SENTINEL_SUFFIX}`,
-  "g",
-);
+const SENTINEL_RE = new RegExp(`${SENTINEL_PREFIX}(\\d+)${SENTINEL_SUFFIX}`, "g");
 
 export interface WikiLinkTable {
   readonly tokens: ReadonlyArray<string>;
@@ -108,10 +105,7 @@ function restore(value: unknown, tokens: ReadonlyArray<string>): unknown {
   return value;
 }
 
-function restoreString(
-  s: string,
-  tokens: ReadonlyArray<string>,
-): string {
+function restoreString(s: string, tokens: ReadonlyArray<string>): string {
   // Fast path: the whole string is exactly one sentinel.
   SENTINEL_RE.lastIndex = 0;
   const onlyMatch = SENTINEL_RE.exec(s);

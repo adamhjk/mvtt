@@ -28,11 +28,7 @@ import {
   type EntityId,
 } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
-import {
-  Permissions,
-  PermissionsChanged,
-  SetPermissions,
-} from "@vtt/permissions/shared";
+import { Permissions, PermissionsChanged, SetPermissions } from "@vtt/permissions/shared";
 import { PermissionsChangeSystem } from "@vtt/permissions/server";
 import {
   Character,
@@ -142,11 +138,7 @@ function setup() {
 }
 
 let cmdSeq = 0;
-async function dispatch(
-  pipeline: CommandPipeline,
-  cmd: CommandInstance,
-  session: unknown,
-) {
+async function dispatch(pipeline: CommandPipeline, cmd: CommandInstance, session: unknown) {
   return pipeline.dispatch({
     id: `cmd-${++cmdSeq}`,
     issuedBy: "tester",
@@ -165,18 +157,17 @@ async function makeCharacter(
   },
 ): Promise<EntityId> {
   const before = world.query([Character]).length;
-  const res = await dispatch(
-    pipeline,
-    CreateCharacter(payload),
-    session,
-  );
+  const res = await dispatch(pipeline, CreateCharacter(payload), session);
   expect(res.result.ok).toBe(true);
   const rows = world.query([Character, Permissions]);
   expect(rows).toHaveLength(before + 1);
   return rows.at(-1)!.id;
 }
 
-function readPerm(world: World, id: EntityId): {
+function readPerm(
+  world: World,
+  id: EntityId,
+): {
   read: { kind: string; userIds?: string[] };
   write: { kind: string; userIds?: string[] };
 } {
@@ -210,19 +201,11 @@ describe("@vtt/characters", () => {
     expect(CharacterRenamed.name).toBe("@vtt/characters/CharacterRenamed");
     expect(CharacterRemoved.name).toBe("@vtt/characters/CharacterRemoved");
     expect(Character.name).toBe("@vtt/characters/Character");
-    expect(CharacterSheetIdentitySlot.name).toBe(
-      "@vtt/characters/sheet-identity",
-    );
-    expect(CharacterSheetVitalsSlot.name).toBe(
-      "@vtt/characters/sheet-vitals",
-    );
-    expect(CharacterSheetStatusSlot.name).toBe(
-      "@vtt/characters/sheet-status",
-    );
+    expect(CharacterSheetIdentitySlot.name).toBe("@vtt/characters/sheet-identity");
+    expect(CharacterSheetVitalsSlot.name).toBe("@vtt/characters/sheet-vitals");
+    expect(CharacterSheetStatusSlot.name).toBe("@vtt/characters/sheet-status");
     expect(CharacterSheetTabsSlot.name).toBe("@vtt/characters/sheet-tabs");
-    expect(CharacterSheetActionsSlot.name).toBe(
-      "@vtt/characters/sheet-actions",
-    );
+    expect(CharacterSheetActionsSlot.name).toBe("@vtt/characters/sheet-actions");
   });
 
   describe("CreateCharacter", () => {
@@ -273,11 +256,7 @@ describe("@vtt/characters", () => {
     });
 
     it("rejects an unauthenticated dispatch", async () => {
-      const res = await dispatch(
-        pipeline,
-        CreateCharacter({ name: "Anon" }),
-        undefined,
-      );
+      const res = await dispatch(pipeline, CreateCharacter({ name: "Anon" }), undefined);
       expect(res.result.ok).toBe(false);
       expect(world.query([Character])).toHaveLength(0);
     });
@@ -443,9 +422,7 @@ describe("@vtt/characters", () => {
     });
 
     it("rejects empty name at the schema layer", () => {
-      expect(() =>
-        RenameCharacter({ characterId: "x" as EntityId, name: "" }),
-      ).toThrow();
+      expect(() => RenameCharacter({ characterId: "x" as EntityId, name: "" })).toThrow();
     });
   });
 
@@ -453,11 +430,7 @@ describe("@vtt/characters", () => {
     it("owner removes their own character", async () => {
       const id = await makeCharacter(pipeline, world);
       expect(world.has(id)).toBe(true);
-      const res = await dispatch(
-        pipeline,
-        RemoveCharacter({ characterId: id }),
-        PLAYER,
-      );
+      const res = await dispatch(pipeline, RemoveCharacter({ characterId: id }), PLAYER);
       expect(res.result.ok).toBe(true);
       expect(res.events.map((e) => e.type)).toEqual([CharacterRemoved.name]);
       expect(world.has(id)).toBe(false);
@@ -465,22 +438,14 @@ describe("@vtt/characters", () => {
 
     it("GM removes any character", async () => {
       const id = await makeCharacter(pipeline, world);
-      const res = await dispatch(
-        pipeline,
-        RemoveCharacter({ characterId: id }),
-        GM,
-      );
+      const res = await dispatch(pipeline, RemoveCharacter({ characterId: id }), GM);
       expect(res.result.ok).toBe(true);
       expect(world.has(id)).toBe(false);
     });
 
     it("non-owner non-GM is rejected", async () => {
       const id = await makeCharacter(pipeline, world);
-      const res = await dispatch(
-        pipeline,
-        RemoveCharacter({ characterId: id }),
-        OTHER_PLAYER,
-      );
+      const res = await dispatch(pipeline, RemoveCharacter({ characterId: id }), OTHER_PLAYER);
       expect(res.result.ok).toBe(false);
       expect(world.has(id)).toBe(true);
     });
@@ -500,19 +465,13 @@ describe("@vtt/characters", () => {
       expect(CharacterSpawningSystem.name).toBe("CharacterSpawning");
       expect(CharacterSpawningSystem.on.name).toBe(CharacterCreated.name);
       const writes = CharacterSpawningSystem.writes.map((t) => t.name);
-      expect(writes).toEqual(
-        expect.arrayContaining([Character.name, Permissions.name]),
-      );
+      expect(writes).toEqual(expect.arrayContaining([Character.name, Permissions.name]));
     });
 
     it("CharacterRenameSystem reads + writes Character", () => {
       expect(CharacterRenameSystem.on.name).toBe(CharacterRenamed.name);
-      expect(CharacterRenameSystem.reads.map((t) => t.name)).toContain(
-        Character.name,
-      );
-      expect(CharacterRenameSystem.writes.map((t) => t.name)).toContain(
-        Character.name,
-      );
+      expect(CharacterRenameSystem.reads.map((t) => t.name)).toContain(Character.name);
+      expect(CharacterRenameSystem.writes.map((t) => t.name)).toContain(Character.name);
     });
 
     it("CharacterRenameSystem is a no-op for a despawned character id", () => {
@@ -532,7 +491,6 @@ describe("@vtt/characters", () => {
       });
       expect(events).toEqual([]);
     });
-
   });
 
   describe("SetField", () => {
@@ -696,9 +654,7 @@ describe("@vtt/characters", () => {
         PLAYER,
       );
       expect(res.result.ok).toBe(true);
-      expect(res.events.map((e) => e.type)).toEqual([
-        CharacterTokenImageSet.name,
-      ]);
+      expect(res.events.map((e) => e.type)).toEqual([CharacterTokenImageSet.name]);
       const got = world.get(id, [CharacterToken]) as
         | { CharacterToken: { imageUrl: string | null } }
         | undefined;
@@ -752,8 +708,7 @@ describe("@vtt/characters", () => {
         pipeline,
         SetCharacterTokenImage({
           characterId: id,
-          imageUrl:
-            `/plugin-data/${world.worldId}/@vtt/characters/characters/${id}/../../foo.png`,
+          imageUrl: `/plugin-data/${world.worldId}/@vtt/characters/characters/${id}/../../foo.png`,
         }),
         PLAYER,
       );
@@ -827,9 +782,7 @@ describe("@vtt/characters", () => {
     });
 
     it("CharacterTokenImageSetSystem is wired and a no-op for despawned ids", () => {
-      expect(CharacterTokenImageSetSystem.on.name).toBe(
-        CharacterTokenImageSet.name,
-      );
+      expect(CharacterTokenImageSetSystem.on.name).toBe(CharacterTokenImageSet.name);
       const events = CharacterTokenImageSetSystem.run({
         event: {
           characterId: "ghost" as EntityId,

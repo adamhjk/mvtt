@@ -23,11 +23,7 @@
 import { useTrait } from "@vtt/substrate/client";
 import { BookCitation } from "@vtt/books/client";
 import { createMemo, Show, type JSX } from "solid-js";
-import {
-  SpellIdentity,
-  TbSpellCasting,
-  TbSpellLearning,
-} from "../shared/spells/spell-traits.js";
+import { SpellIdentity, TbSpellCasting, TbSpellLearning } from "../shared/spells/spell-traits.js";
 import { tbCanonicalBookAbbreviation } from "../data/seed.js";
 import { CircleDots } from "./spell-picker.js";
 
@@ -77,9 +73,7 @@ export function SpellCard(props: {
         gap: "0.3rem",
         padding: "0.4rem 0.55rem",
         "border-radius": "var(--radius-control)",
-        background: props.highlight
-          ? "var(--color-accent-soft)"
-          : "var(--color-surface-elevated)",
+        background: props.highlight ? "var(--color-accent-soft)" : "var(--color-surface-elevated)",
         border: props.highlight
           ? "1px solid var(--color-accent)"
           : "1px solid var(--color-border-muted)",

@@ -17,12 +17,7 @@
 
 import { defineSystem } from "@vtt/substrate";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
-import {
-  BookCanonicalChanged,
-  BookCreated,
-  BookRemoved,
-  BookUpdated,
-} from "../shared/events.js";
+import { BookCanonicalChanged, BookCreated, BookRemoved, BookUpdated } from "../shared/events.js";
 import { Book, BookCanonical } from "../shared/traits.js";
 
 /**
@@ -78,9 +73,7 @@ export const BookUpdateSystem = defineSystem({
   reads: [Book],
   writes: [Book],
   run: ({ event, world }) => {
-    const got = world.get(event.bookId, [Book]) as
-      | { Book: { name: string } }
-      | undefined;
+    const got = world.get(event.bookId, [Book]) as { Book: { name: string } } | undefined;
     if (!got) return [];
     world.set(event.bookId, Book, {
       name: event.name ?? got.Book.name,

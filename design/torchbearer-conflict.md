@@ -66,17 +66,17 @@ A conflict is one of nine types. Each pins a **disposition skill**
 skill table** (which skill each action tests at reveal time). All
 data is in `TB_CONFLICT_TYPES` and matches SG p.70 / LM p.106:
 
-| Type            | Disposition roll  | Add to | Attack / Feint     | Defend / Maneuver | Armor? |
-|-----------------|-------------------|--------|--------------------|-------------------|--------|
-| Kill            | Fighter           | Health | Fighter            | Health            | Yes    |
-| Drive Off       | Fighter           | Health | Fighter            | Will              | Yes    |
-| Capture         | Fighter or Hunter | Will   | Fighter / Hunter   | Hunter / Fighter  | Yes    |
-| Convince        | Persuader         | Will   | Persuader          | Manipulator       | No     |
-| Convince Crowd  | Orator            | Will   | Orator             | Manipulator       | No     |
-| Flee            | Scout or Rider    | Health | Scout or Rider     | Health            | No     |
-| Pursue          | Scout or Rider    | Health | Scout or Rider     | Health            | No     |
-| Trick or Riddle | Manipulator       | Will   | Manipulator        | Lore Master       | No     |
-| Other           | (GM-defined)      | (GM)   | (GM)               | (GM)              | No     |
+| Type            | Disposition roll  | Add to | Attack / Feint   | Defend / Maneuver | Armor? |
+| --------------- | ----------------- | ------ | ---------------- | ----------------- | ------ |
+| Kill            | Fighter           | Health | Fighter          | Health            | Yes    |
+| Drive Off       | Fighter           | Health | Fighter          | Will              | Yes    |
+| Capture         | Fighter or Hunter | Will   | Fighter / Hunter | Hunter / Fighter  | Yes    |
+| Convince        | Persuader         | Will   | Persuader        | Manipulator       | No     |
+| Convince Crowd  | Orator            | Will   | Orator           | Manipulator       | No     |
+| Flee            | Scout or Rider    | Health | Scout or Rider   | Health            | No     |
+| Pursue          | Scout or Rider    | Health | Scout or Rider   | Health            | No     |
+| Trick or Riddle | Manipulator       | Will   | Manipulator      | Lore Master       | No     |
+| Other           | (GM-defined)      | (GM)   | (GM)             | (GM)              | No     |
 
 `actionSkill[action]` is always a `readonly string[]`: length 1 for
 fixed skills, length 2 for choose-one (Capture's Attack/Defend,
@@ -94,7 +94,7 @@ The single most consulted rule at the table. Encoded in
 cell:
 
 |              | Attack | Defend | Feint | Maneuver |
-|--------------|--------|--------|-------|----------|
+| ------------ | ------ | ------ | ----- | -------- |
 | **Attack**   | I      | V      | I     | V        |
 | **Defend**   | V      | I      | —     | V        |
 | **Feint**    | —      | I      | V     | I        |
@@ -130,10 +130,10 @@ in `conflict.test.ts` plus a per-side jsdom test in
 Four traits, no helper traits:
 
 ```ts
-TbConflict           // sentinel — one per active conflict
-TbConflictParticipant // one per PC / NPC in the conflict
-TbConflictWeapon     // per-character weapon binding for this conflict
-TbConflictScript     // one per side — three slots, locked flag
+TbConflict; // sentinel — one per active conflict
+TbConflictParticipant; // one per PC / NPC in the conflict
+TbConflictWeapon; // per-character weapon binding for this conflict
+TbConflictScript; // one per side — three slots, locked flag
 ```
 
 ### TbConflict
@@ -203,20 +203,20 @@ the contents.
 
 ### Lifecycle
 
-| Command         | Validate                     | Event           | System action |
-|-----------------|------------------------------|-----------------|---------------|
-| DeclareConflict | GM only; captain exists      | ConflictDeclared| Spawn the conflict + two scripts (with side-scoped Permissions) + participants |
-| ElectCaptain    | GM or party participant; not ended | CaptainElected | Update `captainCharacterId` |
-| EndConflict     | GM only                      | ConflictEnded   | Set `winner` (defaults to whatever's already there, or "tied") + `endedAt` |
+| Command         | Validate                           | Event            | System action                                                                  |
+| --------------- | ---------------------------------- | ---------------- | ------------------------------------------------------------------------------ |
+| DeclareConflict | GM only; captain exists            | ConflictDeclared | Spawn the conflict + two scripts (with side-scoped Permissions) + participants |
+| ElectCaptain    | GM or party participant; not ended | CaptainElected   | Update `captainCharacterId`                                                    |
+| EndConflict     | GM only                            | ConflictEnded    | Set `winner` (defaults to whatever's already there, or "tied") + `endedAt`     |
 
 ### Disposition + HP
 
-| Command            | Validate                           | Event              | System action |
-|--------------------|------------------------------------|--------------------|---------------|
-| RollDisposition    | (no phase gate)                    | DispositionRolled  | Compute `successes - condition penalties + addToBase`, clamp ≥ 1, write `dispo{Side}.{current,max}` |
-| SetTeamDisposition | GM only                            | TeamDispositionSet | Write `dispo{Side}.{current,max}` directly |
-| AssignHp           | sum equals dispo max               | HpAssigned         | Set each participant's `hp = hpMax = allocation` |
-| SetParticipantHp   | GM only; `hp ≤ hpMax`              | ParticipantHpSet   | Set the row's `hp/hpMax`; `knockedOut = (hp === 0)` |
+| Command            | Validate              | Event              | System action                                                                                       |
+| ------------------ | --------------------- | ------------------ | --------------------------------------------------------------------------------------------------- |
+| RollDisposition    | (no phase gate)       | DispositionRolled  | Compute `successes - condition penalties + addToBase`, clamp ≥ 1, write `dispo{Side}.{current,max}` |
+| SetTeamDisposition | GM only               | TeamDispositionSet | Write `dispo{Side}.{current,max}` directly                                                          |
+| AssignHp           | sum equals dispo max  | HpAssigned         | Set each participant's `hp = hpMax = allocation`                                                    |
+| SetParticipantHp   | GM only; `hp ≤ hpMax` | ParticipantHpSet   | Set the row's `hp/hpMax`; `knockedOut = (hp === 0)`                                                 |
 
 The DispositionBox UI uses the direct-edit commands almost
 exclusively; `RollDisposition` exists primarily for the rolling
@@ -224,26 +224,26 @@ pipeline integration (see "Pending-roll integration" below).
 
 ### Weapons
 
-| Command      | Validate                            | Event                  | System action |
-|--------------|-------------------------------------|------------------------|---------------|
-| ChooseWeapon | (no phase gate)                     | ConflictWeaponChosen   | Upsert `TbConflictWeapon` for the (conflict, character). `chosenAction` stays sticky. |
+| Command      | Validate        | Event                | System action                                                                         |
+| ------------ | --------------- | -------------------- | ------------------------------------------------------------------------------------- |
+| ChooseWeapon | (no phase gate) | ConflictWeaponChosen | Upsert `TbConflictWeapon` for the (conflict, character). `chosenAction` stays sticky. |
 
 ### Script
 
-| Command         | Validate                                         | Event             | System action |
-|-----------------|--------------------------------------------------|-------------------|---------------|
-| SetScriptSlot   | side captain or GM; performer on side, not KO    | ScriptSlotSet     | Flip slot to `filled` with action/performer/weapon |
-| ClearScriptSlot | side captain or GM                               | ScriptSlotCleared | Flip slot back to `empty` |
-| LockScript      | side captain or GM; all 3 slots filled           | ScriptLocked      | Set `script.locked = true`; mirror to `conflict.{side}Locked = true` |
-| UnlockScript    | side captain or GM                               | ScriptUnlocked    | Set `script.locked = false`; mirror to `conflict.{side}Locked = false` |
-| RevealNextSlot  | GM only; both sides locked; `revealIndex < 3`    | SlotRevealed      | Flip both sides' slot at `revealIndex` from `filled` → `revealed`; mirror payloads onto `conflict.revealedSlots[i]`; bump `revealIndex` |
-| AdvanceRound    | GM only                                          | RoundAdvanced     | Clear both scripts (slots → empty, locked → false), reset `revealIndex` to 0, clear `revealedSlots`, clear lock mirrors, bump `round` |
+| Command         | Validate                                      | Event             | System action                                                                                                                           |
+| --------------- | --------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| SetScriptSlot   | side captain or GM; performer on side, not KO | ScriptSlotSet     | Flip slot to `filled` with action/performer/weapon                                                                                      |
+| ClearScriptSlot | side captain or GM                            | ScriptSlotCleared | Flip slot back to `empty`                                                                                                               |
+| LockScript      | side captain or GM; all 3 slots filled        | ScriptLocked      | Set `script.locked = true`; mirror to `conflict.{side}Locked = true`                                                                    |
+| UnlockScript    | side captain or GM                            | ScriptUnlocked    | Set `script.locked = false`; mirror to `conflict.{side}Locked = false`                                                                  |
+| RevealNextSlot  | GM only; both sides locked; `revealIndex < 3` | SlotRevealed      | Flip both sides' slot at `revealIndex` from `filled` → `revealed`; mirror payloads onto `conflict.revealedSlots[i]`; bump `revealIndex` |
+| AdvanceRound    | GM only                                       | RoundAdvanced     | Clear both scripts (slots → empty, locked → false), reset `revealIndex` to 0, clear `revealedSlots`, clear lock mirrors, bump `round`   |
 
 ### Compromise
 
-| Command         | Validate  | Event             | System action |
-|-----------------|-----------|-------------------|---------------|
-| ApplyCompromise | GM only   | CompromiseApplied | (descriptive — conditions land on characters via downstream commands; the system today is a no-op trace) |
+| Command         | Validate | Event             | System action                                                                                            |
+| --------------- | -------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
+| ApplyCompromise | GM only  | CompromiseApplied | (descriptive — conditions land on characters via downstream commands; the system today is a no-op trace) |
 
 ### Side-scoped event filtering
 
@@ -441,7 +441,7 @@ toggle in the pending-roll panel. When toggled on, the panel adds:
 - A team-penalty modifier (Hungry & Thirsty −1s, Exhausted −1s)
   computed across every party-tagged character.
 - A **Will / Health** picker — required, since the dice pool is the
-  skill rating but the *additive base* is the captain's Will or
+  skill rating but the _additive base_ is the captain's Will or
   Health rating. Skipping the pick leaves an italic warning ("pick
   Will or Health — required for the dispo math") and the chat row
   falls back to `baseDice` (correct for Will / Health rollables
@@ -556,7 +556,7 @@ These are calls we explicitly made and don't intend to relitigate:
 
 1. **No phase state machine.** The original design had 10 phases
    (`declared → weapons → disposition → hp → scripting → reveal →
-   awaitingDamageDistribution → betweenRounds → compromise → ended`)
+awaitingDamageDistribution → betweenRounds → compromise → ended`)
    and validated transitions on every command. Deleted entirely.
    Two sentinels (`winner`, `endedAt`) carry the only meaningful
    coarse states.
@@ -625,7 +625,7 @@ Worth doing later, not now:
   resolution panel back to that round's revealed state. Would need
   per-round revealed-slot history (today only the current round's
   slots are tracked publicly).
-- **Spell / weapon-special handlers** that *want* automation
+- **Spell / weapon-special handlers** that _want_ automation
   (specific weapon bonuses surfacing as roll modifiers). Best
   introduced as opt-in helpers from the rolling subsystem rather
   than a return to engine-driven resolution.

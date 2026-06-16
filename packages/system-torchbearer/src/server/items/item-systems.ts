@@ -27,10 +27,7 @@ import {
   ItemRemovedFromGround,
   ItemUnequipped,
 } from "../../shared/items/item-events.js";
-import {
-  ItemPosition,
-  TbCarries,
-} from "../../shared/items/item-traits.js";
+import { ItemPosition, TbCarries } from "../../shared/items/item-traits.js";
 
 /**
  * ItemEquipped → append a TbCarries entry on the holder. Because
@@ -89,9 +86,7 @@ export const TbItemMoveSystem = defineSystem({
       slot: event.toSlot,
       slotIndex: event.toSlotIndex,
       channel: event.toChannel,
-      ...(event.toSlotsConsumed !== undefined
-        ? { slotsConsumed: event.toSlotsConsumed }
-        : {}),
+      ...(event.toSlotsConsumed !== undefined ? { slotsConsumed: event.toSlotsConsumed } : {}),
     };
     world.set(event.holderId, TbCarries, { entries });
     return [];

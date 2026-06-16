@@ -114,10 +114,7 @@ describe("Adventure bundle E2E: export → zip → import", () => {
 
     // Dispatch CreateNote → real NoteCreated event, NoteSpawnSystem
     // attaches Note + NoteOrdering + Permissions(ownedBy(GM)).
-    const createNoteRes = await dispatch(
-      src.pipeline,
-      CreateNote({ title: "Goblin Cave" }),
-    );
+    const createNoteRes = await dispatch(src.pipeline, CreateNote({ title: "Goblin Cave" }));
     expect(createNoteRes.ok).toBe(true);
     const noteId = src.world.query([Note])[0]!.id as EntityId;
 
@@ -147,20 +144,14 @@ describe("Adventure bundle E2E: export → zip → import", () => {
     const sourceAssetId = src.world.query([Asset])[0]!.id as EntityId;
 
     // SetPageBody requires an edit lock — BeginEdit first.
-    const beginRes = await dispatch(
-      src.pipeline,
-      BeginEdit({ pageId: firstPageId }),
-    );
+    const beginRes = await dispatch(src.pipeline, BeginEdit({ pageId: firstPageId }));
     expect(beginRes.ok).toBe(true);
 
     // SetPageBody — store the markdown that references the asset.
     // Body uses `![[asset:<sourceAssetId>]]` — same shape the GM
     // would author through the editor's `[[`-completion.
     const body = `# Bad guys\n\n![[asset:${sourceAssetId}]]\n\nAfter the image, narrative text.`;
-    const setBodyRes = await dispatch(
-      src.pipeline,
-      SetPageBody({ pageId: firstPageId, body }),
-    );
+    const setBodyRes = await dispatch(src.pipeline, SetPageBody({ pageId: firstPageId, body }));
     expect(setBodyRes.ok).toBe(true);
 
     /* -------------- EXPORT -------------- */
@@ -194,41 +185,36 @@ describe("Adventure bundle E2E: export → zip → import", () => {
     const dst = makeWorld();
     let savedBytes: Uint8Array | null = null;
     let savedDescriptor: unknown = null;
-    const result = await importBundle(
-      dst.world,
-      rehydrated,
-      buildBlockKindIndex(dst.registry),
-      {
-        importerUserId: GM.userId,
-        saveAssetBytes: async (bytes, descriptor) => {
-          // Mirror the HTTP route's hook: persist bytes + dispatch
-          // RegisterAsset → AssetSpawningSystem spawns the Asset entity
-          // → we return its new id so importBundle can rewrite body
-          // refs.
-          savedBytes = bytes;
-          savedDescriptor = descriptor;
-          const res = await dst.pipeline.dispatch({
-            id: `import-asset-${descriptor.sha256}`,
-            issuedBy: "tester",
-            issuedAt: Date.now(),
-            cmd: RegisterAsset({
-              mime: descriptor.mime,
-              sizeBytes: descriptor.bytes,
-              sha256: descriptor.sha256,
-              filename: descriptor.name,
-              width: null,
-              height: null,
-            }),
-            session: GM,
-          });
-          const registered = res.events.find(
-            (e) => e.type === "@vtt/assets/AssetRegistered",
-          ) as { payload: { assetId: EntityId } } | undefined;
-          if (!registered) throw new Error("RegisterAsset did not fire");
-          return registered.payload.assetId;
-        },
+    const result = await importBundle(dst.world, rehydrated, buildBlockKindIndex(dst.registry), {
+      importerUserId: GM.userId,
+      saveAssetBytes: async (bytes, descriptor) => {
+        // Mirror the HTTP route's hook: persist bytes + dispatch
+        // RegisterAsset → AssetSpawningSystem spawns the Asset entity
+        // → we return its new id so importBundle can rewrite body
+        // refs.
+        savedBytes = bytes;
+        savedDescriptor = descriptor;
+        const res = await dst.pipeline.dispatch({
+          id: `import-asset-${descriptor.sha256}`,
+          issuedBy: "tester",
+          issuedAt: Date.now(),
+          cmd: RegisterAsset({
+            mime: descriptor.mime,
+            sizeBytes: descriptor.bytes,
+            sha256: descriptor.sha256,
+            filename: descriptor.name,
+            width: null,
+            height: null,
+          }),
+          session: GM,
+        });
+        const registered = res.events.find((e) => e.type === "@vtt/assets/AssetRegistered") as
+          | { payload: { assetId: EntityId } }
+          | undefined;
+        if (!registered) throw new Error("RegisterAsset did not fire");
+        return registered.payload.assetId;
       },
-    );
+    });
     expect(savedBytes).toBeDefined();
     expect(savedDescriptor).toBeDefined();
     expect(result.notesCreated).toBe(1);
@@ -252,11 +238,7 @@ describe("Adventure bundle E2E: export → zip → import", () => {
     // be a dangling reference in the target world.
     const pageRow = dst.world
       .query([Page, BelongsToNote, PageOrdering])
-      .find(
-        (r) =>
-          (r.values.BelongsToNote as { noteId: EntityId }).noteId ===
-          importedNoteId,
-      );
+      .find((r) => (r.values.BelongsToNote as { noteId: EntityId }).noteId === importedNoteId);
     expect(pageRow).toBeDefined();
     const importedBody = (pageRow!.values.Page as { body: string }).body;
     expect(importedBody).toContain(`![[asset:${newAssetId}]]`);

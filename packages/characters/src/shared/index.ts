@@ -17,10 +17,7 @@
 
 export { Active, Character, CharacterToken, Team } from "./traits.js";
 export { isActive, readActive } from "./active.js";
-export {
-  resolveCharacterTokenUrl,
-  type CharacterTokenValue,
-} from "./token-image.js";
+export { resolveCharacterTokenUrl, type CharacterTokenValue } from "./token-image.js";
 export {
   CharacterCreated,
   CharacterFieldSet,
@@ -80,12 +77,7 @@ export {
   type QuickRollComposer,
   type QuickRollComposerArgs,
 } from "./atelier.js";
-export {
-  getAtPath,
-  setAtPath,
-  type Path,
-  type PathSegment,
-} from "./path.js";
+export { getAtPath, setAtPath, type Path, type PathSegment } from "./path.js";
 export {
   PendingRoll,
   ContributionSchema,

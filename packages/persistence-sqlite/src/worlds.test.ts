@@ -94,9 +94,24 @@ describe("SqliteWorldsRepository", () => {
 
   it("worldsForUser returns owned + member-of, excludes archived, deduplicates", async () => {
     await repo.insert({ id: W, name: "Owned", gameSystemPlugin: "@vtt/x", ownerUserId: "gm" });
-    await repo.insert({ id: W2, name: "Invited", gameSystemPlugin: "@vtt/x", ownerUserId: "other" });
-    await repo.insert({ id: "world-3", name: "Hidden", gameSystemPlugin: "@vtt/x", ownerUserId: "other" });
-    await repo.insert({ id: "world-4", name: "Archived", gameSystemPlugin: "@vtt/x", ownerUserId: "gm" });
+    await repo.insert({
+      id: W2,
+      name: "Invited",
+      gameSystemPlugin: "@vtt/x",
+      ownerUserId: "other",
+    });
+    await repo.insert({
+      id: "world-3",
+      name: "Hidden",
+      gameSystemPlugin: "@vtt/x",
+      ownerUserId: "other",
+    });
+    await repo.insert({
+      id: "world-4",
+      name: "Archived",
+      gameSystemPlugin: "@vtt/x",
+      ownerUserId: "gm",
+    });
     await repo.archive("world-4");
     await repo.addMembership({ worldId: W2, userId: "gm", role: "player" });
     // GM is also redundantly added as their own member — dedup must hold.
@@ -125,8 +140,18 @@ describe("SqlitePersistence.hardDeleteWorld", () => {
     await p.appendEvents("b", [
       { worldId: "b", seq: 1, type: "@x/y/A", payloadVersion: 1, payload: {}, at: 0 },
     ]);
-    await p.writeSnapshot({ worldId: "a", atSeq: 1, state: { nextId: 1, entities: {} }, takenAt: 1 });
-    await p.writeSnapshot({ worldId: "b", atSeq: 1, state: { nextId: 1, entities: {} }, takenAt: 1 });
+    await p.writeSnapshot({
+      worldId: "a",
+      atSeq: 1,
+      state: { nextId: 1, entities: {} },
+      takenAt: 1,
+    });
+    await p.writeSnapshot({
+      worldId: "b",
+      atSeq: 1,
+      state: { nextId: 1, entities: {} },
+      takenAt: 1,
+    });
 
     await p.hardDeleteWorld("a");
 

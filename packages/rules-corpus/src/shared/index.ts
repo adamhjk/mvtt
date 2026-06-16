@@ -28,11 +28,7 @@ export {
   MarkRulesIndexingCompleted,
   MarkRulesIndexingFailed,
 } from "./commands.js";
-export {
-  RulesProfile,
-  DEFAULT_RULES_PROFILE,
-  type RulesProfileT,
-} from "./profile.js";
+export { RulesProfile, DEFAULT_RULES_PROFILE, type RulesProfileT } from "./profile.js";
 export {
   pendingRulesQuery,
   publishRulesQuery,

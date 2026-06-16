@@ -17,20 +17,10 @@
 
 import { qualifiedName } from "@vtt/substrate";
 import { kit } from "@vtt/characters/client";
-import type {
-  CharacterSheetRegion,
-  CharacterSheetTab,
-} from "@vtt/characters/shared";
+import type { CharacterSheetRegion, CharacterSheetTab } from "@vtt/characters/shared";
 import { For, Show, type JSX } from "solid-js";
 import { useTraitPath } from "@vtt/substrate/client";
-import {
-  Concept,
-  MaxHp,
-  Notes,
-  Stats,
-  StatCheck,
-  Vitals,
-} from "../shared/index.js";
+import { Concept, MaxHp, Notes, Stats, StatCheck, Vitals } from "../shared/index.js";
 
 const STATS = ["might", "quickness", "mind", "charm"] as const;
 
@@ -54,7 +44,7 @@ function ConceptSubline(props: { characterId: string }): JSX.Element {
 export const ConceptIdentityFill: CharacterSheetRegion = {
   id: qualifiedName("@vtt/system-simple/identity-concept") as CharacterSheetRegion["id"],
   priority: 50, // below the default name+player fill (priority 100)
-  render: ({ characterId }: { characterId: string }) =>ConceptSubline({ characterId }),
+  render: ({ characterId }: { characterId: string }) => ConceptSubline({ characterId }),
 };
 
 /* -------------------------------------------------------------------------
@@ -89,18 +79,12 @@ function VitalsRail(props: { characterId: string }): JSX.Element {
 }
 
 function HpCurrent(props: { characterId: string }): JSX.Element {
-  return (
-    <kit.ValueField
-      characterId={props.characterId}
-      trait={Vitals}
-      path={["current"]}
-    />
-  );
+  return <kit.ValueField characterId={props.characterId} trait={Vitals} path={["current"]} />;
 }
 
 export const VitalsFill: CharacterSheetRegion = {
   id: qualifiedName("@vtt/system-simple/vitals-hp") as CharacterSheetRegion["id"],
-  render: ({ characterId }: { characterId: string }) =>VitalsRail({ characterId }),
+  render: ({ characterId }: { characterId: string }) => VitalsRail({ characterId }),
 };
 
 /* -------------------------------------------------------------------------
@@ -125,7 +109,7 @@ function StatusChips(props: { characterId: string }): JSX.Element {
               padding: "0.15rem 0.5rem",
               "border-radius": "999px",
               border: "1px solid var(--color-border-muted)",
-              "background": "var(--color-surface-elevated)",
+              background: "var(--color-surface-elevated)",
               "font-size": "0.7rem",
               color: "var(--color-fg-muted)",
             }}
@@ -140,7 +124,7 @@ function StatusChips(props: { characterId: string }): JSX.Element {
 
 export const StatusFill: CharacterSheetRegion = {
   id: qualifiedName("@vtt/system-simple/status-conditions") as CharacterSheetRegion["id"],
-  render: ({ characterId }: { characterId: string }) =>StatusChips({ characterId }),
+  render: ({ characterId }: { characterId: string }) => StatusChips({ characterId }),
 };
 
 /* -------------------------------------------------------------------------
@@ -161,7 +145,14 @@ function StatsTab(props: { characterId: string }): JSX.Element {
               >
                 {capitalize(stat)}
               </kit.RollableLabel>
-              <div style={{ "margin-left": "auto", display: "flex", "align-items": "center", gap: "0.4rem" }}>
+              <div
+                style={{
+                  "margin-left": "auto",
+                  display: "flex",
+                  "align-items": "center",
+                  gap: "0.4rem",
+                }}
+              >
                 <kit.DotsField
                   characterId={props.characterId}
                   trait={Stats}
@@ -195,14 +186,14 @@ export const StatsTabFill: CharacterSheetTab = {
   id: qualifiedName("@vtt/system-simple/tab-stats") as CharacterSheetTab["id"],
   label: "Stats",
   priority: 100,
-  render: ({ characterId }: { characterId: string }) =>StatsTab({ characterId }),
+  render: ({ characterId }: { characterId: string }) => StatsTab({ characterId }),
 };
 
 export const NotesTabFill: CharacterSheetTab = {
   id: qualifiedName("@vtt/system-simple/tab-notes") as CharacterSheetTab["id"],
   label: "Notes",
   priority: 50,
-  render: ({ characterId }: { characterId: string }) =>NotesTab({ characterId }),
+  render: ({ characterId }: { characterId: string }) => NotesTab({ characterId }),
 };
 
 /* -------------------------------------------------------------------------
@@ -226,7 +217,7 @@ function ActionsBar(props: { characterId: string }): JSX.Element {
 
 export const ActionsFill: CharacterSheetRegion = {
   id: qualifiedName("@vtt/system-simple/actions-stats") as CharacterSheetRegion["id"],
-  render: ({ characterId }: { characterId: string }) =>ActionsBar({ characterId }),
+  render: ({ characterId }: { characterId: string }) => ActionsBar({ characterId }),
 };
 
 function capitalize(s: string): string {

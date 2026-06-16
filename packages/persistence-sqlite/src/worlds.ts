@@ -61,18 +61,18 @@ export class SqliteWorldsRepository implements WorldsRepository {
   }
 
   async list(opts?: { includeArchived?: boolean }): Promise<WorldRecord[]> {
-    const rows = (opts?.includeArchived
-      ? this.db.prepare(`SELECT * FROM world ORDER BY createdAt ASC`).all()
-      : this.db
-          .prepare(`SELECT * FROM world WHERE archivedAt IS NULL ORDER BY createdAt ASC`)
-          .all()) as WorldRow[];
+    const rows = (
+      opts?.includeArchived
+        ? this.db.prepare(`SELECT * FROM world ORDER BY createdAt ASC`).all()
+        : this.db
+            .prepare(`SELECT * FROM world WHERE archivedAt IS NULL ORDER BY createdAt ASC`)
+            .all()
+    ) as WorldRow[];
     return rows.map(rowToRecord);
   }
 
   async get(id: WorldId): Promise<WorldRecord | null> {
-    const row = this.db.prepare(`SELECT * FROM world WHERE id = ?`).get(id) as
-      | WorldRow
-      | undefined;
+    const row = this.db.prepare(`SELECT * FROM world WHERE id = ?`).get(id) as WorldRow | undefined;
     return row ? rowToRecord(row) : null;
   }
 
@@ -88,13 +88,7 @@ export class SqliteWorldsRepository implements WorldsRepository {
         `INSERT INTO world (id, name, gameSystemPlugin, ownerUserId, createdAt, archivedAt)
          VALUES (?, ?, ?, ?, ?, NULL)`,
       )
-      .run(
-        input.id,
-        input.name,
-        input.gameSystemPlugin,
-        input.ownerUserId,
-        createdAt,
-      );
+      .run(input.id, input.name, input.gameSystemPlugin, input.ownerUserId, createdAt);
     return {
       id: input.id,
       name: input.name,
@@ -106,9 +100,7 @@ export class SqliteWorldsRepository implements WorldsRepository {
   }
 
   async archive(id: WorldId): Promise<void> {
-    this.db
-      .prepare(`UPDATE world SET archivedAt = ? WHERE id = ?`)
-      .run(Date.now(), id);
+    this.db.prepare(`UPDATE world SET archivedAt = ? WHERE id = ?`).run(Date.now(), id);
   }
 
   async unarchive(id: WorldId): Promise<void> {
@@ -123,11 +115,7 @@ export class SqliteWorldsRepository implements WorldsRepository {
     tx(id);
   }
 
-  async addMembership(input: {
-    worldId: WorldId;
-    userId: string;
-    role: WorldRole;
-  }): Promise<void> {
+  async addMembership(input: { worldId: WorldId; userId: string; role: WorldRole }): Promise<void> {
     this.db
       .prepare(
         `INSERT OR REPLACE INTO world_membership (worldId, userId, role, addedAt)
@@ -151,11 +139,11 @@ export class SqliteWorldsRepository implements WorldsRepository {
          ORDER BY addedAt ASC`,
       )
       .all(worldId) as Array<{
-        worldId: string;
-        userId: string;
-        role: string;
-        addedAt: number;
-      }>;
+      worldId: string;
+      userId: string;
+      role: string;
+      addedAt: number;
+    }>;
     return rows.map((r) => ({
       worldId: r.worldId,
       userId: r.userId,

@@ -36,8 +36,22 @@ describe("SqlitePersistence", () => {
 
   it("appends and reads back events in seq order", async () => {
     await p.appendEvents(DEFAULT_WORLD_ID, [
-      { worldId: DEFAULT_WORLD_ID, seq: 1, type: "@x/y/A", payloadVersion: 1, payload: { a: 1 }, at: 100 },
-      { worldId: DEFAULT_WORLD_ID, seq: 2, type: "@x/y/B", payloadVersion: 1, payload: { b: 2 }, at: 110 },
+      {
+        worldId: DEFAULT_WORLD_ID,
+        seq: 1,
+        type: "@x/y/A",
+        payloadVersion: 1,
+        payload: { a: 1 },
+        at: 100,
+      },
+      {
+        worldId: DEFAULT_WORLD_ID,
+        seq: 2,
+        type: "@x/y/B",
+        payloadVersion: 1,
+        payload: { b: 2 },
+        at: 110,
+      },
     ]);
     const events = await p.readEventsSince(DEFAULT_WORLD_ID, 0);
     expect(events.map((e) => [e.seq, e.type])).toEqual([
@@ -83,7 +97,14 @@ describe("SqlitePersistence", () => {
     ]);
     await expect(
       p.appendEvents(DEFAULT_WORLD_ID, [
-        { worldId: DEFAULT_WORLD_ID, seq: 1, type: "@x/y/dup", payloadVersion: 1, payload: {}, at: 0 },
+        {
+          worldId: DEFAULT_WORLD_ID,
+          seq: 1,
+          type: "@x/y/dup",
+          payloadVersion: 1,
+          payload: {},
+          at: 0,
+        },
       ]),
     ).rejects.toThrow();
   });
@@ -106,9 +127,24 @@ describe("SqlitePersistence", () => {
   });
 
   it("loadLatestSnapshot returns the most-recent atSeq", async () => {
-    await p.writeSnapshot({ worldId: DEFAULT_WORLD_ID, atSeq: 5, state: { nextId: 1, entities: {} }, takenAt: 1 });
-    await p.writeSnapshot({ worldId: DEFAULT_WORLD_ID, atSeq: 12, state: { nextId: 1, entities: {} }, takenAt: 2 });
-    await p.writeSnapshot({ worldId: DEFAULT_WORLD_ID, atSeq: 8, state: { nextId: 1, entities: {} }, takenAt: 3 });
+    await p.writeSnapshot({
+      worldId: DEFAULT_WORLD_ID,
+      atSeq: 5,
+      state: { nextId: 1, entities: {} },
+      takenAt: 1,
+    });
+    await p.writeSnapshot({
+      worldId: DEFAULT_WORLD_ID,
+      atSeq: 12,
+      state: { nextId: 1, entities: {} },
+      takenAt: 2,
+    });
+    await p.writeSnapshot({
+      worldId: DEFAULT_WORLD_ID,
+      atSeq: 8,
+      state: { nextId: 1, entities: {} },
+      takenAt: 3,
+    });
     const got = await p.loadLatestSnapshot(DEFAULT_WORLD_ID);
     expect(got!.atSeq).toBe(12);
   });

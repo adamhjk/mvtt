@@ -4,7 +4,7 @@ A self-hosted single-box deploy: Caddy in front for TLS, mvtt as a
 systemd service behind it, sqlite + plugin uploads on the local disk.
 The deploy script auto-detects the source directory and current user,
 so wherever you check the repo out, and as whichever user you run it,
-*that's* where the service runs from.
+_that's_ where the service runs from.
 
 ## What runs where
 
@@ -64,7 +64,7 @@ global game master.
 ### When the script won't touch Caddy
 
 The script writes a marker comment to the Caddyfile on first install.
-If `/etc/caddy/Caddyfile` already exists *without* that marker (i.e.
+If `/etc/caddy/Caddyfile` already exists _without_ that marker (i.e.
 you wrote it yourself), the script leaves it alone, prints the block
 it would have written, and continues. Either delete the file (next run
 regenerates) or paste the printed block into your own config.

@@ -49,13 +49,7 @@ describe("scanFencedBlocks", () => {
   });
 
   it("extracts a recognized fenced block with kind, info, body, blockKey", () => {
-    const body = [
-      "before",
-      "```npc Greta the Smith",
-      "name: Greta",
-      "```",
-      "after",
-    ].join("\n");
+    const body = ["before", "```npc Greta the Smith", "name: Greta", "```", "after"].join("\n");
     const blocks = scanFencedBlocks(body, recognized);
     expect(blocks).toHaveLength(1);
     expect(blocks[0]!.kind).toBe("npc");
@@ -103,12 +97,7 @@ describe("scanFencedBlocks", () => {
   });
 
   it("respects a `# id: <stable>` annotation, overriding the info-slug", () => {
-    const body = [
-      "```npc Greta the Strong",
-      "# id: npc-greta",
-      "stock: Human",
-      "```",
-    ].join("\n");
+    const body = ["```npc Greta the Strong", "# id: npc-greta", "stock: Human", "```"].join("\n");
     const blocks = scanFencedBlocks(body, recognized);
     expect(blocks[0]!.blockKey).toBe("npc-greta");
   });

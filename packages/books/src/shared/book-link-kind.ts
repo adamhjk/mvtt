@@ -18,12 +18,7 @@
 import { type EntityId, type World } from "@vtt/substrate";
 import { defineLinkKind, type LinkSuggestion } from "@vtt/notes/shared";
 import { Book, BookCanonical } from "./traits.js";
-import {
-  BookCanonicalChanged,
-  BookCreated,
-  BookRemoved,
-  BookUpdated,
-} from "./events.js";
+import { BookCanonicalChanged, BookCreated, BookRemoved, BookUpdated } from "./events.js";
 import { publishBookNav } from "./pending-nav.js";
 
 /**
@@ -117,9 +112,7 @@ export const bookLinkKind = defineLinkKind<BookRef>({
     return { bookId, tocTitle: a };
   },
   display: (ref, world) => {
-    const got = world.get(ref.bookId, [Book]) as
-      | { Book: { name: string } }
-      | undefined;
+    const got = world.get(ref.bookId, [Book]) as { Book: { name: string } } | undefined;
     const base = got?.Book.name ?? "(missing book)";
     if (ref.page !== undefined) return `${base} · p${ref.page}`;
     if (ref.tocTitle !== undefined) return `${base} · ${ref.tocTitle}`;
@@ -159,10 +152,5 @@ export const bookLinkKind = defineLinkKind<BookRef>({
     }
     return out;
   },
-  indexEvents: [
-    BookCreated.name,
-    BookRemoved.name,
-    BookUpdated.name,
-    BookCanonicalChanged.name,
-  ],
+  indexEvents: [BookCreated.name, BookRemoved.name, BookUpdated.name, BookCanonicalChanged.name],
 });

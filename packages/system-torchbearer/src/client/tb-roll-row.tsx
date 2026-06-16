@@ -102,8 +102,7 @@ export function TbRollRow(props: TbRollRowProps): JSX.Element {
         rollId: row.id,
         spec: parsed.data.spec,
         total: (row.values.RollResult as { total: number }).total,
-        rolledByName: (row.values.RolledBy as { displayName: string })
-          .displayName,
+        rolledByName: (row.values.RolledBy as { displayName: string }).displayName,
       };
     }
     return null;
@@ -132,24 +131,22 @@ export function TbRollRow(props: TbRollRowProps): JSX.Element {
     return countSuccesses(dice(), s.successTarget) + s.bonusSuccesses;
   });
 
-  const versusVerdict = createMemo<
-    { state: "won" | "lost" | "tied"; margin: number } | null
-  >(() => {
-    const opp = versusOpponent();
-    const mine = myComparable();
-    if (!opp || mine === null) return null;
-    if (mine > opp.total) {
-      return { state: "won", margin: mine - opp.total };
-    }
-    if (mine < opp.total) {
-      return { state: "lost", margin: opp.total - mine };
-    }
-    return { state: "tied", margin: 0 };
-  });
-
-  const isVersus = createMemo<boolean>(
-    () => !!spec()?.versusTestId && !spec()?.dispositionMode,
+  const versusVerdict = createMemo<{ state: "won" | "lost" | "tied"; margin: number } | null>(
+    () => {
+      const opp = versusOpponent();
+      const mine = myComparable();
+      if (!opp || mine === null) return null;
+      if (mine > opp.total) {
+        return { state: "won", margin: mine - opp.total };
+      }
+      if (mine < opp.total) {
+        return { state: "lost", margin: opp.total - mine };
+      }
+      return { state: "tied", margin: 0 };
+    },
   );
+
+  const isVersus = createMemo<boolean>(() => !!spec()?.versusTestId && !spec()?.dispositionMode);
 
   /**
    * Disposition value (SG p.63-64 / LM p.106 / DH p.254):
@@ -201,17 +198,15 @@ export function TbRollRow(props: TbRollRowProps): JSX.Element {
               <Show when={spec()!.obstacle !== null}>
                 <span class="text-fg-subtle"> vs Ob {spec()!.obstacle}</span>
                 <Show
-                  when={
-                    spec()!.baseObstacle !== null &&
-                    spec()!.baseObstacle !== spec()!.obstacle
-                  }
+                  when={spec()!.baseObstacle !== null && spec()!.baseObstacle !== spec()!.obstacle}
                 >
                   <span
                     class="text-fg-subtle"
                     data-testid="tb-roll-row-obstacle-shift"
                     title={`Base Ob ${spec()!.baseObstacle} shifted by ${(spec()!.obstacle as number) - (spec()!.baseObstacle as number)}`}
                   >
-                    {" "}(base {spec()!.baseObstacle})
+                    {" "}
+                    (base {spec()!.baseObstacle})
                   </span>
                 </Show>
               </Show>
@@ -354,21 +349,14 @@ export function TbRollRow(props: TbRollRowProps): JSX.Element {
         </Show>
 
         <Show when={spec()!.pool === 0}>
-          <p class="mt-2 text-[0.7rem] text-danger">
-            Pool reduced to zero — auto-fail.
-          </p>
+          <p class="mt-2 text-[0.7rem] text-danger">Pool reduced to zero — auto-fail.</p>
         </Show>
 
         {/* Breakdown line: raw dice successes, always-applied bonus,
             conditional bonus folded in. Always rendered when there's
             a non-zero contribution beyond raw dice, so the math is
             never opaque. */}
-        <Show
-          when={
-            summary() &&
-            (summary()!.always !== 0 || summary()!.conditional !== 0)
-          }
-        >
+        <Show when={summary() && (summary()!.always !== 0 || summary()!.conditional !== 0)}>
           {(_) => {
             const s = summary()!;
             return (
@@ -434,20 +422,20 @@ export function TbRollRow(props: TbRollRowProps): JSX.Element {
                 class="mt-3 border-t border-border-muted pt-2 text-[0.75rem] text-accent"
                 data-testid="tb-roll-row-disposition-breakdown"
               >
-                <span class="text-fg-subtle">disposition:{" "}</span>
+                <span class="text-fg-subtle">disposition: </span>
                 <strong class="font-mono">{s.baseDice}</strong>
                 <span class="text-fg-subtle"> base + </span>
                 <strong class="font-mono">{sum.rawSuccesses}</strong>
                 <span class="text-fg-subtle"> successes</span>
                 <Show when={sum.always !== 0}>
-                  <span class="text-fg-subtle">{" "}{sum.always >= 0 ? "+ " : "- "}</span>
+                  <span class="text-fg-subtle"> {sum.always >= 0 ? "+ " : "- "}</span>
                   <strong class="font-mono">{Math.abs(sum.always)}</strong>
                   <span class="text-fg-subtle"> bonuses</span>
                 </Show>
                 <span class="text-fg-subtle"> = </span>
                 <strong class="font-mono">{v}</strong>
                 <Show when={preFloor < 1}>
-                  <span class="text-fg-subtle">{" "}(floored at 1, SG p.47)</span>
+                  <span class="text-fg-subtle"> (floored at 1, SG p.47)</span>
                 </Show>
               </p>
             );

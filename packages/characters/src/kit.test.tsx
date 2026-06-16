@@ -28,11 +28,7 @@ import {
   type CommandInstance,
 } from "@vtt/substrate";
 
-import {
-  buildCharacterHarness,
-  mountWithClient,
-  type CharacterHarness,
-} from "./testing.js";
+import { buildCharacterHarness, mountWithClient, type CharacterHarness } from "./testing.js";
 import { SetField } from "./shared/commands.js";
 import {
   CheckField,
@@ -151,15 +147,10 @@ describe("kit/ValueField", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
-  it("formats numbers as signed when format=\"signed\"", () => {
+  it('formats numbers as signed when format="signed"', () => {
     const h = harness();
     mountWithClient(h, () => (
-      <ValueField
-        characterId={h.characterId}
-        trait={Stats}
-        path={["might"]}
-        format="signed"
-      />
+      <ValueField characterId={h.characterId} trait={Stats} path={["might"]} format="signed" />
     ));
     expect(screen.getByText("+3")).toBeInTheDocument();
   });
@@ -286,11 +277,7 @@ describe("kit/CheckField", () => {
   it("reflects the current trait value", () => {
     const h = harness();
     mountWithClient(h, () => (
-      <CheckField
-        characterId={h.characterId}
-        trait={Vitals}
-        path={["proficient"]}
-      />
+      <CheckField characterId={h.characterId} trait={Vitals} path={["proficient"]} />
     ));
     const cb = screen.getByRole("checkbox") as HTMLInputElement;
     expect(cb.checked).toBe(false);
@@ -299,11 +286,7 @@ describe("kit/CheckField", () => {
   it("dispatches SetField on toggle", () => {
     const h = harness();
     mountWithClient(h, () => (
-      <CheckField
-        characterId={h.characterId}
-        trait={Vitals}
-        path={["proficient"]}
-      />
+      <CheckField characterId={h.characterId} trait={Vitals} path={["proficient"]} />
     ));
     const cb = screen.getByRole("checkbox") as HTMLInputElement;
     fireEvent.click(cb);
@@ -324,12 +307,7 @@ describe("kit/DotsField", () => {
   it("renders max dots and fills up to the current value", () => {
     const h = harness();
     const { container } = mountWithClient(h, () => (
-      <DotsField
-        characterId={h.characterId}
-        trait={Stats}
-        path={["might"]}
-        max={5}
-      />
+      <DotsField characterId={h.characterId} trait={Stats} path={["might"]} max={5} />
     ));
     const dots = container.querySelectorAll(".vk-dot");
     expect(dots).toHaveLength(5);
@@ -340,12 +318,7 @@ describe("kit/DotsField", () => {
   it("clicking a dot dispatches SetField with that level", () => {
     const h = harness();
     const { container } = mountWithClient(h, () => (
-      <DotsField
-        characterId={h.characterId}
-        trait={Stats}
-        path={["might"]}
-        max={5}
-      />
+      <DotsField characterId={h.characterId} trait={Stats} path={["might"]} max={5} />
     ));
     const dots = container.querySelectorAll(".vk-dot");
     fireEvent.click(dots[4]!);
@@ -360,12 +333,7 @@ describe("kit/DotsField", () => {
   it("clicking the currently-filled top dot decrements by one", () => {
     const h = harness();
     const { container } = mountWithClient(h, () => (
-      <DotsField
-        characterId={h.characterId}
-        trait={Stats}
-        path={["might"]}
-        max={5}
-      />
+      <DotsField characterId={h.characterId} trait={Stats} path={["might"]} max={5} />
     ));
     const dots = container.querySelectorAll(".vk-dot");
     fireEvent.click(dots[2]!);
@@ -382,12 +350,7 @@ describe("kit/TrackField", () => {
   it("renders max boxes and fills up to current value", () => {
     const h = harness();
     const { container } = mountWithClient(h, () => (
-      <TrackField
-        characterId={h.characterId}
-        trait={Vitals}
-        path={["hp"]}
-        max={6}
-      />
+      <TrackField characterId={h.characterId} trait={Vitals} path={["hp"]} max={6} />
     ));
     const boxes = container.querySelectorAll(".vk-trackbox");
     expect(boxes).toHaveLength(6);
@@ -397,12 +360,7 @@ describe("kit/TrackField", () => {
   it("clicking a box sets HP to that level", () => {
     const h = harness();
     const { container } = mountWithClient(h, () => (
-      <TrackField
-        characterId={h.characterId}
-        trait={Vitals}
-        path={["hp"]}
-        max={6}
-      />
+      <TrackField characterId={h.characterId} trait={Vitals} path={["hp"]} max={6} />
     ));
     const boxes = container.querySelectorAll(".vk-trackbox");
     fireEvent.click(boxes[5]!);
@@ -419,11 +377,7 @@ describe("kit/RollableLabel", () => {
   it("dispatches the rollable's command on click", () => {
     const h = harness();
     mountWithClient(h, () => (
-      <RollableLabel
-        characterId={h.characterId}
-        rollable={StatCheck}
-        opts={{ stat: "might" }}
-      >
+      <RollableLabel characterId={h.characterId} rollable={StatCheck} opts={{ stat: "might" }}>
         Might
       </RollableLabel>
     ));
@@ -451,19 +405,13 @@ describe("kit/RollableLabel", () => {
     ));
     fireEvent.click(screen.getByRole("button", { name: /quickness/i }));
     expect(h.dispatched).toHaveLength(1);
-    expect((h.dispatched[0]!.payload as { notation: string }).notation).toBe(
-      "1d6+2",
-    );
+    expect((h.dispatched[0]!.payload as { notation: string }).notation).toBe("1d6+2");
   });
 
   it("Enter / Space activate the trigger", () => {
     const h = harness();
     mountWithClient(h, () => (
-      <Rollable
-        characterId={h.characterId}
-        rollable={StatCheck}
-        opts={{ stat: "might" }}
-      >
+      <Rollable characterId={h.characterId} rollable={StatCheck} opts={{ stat: "might" }}>
         Might
       </Rollable>
     ));
@@ -501,19 +449,8 @@ describe("kit end-to-end", () => {
     const h = harness();
     mountWithClient(h, () => (
       <div>
-        <NumberField
-          characterId={h.characterId}
-          trait={Stats}
-          path={["might"]}
-          min={0}
-          max={5}
-        />
-        <ValueField
-          characterId={h.characterId}
-          trait={Stats}
-          path={["might"]}
-          format="signed"
-        />
+        <NumberField characterId={h.characterId} trait={Stats} path={["might"]} min={0} max={5} />
+        <ValueField characterId={h.characterId} trait={Stats} path={["might"]} format="signed" />
       </div>
     ));
     expect(screen.getByText("+3")).toBeInTheDocument();
@@ -528,11 +465,7 @@ describe("kit end-to-end", () => {
     const h = harness();
     mountWithClient(h, () => (
       <div>
-        <RollableLabel
-          characterId={h.characterId}
-          rollable={StatCheck}
-          opts={{ stat: "might" }}
-        >
+        <RollableLabel characterId={h.characterId} rollable={StatCheck} opts={{ stat: "might" }}>
           Might
         </RollableLabel>
         <RollableLabel

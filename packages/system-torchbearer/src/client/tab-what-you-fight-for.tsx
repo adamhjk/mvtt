@@ -75,9 +75,7 @@ function Anchor(props: {
         rows={2}
         placeholder={props.hint}
       />
-      <span style={{ "font-size": "0.8rem", color: "var(--color-fg-muted)" }}>
-        {props.hint}
-      </span>
+      <span style={{ "font-size": "0.8rem", color: "var(--color-fg-muted)" }}>{props.hint}</span>
     </kit.SheetSection>
   );
 }

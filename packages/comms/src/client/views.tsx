@@ -16,12 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineView, clientOnly, type CommandInstance } from "@vtt/substrate";
-import {
-  useClient,
-  useQuery,
-  useTrait,
-  type QueryRow,
-} from "@vtt/substrate/client";
+import { useClient, useQuery, useTrait, type QueryRow } from "@vtt/substrate/client";
 import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import {
@@ -78,9 +73,7 @@ export const ChatComposerView = defineView({
       const list = players();
       const cid = client.clientId();
       if (!cid) return null;
-      const found = list.find(
-        (p) => (p.values.Online as { clientId: string }).clientId === cid,
-      );
+      const found = list.find((p) => (p.values.Online as { clientId: string }).clientId === cid);
       if (!found) return null;
       const id = found.values.Identity as { userId: string; role: string };
       return { userId: id.userId, role: id.role };
@@ -91,18 +84,14 @@ export const ChatComposerView = defineView({
     const speakerId = useEffectiveSpeakerId();
 
     const handlers = createMemo<ChatInputHandler[]>(() => {
-      const fills = client.registry.fillsForSlot(
-        ChatInputHandlerSlot,
-      ) as ChatInputHandler[];
+      const fills = client.registry.fillsForSlot(ChatInputHandlerSlot) as ChatInputHandler[];
       const builtin: ChatInputHandler = {
         prefix: "/w ",
         describe: "/w <name> <message> — whisper to a player",
         priority: 100,
         handle: (input, ctx) => parseWhisper(input, ctx),
       };
-      return [builtin, ...fills].sort(
-        (a, b) => (b.priority ?? 0) - (a.priority ?? 0),
-      );
+      return [builtin, ...fills].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
     });
 
     const send = () => {
@@ -141,30 +130,20 @@ export const ChatComposerView = defineView({
 
     return (
       <div class="flex flex-col gap-2">
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-fg-muted">
-          chat
-        </h2>
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-fg-muted">chat</h2>
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[0.65rem] text-fg-subtle">
           <Show when={speakAsOptions().length > 1}>
             <label class="flex items-center gap-1.5">
-              <span class="font-display uppercase tracking-[0.16em]">
-                speak as
-              </span>
+              <span class="font-display uppercase tracking-[0.16em]">speak as</span>
               <select
                 value={activeSpeakerId() ?? ""}
                 onChange={(e) =>
-                  setActiveSpeakerId(
-                    e.currentTarget.value === ""
-                      ? null
-                      : e.currentTarget.value,
-                  )
+                  setActiveSpeakerId(e.currentTarget.value === "" ? null : e.currentTarget.value)
                 }
                 class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-xs text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
               >
                 <For each={speakAsOptions()}>
-                  {(o) => (
-                    <option value={o.characterId ?? ""}>{o.label}</option>
-                  )}
+                  {(o) => <option value={o.characterId ?? ""}>{o.label}</option>}
                 </For>
               </select>
             </label>
@@ -177,9 +156,7 @@ export const ChatComposerView = defineView({
                 onChange={(e) => setGmOnly(e.currentTarget.checked)}
                 class="h-3.5 w-3.5 cursor-pointer rounded-(--radius-control) border-border accent-accent"
               />
-              <span class="font-display uppercase tracking-[0.16em]">
-                gm only
-              </span>
+              <span class="font-display uppercase tracking-[0.16em]">gm only</span>
             </label>
           </Show>
         </div>
@@ -257,10 +234,9 @@ export const ChatStreamView = defineView({
     const contributors = client.registry.fillsForSlot(
       ChatTimelineContributorSlot,
     ) as ChatTimelineContributor[];
-    const contributorAccessors: Accessor<ChatTimelineEntry[]>[] =
-      contributors.map(
-        (c) => c.useEntries() as Accessor<ChatTimelineEntry[]>,
-      );
+    const contributorAccessors: Accessor<ChatTimelineEntry[]>[] = contributors.map(
+      (c) => c.useEntries() as Accessor<ChatTimelineEntry[]>,
+    );
 
     const entries = createMemo<ChatTimelineEntry[]>(() => {
       const out: ChatTimelineEntry[] = messages().map((row) => {
@@ -370,9 +346,7 @@ function parseWhisper(input: string, ctx: ChatInputContext) {
   return SendMessage({
     body,
     whisperTo: [userId],
-    ...(ctx.speakingAsCharacterId
-      ? { speakingAsCharacterId: ctx.speakingAsCharacterId }
-      : {}),
+    ...(ctx.speakingAsCharacterId ? { speakingAsCharacterId: ctx.speakingAsCharacterId } : {}),
   });
 }
 
@@ -385,4 +359,3 @@ function nameMap(rows: QueryRow[]): Map<string, string> {
   }
   return out;
 }
-

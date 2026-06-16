@@ -82,13 +82,7 @@ export const items = definePlugin({
   name: "@vtt/items",
   version: "0.1.0",
   dependsOn: ["@vtt/substrate@^0"],
-  traits: [
-    ItemIdentity,
-    ItemEconomics,
-    ItemDerivedFrom,
-    ItemBundle,
-    ItemCatalogIndex,
-  ],
+  traits: [ItemIdentity, ItemEconomics, ItemDerivedFrom, ItemBundle, ItemCatalogIndex],
   events: [
     ItemCreated,
     ItemForked,

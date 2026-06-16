@@ -36,11 +36,7 @@ import {
   UpdateBook,
   BookCanvasSurface,
 } from "./shared/index.js";
-import {
-  BookSpawningSystem,
-  BookRemovalSystem,
-  BookUpdateSystem,
-} from "./server/systems.js";
+import { BookSpawningSystem, BookRemovalSystem, BookUpdateSystem } from "./server/systems.js";
 
 import { Permissions } from "@vtt/permissions/shared";
 
@@ -94,10 +90,7 @@ async function dispatch(
   });
 }
 
-async function makeBook(
-  pipeline: CommandPipeline,
-  name = "Player's Handbook",
-) {
+async function makeBook(pipeline: CommandPipeline, name = "Player's Handbook") {
   const res = await dispatch(pipeline, CreateBook({ name }), GM);
   expect(res.result.ok).toBe(true);
   return res;
@@ -137,21 +130,13 @@ describe("@vtt/books", () => {
     });
 
     it("any authenticated user may create a book; spawned with Permissions(ownedBy(creator))", async () => {
-      const res = await dispatch(
-        pipeline,
-        CreateBook({ name: "Tomb" }),
-        PLAYER,
-      );
+      const res = await dispatch(pipeline, CreateBook({ name: "Tomb" }), PLAYER);
       expect(res.result.ok).toBe(true);
       expect(world.query([Book])).toHaveLength(1);
     });
 
     it("rejects an unauthenticated dispatch", async () => {
-      const res = await dispatch(
-        pipeline,
-        CreateBook({ name: "Tomb" }),
-        undefined,
-      );
+      const res = await dispatch(pipeline, CreateBook({ name: "Tomb" }), undefined);
       expect(res.result.ok).toBe(false);
       expect(world.query([Book])).toHaveLength(0);
     });
@@ -177,11 +162,7 @@ describe("@vtt/books", () => {
     });
 
     it("rejects when bookId does not exist", async () => {
-      const res = await dispatch(
-        pipeline,
-        RemoveBook({ bookId: "ghost-book" as EntityId }),
-        GM,
-      );
+      const res = await dispatch(pipeline, RemoveBook({ bookId: "ghost-book" as EntityId }), GM);
       expect(res.result.ok).toBe(false);
     });
   });
@@ -190,11 +171,7 @@ describe("@vtt/books", () => {
     it("GM rename merges over the existing trait", async () => {
       await makeBook(pipeline, "Original");
       const bookId = world.query([Book])[0]!.id;
-      const res = await dispatch(
-        pipeline,
-        UpdateBook({ bookId, name: "Renamed Book" }),
-        GM,
-      );
+      const res = await dispatch(pipeline, UpdateBook({ bookId, name: "Renamed Book" }), GM);
       expect(res.result.ok).toBe(true);
       expect(res.events.map((e) => e.type)).toEqual([BookUpdated.name]);
       const after = world.get(bookId, [Book]) as { Book: { name: string } };
@@ -204,11 +181,7 @@ describe("@vtt/books", () => {
     it("rejects a player dispatch", async () => {
       await makeBook(pipeline);
       const bookId = world.query([Book])[0]!.id;
-      const res = await dispatch(
-        pipeline,
-        UpdateBook({ bookId, name: "Hax" }),
-        PLAYER,
-      );
+      const res = await dispatch(pipeline, UpdateBook({ bookId, name: "Hax" }), PLAYER);
       expect(res.result.ok).toBe(false);
       const after = world.get(bookId, [Book]) as { Book: { name: string } };
       expect(after.Book.name).not.toBe("Hax");
@@ -224,9 +197,7 @@ describe("@vtt/books", () => {
     });
 
     it("rejects empty-string name at the schema layer", () => {
-      expect(() =>
-        UpdateBook({ bookId: "book-x" as EntityId, name: "" }),
-      ).toThrow();
+      expect(() => UpdateBook({ bookId: "book-x" as EntityId, name: "" })).toThrow();
     });
   });
 
@@ -244,9 +215,7 @@ describe("@vtt/books", () => {
     it("BookSpawningSystem: handler is wired to BookCreated and writes Book", () => {
       expect(BookSpawningSystem.name).toBe("BookSpawning");
       expect(BookSpawningSystem.on.name).toBe(BookCreated.name);
-      expect(BookSpawningSystem.writes.map((t) => t.name)).toContain(
-        Book.name,
-      );
+      expect(BookSpawningSystem.writes.map((t) => t.name)).toContain(Book.name);
     });
 
     it("BookRemovalSystem is wired to BookRemoved", () => {

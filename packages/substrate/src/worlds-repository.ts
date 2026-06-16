@@ -90,11 +90,7 @@ export interface WorldsRepository {
    */
   hardDelete(id: WorldId): Promise<void>;
 
-  addMembership(input: {
-    worldId: WorldId;
-    userId: string;
-    role: WorldRole;
-  }): Promise<void>;
+  addMembership(input: { worldId: WorldId; userId: string; role: WorldRole }): Promise<void>;
   removeMembership(worldId: WorldId, userId: string): Promise<void>;
   listMemberships(worldId: WorldId): Promise<MembershipRecord[]>;
 

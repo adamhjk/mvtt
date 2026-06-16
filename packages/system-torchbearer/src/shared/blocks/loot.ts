@@ -16,11 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { type EntityId, z } from "@vtt/substrate";
-import {
-  defineBlockKind,
-  LootParcel,
-  type EntityProjection,
-} from "@vtt/adventures/shared";
+import { defineBlockKind, LootParcel, type EntityProjection } from "@vtt/adventures/shared";
 import { PlaceLootInScene } from "../loot-commands.js";
 import { peelRef } from "./encounter.js";
 
@@ -38,25 +34,17 @@ const LootItemStringSchema = z
   .min(1)
   .max(240)
   .describe(
-    'String form: `<kind>:<id-or-name>` or the wiki-link `[[item:e123|Display]]`. Prefix with `N×` (or `Nx`) to award that many copies — e.g. `3× [[item:silver chalice]]`. With no kind prefix the ref defaults to `item`.',
+    "String form: `<kind>:<id-or-name>` or the wiki-link `[[item:e123|Display]]`. Prefix with `N×` (or `Nx`) to award that many copies — e.g. `3× [[item:silver chalice]]`. With no kind prefix the ref defaults to `item`.",
   );
 
 const LootItemObjectSchema = z
   .object({
-    qty: z
-      .number()
-      .int()
-      .min(1)
-      .max(99)
-      .default(1)
-      .describe("How many copies of `item` to award."),
+    qty: z.number().int().min(1).max(99).default(1).describe("How many copies of `item` to award."),
     item: z
       .string()
       .min(1)
       .max(240)
-      .describe(
-        "The item reference: `<kind>:<id-or-name>` or `[[item:id|Display]]`.",
-      ),
+      .describe("The item reference: `<kind>:<id-or-name>` or `[[item:id|Display]]`."),
   })
   .describe(
     "Object form: explicit `{ qty, item }`. Pick this when the count is data-driven or you'd rather not eyeball the `N×` prefix.",
@@ -120,21 +108,11 @@ export const LootBlockSchema = z.object({
         .max(999999)
         .default(0)
         .describe("Silver coins in this parcel."),
-      gold: z
-        .number()
-        .int()
-        .min(0)
-        .max(999999)
-        .default(0)
-        .describe("Gold coins in this parcel."),
+      gold: z.number().int().min(0).max(999999).default(0).describe("Gold coins in this parcel."),
     })
     .default({ copper: 0, silver: 0, gold: 0 })
     .describe("Currency awarded alongside the items."),
-  notes: z
-    .string()
-    .max(4000)
-    .default("")
-    .describe("GM-facing flavor / context for the parcel."),
+  notes: z.string().max(4000).default("").describe("GM-facing flavor / context for the parcel."),
 });
 
 export type LootBlockParsed = z.infer<typeof LootBlockSchema>;
@@ -174,7 +152,9 @@ function firstSceneId(world: import("@vtt/substrate").World): EntityId | null {
   // Iterate via traitsOn on every Page-or-Note like entity? No, we
   // need a raw query. Use a bare TraitMeta-shaped object with the
   // known trait name; world.query reads the name field.
-  const SceneTraitMeta = { name: "@vtt/scene/Scene" } as unknown as import("@vtt/substrate").TraitMeta;
+  const SceneTraitMeta = {
+    name: "@vtt/scene/Scene",
+  } as unknown as import("@vtt/substrate").TraitMeta;
   try {
     const rows = world.query([SceneTraitMeta]);
     return rows[0]?.id ?? null;
@@ -190,13 +170,17 @@ export const lootBlockKind = defineBlockKind<LootBlockParsed>({
   project: (parsed, ctx) => projectLoot(parsed, ctx.info ?? "Unnamed Loot"),
   display: (entityId, world) => {
     const got = world.get(entityId, [LootParcel]) as
-      | { LootParcel: { name: string; items: ReadonlyArray<unknown>; cash: { copper: number; silver: number; gold: number } } }
+      | {
+          LootParcel: {
+            name: string;
+            items: ReadonlyArray<unknown>;
+            cash: { copper: number; silver: number; gold: number };
+          };
+        }
       | undefined;
     if (!got) return "(unknown loot)";
     const cashSum =
-      got.LootParcel.cash.copper +
-      got.LootParcel.cash.silver +
-      got.LootParcel.cash.gold;
+      got.LootParcel.cash.copper + got.LootParcel.cash.silver + got.LootParcel.cash.gold;
     const parts = [`${got.LootParcel.items.length} item(s)`];
     if (cashSum > 0) parts.push(`${cashSum} coins`);
     return `${got.LootParcel.name} · ${parts.join(", ")}`;
@@ -217,14 +201,10 @@ export const lootBlockKind = defineBlockKind<LootBlockParsed>({
         const sceneId = firstSceneId(world);
         if (!sceneId) {
           // eslint-disable-next-line no-console
-          console.warn(
-            "[loot] place-on-ground: no Scene exists in this world",
-          );
+          console.warn("[loot] place-on-ground: no Scene exists in this world");
           return;
         }
-        dispatch(
-          PlaceLootInScene({ parcelId: entityId, sceneId, x: 0, y: 0 }),
-        );
+        dispatch(PlaceLootInScene({ parcelId: entityId, sceneId, x: 0, y: 0 }));
       },
     },
   ],

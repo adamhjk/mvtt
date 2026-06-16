@@ -15,11 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  previewRollable,
-  type CommandInstance,
-  type EntityId,
-} from "@vtt/substrate";
+import { previewRollable, type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
 import { kit } from "@vtt/characters/client";
 import {
@@ -182,10 +178,7 @@ export interface AtelierState {
   readonly declarePersonaDice: (count: 1) => void;
   readonly toggleChannelNature: (scope: "within" | "outside") => void;
   readonly useTraitFor: (traitIndex: number) => void;
-  readonly useTraitAgainst: (
-    traitIndex: number,
-    severity: "minus-1d" | "plus-2d-opp",
-  ) => void;
+  readonly useTraitAgainst: (traitIndex: number, severity: "minus-1d" | "plus-2d-opp") => void;
   readonly offerHelp: (h: HelperRow, optionId: string, viaGm: boolean) => void;
   readonly toggleSynergy: (h: HelperRow) => void;
 
@@ -215,27 +208,18 @@ export interface HelperRow {
  * ids are stable for the lifetime of the editor mount — `useTrait` reads
  * with a known-good id, no chicken-and-egg over null initiators.
  */
-export function useAtelier(
-  rollId: EntityId,
-  initiatorCharacterId: EntityId,
-): AtelierState {
+export function useAtelier(rollId: EntityId, initiatorCharacterId: EntityId): AtelierState {
   const client = useClient();
   const me = kit.useMe();
   const pr = useTrait(rollId, PendingRoll);
 
   const rollableName = createMemo<string | null>(() => pr()?.rollableName ?? null);
-  const initiatorUserId = createMemo<string | null>(
-    () => pr()?.initiatorUserId ?? null,
-  );
+  const initiatorUserId = createMemo<string | null>(() => pr()?.initiatorUserId ?? null);
   const initiatorCharacter = useTrait(initiatorCharacterId, Character);
-  const initiatorName = createMemo<string | null>(
-    () => initiatorCharacter()?.name ?? null,
-  );
+  const initiatorName = createMemo<string | null>(() => initiatorCharacter()?.name ?? null);
 
   const initiatorMonster = useTrait(initiatorCharacterId, TbMonster);
-  const initiatorIsMonster = createMemo<boolean>(
-    () => initiatorMonster() !== undefined,
-  );
+  const initiatorIsMonster = createMemo<boolean>(() => initiatorMonster() !== undefined);
 
   const panelHeroic = createMemo<boolean | undefined>(() => {
     const v = pr();
@@ -258,12 +242,9 @@ export function useAtelier(
   });
 
   const activeDisposition = createMemo<boolean>(() => {
-    const fromPanel = dispositionFromContributions(
-      (pr()?.contributions ?? []) as Contribution[],
-    );
+    const fromPanel = dispositionFromContributions((pr()?.contributions ?? []) as Contribution[]);
     if (typeof fromPanel === "boolean") return fromPanel;
-    const fromOpts = (pr()?.opts as { dispositionMode?: unknown } | undefined)
-      ?.dispositionMode;
+    const fromOpts = (pr()?.opts as { dispositionMode?: unknown } | undefined)?.dispositionMode;
     return typeof fromOpts === "boolean" ? fromOpts : false;
   });
 
@@ -272,9 +253,8 @@ export function useAtelier(
       (pr()?.contributions ?? []) as Contribution[],
     );
     if (fromPanel !== undefined) return fromPanel;
-    const fromOpts = (
-      pr()?.opts as { dispositionAddTo?: DispoAddTo | null } | undefined
-    )?.dispositionAddTo;
+    const fromOpts = (pr()?.opts as { dispositionAddTo?: DispoAddTo | null } | undefined)
+      ?.dispositionAddTo;
     return fromOpts ?? null;
   });
 
@@ -286,12 +266,9 @@ export function useAtelier(
   });
 
   const activeVersusId = createMemo<string | null>(() => {
-    const fromPanel = versusFromContributions(
-      (pr()?.contributions ?? []) as Contribution[],
-    );
+    const fromPanel = versusFromContributions((pr()?.contributions ?? []) as Contribution[]);
     if (fromPanel !== undefined) return fromPanel;
-    const o = (pr()?.opts as { versusTestId?: unknown } | undefined)
-      ?.versusTestId;
+    const o = (pr()?.opts as { versusTestId?: unknown } | undefined)?.versusTestId;
     return typeof o === "string" ? o : null;
   });
 
@@ -308,18 +285,11 @@ export function useAtelier(
     const rollable = client.registry.rollables.get(v.rollableName);
     if (!rollable) return null;
     try {
-      const raw = previewRollable(
-        rollable,
-        client.world,
-        v.initiatorCharacterId,
-        {
-          ...(v.opts as Record<string, unknown>),
-          contributions: v.contributions,
-        },
-      );
-      return raw && typeof raw === "object"
-        ? (raw as Record<string, unknown>)
-        : null;
+      const raw = previewRollable(rollable, client.world, v.initiatorCharacterId, {
+        ...(v.opts as Record<string, unknown>),
+        contributions: v.contributions,
+      });
+      return raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
     } catch {
       return null;
     }
@@ -345,11 +315,8 @@ export function useAtelier(
     const spec = previewedSpec() as Probe | null;
     if (!c || !spec) return [];
     const sourceId = typeof spec.sourceId === "string" ? spec.sourceId : "";
-    const kind = (
-      typeof spec.kind === "string" ? spec.kind : ""
-    ) as TbRollKind;
-    const versusTestId =
-      typeof spec.versusTestId === "string" ? spec.versusTestId : null;
+    const kind = (typeof spec.kind === "string" ? spec.kind : "") as TbRollKind;
+    const versusTestId = typeof spec.versusTestId === "string" ? spec.versusTestId : null;
     const condition = suggestedQuickModifiersFor({
       conditions: c,
       kind,
@@ -384,11 +351,7 @@ export function useAtelier(
       const peerVersus = versusFromContributions(v.contributions);
       const optsVersus = (v.opts as { versusTestId?: unknown })?.versusTestId;
       const peerActive =
-        peerVersus !== undefined
-          ? peerVersus
-          : typeof optsVersus === "string"
-            ? optsVersus
-            : null;
+        peerVersus !== undefined ? peerVersus : typeof optsVersus === "string" ? optsVersus : null;
       out.push({
         pendingRollId: row.id,
         characterId: v.initiatorCharacterId,
@@ -410,9 +373,7 @@ export function useAtelier(
   const channelDeclared = createMemo<"within" | "outside" | null>(() => {
     const v = pr();
     if (!v) return null;
-    const decl = channelNatureFromContributions(
-      v.contributions as Contribution[],
-    );
+    const decl = channelNatureFromContributions(v.contributions as Contribution[]);
     return decl?.scope ?? null;
   });
   const synergyDeclared = createMemo<string[]>(() => {
@@ -420,12 +381,8 @@ export function useAtelier(
     if (!v) return [];
     return synergyHelpersFromContributions(v.contributions as Contribution[]);
   });
-  const personaAvail = createMemo<number>(
-    () => initiatorPools()?.persona.current ?? 0,
-  );
-  const natureRating = createMemo<number>(
-    () => initiatorAbilities()?.nature.rating ?? 0,
-  );
+  const personaAvail = createMemo<number>(() => initiatorPools()?.persona.current ?? 0);
+  const natureRating = createMemo<number>(() => initiatorAbilities()?.nature.rating ?? 0);
 
   /* Helpers + traits */
   const initiatorTraits = useTrait(initiatorCharacterId, CharacterTraits);
@@ -444,19 +401,15 @@ export function useAtelier(
   const activeRows = useQuery([Active]);
   const initiatorTeam = useTrait(initiatorCharacterId, Team);
 
-  const helpRoll = createMemo<{ kind: TbRollKind; sourceId: string } | null>(
-    () => {
-      const spec = previewedSpec() as Probe | null;
-      if (!spec) return null;
-      const sid = typeof spec.sourceId === "string" ? spec.sourceId : "";
-      const kind = (
-        typeof spec.kind === "string" ? spec.kind : ""
-      ) as TbRollKind;
-      if (!kind || !sid) return null;
-      if (kind === "versus") return null;
-      return { kind, sourceId: sid };
-    },
-  );
+  const helpRoll = createMemo<{ kind: TbRollKind; sourceId: string } | null>(() => {
+    const spec = previewedSpec() as Probe | null;
+    if (!spec) return null;
+    const sid = typeof spec.sourceId === "string" ? spec.sourceId : "";
+    const kind = (typeof spec.kind === "string" ? spec.kind : "") as TbRollKind;
+    if (!kind || !sid) return null;
+    if (kind === "versus") return null;
+    return { kind, sourceId: sid };
+  });
 
   const suggestedHelpNames = createMemo<string[]>(() => {
     const r = helpRoll();
@@ -471,9 +424,7 @@ export function useAtelier(
     const skillsTrait = client.world.get(charId as EntityId, [Skills]) as
       | { Skills: { entries: Record<string, { rating: number }> } }
       | undefined;
-    const abilitiesTrait = client.world.get(charId as EntityId, [
-      RawAbilities,
-    ]) as
+    const abilitiesTrait = client.world.get(charId as EntityId, [RawAbilities]) as
       | {
           RawAbilities: {
             will: { rating: number };
@@ -517,11 +468,7 @@ export function useAtelier(
     for (const [id, rating] of helper.skills) {
       const optionId = `skill:${id}`;
       if (taken.has(optionId)) continue;
-      if (
-        id === rollSourceId &&
-        rollKind !== "ability" &&
-        rollKind !== "town-ability"
-      ) {
+      if (id === rollSourceId && rollKind !== "ability" && rollKind !== "town-ability") {
         continue;
       }
       const skill = getSkill(id);
@@ -547,9 +494,7 @@ export function useAtelier(
     activeRows();
     for (const row of allCharacters()) {
       if (row.id === initiatorCharacterId) continue;
-      const perm = row.values.Permissions as
-        | Parameters<typeof canWrite>[1]
-        | undefined;
+      const perm = row.values.Permissions as Parameters<typeof canWrite>[1] | undefined;
       if (!canWrite(m, perm)) continue;
       if (!isActive(client.world, row.id)) continue;
       const helperTeam = client.world.get(row.id as EntityId, [Team]) as
@@ -599,9 +544,11 @@ export function useAtelier(
   const canContribute = createMemo<boolean>(() => !!me());
 
   /* -------- contribution dispatchers (one per kind) -------- */
-  const contributeRaw = (contribution: Omit<Contribution, "fromUserId"> & {
-    fromUserId?: string;
-  }) => {
+  const contributeRaw = (
+    contribution: Omit<Contribution, "fromUserId"> & {
+      fromUserId?: string;
+    },
+  ) => {
     const m = me();
     if (!m) return;
     const full: Contribution = {
@@ -715,8 +662,7 @@ export function useAtelier(
       payload: {
         enabled: next,
         addTo: seededAddTo,
-        pool:
-          next && seededAddTo === "nature" ? activeMonsterPool() : undefined,
+        pool: next && seededAddTo === "nature" ? activeMonsterPool() : undefined,
       },
       replaces: "tb:disposition",
     });
@@ -759,17 +705,14 @@ export function useAtelier(
     const m = me();
     if (!m) return;
     const myActive = activeVersusId();
-    const alreadyPaired =
-      myActive !== null && cand.versusId !== null && myActive === cand.versusId;
-    const next = alreadyPaired ? null : cand.versusId ?? freshVersusTestId();
+    const alreadyPaired = myActive !== null && cand.versusId !== null && myActive === cand.versusId;
+    const next = alreadyPaired ? null : (cand.versusId ?? freshVersusTestId());
     const payload = { versusTestId: next };
-    const myChar = client.world.get(
-      initiatorCharacterId,
-      [Character],
-    ) as { Character: { name: string } } | undefined;
+    const myChar = client.world.get(initiatorCharacterId, [Character]) as
+      | { Character: { name: string } }
+      | undefined;
     const myName = myChar?.Character.name ?? "your roll";
-    const myLabel =
-      next === null ? "Versus cleared" : `vs ${cand.characterName}`;
+    const myLabel = next === null ? "Versus cleared" : `vs ${cand.characterName}`;
     contributeRaw({
       kind: TB_VERSUS_CONTRIB_KIND,
       label: myLabel,
@@ -873,10 +816,7 @@ export function useAtelier(
     );
   };
 
-  const useTraitAgainst = (
-    traitIndex: number,
-    severity: "minus-1d" | "plus-2d-opp",
-  ) => {
+  const useTraitAgainst = (traitIndex: number, severity: "minus-1d" | "plus-2d-opp") => {
     client.dispatch(
       UseTraitOnRoll({
         pendingRollId: rollId,
@@ -891,9 +831,7 @@ export function useAtelier(
   const offerHelp = (h: HelperRow, optionId: string, viaGm: boolean) => {
     const m = me();
     if (!m) return;
-    const opt =
-      h.automatic.find((o) => o.id === optionId) ??
-      h.gm.find((o) => o.id === optionId);
+    const opt = h.automatic.find((o) => o.id === optionId) ?? h.gm.find((o) => o.id === optionId);
     if (!opt) return;
     const tag = viaGm ? " (per GM)" : "";
     const modifier: TbRollModifier = {
@@ -929,28 +867,16 @@ export function useAtelier(
     if (!v) return;
     const rollable = client.registry.rollables.get(v.rollableName);
     if (!rollable) return;
-    const result = invokeRollable(
-      rollable,
-      client.world,
-      v.initiatorCharacterId,
-      {
-        ...(v.opts as Record<string, unknown>),
-        contributions: v.contributions,
-      },
-    );
-    if (result)
-      client.dispatch(
-        tagRollWithOrigin(result.command, rollId) as CommandInstance,
-      );
-    client.dispatch(
-      CommitPendingRoll({ pendingRollId: rollId }) as CommandInstance,
-    );
+    const result = invokeRollable(rollable, client.world, v.initiatorCharacterId, {
+      ...(v.opts as Record<string, unknown>),
+      contributions: v.contributions,
+    });
+    if (result) client.dispatch(tagRollWithOrigin(result.command, rollId) as CommandInstance);
+    client.dispatch(CommitPendingRoll({ pendingRollId: rollId }) as CommandInstance);
   };
 
   const cancel = () => {
-    client.dispatch(
-      CancelPendingRoll({ pendingRollId: rollId }) as CommandInstance,
-    );
+    client.dispatch(CancelPendingRoll({ pendingRollId: rollId }) as CommandInstance);
   };
 
   return {

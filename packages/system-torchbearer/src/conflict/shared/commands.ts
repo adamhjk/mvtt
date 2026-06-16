@@ -15,15 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  ok,
-  withVisibility,
-  z,
-  type World,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, ok, withVisibility, z, type World } from "@vtt/substrate";
 import {
   actors,
   everyone,
@@ -39,11 +31,7 @@ import { ConflictSideEnum, type ConflictSide } from "./sides.js";
 import { Character } from "@vtt/characters/shared";
 import { Conditions } from "../../shared/traits.js";
 import { TB_CONFLICT_TYPES } from "./conflict-types.js";
-import {
-  TbConflict,
-  TbConflictParticipant,
-  TbConflictScript,
-} from "./traits.js";
+import { TbConflict, TbConflictParticipant, TbConflictScript } from "./traits.js";
 import {
   CaptainElected,
   CompromiseApplied,
@@ -69,9 +57,7 @@ import {
 function getConflict(
   world: World,
   conflictId: EntityId,
-):
-  | (z.infer<typeof TbConflict.schema> & { id: EntityId })
-  | null {
+): (z.infer<typeof TbConflict.schema> & { id: EntityId }) | null {
   const got = world.get(conflictId, [TbConflict]) as
     | { TbConflict: z.infer<typeof TbConflict.schema> }
     | undefined;
@@ -91,9 +77,7 @@ function findScriptEntityId(
   side: ConflictSide,
 ): EntityId | null {
   for (const row of world.query([TbConflictScript])) {
-    const v = row.values.TbConflictScript as z.infer<
-      typeof TbConflictScript.schema
-    >;
+    const v = row.values.TbConflictScript as z.infer<typeof TbConflictScript.schema>;
     if (v.conflictId === conflictId && v.side === side) {
       return row.id;
     }
@@ -106,12 +90,14 @@ function findScriptEntityId(
  * Character has Permissions whose write list includes the captain's
  * userId. We also accept GM-as-enemy-captain.
  */
-function findCharacterOwners(
-  world: World,
-  characterId: EntityId,
-): ReadonlyArray<string> {
+function findCharacterOwners(world: World, characterId: EntityId): ReadonlyArray<string> {
   const got = world.get(characterId, [Permissions]) as
-    | { Permissions: { read: { kind: string; userIds?: string[] }; write: { kind: string; userIds?: string[] } } }
+    | {
+        Permissions: {
+          read: { kind: string; userIds?: string[] };
+          write: { kind: string; userIds?: string[] };
+        };
+      }
     | undefined;
   if (!got) return [];
   return got.Permissions.write.userIds ?? [];
@@ -143,9 +129,7 @@ function sideVisibility(
   // Heroes: union of all party participant character owners + GM.
   const userIds = new Set<string>([conf.gmUserId]);
   for (const row of world.query([TbConflictParticipant])) {
-    const p = row.values.TbConflictParticipant as z.infer<
-      typeof TbConflictParticipant.schema
-    >;
+    const p = row.values.TbConflictParticipant as z.infer<typeof TbConflictParticipant.schema>;
     if (p.conflictId !== conflictId || p.side !== "party") continue;
     for (const uid of findCharacterOwners(world, p.characterId)) {
       userIds.add(uid);
@@ -363,10 +347,12 @@ export const ElectCaptain = defineCommand({
     // The new captain must be a party participant.
     let isHero = false;
     for (const row of ctx.world.query([TbConflictParticipant])) {
-      const p = row.values.TbConflictParticipant as z.infer<
-        typeof TbConflictParticipant.schema
-      >;
-      if (p.conflictId === ctx.cmd.conflictId && p.characterId === ctx.cmd.captainCharacterId && p.side === "party") {
+      const p = row.values.TbConflictParticipant as z.infer<typeof TbConflictParticipant.schema>;
+      if (
+        p.conflictId === ctx.cmd.conflictId &&
+        p.characterId === ctx.cmd.captainCharacterId &&
+        p.side === "party"
+      ) {
         if (p.knockedOut) return fail("knocked-out characters cannot captain");
         isHero = true;
         break;
@@ -415,8 +401,7 @@ export const RollDisposition = defineCommand({
       ctx.cmd.side,
     );
     const successesAfter = Math.max(0, successes - conditionEffect.dicePenalty);
-    let finalDispo =
-      ctx.cmd.addToBase + successesAfter - conditionEffect.successPenalty;
+    let finalDispo = ctx.cmd.addToBase + successesAfter - conditionEffect.successPenalty;
     finalDispo = Math.max(1, finalDispo);
     const notes = conditionEffect.notes;
     return [
@@ -458,9 +443,7 @@ function computeDispoConditionEffect(
   let dicePenalty = 0;
   const notes: string[] = [];
   for (const row of world.query([TbConflictParticipant])) {
-    const p = row.values.TbConflictParticipant as z.infer<
-      typeof TbConflictParticipant.schema
-    >;
+    const p = row.values.TbConflictParticipant as z.infer<typeof TbConflictParticipant.schema>;
     if (p.conflictId !== conflictId || p.side !== side) continue;
     const got = world.get(p.characterId, [Conditions]);
     if (!got) continue;
@@ -582,8 +565,7 @@ export const AssignHp = defineCommand({
   validate: (ctx) => {
     const conf = getConflict(ctx.world, ctx.cmd.conflictId);
     if (!conf) return fail("conflict not found");
-    const expected =
-      ctx.cmd.side === "party" ? conf.dispoParty.max : conf.dispoEnemy.max;
+    const expected = ctx.cmd.side === "party" ? conf.dispoParty.max : conf.dispoEnemy.max;
     const sum = ctx.cmd.allocations.reduce((s, a) => s + a.hp, 0);
     if (sum !== expected) {
       return fail(`hp allocations must sum to ${expected}, got ${sum}`);
@@ -624,10 +606,7 @@ export const ChooseWeapon = defineCommand({
     // GM bypass via requireWrite. Otherwise the caller must have
     // write access to the character the participant references —
     // players can pick weapons for their own PC, not someone else's.
-    const participantRow = ctx.world.get(
-      ctx.cmd.participantEntityId,
-      [TbConflictParticipant],
-    ) as
+    const participantRow = ctx.world.get(ctx.cmd.participantEntityId, [TbConflictParticipant]) as
       | {
           TbConflictParticipant: z.infer<typeof TbConflictParticipant.schema>;
         }
@@ -635,10 +614,7 @@ export const ChooseWeapon = defineCommand({
     if (!participantRow) {
       return fail("participant trait missing");
     }
-    return requireWrite(
-      ctx,
-      participantRow.TbConflictParticipant.characterId,
-    );
+    return requireWrite(ctx, participantRow.TbConflictParticipant.characterId);
   },
   apply: (ctx) => [
     ConflictWeaponChosen({
@@ -689,33 +665,30 @@ export const SetScriptSlot = defineCommand({
     if (!scriptEntityId) return fail("script entity missing");
     const got = ctx.world.get(scriptEntityId, [TbConflictScript]);
     if (!got) return fail("script entity missing trait");
-    const script = (got as { TbConflictScript: z.infer<typeof TbConflictScript.schema> }).TbConflictScript;
+    const script = (got as { TbConflictScript: z.infer<typeof TbConflictScript.schema> })
+      .TbConflictScript;
     if (script.locked) return fail("script already locked");
     // Performer must be on the same side and not knocked out.
-    const participantRow = ctx.world.get(
-      ctx.cmd.performerParticipantEntityId,
-      [TbConflictParticipant],
-    ) as
+    const participantRow = ctx.world.get(ctx.cmd.performerParticipantEntityId, [
+      TbConflictParticipant,
+    ]) as
       | {
           TbConflictParticipant: z.infer<typeof TbConflictParticipant.schema>;
         }
       | undefined;
     if (!participantRow) return fail("performer is not a conflict participant");
     const p = participantRow.TbConflictParticipant;
-    if (p.conflictId !== ctx.cmd.conflictId)
-      return fail("performer is not in this conflict");
-    if (p.side !== ctx.cmd.side)
-      return fail("performer must be on the scripted side");
+    if (p.conflictId !== ctx.cmd.conflictId) return fail("performer is not in this conflict");
+    if (p.side !== ctx.cmd.side) return fail("performer must be on the scripted side");
     if (p.knockedOut) return fail("performer is knocked out");
     return ok();
   },
   apply: (ctx) => {
     const scriptEntityId = findScriptEntityId(ctx.world, ctx.cmd.conflictId, ctx.cmd.side);
     if (!scriptEntityId) throw new Error("validate let through missing script entity");
-    const participantRow = ctx.world.get(
-      ctx.cmd.performerParticipantEntityId,
-      [TbConflictParticipant],
-    ) as
+    const participantRow = ctx.world.get(ctx.cmd.performerParticipantEntityId, [
+      TbConflictParticipant,
+    ]) as
       | {
           TbConflictParticipant: z.infer<typeof TbConflictParticipant.schema>;
         }
@@ -805,7 +778,8 @@ export const UnlockScript = defineCommand({
     if (!scriptEntityId) return fail("script entity missing");
     const got = ctx.world.get(scriptEntityId, [TbConflictScript]);
     if (!got) return fail("script entity missing trait");
-    const script = (got as { TbConflictScript: z.infer<typeof TbConflictScript.schema> }).TbConflictScript;
+    const script = (got as { TbConflictScript: z.infer<typeof TbConflictScript.schema> })
+      .TbConflictScript;
     if (!script.locked) return fail("script not locked");
     return ok();
   },
@@ -846,7 +820,8 @@ export const LockScript = defineCommand({
     if (!scriptEntityId) return fail("script entity missing");
     const got = ctx.world.get(scriptEntityId, [TbConflictScript]);
     if (!got) return fail("script entity missing trait");
-    const script = (got as { TbConflictScript: z.infer<typeof TbConflictScript.schema> }).TbConflictScript;
+    const script = (got as { TbConflictScript: z.infer<typeof TbConflictScript.schema> })
+      .TbConflictScript;
     if (script.locked) return fail("script already locked");
     for (const slot of script.slots) {
       if (slot.status === "empty") return fail("all three slots must be filled before lock");
@@ -905,12 +880,7 @@ export const RevealNextSlot = defineCommand({
     const idx = conf.revealIndex;
     const partySlot = partyScript.slots[idx];
     const enemySlot = enemyScript.slots[idx];
-    if (
-      !partySlot ||
-      !enemySlot ||
-      partySlot.status === "empty" ||
-      enemySlot.status === "empty"
-    ) {
+    if (!partySlot || !enemySlot || partySlot.status === "empty" || enemySlot.status === "empty") {
       throw new Error("both slots must be filled before reveal");
     }
     return [
@@ -973,20 +943,22 @@ export const ApplyCompromise = defineCommand({
   schema: z.object({
     conflictId: EntityId,
     description: z.string().max(2000),
-    conditions: z.array(
-      z.object({
-        characterId: EntityId,
-        conditionId: z.enum([
-          "hungryThirsty",
-          "angry",
-          "afraid",
-          "exhausted",
-          "injured",
-          "sick",
-          "dead",
-        ]),
-      }),
-    ).default([]),
+    conditions: z
+      .array(
+        z.object({
+          characterId: EntityId,
+          conditionId: z.enum([
+            "hungryThirsty",
+            "angry",
+            "afraid",
+            "exhausted",
+            "injured",
+            "sick",
+            "dead",
+          ]),
+        }),
+      )
+      .default([]),
   }),
   validate: (ctx) => {
     const conf = getConflict(ctx.world, ctx.cmd.conflictId);

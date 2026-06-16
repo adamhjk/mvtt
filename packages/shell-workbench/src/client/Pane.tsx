@@ -15,15 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  createMemo,
-  createSignal,
-  For,
-  onCleanup,
-  onMount,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, createSignal, For, onCleanup, onMount, Show, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import { useClient, useQuery } from "@vtt/substrate/client";
 import { TabPicker } from "./TabPicker.js";
@@ -31,10 +23,7 @@ import { PermissionsMenu } from "./PermissionsMenu.js";
 import { useWorkspace } from "./use-workspace.js";
 import { useMe } from "./use-me.js";
 import { useProviderContext, type ProviderRunContext } from "./provider-context.js";
-import {
-  usePageProviders,
-  useProviderTraitsVersion,
-} from "./use-providers.js";
+import { usePageProviders, useProviderTraitsVersion } from "./use-providers.js";
 import {
   CloseTab,
   FocusPane,
@@ -103,9 +92,7 @@ export function Pane(props: { pane: WorkspacePane }): JSX.Element {
     if (!id) return null;
     return state.tabs[id] ?? null;
   });
-  const isActivePane = createMemo(
-    () => ws.state()?.activePaneId === props.pane.paneId,
-  );
+  const isActivePane = createMemo(() => ws.state()?.activePaneId === props.pane.paneId);
   const tabs = createMemo<WorkspaceTab[]>(() => {
     const state = ws.state();
     if (!state) return [];
@@ -150,9 +137,7 @@ export function Pane(props: { pane: WorkspacePane }): JSX.Element {
     if (list.length <= maxN) return { visible: list, overflow: [] };
 
     const activeId = props.pane.activeTabId;
-    const activeIdx = activeId
-      ? list.findIndex((t) => t.id === activeId)
-      : -1;
+    const activeIdx = activeId ? list.findIndex((t) => t.id === activeId) : -1;
 
     let visible: WorkspaceTab[];
     if (activeIdx === -1 || activeIdx < maxN) {
@@ -198,8 +183,7 @@ export function Pane(props: { pane: WorkspacePane }): JSX.Element {
     client.dispatch(
       OpenPageInNewTab({
         pageKind:
-          providers().values().next().value?.kind ??
-          ("@vtt/shell-workbench/empty" as never),
+          providers().values().next().value?.kind ?? ("@vtt/shell-workbench/empty" as never),
         entityId: null,
       }) as never,
     );
@@ -289,21 +273,14 @@ export function Pane(props: { pane: WorkspacePane }): JSX.Element {
 
       {/* page content */}
       <div class="relative min-h-0 min-w-0 flex-1 overflow-auto">
-        <Show
-          when={activeTab()}
-          fallback={<EmptyPaneState ctx={ctx()} />}
-        >
+        <Show when={activeTab()} fallback={<EmptyPaneState ctx={ctx()} />}>
           {(tabAcc) => (
             // Re-key on (tabId, pageKind, entityId). Per-tab UI state
             // lives on the tab sentinel as plugin-owned traits, so the
             // workbench has no separate "ui state changed" reactive
             // path that would tear down a provider's subtree. The
             // provider's render(args) runs exactly once per key change.
-            <Show
-              keyed
-              when={paneKey(tabAcc())}
-              fallback={null}
-            >
+            <Show keyed when={paneKey(tabAcc())} fallback={null}>
               {(_key) => {
                 const tab = tabAcc();
                 const provider = providers().get(tab.pageKind) ?? null;
@@ -345,17 +322,13 @@ function TabChip(props: {
         "bg-tab-active-bg": props.isActive,
       }}
       style={{
-        "background-color": props.isActive
-          ? "var(--color-tab-active-bg)"
-          : undefined,
+        "background-color": props.isActive ? "var(--color-tab-active-bg)" : undefined,
       }}
       onClick={(e) => {
         e.stopPropagation();
         props.onFocusPane();
         if (!props.isActive) {
-          client.dispatch(
-            FocusTab({ paneId: props.paneId, tabId: props.tab.id }) as never,
-          );
+          client.dispatch(FocusTab({ paneId: props.paneId, tabId: props.tab.id }) as never);
         }
       }}
     >
@@ -374,9 +347,7 @@ function TabChip(props: {
         class="ml-1 rounded-(--radius-control) px-1 text-[0.7rem] text-fg-subtle opacity-0 hover:bg-surface-elevated hover:text-danger group-hover:opacity-100 transition"
         onClick={(e) => {
           e.stopPropagation();
-          client.dispatch(
-            CloseTab({ paneId: props.paneId, tabId: props.tab.id }) as never,
-          );
+          client.dispatch(CloseTab({ paneId: props.paneId, tabId: props.tab.id }) as never);
         }}
         aria-label="close tab"
       >
@@ -449,9 +420,7 @@ export function ShareMenu(props: { tab: WorkspaceTab }): JSX.Element {
   const worldVersion = useProviderTraitsVersion();
   const [open, setOpen] = createSignal(false);
   const [mode, setMode] = createSignal<"everyone" | "select">("everyone");
-  const [selected, setSelected] = createSignal<ReadonlySet<string>>(
-    new Set<string>(),
-  );
+  const [selected, setSelected] = createSignal<ReadonlySet<string>>(new Set<string>());
   const [forceFocus, setForceFocus] = createSignal(false);
   const [pos, setPos] = createSignal<{ top: number; left: number } | null>(null);
   let rootEl: HTMLDivElement | undefined;
@@ -596,17 +565,12 @@ export function ShareMenu(props: { tab: WorkspaceTab }): JSX.Element {
           >
             <Show when={summary() !== null}>
               <p class="mb-2 text-[0.65rem] uppercase tracking-[0.14em] text-fg-subtle">
-                includes:{" "}
-                <span class="normal-case tracking-normal text-fg">
-                  {summary()}
-                </span>
+                includes: <span class="normal-case tracking-normal text-fg">{summary()}</span>
               </p>
             </Show>
             <Show
               when={others().length > 0}
-              fallback={
-                <p class="text-fg-subtle">no other players are online</p>
-              }
+              fallback={<p class="text-fg-subtle">no other players are online</p>}
             >
               <div class="flex flex-col gap-2">
                 <label class="flex items-center gap-2 cursor-pointer">
@@ -765,9 +729,7 @@ function OverflowMenu(props: {
     if (tab.entityId === null) {
       return { kind: provider.label, entity: "pick…" };
     }
-    const found = provider
-      .list(props.ctx)
-      .find((e) => e.id === tab.entityId);
+    const found = provider.list(props.ctx).find((e) => e.id === tab.entityId);
     return {
       kind: provider.label,
       entity: found?.label ?? "missing",
@@ -791,10 +753,10 @@ function OverflowMenu(props: {
           setOpen((v) => !v);
         }}
       >
-        <span aria-hidden class="font-mono">…</span>
-        <span class="ml-1 text-[0.65rem] text-fg-subtle">
-          {props.tabs.length}
+        <span aria-hidden class="font-mono">
+          …
         </span>
+        <span class="ml-1 text-[0.65rem] text-fg-subtle">{props.tabs.length}</span>
       </button>
 
       <Show when={open() && pos()}>
@@ -887,8 +849,8 @@ function MissingProvider(props: { tab: WorkspaceTab }): JSX.Element {
       <p class="font-display text-base text-warning">missing provider</p>
       <p class="text-xs text-fg-subtle max-w-sm">
         This tab points at <code class="font-mono text-fg">{props.tab.pageKind}</code>, but no
-        plugin currently registers a provider for that kind. Install the plugin or
-        retarget the tab using the picker above.
+        plugin currently registers a provider for that kind. Install the plugin or retarget the tab
+        using the picker above.
       </p>
     </div>
   );

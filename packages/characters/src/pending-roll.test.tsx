@@ -30,11 +30,7 @@ import {
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
 
-import {
-  buildCharacterHarness,
-  mountWithClient,
-  type CharacterHarness,
-} from "./testing.js";
+import { buildCharacterHarness, mountWithClient, type CharacterHarness } from "./testing.js";
 import { Character } from "./shared/traits.js";
 import {
   CancelPendingRoll,
@@ -44,10 +40,7 @@ import {
   RemoveContribution,
 } from "./shared/commands.js";
 import { PendingRoll, type Contribution } from "./shared/pending.js";
-import {
-  PendingRollContributorsSlot,
-  type PendingRollContributor,
-} from "./shared/slot.js";
+import { PendingRollContributorsSlot, type PendingRollContributor } from "./shared/slot.js";
 import { PendingRollPanels } from "./client/PendingRollPanels.js";
 import { RollableLabel } from "./client/kit.js";
 
@@ -157,10 +150,7 @@ const fixturePlugin = definePlugin({
   rollables: [StatCheck, ModifierCheck],
 });
 
-function harness(opts?: {
-  asGm?: boolean;
-  ownerUserId?: string;
-}): CharacterHarness {
+function harness(opts?: { asGm?: boolean; ownerUserId?: string }): CharacterHarness {
   return buildCharacterHarness({
     plugins: [fixturePlugin],
     asGm: opts?.asGm,
@@ -527,9 +517,7 @@ describe("CommitPendingRoll", () => {
     ).ack;
     const pendingRollId = h.world.query([PendingRoll])[0]!.id;
     h.dispatched.length = 0;
-    await h.client.dispatch(
-      CommitPendingRoll({ pendingRollId }) as CommandInstance,
-    ).ack;
+    await h.client.dispatch(CommitPendingRoll({ pendingRollId }) as CommandInstance).ack;
     expect(h.world.query([PendingRoll])).toHaveLength(0);
     // The committing client is responsible for ALSO dispatching the
     // roll command separately. CommitPendingRoll itself only despawns.
@@ -594,9 +582,7 @@ describe("CancelPendingRoll", () => {
     ).ack;
     const pendingRollId = h.world.query([PendingRoll])[0]!.id;
     h.dispatched.length = 0;
-    await h.client.dispatch(
-      CancelPendingRoll({ pendingRollId }) as CommandInstance,
-    ).ack;
+    await h.client.dispatch(CancelPendingRoll({ pendingRollId }) as CommandInstance).ack;
     expect(h.world.query([PendingRoll])).toHaveLength(0);
     expect(h.dispatched.some((c) => c.type === RollDice.name)).toBe(false);
   });
@@ -611,18 +597,12 @@ describe("kit/RollableLabel + interactive rollable", () => {
   it("clicking an interactive rollable dispatches OpenPendingRoll instead of the roll", () => {
     const h = harness();
     mountWithClient(h, () => (
-      <RollableLabel
-        characterId={h.characterId}
-        rollable={StatCheck}
-        opts={{ stat: "might" }}
-      >
+      <RollableLabel characterId={h.characterId} rollable={StatCheck} opts={{ stat: "might" }}>
         Might
       </RollableLabel>
     ));
     fireEvent.click(screen.getByRole("button", { name: /might/i }));
-    expect(h.dispatched.some((c) => c.type === OpenPendingRoll.name)).toBe(
-      true,
-    );
+    expect(h.dispatched.some((c) => c.type === OpenPendingRoll.name)).toBe(true);
     expect(h.dispatched.some((c) => c.type === RollDice.name)).toBe(false);
   });
 });
@@ -736,9 +716,7 @@ describe("PendingRollPanel", () => {
     mountWithClient(h, () => PendingRollPanels());
     await screen.findByTestId("pending-roll-panel");
     expect(screen.getByTestId("pending-roll-modifiers")).toBeInTheDocument();
-    expect(
-      screen.getByTestId("pending-roll-modifier-remove-manual:test"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("pending-roll-modifier-remove-manual:test")).toBeInTheDocument();
   });
 
   it("clicking × dispatches RemoveContribution and removes the chip after the round-trip", async () => {
@@ -772,12 +750,8 @@ describe("PendingRollPanel", () => {
     h.dispatched.length = 0;
     mountWithClient(h, () => PendingRollPanels());
     await screen.findByTestId("pending-roll-panel");
-    fireEvent.click(
-      screen.getByTestId("pending-roll-modifier-remove-manual:remove-me"),
-    );
-    const removed = h.dispatched.find(
-      (c) => c.type === RemoveContribution.name,
-    );
+    fireEvent.click(screen.getByTestId("pending-roll-modifier-remove-manual:remove-me"));
+    const removed = h.dispatched.find((c) => c.type === RemoveContribution.name);
     expect(removed).toBeDefined();
     expect(removed!.payload).toEqual({
       pendingRollId,
@@ -835,14 +809,10 @@ describe("PendingRollPanel", () => {
     mountWithClient(h, () => PendingRollPanels());
     await screen.findByTestId("pending-roll-panel");
     // Sanity: the manual one HAS ×.
-    expect(
-      screen.queryByTestId("pending-roll-modifier-remove-manual:x"),
-    ).toBeInTheDocument();
+    expect(screen.queryByTestId("pending-roll-modifier-remove-manual:x")).toBeInTheDocument();
     // An auto-mod id isn't in contributions → would have no × even
     // if it were in spec.modifiers.
-    expect(
-      screen.queryByTestId("pending-roll-modifier-remove-auto:condition:fresh"),
-    ).toBeNull();
+    expect(screen.queryByTestId("pending-roll-modifier-remove-auto:condition:fresh")).toBeNull();
   });
 
   it("does NOT render a built-in 'Add modifier' input — system contributors handle modifiers", async () => {
@@ -875,9 +845,7 @@ describe("PendingRollPanel", () => {
     await screen.findByTestId("pending-roll-panel");
     fireEvent.click(screen.getByRole("button", { name: "roll" }));
     expect(h.dispatched.some((c) => c.type === RollDice.name)).toBe(true);
-    expect(h.dispatched.some((c) => c.type === CommitPendingRoll.name)).toBe(
-      true,
-    );
+    expect(h.dispatched.some((c) => c.type === CommitPendingRoll.name)).toBe(true);
   });
 
   it("clicking 'cancel' dispatches CancelPendingRoll without rolling", async () => {
@@ -893,9 +861,7 @@ describe("PendingRollPanel", () => {
     mountWithClient(h, () => PendingRollPanels());
     await screen.findByTestId("pending-roll-panel");
     fireEvent.click(screen.getByRole("button", { name: "cancel" }));
-    expect(h.dispatched.some((c) => c.type === CancelPendingRoll.name)).toBe(
-      true,
-    );
+    expect(h.dispatched.some((c) => c.type === CancelPendingRoll.name)).toBe(true);
     expect(h.dispatched.some((c) => c.type === RollDice.name)).toBe(false);
   });
 
@@ -919,13 +885,10 @@ describe("PendingRollPanel", () => {
     // Replicate the pending roll into the other client's world so the
     // panel sees something to render. (In production the snapshot/event
     // sync handles this; in tests we mirror manually.)
-    const value = h.world.get(
-      h.world.query([PendingRoll])[0]!.id,
-      [PendingRoll],
-    ) as { PendingRoll: Parameters<typeof PendingRoll>[0] };
-    otherClient.world.spawn([
-      PendingRoll(value.PendingRoll as never),
-    ]);
+    const value = h.world.get(h.world.query([PendingRoll])[0]!.id, [PendingRoll]) as {
+      PendingRoll: Parameters<typeof PendingRoll>[0];
+    };
+    otherClient.world.spawn([PendingRoll(value.PendingRoll as never)]);
     // Also spawn an Identity entity matching the observer so useMe
     // resolves on the other client side.
     otherClient.world.spawn([
@@ -994,13 +957,11 @@ describe("PendingRollContributorsSlot", () => {
     mountWithClient(h, () => PendingRollPanels());
     await screen.findByTestId("pending-roll-panel");
     fireEvent.click(screen.getByTestId("custom-contrib"));
-    const contribute = h.dispatched.find(
-      (c) => c.type === ContributeToPendingRoll.name,
-    );
+    const contribute = h.dispatched.find((c) => c.type === ContributeToPendingRoll.name);
     expect(contribute).toBeDefined();
     expect(
-      (contribute!.payload as { contribution: { payload: { value: number } } })
-        .contribution.payload.value,
+      (contribute!.payload as { contribution: { payload: { value: number } } }).contribution.payload
+        .value,
     ).toBe(7);
   });
 
@@ -1019,10 +980,7 @@ describe("PendingRollContributorsSlot", () => {
       name: "@vtt/test-pending-prefix",
       version: "0.0.0",
       fills: {
-        [PendingRollContributorsSlot.name]: [
-          otherSystemContributor,
-          matchingContributor,
-        ],
+        [PendingRollContributorsSlot.name]: [otherSystemContributor, matchingContributor],
       },
     });
     const h = buildCharacterHarness({

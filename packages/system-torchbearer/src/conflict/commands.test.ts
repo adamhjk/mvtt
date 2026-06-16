@@ -50,10 +50,7 @@ import { ALL_CONFLICT_SYSTEMS } from "./server/index.js";
 const conflictTestPlugin = definePlugin({
   name: "@vtt/conflict-test",
   version: "0.0.0",
-  dependsOn: [
-    "@vtt/substrate@^0",
-    "@vtt/permissions@^0",
-  ],
+  dependsOn: ["@vtt/substrate@^0", "@vtt/permissions@^0"],
   traits: [...ALL_CONFLICT_TRAITS],
   events: [...ALL_CONFLICT_EVENTS],
   commands: [...ALL_CONFLICT_COMMANDS],
@@ -118,15 +115,9 @@ function setup(): H {
  * scripting tests look up the participant id without threading it
  * through the helper.
  */
-function findParticipantId(
-  h: H,
-  characterId: EntityId,
-  side?: "party" | "enemy",
-): EntityId {
+function findParticipantId(h: H, characterId: EntityId, side?: "party" | "enemy"): EntityId {
   for (const row of h.world.query([TbConflictParticipant])) {
-    const p = row.values.TbConflictParticipant as ReturnType<
-      typeof TbConflictParticipant
-    >["value"];
+    const p = row.values.TbConflictParticipant as ReturnType<typeof TbConflictParticipant>["value"];
     if (p.characterId === characterId && (!side || p.side === side)) {
       return row.id;
     }
@@ -135,9 +126,7 @@ function findParticipantId(
 }
 
 async function declareConflict(h: H): Promise<EntityId> {
-  const before = new Set(
-    h.world.query([TbConflict]).map((r) => r.id as string),
-  );
+  const before = new Set(h.world.query([TbConflict]).map((r) => r.id as string));
   const res = await h.pipeline.dispatch({
     id: "c1",
     issuedBy: "client-gm",
@@ -146,12 +135,8 @@ async function declareConflict(h: H): Promise<EntityId> {
       type: "kill",
       locationLabel: "Test crypt",
       captainCharacterId: h.partyChar,
-      partyParticipants: [
-        { characterId: h.partyChar },
-      ],
-      enemyParticipants: [
-        { characterId: h.enemyChar },
-      ],
+      partyParticipants: [{ characterId: h.partyChar }],
+      enemyParticipants: [{ characterId: h.enemyChar }],
     }),
     session: GM,
   });
@@ -215,7 +200,9 @@ describe("DeclareConflict", () => {
     let partyP = 0;
     let enemyP = 0;
     for (const row of h.world.query([TbConflictParticipant])) {
-      const p = row.values.TbConflictParticipant as ReturnType<typeof TbConflictParticipant>["value"];
+      const p = row.values.TbConflictParticipant as ReturnType<
+        typeof TbConflictParticipant
+      >["value"];
       if (p.conflictId === conflictId) {
         if (p.side === "party") partyP += 1;
         else enemyP += 1;
@@ -249,11 +236,9 @@ describe("RollDisposition + AssignHp", () => {
       session: PLAYER,
     });
     expect(res.result.ok).toBe(true);
-    const conf = (
-      h.world.get(conflictId, [TbConflict]) as
-        | { TbConflict: ReturnType<typeof TbConflict>["value"] }
-        | undefined
-    )!.TbConflict;
+    const conf = (h.world.get(conflictId, [TbConflict]) as
+      | { TbConflict: ReturnType<typeof TbConflict>["value"] }
+      | undefined)!.TbConflict;
     // 3 successes + 5 base = 8.
     expect(conf.dispoParty.max).toBe(8);
     expect(conf.dispoParty.current).toBe(8);
@@ -425,9 +410,7 @@ describe("RollDisposition + AssignHp", () => {
       session: PLAYER,
     });
     expect(res.result.ok).toBe(true);
-    const updated = (
-      h.world.get(partyP, [TbConflictParticipant]) as any
-    ).TbConflictParticipant;
+    const updated = (h.world.get(partyP, [TbConflictParticipant]) as any).TbConflictParticipant;
     expect(updated.hp).toBe(5);
     expect(updated.hpMax).toBe(5);
   });
@@ -562,9 +545,7 @@ describe("multi-spawn participants (4 goblins case)", () => {
         partyParticipants: [{ characterId: h.partyChar }],
         // 4 goblins, plus a singleton enemyChar to verify both shapes
         // coexist.
-        enemyParticipants: [
-          { characterId: h.enemyChar, count: 4, baseLabel: "Goblin" },
-        ],
+        enemyParticipants: [{ characterId: h.enemyChar, count: 4, baseLabel: "Goblin" }],
       }),
       session: GM,
     });
@@ -572,19 +553,11 @@ describe("multi-spawn participants (4 goblins case)", () => {
     const enemies = h.world
       .query([TbConflictParticipant])
       .map(
-        (r) =>
-          r.values.TbConflictParticipant as ReturnType<
-            typeof TbConflictParticipant
-          >["value"],
+        (r) => r.values.TbConflictParticipant as ReturnType<typeof TbConflictParticipant>["value"],
       )
       .filter((p) => p.side === "enemy");
     expect(enemies).toHaveLength(4);
-    expect(enemies.map((p) => p.label)).toEqual([
-      "Goblin 1",
-      "Goblin 2",
-      "Goblin 3",
-      "Goblin 4",
-    ]);
+    expect(enemies.map((p) => p.label)).toEqual(["Goblin 1", "Goblin 2", "Goblin 3", "Goblin 4"]);
     // All four reference the same character id.
     for (const p of enemies) expect(p.characterId).toBe(h.enemyChar);
   });
@@ -595,10 +568,7 @@ describe("multi-spawn participants (4 goblins case)", () => {
     const enemy = h.world
       .query([TbConflictParticipant])
       .map(
-        (r) =>
-          r.values.TbConflictParticipant as ReturnType<
-            typeof TbConflictParticipant
-          >["value"],
+        (r) => r.values.TbConflictParticipant as ReturnType<typeof TbConflictParticipant>["value"],
       )
       .find((p) => p.side === "enemy");
     expect(enemy).toBeDefined();
@@ -608,9 +578,7 @@ describe("multi-spawn participants (4 goblins case)", () => {
   it("AddConflictParticipants drops in extra goblins after declaration with auto-numbered labels", async () => {
     const h = setup();
     const conflictId = await declareConflict(h);
-    const { AddConflictParticipants } = await import(
-      "./shared/commands.js"
-    );
+    const { AddConflictParticipants } = await import("./shared/commands.js");
     const res = await h.pipeline.dispatch({
       id: "add-goblins",
       issuedBy: "client-gm",
@@ -628,10 +596,7 @@ describe("multi-spawn participants (4 goblins case)", () => {
     const enemies = h.world
       .query([TbConflictParticipant])
       .map(
-        (r) =>
-          r.values.TbConflictParticipant as ReturnType<
-            typeof TbConflictParticipant
-          >["value"],
+        (r) => r.values.TbConflictParticipant as ReturnType<typeof TbConflictParticipant>["value"],
       )
       .filter((p) => p.side === "enemy" && p.conflictId === conflictId);
     // The original singleton + 3 new auto-labelled rows.
@@ -645,9 +610,7 @@ describe("multi-spawn participants (4 goblins case)", () => {
   it("AddConflictParticipants with count===1 spawns an unlabelled row", async () => {
     const h = setup();
     const conflictId = await declareConflict(h);
-    const { AddConflictParticipants } = await import(
-      "./shared/commands.js"
-    );
+    const { AddConflictParticipants } = await import("./shared/commands.js");
     const res = await h.pipeline.dispatch({
       id: "add-one",
       issuedBy: "client-gm",
@@ -665,9 +628,7 @@ describe("multi-spawn participants (4 goblins case)", () => {
       .query([TbConflictParticipant])
       .map((r) => ({
         id: r.id,
-        ...(r.values.TbConflictParticipant as ReturnType<
-          typeof TbConflictParticipant
-        >["value"]),
+        ...(r.values.TbConflictParticipant as ReturnType<typeof TbConflictParticipant>["value"]),
       }))
       .filter((p) => p.side === "party" && p.conflictId === conflictId);
     expect(parties.length).toBeGreaterThanOrEqual(2);
@@ -678,9 +639,7 @@ describe("multi-spawn participants (4 goblins case)", () => {
 
   it("two participants of the same character can hold different weapons", async () => {
     const h = setup();
-    const before = new Set(
-      h.world.query([TbConflict]).map((r) => r.id as string),
-    );
+    const before = new Set(h.world.query([TbConflict]).map((r) => r.id as string));
     const res = await h.pipeline.dispatch({
       id: "c-multi-weap",
       issuedBy: "client-gm",
@@ -690,9 +649,7 @@ describe("multi-spawn participants (4 goblins case)", () => {
         locationLabel: "Test",
         captainCharacterId: h.partyChar,
         partyParticipants: [{ characterId: h.partyChar }],
-        enemyParticipants: [
-          { characterId: h.enemyChar, count: 2, baseLabel: "Goblin" },
-        ],
+        enemyParticipants: [{ characterId: h.enemyChar, count: 2, baseLabel: "Goblin" }],
       }),
       session: GM,
     });
@@ -706,9 +663,7 @@ describe("multi-spawn participants (4 goblins case)", () => {
       .query([TbConflictParticipant])
       .map((r) => ({
         id: r.id,
-        ...(r.values.TbConflictParticipant as ReturnType<
-          typeof TbConflictParticipant
-        >["value"]),
+        ...(r.values.TbConflictParticipant as ReturnType<typeof TbConflictParticipant>["value"]),
       }))
       .filter((p) => p.side === "enemy" && p.conflictId === conflictId);
     expect(goblins).toHaveLength(2);
@@ -743,12 +698,9 @@ describe("multi-spawn participants (4 goblins case)", () => {
     expect(r2.result.ok).toBe(true);
 
     const { TbConflictWeapon } = await import("./shared/traits.js");
-    const bindings = h.world.query([TbConflictWeapon]).map(
-      (r) =>
-        r.values.TbConflictWeapon as ReturnType<
-          typeof TbConflictWeapon
-        >["value"],
-    );
+    const bindings = h.world
+      .query([TbConflictWeapon])
+      .map((r) => r.values.TbConflictWeapon as ReturnType<typeof TbConflictWeapon>["value"]);
     const g1 = bindings.find((b) => b.participantEntityId === goblins[0]!.id);
     const g2 = bindings.find((b) => b.participantEntityId === goblins[1]!.id);
     expect(g1?.weaponItemId).toBe(weaponA);
@@ -757,21 +709,16 @@ describe("multi-spawn participants (4 goblins case)", () => {
 });
 
 describe("ChooseWeapon", () => {
-
   it("accepts in weapons phase", async () => {
     const h = setup();
     const conflictId = await declareConflict(h);
     // ChooseWeapon is now keyed by participantEntityId so two
     // copies of the same character can hold different weapons —
     // pick the party participant's row from the world.
-    const partyParticipant = h.world
-      .query([TbConflictParticipant])
-      .find((r) => {
-        const p = r.values.TbConflictParticipant as ReturnType<
-          typeof TbConflictParticipant
-        >["value"];
-        return p.conflictId === conflictId && p.side === "party";
-      });
+    const partyParticipant = h.world.query([TbConflictParticipant]).find((r) => {
+      const p = r.values.TbConflictParticipant as ReturnType<typeof TbConflictParticipant>["value"];
+      return p.conflictId === conflictId && p.side === "party";
+    });
     expect(partyParticipant).toBeDefined();
     const res = await h.pipeline.dispatch({
       id: "w",
@@ -787,4 +734,3 @@ describe("ChooseWeapon", () => {
     expect(res.result.ok).toBe(true);
   });
 });
-

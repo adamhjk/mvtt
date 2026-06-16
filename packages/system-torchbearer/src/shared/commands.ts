@@ -15,13 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  z,
-  type EventInstance,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, z, type EventInstance } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
 import { requireWrite } from "@vtt/permissions/shared";
 import {
@@ -64,10 +58,7 @@ import {
   isRatedAbilityId,
   readRatedAbility,
 } from "./ability-advancement.js";
-import {
-  TB_MODIFIER_CONTRIB_KIND,
-  versusFromContributions,
-} from "./roll-modifiers.js";
+import { TB_MODIFIER_CONTRIB_KIND, versusFromContributions } from "./roll-modifiers.js";
 
 /**
  * Maximum skill rating in Torchbearer. The standard sheet's bubble row
@@ -118,8 +109,7 @@ function readSkillEntry(
 function isTrackFull(entry: SkillEntryShape): boolean {
   if (entry.rating >= SKILL_MAX_RATING) return false;
   const need = computeAdvancement(entry.rating);
-  return entry.advancement.pass >= need.passNeeded
-    && entry.advancement.fail >= need.failNeeded;
+  return entry.advancement.pass >= need.passNeeded && entry.advancement.fail >= need.failNeeded;
 }
 
 /**
@@ -168,9 +158,7 @@ export const OpenSkillImprovement = defineCommand({
       return v.characterId === ctx.cmd.characterId && v.skillId === ctx.cmd.skillId;
     });
     if (open) {
-      return fail(
-        `opportunity already open for ${ctx.cmd.characterId}/${ctx.cmd.skillId}`,
-      );
+      return fail(`opportunity already open for ${ctx.cmd.characterId}/${ctx.cmd.skillId}`);
     }
     return requireWrite(ctx, ctx.cmd.characterId);
   },
@@ -222,14 +210,10 @@ export const ImproveSkill = defineCommand({
     }
     const need = computeAdvancement(entry.rating);
     if (entry.advancement.pass < need.passNeeded) {
-      return fail(
-        `pass track not full: ${entry.advancement.pass} of ${need.passNeeded}`,
-      );
+      return fail(`pass track not full: ${entry.advancement.pass} of ${need.passNeeded}`);
     }
     if (entry.advancement.fail < need.failNeeded) {
-      return fail(
-        `fail track not full: ${entry.advancement.fail} of ${need.failNeeded}`,
-      );
+      return fail(`fail track not full: ${entry.advancement.fail} of ${need.failNeeded}`);
     }
     return requireWrite(ctx, ctx.cmd.characterId);
   },
@@ -273,10 +257,7 @@ export const OpenSkillLearning = defineCommand({
     const sk = ctx.world.get(ctx.cmd.characterId, [Skills]) as
       | {
           Skills: {
-            entries: Record<
-              string,
-              { rating: number; learningTests: number }
-            >;
+            entries: Record<string, { rating: number; learningTests: number }>;
           };
         }
       | undefined;
@@ -356,10 +337,7 @@ export const LearnSkill = defineCommand({
     const sk = ctx.world.get(ctx.cmd.characterId, [Skills]) as
       | {
           Skills: {
-            entries: Record<
-              string,
-              { rating: number; learningTests: number }
-            >;
+            entries: Record<string, { rating: number; learningTests: number }>;
           };
         }
       | undefined;
@@ -483,9 +461,7 @@ export const LogAdvancement = defineCommand({
     const spec = parsed.data.spec;
     const target = targetFromSpec(spec);
     if (!target) {
-      return fail(
-        `roll ${ctx.cmd.rollId} (kind=${spec.kind}) is not advance-able`,
-      );
+      return fail(`roll ${ctx.cmd.rollId} (kind=${spec.kind}) is not advance-able`);
     }
     const already = ctx.world.get(ctx.cmd.rollId, [AdvancementLoggedTrait]);
     if (already) {
@@ -516,17 +492,13 @@ export const LogAdvancement = defineCommand({
         | undefined;
       if (!got) return fail(`character ${characterId} has no skills`);
       if (!got.Skills.entries[target.id]) {
-        return fail(
-          `character ${characterId} has no entry for skill ${target.id}`,
-        );
+        return fail(`character ${characterId} has no entry for skill ${target.id}`);
       }
     }
     return requireWrite(ctx, characterId as EntityId);
   },
   apply: ({ cmd, world }) => {
-    const formula = world.get(cmd.rollId, [Formula]) as
-      | { Formula: { meta?: unknown } }
-      | undefined;
+    const formula = world.get(cmd.rollId, [Formula]) as { Formula: { meta?: unknown } } | undefined;
     const parsed = TbRollMetaSchema.safeParse(formula?.Formula.meta);
     // validate already confirmed both, but TS doesn't know that.
     if (!parsed.success) return [];
@@ -561,15 +533,13 @@ export const LogAdvancement = defineCommand({
         const pass = entry.advancement.pass + (cmd.outcome === "pass" ? 1 : 0);
         const fail = entry.advancement.fail + (cmd.outcome === "fail" ? 1 : 0);
         const full = pass >= need.passNeeded && fail >= need.failNeeded;
-        const exists = world
-          .query([SkillImprovementOpportunity])
-          .some((row) => {
-            const v = row.values.SkillImprovementOpportunity as {
-              characterId: string;
-              skillId: string;
-            };
-            return v.characterId === characterId && v.skillId === target.id;
-          });
+        const exists = world.query([SkillImprovementOpportunity]).some((row) => {
+          const v = row.values.SkillImprovementOpportunity as {
+            characterId: string;
+            skillId: string;
+          };
+          return v.characterId === characterId && v.skillId === target.id;
+        });
         if (full && !exists) {
           events.push(
             SkillImprovementOpened({
@@ -605,13 +575,7 @@ export const LogAdvancement = defineCommand({
         };
         return v.characterId === characterId && v.skillId === target.id;
       });
-      if (
-        entry &&
-        entry.rating === 0 &&
-        threshold > 0 &&
-        learned >= threshold &&
-        !exists
-      ) {
+      if (entry && entry.rating === 0 && threshold > 0 && learned >= threshold && !exists) {
         events.push(
           SkillLearningOpened({
             characterId,
@@ -706,9 +670,7 @@ export const UseTraitOnRoll = defineCommand({
       | { PendingRoll: { contributions: ReadonlyArray<Contribution> } }
       | undefined;
     if (!pr) {
-      return fail(
-        `entity ${ctx.cmd.pendingRollId} is not a pending roll`,
-      );
+      return fail(`entity ${ctx.cmd.pendingRollId} is not a pending roll`);
     }
 
     if (!ctx.world.has(ctx.cmd.characterId)) {
@@ -732,9 +694,7 @@ export const UseTraitOnRoll = defineCommand({
       | undefined;
     const entry = ct?.CharacterTraits.entries[ctx.cmd.traitIndex];
     if (!entry) {
-      return fail(
-        `character ${ctx.cmd.characterId} has no trait at index ${ctx.cmd.traitIndex}`,
-      );
+      return fail(`character ${ctx.cmd.characterId} has no trait at index ${ctx.cmd.traitIndex}`);
     }
 
     if (ctx.cmd.direction === "for") {
@@ -785,11 +745,7 @@ export const UseTraitOnRoll = defineCommand({
           `+2D-to-opponent requires a versus pairing — pair this roll with an opponent first (DH p.80)`,
         );
       }
-      const opp = findOpponentPendingRoll(
-        ctx.world,
-        ctx.cmd.pendingRollId,
-        ourVersusId,
-      );
+      const opp = findOpponentPendingRoll(ctx.world, ctx.cmd.pendingRollId, ourVersusId);
       if (!opp) {
         return fail(
           `versus opponent for ${ctx.cmd.pendingRollId} is not open — they may have committed or cancelled`,
@@ -799,9 +755,7 @@ export const UseTraitOnRoll = defineCommand({
         if (c.kind !== TB_MODIFIER_CONTRIB_KIND) continue;
         const mod = c.payload as { source?: string } | undefined;
         if (mod?.source === "trait") {
-          return fail(
-            `opponent's pending roll already has a trait modifier (DH p.81)`,
-          );
+          return fail(`opponent's pending roll already has a trait modifier (DH p.81)`);
         }
       }
     }
@@ -838,10 +792,7 @@ export const UseTraitOnRoll = defineCommand({
       const ourPr = ctx.world.get(cmd.pendingRollId, [PendingRoll]) as
         | { PendingRoll: { contributions: ReadonlyArray<Contribution>; opts: unknown } }
         | undefined;
-      const ourVersusId = resolveVersusId(
-        ourPr?.PendingRoll.contributions ?? [],
-        ourPr,
-      );
+      const ourVersusId = resolveVersusId(ourPr?.PendingRoll.contributions ?? [], ourPr);
       const opp = ourVersusId
         ? findOpponentPendingRoll(ctx.world, cmd.pendingRollId, ourVersusId)
         : null;
@@ -850,9 +801,7 @@ export const UseTraitOnRoll = defineCommand({
       const oppMod = buildTraitOppModifier(entry);
       events.push(
         PendingRollContributed({
-          pendingRollId: opp.id as Parameters<
-            typeof PendingRollContributed
-          >[0]["pendingRollId"],
+          pendingRollId: opp.id as Parameters<typeof PendingRollContributed>[0]["pendingRollId"],
           contribution: {
             kind: TB_MODIFIER_CONTRIB_KIND,
             label: `Trait against (opp): ${entry.name}`,
@@ -890,9 +839,7 @@ export const UseTraitOnRoll = defineCommand({
           contribution: {
             kind: TB_MODIFIER_CONTRIB_KIND,
             label:
-              cmd.direction === "for"
-                ? `Trait: ${entry.name}`
-                : `Trait against: ${entry.name}`,
+              cmd.direction === "for" ? `Trait: ${entry.name}` : `Trait against: ${entry.name}`,
             fromUserId,
             fromCharacterId: cmd.characterId,
             payload: modifier,
@@ -917,8 +864,7 @@ function resolveVersusId(
   const fromContrib = versusFromContributions(contributions);
   if (fromContrib === null) return null;
   if (typeof fromContrib === "string") return fromContrib;
-  const optsVersus = (pr?.PendingRoll.opts as { versusTestId?: unknown })
-    ?.versusTestId;
+  const optsVersus = (pr?.PendingRoll.opts as { versusTestId?: unknown })?.versusTestId;
   return typeof optsVersus === "string" ? optsVersus : null;
 }
 
@@ -1017,9 +963,7 @@ function buildTraitModifier(
  * the opponent didn't use a trait, so their chat card has no log
  * button for this row.
  */
-function buildTraitOppModifier(
-  entry: { name: string; level: number },
-): TbRollModifier {
+function buildTraitOppModifier(entry: { name: string; level: number }): TbRollModifier {
   return {
     id: `trait:opp:${entry.name}:${Date.now().toString(36)}`,
     kind: "dice",
@@ -1089,9 +1033,7 @@ export const LogTraitUsage = defineCommand({
     }
     const usage = traitUsageFromSpec(parsed.data.spec);
     if (!usage) {
-      return fail(
-        `roll ${ctx.cmd.rollId} has no trait usage to log`,
-      );
+      return fail(`roll ${ctx.cmd.rollId} has no trait usage to log`);
     }
     if (ctx.world.get(ctx.cmd.rollId, [TraitUsageLoggedTrait])) {
       return fail(`trait usage already logged for roll ${ctx.cmd.rollId}`);
@@ -1123,16 +1065,12 @@ export const LogTraitUsage = defineCommand({
       | undefined;
     const entry = ct?.CharacterTraits.entries[usage.traitIndex];
     if (!entry) {
-      return fail(
-        `character ${characterId} no longer has a trait at index ${usage.traitIndex}`,
-      );
+      return fail(`character ${characterId} no longer has a trait at index ${usage.traitIndex}`);
     }
     return requireWrite(ctx, characterId as EntityId);
   },
   apply: ({ cmd, world }) => {
-    const formula = world.get(cmd.rollId, [Formula]) as
-      | { Formula: { meta?: unknown } }
-      | undefined;
+    const formula = world.get(cmd.rollId, [Formula]) as { Formula: { meta?: unknown } } | undefined;
     const parsed = TbRollMetaSchema.safeParse(formula?.Formula.meta);
     if (!parsed.success) return [];
     const usage = traitUsageFromSpec(parsed.data.spec);
@@ -1177,9 +1115,7 @@ export function traitUsageFromSpec(spec: TbRollSpec): TraitUsageInfo | null {
   return null;
 }
 
-function parseTraitProvidedBy(
-  providedBy: string | undefined,
-): TraitUsageInfo | null {
+function parseTraitProvidedBy(providedBy: string | undefined): TraitUsageInfo | null {
   if (!providedBy) return null;
   // `trait:<index>:for`
   // `trait:<index>:against:<severity>`
@@ -1258,10 +1194,7 @@ export const TogglePinnedRoll = defineCommand({
     if (!ctx.world.get(ctx.cmd.characterId, [Character])) {
       return fail(`entity ${ctx.cmd.characterId} is not a character`);
     }
-    if (
-      ctx.cmd.entry.kind === "skill"
-      && !isKnownSkillId(ctx.cmd.entry.skillId)
-    ) {
+    if (ctx.cmd.entry.kind === "skill" && !isKnownSkillId(ctx.cmd.entry.skillId)) {
       return fail(`unknown skill: ${ctx.cmd.entry.skillId}`);
     }
     return requireWrite(ctx, ctx.cmd.characterId);

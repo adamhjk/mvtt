@@ -19,12 +19,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { resolve } from "node:path";
-import type {
-  EntityId,
-  EventInstance,
-  WorldId,
-  WorldRuntime,
-} from "@vtt/substrate";
+import type { EntityId, EventInstance, WorldId, WorldRuntime } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
 import {
   MarkRulesIndexingCompleted,
@@ -73,9 +68,7 @@ export class RulesExtractRunner {
    * calls the unsubscribe handle when it evicts the runtime.
    */
   attachToWorldRuntime(runtime: WorldRuntime): () => void {
-    console.log(
-      `[rules-corpus] runner attached to world ${runtime.worldId}`,
-    );
+    console.log(`[rules-corpus] runner attached to world ${runtime.worldId}`);
     const off = runtime.bus.onAny((ev: EventInstance) => {
       if (ev.type !== RulesIndexingStarted.name) return;
       const payload = ev.payload as {
@@ -94,10 +87,7 @@ export class RulesExtractRunner {
       void this.run(runtime, payload).catch((err: unknown) => {
         // Last-resort: failure path's failure path. Log and try to
         // mark the corpus failed so the GM sees the error in the UI.
-        console.error(
-          `[rules-corpus] runner crashed for corpus ${payload.corpusId}:`,
-          err,
-        );
+        console.error(`[rules-corpus] runner crashed for corpus ${payload.corpusId}:`, err);
         void dispatchMarkFailed(
           runtime,
           payload.corpusId,
@@ -125,16 +115,9 @@ export class RulesExtractRunner {
     console.log(
       `[rules-corpus] extraction started for corpus ${corpusId} (asset ${assetId}, world ${worldId}, issuedBy ${args.issuedBy.userId})`,
     );
-    const assetPath = resolve(
-      this.deps.pluginDataDir,
-      worldId,
-      "assets",
-      assetId,
-    );
+    const assetPath = resolve(this.deps.pluginDataDir, worldId, "assets", assetId);
     if (!existsSync(assetPath)) {
-      console.error(
-        `[rules-corpus] asset bytes missing for corpus ${corpusId} at ${assetPath}`,
-      );
+      console.error(`[rules-corpus] asset bytes missing for corpus ${corpusId} at ${assetPath}`);
       await dispatchMarkFailed(
         runtime,
         corpusId,
@@ -143,13 +126,7 @@ export class RulesExtractRunner {
       );
       return;
     }
-    const outDir = resolve(
-      this.deps.pluginDataDir,
-      worldId,
-      "@vtt",
-      "rules-corpus",
-      assetId,
-    );
+    const outDir = resolve(this.deps.pluginDataDir, worldId, "@vtt", "rules-corpus", assetId);
     mkdirSync(outDir, { recursive: true });
 
     // Resolve a profile, if any, from the world's gameSystemPlugin.
@@ -268,9 +245,7 @@ export class RulesExtractRunner {
       | { RulesCorpus: { status: string } }
       | undefined;
     if (got && got.RulesCorpus.status === "ready") {
-      console.log(
-        `[rules-corpus] corpus ${corpusId} already ready; skipping completion dispatch`,
-      );
+      console.log(`[rules-corpus] corpus ${corpusId} already ready; skipping completion dispatch`);
       return;
     }
 
@@ -305,9 +280,7 @@ export class RulesExtractRunner {
         session,
       );
     } else {
-      console.log(
-        `[rules-corpus] corpus ${corpusId} marked ready (worldId=${worldId})`,
-      );
+      console.log(`[rules-corpus] corpus ${corpusId} marked ready (worldId=${worldId})`);
     }
   }
 
@@ -329,11 +302,7 @@ export class RulesExtractRunner {
  * completion / failure dispatches so they're auditable and don't need a
  * synthetic system actor that drifts away from the auth-session schema.
  */
-function issuerSession(issuedBy: {
-  userId: string;
-  email: string;
-  name: string;
-}): AuthSession {
+function issuerSession(issuedBy: { userId: string; email: string; name: string }): AuthSession {
   return {
     userId: issuedBy.userId,
     email: issuedBy.email,

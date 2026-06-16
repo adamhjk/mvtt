@@ -65,28 +65,70 @@ function WhoYouAreTab(props: { characterId: string }): JSX.Element {
         <ClassStockRow characterId={props.characterId} />
         <kit.SheetGroup layout="grid" cols={2}>
           <kit.FieldRow label="Age">
-            <kit.NumberField characterId={props.characterId} trait={Identity} path={["age"]} min={0} max={999} />
+            <kit.NumberField
+              characterId={props.characterId}
+              trait={Identity}
+              path={["age"]}
+              min={0}
+              max={999}
+            />
           </kit.FieldRow>
           <kit.FieldRow label="Level">
-            <kit.NumberField characterId={props.characterId} trait={Identity} path={["level"]} min={1} max={10} />
+            <kit.NumberField
+              characterId={props.characterId}
+              trait={Identity}
+              path={["level"]}
+              min={1}
+              max={10}
+            />
           </kit.FieldRow>
           <kit.FieldRow label="Home">
-            <kit.TextField characterId={props.characterId} trait={Identity} path={["home"]} placeholder="Hometown" />
+            <kit.TextField
+              characterId={props.characterId}
+              trait={Identity}
+              path={["home"]}
+              placeholder="Hometown"
+            />
           </kit.FieldRow>
           <kit.FieldRow label="Raiment">
-            <kit.TextField characterId={props.characterId} trait={Identity} path={["raiment"]} placeholder="What you wear that marks you" />
+            <kit.TextField
+              characterId={props.characterId}
+              trait={Identity}
+              path={["raiment"]}
+              placeholder="What you wear that marks you"
+            />
           </kit.FieldRow>
           <kit.FieldRow label="Parents">
-            <kit.TextField characterId={props.characterId} trait={Identity} path={["parents"]} placeholder="Family of origin" />
+            <kit.TextField
+              characterId={props.characterId}
+              trait={Identity}
+              path={["parents"]}
+              placeholder="Family of origin"
+            />
           </kit.FieldRow>
           <kit.FieldRow label="Mentor">
-            <kit.TextField characterId={props.characterId} trait={Identity} path={["mentor"]} placeholder="A 7th-level character who trains you" />
+            <kit.TextField
+              characterId={props.characterId}
+              trait={Identity}
+              path={["mentor"]}
+              placeholder="A 7th-level character who trains you"
+            />
           </kit.FieldRow>
           <kit.FieldRow label="Friend">
-            <kit.TextField characterId={props.characterId} trait={Identity} path={["friend"]} placeholder="A friend you can rely on" />
+            <kit.TextField
+              characterId={props.characterId}
+              trait={Identity}
+              path={["friend"]}
+              placeholder="A friend you can rely on"
+            />
           </kit.FieldRow>
           <kit.FieldRow label="Enemy">
-            <kit.TextField characterId={props.characterId} trait={Identity} path={["enemy"]} placeholder="A rival or antagonist" />
+            <kit.TextField
+              characterId={props.characterId}
+              trait={Identity}
+              path={["enemy"]}
+              placeholder="A rival or antagonist"
+            />
           </kit.FieldRow>
         </kit.SheetGroup>
       </kit.SheetSection>
@@ -105,9 +147,30 @@ function WhoYouAreTab(props: { characterId: string }): JSX.Element {
           trait={AlliesEnemies}
           path={["entries"]}
           columns={[
-            { key: "name", type: "text", label: "Name", width: "minmax(8rem, 1.4fr)", placeholder: "who they are", maxLength: 80 },
-            { key: "location", type: "text", label: "Location", width: "minmax(8rem, 1fr)", placeholder: "where to find them", maxLength: 80 },
-            { key: "status", type: "text", label: "Status", width: "minmax(8rem, 1fr)", placeholder: "ally · enemy · debt …", maxLength: 80 },
+            {
+              key: "name",
+              type: "text",
+              label: "Name",
+              width: "minmax(8rem, 1.4fr)",
+              placeholder: "who they are",
+              maxLength: 80,
+            },
+            {
+              key: "location",
+              type: "text",
+              label: "Location",
+              width: "minmax(8rem, 1fr)",
+              placeholder: "where to find them",
+              maxLength: 80,
+            },
+            {
+              key: "status",
+              type: "text",
+              label: "Status",
+              width: "minmax(8rem, 1fr)",
+              placeholder: "ally · enemy · debt …",
+              maxLength: 80,
+            },
           ]}
           seedEntry={(name) => ({ name, location: "", status: "" })}
           addPlaceholder="add an ally or enemy…"
@@ -184,20 +247,14 @@ function ClassStockRow(props: { characterId: string }): JSX.Element {
           class="vk-input"
           data-testid="stock-select"
           disabled={!canEdit()}
-          value={
-            stockOptions().find((s) => namesMatch(s, stock())) ?? stock() ?? ""
-          }
+          value={stockOptions().find((s) => namesMatch(s, stock())) ?? stock() ?? ""}
           onChange={(e) => onStockChange(e.currentTarget.value)}
         >
           <option value="">— pick stock —</option>
-          <For each={stockOptions()}>
-            {(s) => <option value={s}>{s}</option>}
-          </For>
+          <For each={stockOptions()}>{(s) => <option value={s}>{s}</option>}</For>
         </select>
         <Show when={matched()?.stockPageRef}>
-          {(s) => (
-            <RuleRef book={s().book} page={s().page} />
-          )}
+          {(s) => <RuleRef book={s().book} page={s().page} />}
         </Show>
       </kit.FieldRow>
       <kit.FieldRow label="Class">
@@ -205,23 +262,14 @@ function ClassStockRow(props: { characterId: string }): JSX.Element {
           class="vk-input"
           data-testid="class-select"
           disabled={!canEdit()}
-          value={
-            classOptions().find((c) => namesMatch(c, klass())) ?? klass() ?? ""
-          }
+          value={classOptions().find((c) => namesMatch(c, klass())) ?? klass() ?? ""}
           onChange={(e) => onClassChange(e.currentTarget.value)}
         >
           <option value="">— pick class —</option>
-          <For each={classOptions()}>
-            {(c) => <option value={c}>{c}</option>}
-          </For>
+          <For each={classOptions()}>{(c) => <option value={c}>{c}</option>}</For>
         </select>
         <Show when={matched()}>
-          {(o) => (
-            <RuleRef
-              book={o().classPageRef.book}
-              page={o().classPageRef.page}
-            />
-          )}
+          {(o) => <RuleRef book={o().classPageRef.book} page={o().classPageRef.page} />}
         </Show>
       </kit.FieldRow>
     </kit.SheetGroup>
@@ -238,10 +286,7 @@ function ClassStockRow(props: { characterId: string }): JSX.Element {
 function LevelBenefitsHeader(props: { characterId: string }): JSX.Element {
   const identity = useTrait(props.characterId, Identity);
   const matched = createMemo<ClassStockOption | null>(() =>
-    lookupClassStockOption(
-      identity()?.stock ?? "",
-      identity()?.class ?? "",
-    ),
+    lookupClassStockOption(identity()?.stock ?? "", identity()?.class ?? ""),
   );
   return (
     <p
@@ -256,8 +301,7 @@ function LevelBenefitsHeader(props: { characterId: string }): JSX.Element {
       }}
     >
       <span>
-        Spend totals required to advance and a place to jot the benefit
-        you chose at each level.
+        Spend totals required to advance and a place to jot the benefit you chose at each level.
       </span>
       <RuleRef book="DH" page={112} />
       <Show when={matched()}>
@@ -271,10 +315,7 @@ function LevelBenefitsHeader(props: { characterId: string }): JSX.Element {
             }}
           >
             <span>class levels:</span>
-            <RuleRef
-              book={o().levelPageRef.book}
-              page={o().levelPageRef.page}
-            />
+            <RuleRef book={o().levelPageRef.book} page={o().levelPageRef.page} />
           </span>
         )}
       </Show>
@@ -311,9 +352,7 @@ function LevelBenefitsTable(props: { characterId: string }): JSX.Element {
 
   /** The next level row the character can advance to, or null at L10 / not-yet-earned. */
   const nextLevel = createMemo(() => currentLevel() + 1);
-  const readyToLevelUp = createMemo(
-    () => earnedLevel() >= nextLevel() && nextLevel() <= 10,
-  );
+  const readyToLevelUp = createMemo(() => earnedLevel() >= nextLevel() && nextLevel() <= 10);
 
   return (
     <table
@@ -338,9 +377,7 @@ function LevelBenefitsTable(props: { characterId: string }): JSX.Element {
         <For each={LEVEL_TABLE}>
           {(row, idx) => {
             const isCurrent = createMemo(() => row.level === currentLevel());
-            const isReady = createMemo(
-              () => row.level === nextLevel() && readyToLevelUp(),
-            );
+            const isReady = createMemo(() => row.level === nextLevel() && readyToLevelUp());
             return (
               <tr
                 data-level={row.level}
@@ -391,25 +428,17 @@ function LevelBenefitsTable(props: { characterId: string }): JSX.Element {
                   <span style={{ "font-weight": "500" }}>{row.level}</span>
                 </Td>
                 <Td align="right">
-                  <span style={{ "font-variant-numeric": "tabular-nums" }}>
-                    {row.fate}
-                  </span>
+                  <span style={{ "font-variant-numeric": "tabular-nums" }}>{row.fate}</span>
                 </Td>
                 <Td align="right">
-                  <span style={{ "font-variant-numeric": "tabular-nums" }}>
-                    {row.persona}
-                  </span>
+                  <span style={{ "font-variant-numeric": "tabular-nums" }}>{row.persona}</span>
                 </Td>
                 <Td>
                   <Show
                     when={row.note}
-                    fallback={
-                      <span style={{ color: "var(--color-fg-subtle)" }}>—</span>
-                    }
+                    fallback={<span style={{ color: "var(--color-fg-subtle)" }}>—</span>}
                   >
-                    <span style={{ color: "var(--color-fg-muted)" }}>
-                      {row.note}
-                    </span>
+                    <span style={{ color: "var(--color-fg-muted)" }}>{row.note}</span>
                   </Show>
                 </Td>
                 <Td>
@@ -417,11 +446,7 @@ function LevelBenefitsTable(props: { characterId: string }): JSX.Element {
                     characterId={props.characterId}
                     trait={LevelBenefits}
                     path={["benefits", idx()]}
-                    placeholder={
-                      row.level === 1
-                        ? "starting class benefit"
-                        : "e.g. Soft Step"
-                    }
+                    placeholder={row.level === 1 ? "starting class benefit" : "e.g. Soft Step"}
                     maxLength={240}
                   />
                 </Td>
@@ -434,10 +459,7 @@ function LevelBenefitsTable(props: { characterId: string }): JSX.Element {
   );
 }
 
-function Th(props: {
-  children?: JSX.Element;
-  align?: "left" | "right";
-}): JSX.Element {
+function Th(props: { children?: JSX.Element; align?: "left" | "right" }): JSX.Element {
   return (
     <th
       style={{
@@ -455,10 +477,7 @@ function Th(props: {
   );
 }
 
-function Td(props: {
-  children: JSX.Element;
-  align?: "left" | "right";
-}): JSX.Element {
+function Td(props: { children: JSX.Element; align?: "left" | "right" }): JSX.Element {
   return (
     <td
       style={{

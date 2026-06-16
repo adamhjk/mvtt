@@ -11,14 +11,14 @@ Apply these patterns when implementing domain logic in TypeScript/Deno.
 
 Choose the appropriate type based on these criteria:
 
-| Type                    | Identity                 | Mutability              | When to Use                                                                                                                                                             |
-| ----------------------- | ------------------------ | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Value Object**        | None (equality by value) | Immutable               | Measurements, descriptions, identifiers, money, dates, addresses                                                                                                        |
-| **Entity**              | Has unique ID            | Mutable                 | Things with lifecycle, tracked over time, referenced by ID                                                                                                              |
-| **Aggregate**           | Root entity + children   | Root controls mutations | Consistency boundary, transactional unit, enforce invariants                                                                                                            |
-| **Domain Service**      | None                     | Stateless               | Operations spanning multiple aggregates, external integrations                                                                                                          |
-| **Repository**          | None                     | Stateless               | Persistence abstraction for aggregates only                                                                                                                             |
-| **Application Service** | None                     | Stateless               | Orchestrate domain objects for a use case; own the transaction boundary; return results or emit progress events; live in the application layer, not the domain          |
+| Type                    | Identity                 | Mutability              | When to Use                                                                                                                                                    |
+| ----------------------- | ------------------------ | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Value Object**        | None (equality by value) | Immutable               | Measurements, descriptions, identifiers, money, dates, addresses                                                                                               |
+| **Entity**              | Has unique ID            | Mutable                 | Things with lifecycle, tracked over time, referenced by ID                                                                                                     |
+| **Aggregate**           | Root entity + children   | Root controls mutations | Consistency boundary, transactional unit, enforce invariants                                                                                                   |
+| **Domain Service**      | None                     | Stateless               | Operations spanning multiple aggregates, external integrations                                                                                                 |
+| **Repository**          | None                     | Stateless               | Persistence abstraction for aggregates only                                                                                                                    |
+| **Application Service** | None                     | Stateless               | Orchestrate domain objects for a use case; own the transaction boundary; return results or emit progress events; live in the application layer, not the domain |
 
 ### Quick Decision Flow
 

@@ -15,10 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  qualifiedName,
-  type CommandInstance,
-} from "@vtt/substrate";
+import { qualifiedName, type CommandInstance } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
 import { createMemo, createSignal, Show, type JSX } from "solid-js";
 import { Identity, Online, Name } from "@vtt/identity/shared";
@@ -46,9 +43,7 @@ function GrindTracker(): JSX.Element {
   const isGm = createMemo(() => {
     const cid = client.clientId();
     if (!cid) return false;
-    const me = players().find(
-      (p) => (p.values.Online as { clientId: string }).clientId === cid,
-    );
+    const me = players().find((p) => (p.values.Online as { clientId: string }).clientId === cid);
     if (!me) return false;
     return (me.values.Identity as { role: string }).role === "gm";
   });
@@ -60,17 +55,13 @@ function GrindTracker(): JSX.Element {
   const cadence = createMemo(() => tollCadence(extreme()));
 
   const toggleExtreme = (): void => {
-    void client.dispatch(
-      SetGrindExtreme({ extreme: !extreme() }) as CommandInstance,
-    );
+    void client.dispatch(SetGrindExtreme({ extreme: !extreme() }) as CommandInstance);
   };
 
   const setTo = (next: number): void => {
     const clamped = Math.max(0, Math.min(999, Math.floor(next)));
     if (clamped === turn()) return;
-    void client.dispatch(
-      SetGrindTurn({ to: clamped }) as CommandInstance,
-    );
+    void client.dispatch(SetGrindTurn({ to: clamped }) as CommandInstance);
   };
   const advance = (): void => setTo(turn() + 1);
   const rewind = (): void => setTo(turn() - 1);
@@ -91,10 +82,7 @@ function GrindTracker(): JSX.Element {
 
   return (
     <Show when={isGm()}>
-      <div
-        data-testid="grind-tracker"
-        class="flex items-center gap-1.5 text-xs"
-      >
+      <div data-testid="grind-tracker" class="flex items-center gap-1.5 text-xs">
         <span
           class="font-display text-[0.6rem] uppercase tracking-[0.14em] text-fg-subtle"
           title="Adventure-phase turn — every fourth turn imposes a condition"
@@ -173,9 +161,7 @@ function GrindTracker(): JSX.Element {
  * drawer strip (alongside the dice tray), always visible for the GM.
  */
 export const GrindTrackerStatusItem: WorkbenchStatusItem = {
-  id: qualifiedName(
-    "@vtt/system-torchbearer/grind-tracker",
-  ) as WorkbenchStatusItem["id"],
+  id: qualifiedName("@vtt/system-torchbearer/grind-tracker") as WorkbenchStatusItem["id"],
   priority: 100,
   render: () => GrindTracker(),
 };

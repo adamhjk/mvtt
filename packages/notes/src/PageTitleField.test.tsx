@@ -17,22 +17,14 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  cleanup,
-  render,
-  fireEvent,
-  waitFor,
-  screen,
-} from "@solidjs/testing-library";
+import { cleanup, render, fireEvent, waitFor, screen } from "@solidjs/testing-library";
 import { ClientProvider } from "@vtt/substrate/client";
 import { buildTestClient } from "@vtt/substrate/client-testing";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { Identity, Name, Online } from "@vtt/identity/shared";
-import {
-  ownedBy, Permissions,
-} from "@vtt/permissions/shared";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { type EntityId } from "@vtt/substrate";
 import { notes } from "./manifest.js";
 import {
@@ -104,17 +96,13 @@ describe("PageTitleField rename", () => {
       </ClientProvider>
     ));
 
-    const input = (await screen.findByDisplayValue(
-      "Original",
-    )) as HTMLInputElement;
+    const input = (await screen.findByDisplayValue("Original")) as HTMLInputElement;
 
     fireEvent.focus(input);
     fireEvent.input(input, { target: { value: "Renamed" } });
     fireEvent.blur(input);
 
-    const renames = h.dispatched.filter(
-      (c) => c.type === RenamePage.name,
-    );
+    const renames = h.dispatched.filter((c) => c.type === RenamePage.name);
     expect(renames).toHaveLength(1);
     expect(renames[0]!.payload).toEqual({
       pageId: h.setup.pageA,
@@ -122,9 +110,7 @@ describe("PageTitleField rename", () => {
     });
 
     await waitFor(() => {
-      const got = h.world.get(h.setup.pageA, [Page]) as
-        | { Page: { title: string } }
-        | undefined;
+      const got = h.world.get(h.setup.pageA, [Page]) as { Page: { title: string } } | undefined;
       expect(got?.Page.title).toBe("Renamed");
     });
   });

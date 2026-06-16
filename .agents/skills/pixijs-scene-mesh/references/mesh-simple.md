@@ -111,7 +111,6 @@ const mesh = new MeshSimple({ texture, vertices, uvs, indices });
 
 `SimpleMesh` was renamed to `MeshSimple` in v8. The old name is not exported; the class also switched to an options-object constructor.
 
-
 ### [MEDIUM] Forgetting UVs on a textured mesh
 
 Wrong:
@@ -134,7 +133,6 @@ const mesh = new MeshSimple({
 ```
 
 Omitting `uvs` makes the underlying `MeshGeometry` fill a zero array, sampling only pixel `(0, 0)` of the texture. Always provide UVs when you want the texture to map across the geometry.
-
 
 ## API Reference
 

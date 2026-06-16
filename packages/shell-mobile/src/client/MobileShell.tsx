@@ -21,11 +21,7 @@ import { PendingRoll, ROLL_ATELIER_KIND } from "@vtt/characters/shared";
 import { CharacterSheet } from "@vtt/characters/client";
 import { Character } from "@vtt/characters/shared";
 import { RollResolved } from "@vtt/resolution/shared";
-import {
-  OpenPage,
-  WorkbenchChatRailSurface,
-  type PageProvider,
-} from "@vtt/shell-workbench/shared";
+import { OpenPage, WorkbenchChatRailSurface, type PageProvider } from "@vtt/shell-workbench/shared";
 import {
   usePageProviders,
   useChatRailWidgets,
@@ -156,9 +152,10 @@ export const MobileShellView = defineView({
     // the same provider sub-tree across entity changes would inherit
     // closure-captured ids from the prior render; the keyed remount
     // matches `useTrait(entityId, …)` semantics.
-    const activeTabAndProvider = createMemo<
-      { tab: NonNullable<ReturnType<typeof activeTab>>; provider: PageProvider } | null
-    >(() => {
+    const activeTabAndProvider = createMemo<{
+      tab: NonNullable<ReturnType<typeof activeTab>>;
+      provider: PageProvider;
+    } | null>(() => {
       const tab = activeTab();
       const provider = activeProvider();
       if (!tab || !provider) return null;
@@ -263,10 +260,12 @@ export const MobileShellView = defineView({
             >
               {(pair) => (
                 <>
-                  {pair.provider.render({
-                    tabId: pair.tab.id,
-                    entityId: pair.tab.entityId,
-                  }) as unknown as JSX.Element}
+                  {
+                    pair.provider.render({
+                      tabId: pair.tab.id,
+                      entityId: pair.tab.entityId,
+                    }) as unknown as JSX.Element
+                  }
                 </>
               )}
             </Show>
@@ -282,11 +281,7 @@ export const MobileShellView = defineView({
             {/* Chat rail widgets (pending roll panels, player list, etc.) */}
             <div class="shrink-0 border-b border-border-muted px-3 py-2">
               <For each={chatRailWidgets()}>
-                {(w) => (
-                  <div class="shrink-0">
-                    {w.render() as unknown as JSX.Element}
-                  </div>
-                )}
+                {(w) => <div class="shrink-0">{w.render() as unknown as JSX.Element}</div>}
               </For>
             </div>
             {/* Chat stream + composer via the workbench chat rail surface */}
@@ -314,9 +309,7 @@ export const MobileShellView = defineView({
             // the active tab. The mobile shell's `activeTab` memo picks
             // up the change and renders the new provider — same
             // mechanism a workbench wikilink uses.
-            client.dispatch(
-              OpenPage({ pageKind, entityId }) as CommandInstance,
-            );
+            client.dispatch(OpenPage({ pageKind, entityId }) as CommandInstance);
             // Make sure the content panel is visible so the user sees
             // the page they just opened — chat mode would hide it.
             setMode("character");

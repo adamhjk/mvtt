@@ -158,11 +158,9 @@ app.ticker.add(() => {
 
 Each `HTMLText.text` assignment re-renders the SVG, rasterizes it, and uploads to the GPU. At 60fps this is far too expensive. Use `BitmapText` for any text that changes per-frame.
 
-
 ### [HIGH] Missing CORS headers on fonts
 
 If the HTML references a web font loaded from a different origin without CORS headers, the SVG `<foreignObject>` is tainted and the rasterization fails (or falls back to a default font). Host fonts on the same origin or include `Access-Control-Allow-Origin`.
-
 
 ### [MEDIUM] Expecting HTMLText frame on creation
 
@@ -183,7 +181,6 @@ app.ticker.addOnce(() => {
 ```
 
 HTMLText measurement happens asynchronously. Defer layout calculations to the next frame, or use canvas `Text` when you need immediate metrics.
-
 
 ## API Reference
 

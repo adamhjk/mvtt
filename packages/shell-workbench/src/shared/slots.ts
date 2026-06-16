@@ -177,8 +177,7 @@ export type PageProvider = {
 export const PagesSlot = defineSlot({
   name: "@vtt/shell-workbench/pages",
   schema: PageProviderSchema,
-  description:
-    "PageProviders. Each teaches the workbench one kind of content that can fill a tab.",
+  description: "PageProviders. Each teaches the workbench one kind of content that can fill a tab.",
 });
 
 /**
@@ -299,8 +298,7 @@ export type ChatRailWidget = {
 export const ChatRailWidgetsSlot = defineSlot({
   name: "@vtt/shell-workbench/chat-rail-widgets",
   schema: ChatRailWidgetSchema,
-  description:
-    "Small widgets that stack above the chat composer in the right rail.",
+  description: "Small widgets that stack above the chat composer in the right rail.",
 });
 
 /**

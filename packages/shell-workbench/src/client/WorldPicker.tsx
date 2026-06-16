@@ -15,14 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  createMemo,
-  createResource,
-  createSignal,
-  For,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js";
 import { useClient } from "@vtt/substrate/client";
 
 interface WorldSummary {
@@ -120,11 +113,7 @@ export function WorldPicker(): JSX.Element {
         >
           <Show
             when={(worlds() ?? []).length > 0}
-            fallback={
-              <p class="px-3 py-2 text-xs text-fg-muted">
-                No worlds available.
-              </p>
-            }
+            fallback={<p class="px-3 py-2 text-xs text-fg-muted">No worlds available.</p>}
           >
             <ul class="flex flex-col">
               <For each={worlds()}>
@@ -227,19 +216,13 @@ export function WorldPicker(): JSX.Element {
       </Show>
 
       <Show when={managing() && currentWorld()}>
-        <MembersModal
-          world={currentWorld()!}
-          onClose={() => setManaging(false)}
-        />
+        <MembersModal world={currentWorld()!} onClose={() => setManaging(false)} />
       </Show>
     </div>
   );
 }
 
-function ArchiveAction(props: {
-  world: WorldSummary;
-  onDone: () => void;
-}): JSX.Element {
+function ArchiveAction(props: { world: WorldSummary; onDone: () => void }): JSX.Element {
   const [busy, setBusy] = createSignal(false);
   const archive = async () => {
     if (busy()) return;
@@ -265,10 +248,7 @@ function ArchiveAction(props: {
   );
 }
 
-function DeleteAction(props: {
-  world: WorldSummary;
-  onDone: () => void;
-}): JSX.Element {
+function DeleteAction(props: { world: WorldSummary; onDone: () => void }): JSX.Element {
   const [busy, setBusy] = createSignal(false);
   const del = async () => {
     if (busy()) return;
@@ -277,10 +257,10 @@ function DeleteAction(props: {
     );
     if (!ok) return;
     setBusy(true);
-    const res = await fetch(
-      `/api/worlds/${encodeURIComponent(props.world.id)}?confirm=true`,
-      { method: "DELETE", credentials: "same-origin" },
-    );
+    const res = await fetch(`/api/worlds/${encodeURIComponent(props.world.id)}?confirm=true`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
     setBusy(false);
     if (res.ok) props.onDone();
     else alert(`delete failed (${res.status})`);
@@ -309,15 +289,11 @@ interface MembersResponse {
   members: MemberRow[];
 }
 
-function MembersModal(props: {
-  world: WorldSummary;
-  onClose: () => void;
-}): JSX.Element {
+function MembersModal(props: { world: WorldSummary; onClose: () => void }): JSX.Element {
   const fetchMembers = async (): Promise<MembersResponse> => {
-    const res = await fetch(
-      `/api/worlds/${encodeURIComponent(props.world.id)}/memberships`,
-      { credentials: "same-origin" },
-    );
+    const res = await fetch(`/api/worlds/${encodeURIComponent(props.world.id)}/memberships`, {
+      credentials: "same-origin",
+    });
     if (!res.ok) throw new Error(`fetch failed (${res.status})`);
     return (await res.json()) as MembersResponse;
   };
@@ -332,15 +308,12 @@ function MembersModal(props: {
     if (!email().trim()) return;
     setBusy(true);
     try {
-      const res = await fetch(
-        `/api/worlds/${encodeURIComponent(props.world.id)}/memberships`,
-        {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ email: email().trim() }),
-        },
-      );
+      const res = await fetch(`/api/worlds/${encodeURIComponent(props.world.id)}/memberships`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: email().trim() }),
+      });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `add failed (${res.status})`);
@@ -425,9 +398,7 @@ function MembersModal(props: {
                   )}
                 </For>
                 <Show when={d().members.length === 0}>
-                  <li class="px-3 py-2 text-xs text-fg-subtle">
-                    No additional members yet.
-                  </li>
+                  <li class="px-3 py-2 text-xs text-fg-subtle">No additional members yet.</li>
                 </Show>
               </ul>
 
@@ -470,9 +441,7 @@ function CreateWorldModal(props: {
   onCreated: (worldId: string) => void;
 }): JSX.Element {
   const [name, setName] = createSignal("New table");
-  const [gameSystem, setGameSystem] = createSignal(
-    props.systems[0]?.name ?? "",
-  );
+  const [gameSystem, setGameSystem] = createSignal(props.systems[0]?.name ?? "");
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
@@ -510,9 +479,7 @@ function CreateWorldModal(props: {
         onClick={(e) => e.stopPropagation()}
       >
         <header class="mb-3">
-          <h2 class="text-base font-semibold tracking-tight text-fg">
-            Create a new world
-          </h2>
+          <h2 class="text-base font-semibold tracking-tight text-fg">Create a new world</h2>
           <p class="mt-1 text-xs text-fg-muted">
             The game system is immutable once the world is created.
           </p>
@@ -539,9 +506,7 @@ function CreateWorldModal(props: {
                 when={props.systems.length > 0}
                 fallback={<option value="">(no game systems available)</option>}
               >
-                <For each={props.systems}>
-                  {(s) => <option value={s.name}>{s.name}</option>}
-                </For>
+                <For each={props.systems}>{(s) => <option value={s.name}>{s.name}</option>}</For>
               </Show>
             </select>
           </label>

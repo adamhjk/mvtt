@@ -432,7 +432,6 @@ export const TbSpellCastConsumeLoggedSystem = defineSystem({
   },
 });
 
-
 /* -------------------------------------------------------------------------
  * Catalog management — homebrew create / remove / field-edit
  * ----------------------------------------------------------------------- */
@@ -449,17 +448,12 @@ type EditableSpellTrait = keyof typeof SPELL_TRAITS_BY_NAME;
  * Deep-set a value at a dotted path inside an object, returning a new
  * object. Empty path replaces the whole object.
  */
-function setAtPath(
-  root: unknown,
-  path: ReadonlyArray<string>,
-  value: unknown,
-): unknown {
+function setAtPath(root: unknown, path: ReadonlyArray<string>, value: unknown): unknown {
   if (path.length === 0) return value;
   const [head, ...rest] = path;
-  const obj = (root && typeof root === "object" ? { ...(root as Record<string, unknown>) } : {}) as Record<
-    string,
-    unknown
-  >;
+  const obj = (
+    root && typeof root === "object" ? { ...(root as Record<string, unknown>) } : {}
+  ) as Record<string, unknown>;
   obj[head!] = setAtPath(obj[head!], rest, value);
   return obj;
 }
@@ -468,12 +462,7 @@ export const TbSpellCreatedSystem = defineSystem({
   name: "TbSpellCreated",
   on: SpellCreated,
   reads: [],
-  writes: [
-    SpellIdentity,
-    TbSpellCasting,
-    TbSpellLearning,
-    TbSpellHomebrewProse,
-  ],
+  writes: [SpellIdentity, TbSpellCasting, TbSpellLearning, TbSpellHomebrewProse],
   run: ({ event, world }) => {
     if (!world.has(event.spellId)) {
       // The id was allocated in CreateBlankSpell.apply via
@@ -518,25 +507,13 @@ export const TbSpellRemovedSystem = defineSystem({
 export const TbSpellFieldEditedSystem = defineSystem({
   name: "TbSpellFieldEdited",
   on: SpellFieldEdited,
-  reads: [
-    SpellIdentity,
-    TbSpellCasting,
-    TbSpellLearning,
-    TbSpellHomebrewProse,
-  ],
-  writes: [
-    SpellIdentity,
-    TbSpellCasting,
-    TbSpellLearning,
-    TbSpellHomebrewProse,
-  ],
+  reads: [SpellIdentity, TbSpellCasting, TbSpellLearning, TbSpellHomebrewProse],
+  writes: [SpellIdentity, TbSpellCasting, TbSpellLearning, TbSpellHomebrewProse],
   run: ({ event, world }) => {
     if (!world.has(event.spellId)) return [];
     const traitName = event.trait as EditableSpellTrait;
     const trait = SPELL_TRAITS_BY_NAME[traitName];
-    const got = world.get(event.spellId, [trait]) as
-      | Record<string, unknown>
-      | undefined;
+    const got = world.get(event.spellId, [trait]) as Record<string, unknown> | undefined;
     const shortName = trait.name.split("/").pop()!;
     const current = (got?.[shortName] ?? {}) as unknown;
     const next = setAtPath(current, event.path, event.value);

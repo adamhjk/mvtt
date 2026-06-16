@@ -20,14 +20,7 @@ import { Character } from "@vtt/characters/shared";
 import { ContributionSchema } from "@vtt/characters/shared";
 import { RequestRoll } from "@vtt/resolution/shared";
 import { getSkill, type BeginnersLuck } from "./skills.js";
-import {
-  Conditions,
-  Heroic,
-  Identity,
-  RawAbilities,
-  Skills,
-  TownAbilities,
-} from "./traits.js";
+import { Conditions, Heroic, Identity, RawAbilities, Skills, TownAbilities } from "./traits.js";
 import { TbMonster } from "./monster-traits.js";
 import { Team } from "@vtt/characters/shared";
 import {
@@ -281,16 +274,12 @@ function buildSpec(
   contributionsRaw: unknown,
   baseObstacle: number | null,
 ): TbRollSpec {
-  const auto = autoModifiersFromConditions(
-    conditions,
-    args.kind,
-    args.sourceId,
-    args.versusTestId,
-  );
-  const contribsTyped: ReadonlyArray<z.infer<typeof ContributionSchema>> =
-    Array.isArray(contributionsRaw)
-      ? (contributionsRaw as ReadonlyArray<z.infer<typeof ContributionSchema>>)
-      : [];
+  const auto = autoModifiersFromConditions(conditions, args.kind, args.sourceId, args.versusTestId);
+  const contribsTyped: ReadonlyArray<z.infer<typeof ContributionSchema>> = Array.isArray(
+    contributionsRaw,
+  )
+    ? (contributionsRaw as ReadonlyArray<z.infer<typeof ContributionSchema>>)
+    : [];
   const fromContrib = modifiersFromContributions(contribsTyped);
   // Pre-roll persona / channel-nature / synergy declarations from the
   // panel (DH p.250 "tally advantages before the test"). The dice they
@@ -307,8 +296,7 @@ function buildSpec(
   const synergyDecls = synergyDeclsFromContributions(contribsTyped);
   const synergyHelpers = synergyDecls.map((d) => d.helperCharacterId);
   const natureRating = readNatureRating(args.world, args.entityId);
-  const channelDice =
-    channelDecl !== null && natureRating > 0 ? natureRating : 0;
+  const channelDice = channelDecl !== null && natureRating > 0 ? natureRating : 0;
   const preRollSpendMods: TbRollModifier[] = [];
   for (const d of personaDecls) {
     preRollSpendMods.push({
@@ -353,9 +341,7 @@ function buildSpec(
   // Exhausted) computed across every party-tagged character. The
   // versus / obstacle resolution short-circuits to "no obstacle"
   // since disposition rolls don't pass/fail.
-  const dispositionPenalties = args.dispositionMode
-    ? teamPenaltiesForDisposition(args.world)
-    : [];
+  const dispositionPenalties = args.dispositionMode ? teamPenaltiesForDisposition(args.world) : [];
   const modifiers: TbRollModifier[] = [
     ...auto,
     ...(args.extraAuto ?? []),
@@ -369,12 +355,8 @@ function buildSpec(
   // and only then are post-half mods (traits, persona, channeled
   // Nature, Fresh, special/magic bonuses) added. `foldBlModifiers`
   // implements that partition; non-BL rolls keep the simple fold.
-  const fold =
-    args.kind === "skill-bl" ? foldBlModifiers : foldModifiers;
-  const { pool, bonusSuccesses, obstacleAdjust } = fold(
-    args.baseDice,
-    modifiers,
-  );
+  const fold = args.kind === "skill-bl" ? foldBlModifiers : foldModifiers;
+  const { pool, bonusSuccesses, obstacleAdjust } = fold(args.baseDice, modifiers);
   // Resolved obstacle: base + always-applied obstacle modifiers,
   // clamped at 0. With no declared base, modifiers don't synthesise
   // an obstacle out of thin air — they're recorded in `modifiers`
@@ -391,9 +373,7 @@ function buildSpec(
   const captionBody = args.dispositionMode
     ? `${args.headline} (disposition)`
     : withObstacle(args.headline, resolvedObstacle);
-  const captionWithVersus = effectiveVersusId
-    ? `${captionBody} (versus)`
-    : captionBody;
+  const captionWithVersus = effectiveVersusId ? `${captionBody} (versus)` : captionBody;
   const caption = withCharacter(args.characterName, captionWithVersus);
   const spec: TbRollSpec = {
     kind: args.kind,
@@ -409,14 +389,8 @@ function buildSpec(
     modifiers,
     versusTestId: effectiveVersusId,
     dispositionMode: args.dispositionMode ? true : undefined,
-    dispoBase:
-      args.dispositionMode && args.dispoBase !== undefined
-        ? args.dispoBase
-        : undefined,
-    dispoAddTo:
-      args.dispositionMode && args.dispoAddTo !== undefined
-        ? args.dispoAddTo
-        : undefined,
+    dispoBase: args.dispositionMode && args.dispoBase !== undefined ? args.dispoBase : undefined,
+    dispoAddTo: args.dispositionMode && args.dispoAddTo !== undefined ? args.dispoAddTo : undefined,
     dispoMonsterPool:
       args.dispositionMode && args.dispoMonsterPool !== undefined
         ? args.dispoMonsterPool
@@ -432,9 +406,7 @@ function buildSpec(
     synergyHelpers,
     caption,
     ...(args.spellCast ? { spellCast: args.spellCast } : {}),
-    ...(args.invocationPerform
-      ? { invocationPerform: args.invocationPerform }
-      : {}),
+    ...(args.invocationPerform ? { invocationPerform: args.invocationPerform } : {}),
   };
   // Round-trip through the schema so `apply`/`source` defaults are
   // populated and downstream consumers always see the canonical
@@ -517,9 +489,7 @@ function panelHeroicFromOpts(contributionsRaw: unknown): boolean | undefined {
  * Returns `undefined` to mean "no panel pick", `null` to mean
  * "panel cleared the obstacle", or a positive integer.
  */
-function panelObstacleFromOpts(
-  contributionsRaw: unknown,
-): number | null | undefined {
+function panelObstacleFromOpts(contributionsRaw: unknown): number | null | undefined {
   if (!Array.isArray(contributionsRaw)) return undefined;
   return obstacleFromContributions(
     contributionsRaw as ReadonlyArray<z.infer<typeof ContributionSchema>>,
@@ -531,9 +501,7 @@ function panelObstacleFromOpts(
  * Returns `undefined` for "no panel pairing", `null` for "panel
  * cleared the pairing", or the versusTestId string.
  */
-function panelVersusFromOpts(
-  contributionsRaw: unknown,
-): string | null | undefined {
+function panelVersusFromOpts(contributionsRaw: unknown): string | null | undefined {
   if (!Array.isArray(contributionsRaw)) return undefined;
   return versusFromContributions(
     contributionsRaw as ReadonlyArray<z.infer<typeof ContributionSchema>>,
@@ -560,9 +528,7 @@ function resolveVersus(args: {
  * `opts` so the buildSpec call site stays a single line.
  */
 function resolveVersusForOpts(opts: unknown): string | null {
-  const o = opts as
-    | { versusTestId?: string | null; contributions?: unknown }
-    | undefined;
+  const o = opts as { versusTestId?: string | null; contributions?: unknown } | undefined;
   return resolveVersus({
     optsVersus: o?.versusTestId,
     panelVersus: panelVersusFromOpts(o?.contributions),
@@ -575,9 +541,7 @@ function resolveVersusForOpts(opts: unknown): string | null {
  * default off.
  */
 function resolveDispositionForOpts(opts: unknown): boolean {
-  const o = opts as
-    | { dispositionMode?: boolean; contributions?: unknown }
-    | undefined;
+  const o = opts as { dispositionMode?: boolean; contributions?: unknown } | undefined;
   if (typeof o?.dispositionMode === "boolean") return o.dispositionMode;
   if (Array.isArray(o?.contributions)) {
     const fromPanel = dispositionFromContributions(
@@ -592,9 +556,7 @@ function resolveDispositionForOpts(opts: unknown): boolean {
  * Resolve the dispo `addTo` selection from opts / panel contributions.
  * Returns `null` when explicitly cleared, `undefined` when never set.
  */
-function resolveDispositionAddToForOpts(
-  opts: unknown,
-): DispoAddTo | null | undefined {
+function resolveDispositionAddToForOpts(opts: unknown): DispoAddTo | null | undefined {
   const o = opts as
     | {
         dispositionAddTo?: DispoAddTo | null;
@@ -637,9 +599,7 @@ function dispoBaseFromAbilities(
  * Read the disposition pool selection from opts / panel contributions.
  * `"within"` → full Nature; `"outside"` → half Nature, rounded up.
  */
-function resolveDispositionPoolForOpts(
-  opts: unknown,
-): DispoMonsterPool | undefined {
+function resolveDispositionPoolForOpts(opts: unknown): DispoMonsterPool | undefined {
   const o = opts as
     | {
         dispositionPool?: DispoMonsterPool;
@@ -775,10 +735,7 @@ export const HealthCheck = defineRollable({
   command: RequestRoll,
   interactive: true,
   opts: z.object(RollOptsBase),
-  compute: (
-    [abilities, character, conditions, heroic],
-    { opts, world, entityId },
-  ): TbRollSpec => {
+  compute: ([abilities, character, conditions, heroic], { opts, world, entityId }): TbRollSpec => {
     const obstacle = resolveObstacle({
       optsObstacle: opts?.obstacle,
       panelObstacle: panelObstacleFromOpts(opts?.contributions),
@@ -834,10 +791,7 @@ export const NatureCheck = defineRollable({
      */
     tap: z.boolean().optional(),
   }),
-  compute: (
-    [abilities, character, conditions, heroic],
-    { opts, world, entityId },
-  ): TbRollSpec => {
+  compute: ([abilities, character, conditions, heroic], { opts, world, entityId }): TbRollSpec => {
     const tap = opts?.tap === true;
     const obstacle = resolveObstacle({
       optsObstacle: opts?.obstacle,
@@ -859,8 +813,7 @@ export const NatureCheck = defineRollable({
       natureDispoMode && isMonster && (explicitAddTo === undefined || explicitAddTo === null)
         ? "nature"
         : explicitAddTo;
-    const monsterPool: DispoMonsterPool =
-      resolveDispositionPoolForOpts(opts) ?? "within";
+    const monsterPool: DispoMonsterPool = resolveDispositionPoolForOpts(opts) ?? "within";
     // Dice pool: tap → max Nature; monster outside-Nature dispo →
     // half (rounded up); else current Nature rating.
     const baseDice = tap
@@ -888,8 +841,7 @@ export const NatureCheck = defineRollable({
         dispositionMode: natureDispoMode,
         dispoAddTo: natureAddTo,
         dispoBase: natureDispoBase,
-        dispoMonsterPool:
-          natureDispoMode && natureAddTo === "nature" ? monsterPool : undefined,
+        dispoMonsterPool: natureDispoMode && natureAddTo === "nature" ? monsterPool : undefined,
         world,
         entityId,
         headline,
@@ -921,10 +873,7 @@ export const ResourcesCheck = defineRollable({
   command: RequestRoll,
   interactive: true,
   opts: z.object(RollOptsBase),
-  compute: (
-    [town, character, conditions, heroic],
-    { opts, world, entityId },
-  ): TbRollSpec => {
+  compute: ([town, character, conditions, heroic], { opts, world, entityId }): TbRollSpec => {
     const obstacle = resolveObstacle({
       optsObstacle: opts?.obstacle,
       panelObstacle: panelObstacleFromOpts(opts?.contributions),
@@ -963,10 +912,7 @@ export const CirclesCheck = defineRollable({
   command: RequestRoll,
   interactive: true,
   opts: z.object(RollOptsBase),
-  compute: (
-    [town, character, conditions, heroic],
-    { opts, world, entityId },
-  ): TbRollSpec => {
+  compute: ([town, character, conditions, heroic], { opts, world, entityId }): TbRollSpec => {
     const obstacle = resolveObstacle({
       optsObstacle: opts?.obstacle,
       panelObstacle: panelObstacleFromOpts(opts?.contributions),
@@ -1059,9 +1005,7 @@ export const SkillCheck = defineRollable({
       });
       const dispoMode = resolveDispositionForOpts(opts);
       const addTo = resolveDispositionAddToForOpts(opts);
-      const dispoBase = dispoMode
-        ? dispoBaseFromAbilities(abilities, addTo)
-        : undefined;
+      const dispoBase = dispoMode ? dispoBaseFromAbilities(abilities, addTo) : undefined;
       return buildSpec(
         {
           baseDice: rating,
@@ -1086,8 +1030,7 @@ export const SkillCheck = defineRollable({
     }
 
     const blAbility: BeginnersLuck = skill?.bl ?? "will";
-    const blRating =
-      blAbility === "will" ? abilities.will.rating : abilities.health.rating;
+    const blRating = blAbility === "will" ? abilities.will.rating : abilities.health.rating;
     // baseDice carries the *full* ability rating; the halving lives
     // inside `foldBlModifiers` so DH p.59's "ability + wises + help +
     // supplies + gear, halved" applies (rather than halving the
@@ -1101,9 +1044,7 @@ export const SkillCheck = defineRollable({
     });
     const blDispoMode = resolveDispositionForOpts(opts);
     const blAddTo = resolveDispositionAddToForOpts(opts);
-    const blDispoBase = blDispoMode
-      ? dispoBaseFromAbilities(abilities, blAddTo)
-      : undefined;
+    const blDispoBase = blDispoMode ? dispoBaseFromAbilities(abilities, blAddTo) : undefined;
     return buildSpec(
       {
         baseDice: blRating,
@@ -1159,9 +1100,7 @@ type SpellCastSource = z.infer<typeof SpellCastSourceSchema>;
  * every catalog item carries one).
  */
 function readBookName(world: World, bookId: string): string {
-  const got = world.get(bookId, [ItemIdentity]) as
-    | { ItemIdentity: { name: string } }
-    | undefined;
+  const got = world.get(bookId, [ItemIdentity]) as { ItemIdentity: { name: string } } | undefined;
   return got?.ItemIdentity.name ?? "Spell book";
 }
 
@@ -1263,12 +1202,7 @@ export const SpellCastRollable = defineRollable({
       });
     }
     void identity;
-    const spellCast = buildSpellCastContext(
-      world,
-      entityId as EntityId,
-      opts.spellId,
-      opts.source,
-    );
+    const spellCast = buildSpellCastContext(world, entityId as EntityId, opts.spellId, opts.source);
     const ident = world.get(opts.spellId as EntityId, [SpellIdentity]) as
       | { SpellIdentity: { name: string } }
       | undefined;
@@ -1346,12 +1280,9 @@ function resolveInvocationObstacle(args: {
   panelObstacle: number | null | undefined;
 }): number | null {
   if (args.optsObstacle !== undefined) return args.optsObstacle;
-  if (args.panelObstacle !== undefined && args.panelObstacle !== null)
-    return args.panelObstacle;
+  if (args.panelObstacle !== undefined && args.panelObstacle !== null) return args.panelObstacle;
   if (args.panelObstacle === null) return null;
-  const got = args.world.get(args.invocationId as EntityId, [
-    TbInvocationPerforming,
-  ]) as
+  const got = args.world.get(args.invocationId as EntityId, [TbInvocationPerforming]) as
     | {
         TbInvocationPerforming: {
           ritualKind: "fixed" | "factors" | "versus" | "skill-swap";
@@ -1384,9 +1315,7 @@ function buildInvocationPerformContext(
       }
     | undefined;
   if (!ident) return null;
-  const performing = world.get(invocationId as EntityId, [
-    TbInvocationPerforming,
-  ]) as
+  const performing = world.get(invocationId as EntityId, [TbInvocationPerforming]) as
     | {
         TbInvocationPerforming: {
           immortalBurden: { noRelic: number; withRelic: number };
@@ -1396,8 +1325,7 @@ function buildInvocationPerformContext(
   const relics = world.get(characterId, [TbInvocationRelics]) as
     | { TbInvocationRelics: { invocationIds: string[] } }
     | undefined;
-  const withRelic =
-    relics?.TbInvocationRelics.invocationIds.includes(invocationId) ?? false;
+  const withRelic = relics?.TbInvocationRelics.invocationIds.includes(invocationId) ?? false;
   const burden = performing?.TbInvocationPerforming.immortalBurden ?? {
     noRelic: 2,
     withRelic: 1,
@@ -1452,9 +1380,9 @@ export const InvocationPerformRollable = defineRollable({
       entityId as EntityId,
       opts.invocationId,
     );
-    const ident = world.get(opts.invocationId as EntityId, [
-      InvocationIdentity,
-    ]) as { InvocationIdentity: { name: string } } | undefined;
+    const ident = world.get(opts.invocationId as EntityId, [InvocationIdentity]) as
+      | { InvocationIdentity: { name: string } }
+      | undefined;
     const headline = ident?.InvocationIdentity.name
       ? `Ritualist for ${ident.InvocationIdentity.name}`
       : "Ritualist (invocation)";

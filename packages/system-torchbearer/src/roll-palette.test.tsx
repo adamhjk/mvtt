@@ -20,16 +20,8 @@ import type { EntityId } from "@vtt/substrate";
 import { Character } from "@vtt/characters/shared";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { buildAtelierHarness } from "./client/atelier/test-helpers.js";
-import {
-  TbRollPaletteActions,
-  tbRollablesForCharacter,
-} from "./client/roll-palette.js";
-import {
-  ALL_SKILLS,
-  RawAbilities,
-  SkillCheck,
-  TownAbilities,
-} from "./shared/index.js";
+import { TbRollPaletteActions, tbRollablesForCharacter } from "./client/roll-palette.js";
+import { ALL_SKILLS, RawAbilities, SkillCheck, TownAbilities } from "./shared/index.js";
 
 const ME = "test-me";
 
@@ -55,11 +47,7 @@ function bryn(asGm: boolean) {
 describe("tbRollablesForCharacter", () => {
   it("enumerates abilities, town abilities, and every skill (Beginner's Luck)", () => {
     const h = bryn(true);
-    const opts = tbRollablesForCharacter(
-      h.client.registry,
-      h.world,
-      h.characterId,
-    );
+    const opts = tbRollablesForCharacter(h.client.registry, h.world, h.characterId);
     const labels = opts.map((o) => o.label);
     for (const expected of [
       "Will",
@@ -80,11 +68,7 @@ describe("tbRollablesForCharacter", () => {
 
   it("maps each ability/skill to the rollable + opts the sheet uses", () => {
     const h = bryn(true);
-    const opts = tbRollablesForCharacter(
-      h.client.registry,
-      h.world,
-      h.characterId,
-    );
+    const opts = tbRollablesForCharacter(h.client.registry, h.world, h.characterId);
     const will = opts.find((o) => o.label === "Will");
     expect(will).toMatchObject({
       rollableName: "@vtt/system-torchbearer/will-check",
@@ -152,8 +136,6 @@ describe("TbRollPaletteActions — write-gating", () => {
       role: "gm",
     });
     expect(entries.some((e) => initiatorOf(e.command) === enemyId)).toBe(true);
-    expect(entries.some((e) => initiatorOf(e.command) === h.characterId)).toBe(
-      true,
-    );
+    expect(entries.some((e) => initiatorOf(e.command) === h.characterId)).toBe(true);
   });
 });

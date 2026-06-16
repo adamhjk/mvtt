@@ -31,9 +31,8 @@ Even for a single asset, the callback fires (typically once, reaching `1.0`). Fo
 ### Progress on an array
 
 ```ts
-const assets = await Assets.load(
-  ["hero.png", "enemy.png", "map.json", "music.mp3"],
-  (progress) => updateBar(progress),
+const assets = await Assets.load(["hero.png", "enemy.png", "map.json", "music.mp3"], (progress) =>
+  updateBar(progress),
 );
 ```
 
@@ -107,7 +106,6 @@ showHero();
 
 `progress === 1` may fire slightly before the returned promise resolves. Always use the `await` or `.then()` to know when loading is truly complete. The progress callback is for UI updates only.
 
-
 ### [MEDIUM] Progress not updating smoothly
 
 Each asset contributes a discrete step. If your bundle has three assets, progress jumps `0 -> 0.33 -> 0.66 -> 1.0`. For a smoother bar, split large bundles into smaller ones, or animate the bar width toward the target value:
@@ -123,7 +121,6 @@ app.ticker.add(() => {
 });
 ```
 
-
 ### [MEDIUM] Progress via background loading
 
 Wrong:
@@ -133,7 +130,6 @@ Assets.backgroundLoadBundle("game", (p) => updateBar(p));
 ```
 
 Background loading has no progress callback. For visible progress, use `Assets.loadBundle` (foreground). See `references/background.md`.
-
 
 ## API Reference
 

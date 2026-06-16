@@ -222,8 +222,7 @@ export const SkillOpportunitySweepSystem = defineSystem({
     }
     const need = computeAdvancement(entry.rating);
     const stillFull =
-      entry.advancement.pass >= need.passNeeded
-      && entry.advancement.fail >= need.failNeeded;
+      entry.advancement.pass >= need.passNeeded && entry.advancement.fail >= need.failNeeded;
     if (!stillFull) {
       world.despawn(opp.id);
     }
@@ -405,10 +404,7 @@ export const AdvancementLoggedSystem = defineSystem({
       const got = world.get(event.characterId, [Skills]) as
         | {
             Skills: {
-              entries: Record<
-                string,
-                RatedEntry & { taxed: boolean; learningTests?: number }
-              >;
+              entries: Record<string, RatedEntry & { taxed: boolean; learningTests?: number }>;
             };
           }
         | undefined;
@@ -432,10 +428,7 @@ export const AdvancementLoggedSystem = defineSystem({
       const got = world.get(event.characterId, [Skills]) as
         | {
             Skills: {
-              entries: Record<
-                string,
-                RatedEntry & { taxed: boolean; learningTests: number }
-              >;
+              entries: Record<string, RatedEntry & { taxed: boolean; learningTests: number }>;
             };
           }
         | undefined;
@@ -537,10 +530,7 @@ export const SkillLearnedSystem = defineSystem({
     const got = world.get(event.characterId, [Skills]) as
       | {
           Skills: {
-            entries: Record<
-              string,
-              RatedEntry & { taxed: boolean; learningTests: number }
-            >;
+            entries: Record<string, RatedEntry & { taxed: boolean; learningTests: number }>;
           };
         }
       | undefined;
@@ -659,18 +649,17 @@ export const TraitUsageLoggedSystem = defineSystem({
       world.set(event.rollId, TraitUsageLoggedTrait, {
         characterId: event.characterId,
         traitIndex: event.traitIndex,
-        traitNameAtLog:
-          (() => {
-            const ct = world.get(event.characterId, [CharacterTraits]) as
-              | {
-                  CharacterTraits: {
-                    entries: ReadonlyArray<{ name: string }>;
-                  };
-                }
-              | undefined;
-            const entry = ct?.CharacterTraits.entries[event.traitIndex];
-            return entry?.name ?? "(trait)";
-          })(),
+        traitNameAtLog: (() => {
+          const ct = world.get(event.characterId, [CharacterTraits]) as
+            | {
+                CharacterTraits: {
+                  entries: ReadonlyArray<{ name: string }>;
+                };
+              }
+            | undefined;
+          const entry = ct?.CharacterTraits.entries[event.traitIndex];
+          return entry?.name ?? "(trait)";
+        })(),
         direction: event.direction,
         severity: event.severity,
         loggedAt: event.loggedAt,
@@ -696,8 +685,7 @@ export const TraitUsageLoggedSystem = defineSystem({
     const entry = entries[event.traitIndex];
     if (!entry) return [];
 
-    const curUses =
-      typeof entry.beneficialUses === "number" ? entry.beneficialUses : 0;
+    const curUses = typeof entry.beneficialUses === "number" ? entry.beneficialUses : 0;
     const curChecks = typeof entry.checks === "number" ? entry.checks : 0;
     const curUsedAgainst = entry.usedAgainst === true;
 
@@ -718,11 +706,7 @@ export const TraitUsageLoggedSystem = defineSystem({
       nextUsedAgainst = true;
     }
 
-    if (
-      nextUses === curUses &&
-      nextChecks === curChecks &&
-      nextUsedAgainst === curUsedAgainst
-    ) {
+    if (nextUses === curUses && nextChecks === curChecks && nextUsedAgainst === curUsedAgainst) {
       return [];
     }
 
@@ -810,8 +794,8 @@ export const PinnedRollToggledSystem = defineSystem({
     const without = current.filter((e) => pinnedRollKey(e) !== targetKey);
     const next = event.pinned ? [...without, event.entry] : without;
     if (
-      next.length === current.length
-      && next.every((e, i) => pinnedRollKey(e) === pinnedRollKey(current[i]!))
+      next.length === current.length &&
+      next.every((e, i) => pinnedRollKey(e) === pinnedRollKey(current[i]!))
     ) {
       return [];
     }

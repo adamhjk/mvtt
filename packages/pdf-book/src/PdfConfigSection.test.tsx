@@ -38,9 +38,7 @@ import { pdfBook } from "./manifest.js";
 const workbenchStub = definePlugin({
   name: "@vtt/test-workbench-stub",
   version: "0.0.0",
-  slots: [
-    defineSlot({ name: "@vtt/shell-workbench/pages", schema: z.any() }),
-  ],
+  slots: [defineSlot({ name: "@vtt/shell-workbench/pages", schema: z.any() })],
   surfaces: [
     defineSurface({
       name: "@vtt/shell-workbench/header",

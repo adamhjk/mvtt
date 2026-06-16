@@ -42,9 +42,7 @@ export const permissions = definePlugin({
   commands: [SetPermissions],
   systems: [PermissionsChangeSystem],
   entityVisibility: (traits) => {
-    const p = traits[Permissions.name] as
-      | { read: Visibility; write: Visibility }
-      | undefined;
+    const p = traits[Permissions.name] as { read: Visibility; write: Visibility } | undefined;
     return p?.read ?? null;
   },
 });

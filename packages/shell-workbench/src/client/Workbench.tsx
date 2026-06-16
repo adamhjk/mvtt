@@ -15,11 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineView,
-  clientOnly,
-  RootSurface,
-} from "@vtt/substrate";
+import { defineView, clientOnly, RootSurface } from "@vtt/substrate";
 import { Surface } from "@vtt/substrate/client";
 import { createSignal, For, Show, type JSX } from "solid-js";
 import { WorkspaceTreeView } from "./WorkspaceTree.js";

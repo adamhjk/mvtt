@@ -1,5 +1,5 @@
 // mvtt, an RPG virtual tabletop
-// Copyright (C) 2026, Adam Jacob 
+// Copyright (C) 2026, Adam Jacob
 //
 // This file is part of mvtt.
 //

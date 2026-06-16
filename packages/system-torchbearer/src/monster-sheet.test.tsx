@@ -37,7 +37,10 @@ import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { BlockKindsSlot } from "@vtt/adventures/shared";
 import {
-  NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
+  NotificationsSlot,
+  PaletteActionsSlot,
+  PaletteCommandsSlot,
+  WorkbenchStatusSlot,
   WorkbenchChatRailSurface,
 } from "@vtt/shell-workbench/shared";
 import {
@@ -72,7 +75,10 @@ const sheetSlotsTestInfra = definePlugin({
     ChatTimelineContributorSlot,
     RollActionsSlot,
     ItemDetailSectionsSlot,
-    NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
+    NotificationsSlot,
+    PaletteActionsSlot,
+    PaletteCommandsSlot,
+    WorkbenchStatusSlot,
     LinkKindsSlot,
     BlockKindsSlot,
   ],
@@ -169,20 +175,16 @@ describe("MonsterSheet", () => {
     mountWithClient(h, () => <MonsterSheet characterId={h.characterId} />);
     expect(screen.getByTestId("monster-nature-value")).toHaveTextContent("7");
     expect(screen.getByTestId("monster-might-value")).toHaveTextContent("5");
-    expect(screen.getByTestId("monster-precedence-value")).toHaveTextContent(
-      "4",
-    );
+    expect(screen.getByTestId("monster-precedence-value")).toHaveTextContent("4");
   });
 
   it("renders the monster's instinct quote and type pill", () => {
     const h = harness();
     mountWithClient(h, () => <MonsterSheet characterId={h.characterId} />);
-    expect(
-      screen.getByTestId("monster-instinct-display"),
-    ).toHaveTextContent("Always drink the blood of my prey.");
-    expect(screen.getByTestId("monster-type-pill")).toHaveTextContent(
-      "UNDEAD",
+    expect(screen.getByTestId("monster-instinct-display")).toHaveTextContent(
+      "Always drink the blood of my prey.",
     );
+    expect(screen.getByTestId("monster-type-pill")).toHaveTextContent("UNDEAD");
   });
 
   it("renders the editable name input bound to Character.name", () => {
@@ -195,8 +197,7 @@ describe("MonsterSheet", () => {
     const setFieldDispatch = h.dispatched.find(
       (d) =>
         d.type === SetField.name &&
-        (d.payload as { trait: string }).trait ===
-          "@vtt/characters/Character",
+        (d.payload as { trait: string }).trait === "@vtt/characters/Character",
     );
     expect(setFieldDispatch).toBeTruthy();
     expect(setFieldDispatch!.payload).toMatchObject({
@@ -215,8 +216,7 @@ describe("MonsterSheet", () => {
     const setFieldDispatch = h.dispatched.find(
       (d) =>
         d.type === SetField.name &&
-        (d.payload as { trait: string }).trait ===
-          "@vtt/system-torchbearer/RawAbilities",
+        (d.payload as { trait: string }).trait === "@vtt/system-torchbearer/RawAbilities",
     );
     expect(setFieldDispatch).toBeTruthy();
     expect(setFieldDispatch!.payload).toMatchObject({
@@ -255,11 +255,9 @@ describe("MonsterSheet", () => {
     // Book is bound so the citation renders as plain text).
     const headerCite = screen
       .getByTestId("monster-type-pill")
-      .parentElement!.querySelector('[data-canonical-id]');
+      .parentElement!.querySelector("[data-canonical-id]");
     expect(headerCite).not.toBeNull();
-    expect(headerCite!.getAttribute("data-canonical-id")).toBe(
-      "tb/book/loremasters-manual",
-    );
+    expect(headerCite!.getAttribute("data-canonical-id")).toBe("tb/book/loremasters-manual");
     expect(headerCite!.getAttribute("data-canonical-page")).toBe("261");
     expect(headerCite!.textContent).toContain("LMM p.261");
 
@@ -280,9 +278,7 @@ describe("MonsterSheet", () => {
     ];
     for (const row of ruleRows) {
       const cite = row.querySelector("[data-canonical-id]");
-      expect(cite!.getAttribute("data-canonical-id")).toBe(
-        "tb/book/loremasters-manual",
-      );
+      expect(cite!.getAttribute("data-canonical-id")).toBe("tb/book/loremasters-manual");
       expect(cite!.getAttribute("data-canonical-page")).toBe("261");
     }
   });
@@ -307,14 +303,8 @@ describe("MonsterSheet", () => {
   it("conditions section shows monstrous condition chips", () => {
     const h = harness();
     mountWithClient(h, () => <MonsterSheet characterId={h.characterId} />);
-    expect(screen.getByTestId("monster-cond-injured")).toHaveAttribute(
-      "data-on",
-      "false",
-    );
-    expect(screen.getByTestId("monster-cond-afraid")).toHaveAttribute(
-      "data-on",
-      "false",
-    );
+    expect(screen.getByTestId("monster-cond-injured")).toHaveAttribute("data-on", "false");
+    expect(screen.getByTestId("monster-cond-afraid")).toHaveAttribute("data-on", "false");
   });
 
   it("renders 'no special rules' empty state when the rules trait is empty", () => {

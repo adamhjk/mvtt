@@ -24,9 +24,7 @@ import { useClient, useQuery } from "@vtt/substrate/client";
 // PlayerJoined event def). The substrate accepts a SurfaceName string
 // directly in `defineView({ surface })`.
 const WorkbenchHeaderSurfaceName = surfaceName("@vtt/shell-workbench/header");
-const WorkbenchChatRailSurfaceName = surfaceName(
-  "@vtt/shell-workbench/chat-rail",
-);
+const WorkbenchChatRailSurfaceName = surfaceName("@vtt/shell-workbench/chat-rail");
 import { createMemo, createSignal, For, onMount, Show, type JSX } from "solid-js";
 import { Identity, Name, Online } from "../shared/traits.js";
 
@@ -83,22 +81,15 @@ function ThemeSwitcher(): JSX.Element {
   onMount(() => applyTheme(mode()));
 
   const cycle = () => {
-    const next: ThemeMode =
-      mode() === "system" ? "light" : mode() === "light" ? "dark" : "system";
+    const next: ThemeMode = mode() === "system" ? "light" : mode() === "light" ? "dark" : "system";
     setMode(next);
     applyTheme(next);
     persistTheme(next);
   };
 
-  const glyph = createMemo(() =>
-    mode() === "light" ? "☀" : mode() === "dark" ? "☾" : "◐",
-  );
+  const glyph = createMemo(() => (mode() === "light" ? "☀" : mode() === "dark" ? "☾" : "◐"));
   const label = createMemo(() =>
-    mode() === "light"
-      ? "light theme"
-      : mode() === "dark"
-        ? "dark theme"
-        : "follow system theme",
+    mode() === "light" ? "light theme" : mode() === "dark" ? "dark theme" : "follow system theme",
   );
 
   return (
@@ -146,9 +137,7 @@ export const PlayerListView = defineView({
 
     return (
       <div class="flex flex-col gap-2 border-b border-border-muted pb-4">
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-fg-muted">
-          players
-        </h2>
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-fg-muted">players</h2>
         <Show
           when={players().length > 0}
           fallback={<p class="text-xs text-fg-subtle">no one connected</p>}
@@ -161,9 +150,7 @@ export const PlayerListView = defineView({
                     <span class="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
                     <span class="text-fg">{p.name}</span>
                     <Show when={p.tabs > 1}>
-                      <span class="text-[10px] text-fg-subtle">
-                        · {p.tabs} tabs
-                      </span>
+                      <span class="text-[10px] text-fg-subtle">· {p.tabs} tabs</span>
                     </Show>
                   </span>
                   <span
@@ -229,10 +216,7 @@ export const PresenceHeaderView = defineView({
                   p.tabs > 1 ? ` · ${p.tabs} tabs` : ""
                 }`}
               >
-                <span
-                  class="h-1.5 w-1.5 rounded-full bg-accent"
-                  aria-hidden
-                />
+                <span class="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
                 <span class="max-w-[7rem] truncate">{p.name}</span>
               </span>
             )}
@@ -265,9 +249,7 @@ export const UserMenuView = defineView({
       const list = players();
       const cid = client.clientId();
       if (!cid) return null;
-      const found = list.find(
-        (p) => (p.values.Online as { clientId: string }).clientId === cid,
-      );
+      const found = list.find((p) => (p.values.Online as { clientId: string }).clientId === cid);
       if (!found) return null;
       return {
         name: (found.values.Name as { value: string }).value,
@@ -298,8 +280,7 @@ export const UserMenuView = defineView({
           {(info) => (
             <>
               <span>
-                signed in as{" "}
-                <span class="font-medium text-fg">{info().name}</span>
+                signed in as <span class="font-medium text-fg">{info().name}</span>
               </span>
               <span
                 class={

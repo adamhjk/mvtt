@@ -89,9 +89,7 @@ describe("shell-workbench NotificationsOverlay", () => {
         <NotificationsOverlay />
       </ClientProvider>
     ));
-    expect(
-      container.querySelector("[data-testid='notifications-overlay']"),
-    ).toBeNull();
+    expect(container.querySelector("[data-testid='notifications-overlay']")).toBeNull();
   });
 
   it("projects a notification feed's cards into the overlay", () => {
@@ -123,9 +121,7 @@ describe("shell-workbench NotificationsOverlay", () => {
     expect(screen.queryByText("dismiss me")).toBeNull();
     // …and the per-user dismiss command went out (the backing entity is
     // NOT despawned — other players keep their copy).
-    expect(
-      h.dispatched.some((c) => c.type === DismissNotification.name),
-    ).toBe(true);
+    expect(h.dispatched.some((c) => c.type === DismissNotification.name)).toBe(true);
     expect(h.world.has(id as never)).toBe(true);
   });
 
@@ -145,9 +141,7 @@ describe("shell-workbench NotificationsOverlay", () => {
     ));
     // The dismissal persisted on the user's record → never shown on reload.
     expect(screen.queryByText("previously dismissed")).toBeNull();
-    expect(
-      container.querySelector("[data-testid='notifications-overlay']"),
-    ).toBeNull();
+    expect(container.querySelector("[data-testid='notifications-overlay']")).toBeNull();
   });
 
   it("orders newest-first by sortKey", () => {

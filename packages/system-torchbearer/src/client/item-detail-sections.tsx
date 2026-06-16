@@ -15,10 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  type CommandInstance,
-  type EntityId,
-} from "@vtt/substrate";
+import { type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useTrait } from "@vtt/substrate/client";
 import {
   EditItemField,
@@ -28,13 +25,7 @@ import {
   SetItemTrait,
   SplitItemBundle,
 } from "@vtt/items/shared";
-import {
-  createMemo,
-  createSignal,
-  For,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
   SpellIdentity,
   TbArmor,
@@ -66,9 +57,7 @@ export const TbWeaponDetailSection: ItemDetailSection = {
   label: "Weapon",
   priority: 100,
   appliesWhen: ({ traitsOnItem }) => traitsOnItem.has(TbWeapon.name),
-  render: ({ itemId, canEdit }) => (
-    <WeaponSection itemId={itemId as EntityId} canEdit={canEdit} />
-  ),
+  render: ({ itemId, canEdit }) => <WeaponSection itemId={itemId as EntityId} canEdit={canEdit} />,
 };
 
 export const TbArmorDetailSection: ItemDetailSection = {
@@ -76,9 +65,7 @@ export const TbArmorDetailSection: ItemDetailSection = {
   label: "Armor",
   priority: 90,
   appliesWhen: ({ traitsOnItem }) => traitsOnItem.has(TbArmor.name),
-  render: ({ itemId, canEdit }) => (
-    <ArmorSection itemId={itemId as EntityId} canEdit={canEdit} />
-  ),
+  render: ({ itemId, canEdit }) => <ArmorSection itemId={itemId as EntityId} canEdit={canEdit} />,
 };
 
 export const TbSupplyDetailSection: ItemDetailSection = {
@@ -86,9 +73,7 @@ export const TbSupplyDetailSection: ItemDetailSection = {
   label: "Supply",
   priority: 80,
   appliesWhen: ({ traitsOnItem }) => traitsOnItem.has(TbSupply.name),
-  render: ({ itemId, canEdit }) => (
-    <SupplySection itemId={itemId as EntityId} canEdit={canEdit} />
-  ),
+  render: ({ itemId, canEdit }) => <SupplySection itemId={itemId as EntityId} canEdit={canEdit} />,
 };
 
 export const TbContainerDetailSection: ItemDetailSection = {
@@ -125,8 +110,7 @@ export const TbSpecialRulesDetailSection: ItemDetailSection = {
   id: "@vtt/system-torchbearer/special-rules",
   label: "Special Rules",
   priority: 20,
-  appliesWhen: ({ traitsOnItem }) =>
-    traitsOnItem.has(TbItemSpecialRules.name),
+  appliesWhen: ({ traitsOnItem }) => traitsOnItem.has(TbItemSpecialRules.name),
   render: ({ itemId, canEdit }) => (
     <SpecialRulesSection itemId={itemId as EntityId} canEdit={canEdit} />
   ),
@@ -137,9 +121,7 @@ export const TbBundleDetailSection: ItemDetailSection = {
   label: "Bundle",
   priority: 60,
   appliesWhen: ({ traitsOnItem }) => traitsOnItem.has(ItemBundle.name),
-  render: ({ itemId, canEdit }) => (
-    <BundleSection itemId={itemId as EntityId} canEdit={canEdit} />
-  ),
+  render: ({ itemId, canEdit }) => <BundleSection itemId={itemId as EntityId} canEdit={canEdit} />,
 };
 
 export const TbSpellBookDetailSection: ItemDetailSection = {
@@ -157,9 +139,7 @@ export const TbScrollDetailSection: ItemDetailSection = {
   label: "Scroll",
   priority: 76,
   appliesWhen: ({ traitsOnItem }) => traitsOnItem.has(TbScroll.name),
-  render: ({ itemId, canEdit }) => (
-    <ScrollDetail itemId={itemId as EntityId} canEdit={canEdit} />
-  ),
+  render: ({ itemId, canEdit }) => <ScrollDetail itemId={itemId as EntityId} canEdit={canEdit} />,
 };
 
 /**
@@ -263,10 +243,7 @@ const TB_SUBTYPES: ReadonlyArray<SubtypeDescriptor> = [
   },
 ];
 
-function ManageSubtypesSection(props: {
-  itemId: EntityId;
-  canEdit: boolean;
-}): JSX.Element {
+function ManageSubtypesSection(props: { itemId: EntityId; canEdit: boolean }): JSX.Element {
   const client = useClient();
   // Re-evaluate when any trait on this entity changes — `useTrait`
   // can subscribe per-trait, but here we want a list of which
@@ -323,9 +300,7 @@ function ManageSubtypesSection(props: {
                 data-testid={`subtype-toggle-${s.shortName}`}
               />
               <span>{s.label}</span>
-              <span class="text-[0.65rem] text-fg-subtle font-mono">
-                {s.shortName}
-              </span>
+              <span class="text-[0.65rem] text-fg-subtle font-mono">{s.shortName}</span>
             </li>
           )}
         </For>
@@ -341,9 +316,7 @@ function ManageSubtypesSection(props: {
 function useEditField(itemId: EntityId): (path: string, value: unknown) => void {
   const client = useClient();
   return (path: string, value: unknown): void => {
-    void client.dispatch(
-      EditItemField({ itemId, path, value }) as CommandInstance,
-    );
+    void client.dispatch(EditItemField({ itemId, path, value }) as CommandInstance);
   };
 }
 
@@ -358,17 +331,12 @@ const ADDABLE_SLOTS = TB_BODY_SLOTS.filter(
   (s) => s !== "handR" && s !== "handL",
 );
 
-function SlotOptionsSection(props: {
-  itemId: EntityId;
-  canEdit: boolean;
-}): JSX.Element {
+function SlotOptionsSection(props: { itemId: EntityId; canEdit: boolean }): JSX.Element {
   const editField = useEditField(props.itemId);
   const slotOpts = useTrait(props.itemId, TbItemSlotOptions) as () =>
     | { options: Record<string, number> }
     | undefined;
-  const options = createMemo<Record<string, number>>(
-    () => slotOpts()?.options ?? {},
-  );
+  const options = createMemo<Record<string, number>>(() => slotOpts()?.options ?? {});
   const [newSlot, setNewSlot] = createSignal<string>(ADDABLE_SLOTS[0] ?? "pack");
   const [newCost, setNewCost] = createSignal<number>(1);
 
@@ -391,9 +359,7 @@ function SlotOptionsSection(props: {
     <div class="flex flex-col gap-2 text-sm">
       <Show
         when={Object.keys(options()).length > 0}
-        fallback={
-          <em class="text-fg-subtle">No allowed slots — add one below.</em>
-        }
+        fallback={<em class="text-fg-subtle">No allowed slots — add one below.</em>}
       >
         <ul class="flex flex-col gap-1.5">
           <For each={Object.entries(options()).sort(([a], [b]) => a.localeCompare(b))}>
@@ -442,9 +408,7 @@ function SlotOptionsSection(props: {
             data-testid="slot-add-key"
             class="rounded border border-border bg-surface px-2 py-1 text-sm"
           >
-            <For each={ADDABLE_SLOTS}>
-              {(s) => <option value={s}>{s}</option>}
-            </For>
+            <For each={ADDABLE_SLOTS}>{(s) => <option value={s}>{s}</option>}</For>
           </select>
           <input
             type="number"
@@ -467,11 +431,10 @@ function SlotOptionsSection(props: {
             + add
           </button>
           <span class="text-[0.7rem] text-fg-subtle">
-            Use the catalog vocabulary: <code>pack</code> /{" "}
-            <code>carried</code> / <code>wornHand</code> /{" "}
-            <code>hands</code> / <code>pouch</code> / <code>quiver</code> /{" "}
-            <code>belt</code> / <code>torso</code> / <code>head</code> /{" "}
-            <code>neck</code> / <code>feet</code> / <code>pocket</code>
+            Use the catalog vocabulary: <code>pack</code> / <code>carried</code> /{" "}
+            <code>wornHand</code> / <code>hands</code> / <code>pouch</code> / <code>quiver</code> /{" "}
+            <code>belt</code> / <code>torso</code> / <code>head</code> / <code>neck</code> /{" "}
+            <code>feet</code> / <code>pocket</code>
           </span>
         </div>
       </Show>
@@ -504,10 +467,7 @@ function WeaponSection(props: { itemId: EntityId; canEdit: boolean }): JSX.Eleme
               value={weapon().wield}
               disabled={!props.canEdit}
               onChange={(e) =>
-                editField(
-                  "TbWeapon.wield",
-                  Number.parseInt(e.currentTarget.value, 10),
-                )
+                editField("TbWeapon.wield", Number.parseInt(e.currentTarget.value, 10))
               }
               data-testid="weapon-wield"
               class="rounded border border-border bg-surface px-2 py-1 text-sm"
@@ -547,10 +507,7 @@ function ConflictBonusRow(props: {
         value={props.bonus.type}
         disabled={!props.canEdit}
         onChange={(e) =>
-          props.edit(
-            `TbWeapon.conflictBonuses.${props.action}.type`,
-            e.currentTarget.value,
-          )
+          props.edit(`TbWeapon.conflictBonuses.${props.action}.type`, e.currentTarget.value)
         }
         data-testid={`weapon-${props.action}-type`}
         class="rounded border border-border bg-surface px-2 py-1 text-sm"
@@ -596,15 +553,11 @@ function ArmorSection(props: { itemId: EntityId; canEdit: boolean }): JSX.Elemen
             <select
               value={armor().armorType}
               disabled={!props.canEdit}
-              onChange={(e) =>
-                editField("TbArmor.armorType", e.currentTarget.value)
-              }
+              onChange={(e) => editField("TbArmor.armorType", e.currentTarget.value)}
               data-testid="armor-type"
               class="rounded border border-border bg-surface px-2 py-1 text-sm"
             >
-              <For each={ARMOR_TYPES}>
-                {(t) => <option value={t}>{t}</option>}
-              </For>
+              <For each={ARMOR_TYPES}>{(t) => <option value={t}>{t}</option>}</For>
             </select>
           </div>
           <div class="flex items-center gap-2">
@@ -662,15 +615,11 @@ function SupplySection(props: { itemId: EntityId; canEdit: boolean }): JSX.Eleme
             <select
               value={supply().supplyType}
               disabled={!props.canEdit}
-              onChange={(e) =>
-                editField("TbSupply.supplyType", e.currentTarget.value)
-              }
+              onChange={(e) => editField("TbSupply.supplyType", e.currentTarget.value)}
               data-testid="supply-type"
               class="rounded border border-border bg-surface px-2 py-1 text-sm"
             >
-              <For each={SUPPLY_TYPES}>
-                {(t) => <option value={t}>{t}</option>}
-              </For>
+              <For each={SUPPLY_TYPES}>{(t) => <option value={t}>{t}</option>}</For>
             </select>
           </div>
           <div class="flex items-center gap-2">
@@ -736,9 +685,7 @@ function ContainerSection(props: { itemId: EntityId; canEdit: boolean }): JSX.El
               type="text"
               value={container().containerType}
               disabled={!props.canEdit}
-              onBlur={(e) =>
-                editField("TbContainer.containerType", e.currentTarget.value)
-              }
+              onBlur={(e) => editField("TbContainer.containerType", e.currentTarget.value)}
               data-testid="container-type"
               class="flex-1 rounded border border-border bg-surface px-2 py-1 text-sm"
               placeholder="backpack / satchel / smallSack / pouch / quiver / …"
@@ -772,10 +719,7 @@ function ContainerSection(props: { itemId: EntityId; canEdit: boolean }): JSX.El
  * Skill bonuses
  * ----------------------------------------------------------------------- */
 
-function SkillBonusesSection(props: {
-  itemId: EntityId;
-  canEdit: boolean;
-}): JSX.Element {
+function SkillBonusesSection(props: { itemId: EntityId; canEdit: boolean }): JSX.Element {
   const editField = useEditField(props.itemId);
   const s = useTrait(props.itemId, TbSkillBonuses) as () =>
     | {
@@ -787,7 +731,10 @@ function SkillBonusesSection(props: {
   const setAll = (next: Array<{ skill: string; value: number; condition: string }>): void => {
     editField("TbSkillBonuses.entries", next);
   };
-  const setEntry = (idx: number, patch: Partial<{ skill: string; value: number; condition: string }>): void => {
+  const setEntry = (
+    idx: number,
+    patch: Partial<{ skill: string; value: number; condition: string }>,
+  ): void => {
     const cur = entries();
     const next = cur.slice();
     next[idx] = { ...cur[idx]!, ...patch };
@@ -837,9 +784,7 @@ function SkillBonusesSection(props: {
                   type="text"
                   value={entry.condition}
                   disabled={!props.canEdit}
-                  onBlur={(e) =>
-                    setEntry(idx(), { condition: e.currentTarget.value })
-                  }
+                  onBlur={(e) => setEntry(idx(), { condition: e.currentTarget.value })}
                   placeholder="When (optional)"
                   data-testid={`skill-bonus-condition-${idx()}`}
                   class="rounded border border-border bg-surface px-2 py-1 text-sm"
@@ -877,14 +822,9 @@ function SkillBonusesSection(props: {
  * Special rules — free-text
  * ----------------------------------------------------------------------- */
 
-function SpecialRulesSection(props: {
-  itemId: EntityId;
-  canEdit: boolean;
-}): JSX.Element {
+function SpecialRulesSection(props: { itemId: EntityId; canEdit: boolean }): JSX.Element {
   const editField = useEditField(props.itemId);
-  const r = useTrait(props.itemId, TbItemSpecialRules) as () =>
-    | { text: string }
-    | undefined;
+  const r = useTrait(props.itemId, TbItemSpecialRules) as () => { text: string } | undefined;
   const [draft, setDraft] = createSignal(r()?.text ?? "");
   let lastSeen = r()?.text ?? "";
   const sync = (): void => {
@@ -1023,10 +963,7 @@ function BundleSection(props: { itemId: EntityId; canEdit: boolean }): JSX.Eleme
  * deep-link to the spell's rulebook citation.
  * ----------------------------------------------------------------------- */
 
-function SpellBookDetail(props: {
-  itemId: EntityId;
-  canEdit: boolean;
-}): JSX.Element {
+function SpellBookDetail(props: { itemId: EntityId; canEdit: boolean }): JSX.Element {
   void props.canEdit;
   const book = useTrait(props.itemId, TbSpellBook);
   const folios = createMemo(() => book()?.folios ?? 5);
@@ -1062,19 +999,14 @@ function SpellBookDetail(props: {
             gap: "0.2rem",
           }}
         >
-          <For each={contents()}>
-            {(sid) => <SpellSummaryRow spellId={sid} />}
-          </For>
+          <For each={contents()}>{(sid) => <SpellSummaryRow spellId={sid} />}</For>
         </ul>
       </Show>
     </div>
   );
 }
 
-function ScrollDetail(props: {
-  itemId: EntityId;
-  canEdit: boolean;
-}): JSX.Element {
+function ScrollDetail(props: { itemId: EntityId; canEdit: boolean }): JSX.Element {
   void props.canEdit;
   const scroll = useTrait(props.itemId, TbScroll);
   const sid = createMemo(() => scroll()?.spellId ?? null);
@@ -1100,9 +1032,7 @@ function ScrollDetail(props: {
         {(spellId) => <SpellSummaryRow spellId={spellId()} />}
       </Show>
       <Show when={consumed()}>
-        <span style={{ color: "var(--color-fg-error)", "font-style": "italic" }}>
-          consumed
-        </span>
+        <span style={{ color: "var(--color-fg-error)", "font-style": "italic" }}>consumed</span>
       </Show>
     </div>
   );

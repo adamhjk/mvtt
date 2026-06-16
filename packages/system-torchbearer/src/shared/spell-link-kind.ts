@@ -18,11 +18,7 @@
 import { type EntityId } from "@vtt/substrate";
 import { defineLinkKind, type LinkSuggestion } from "@vtt/notes/shared";
 import { SpellIdentity } from "./spells/spell-traits.js";
-import {
-  SpellCreated,
-  SpellFieldEdited,
-  SpellRemoved,
-} from "./spells/spell-events.js";
+import { SpellCreated, SpellFieldEdited, SpellRemoved } from "./spells/spell-events.js";
 
 interface SpellRef {
   readonly spellId: EntityId;
@@ -85,9 +81,5 @@ export const spellLinkKind = defineLinkKind<SpellRef>({
     }
     return out;
   },
-  indexEvents: [
-    SpellCreated.name,
-    SpellRemoved.name,
-    SpellFieldEdited.name,
-  ],
+  indexEvents: [SpellCreated.name, SpellRemoved.name, SpellFieldEdited.name],
 });

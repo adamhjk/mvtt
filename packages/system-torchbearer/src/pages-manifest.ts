@@ -38,11 +38,7 @@ import { NpcsPageProvider } from "./client/npcs-page.js";
 export const systemTorchbearerPages = definePlugin({
   name: "@vtt/system-torchbearer-pages",
   version: "0.1.0",
-  dependsOn: [
-    "@vtt/substrate@^0",
-    "@vtt/system-torchbearer@^0",
-    "@vtt/shell-workbench@^0",
-  ],
+  dependsOn: ["@vtt/substrate@^0", "@vtt/system-torchbearer@^0", "@vtt/shell-workbench@^0"],
   fills: {
     [PagesSlot.name]: [
       ConflictPageProvider,

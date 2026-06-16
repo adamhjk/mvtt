@@ -251,10 +251,7 @@ export const GrindTollRowAppliedSystem = defineSystem({
   },
 });
 
-function isCatalogEntity(
-  world: import("@vtt/substrate").World,
-  itemId: string,
-): boolean {
+function isCatalogEntity(world: import("@vtt/substrate").World, itemId: string): boolean {
   for (const row of world.query([ItemCatalogIndex])) {
     const v = row.values.ItemCatalogIndex as { entries: Record<string, string> };
     for (const id of Object.values(v.entries)) {

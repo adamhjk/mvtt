@@ -149,10 +149,7 @@ export class WorldRuntime {
     if (this.eventsSinceSnapshot >= this.snapshotEvery) {
       void this.takeSnapshot().catch((err) => {
         // eslint-disable-next-line no-console
-        console.error(
-          `[mvtt] snapshot write failed for ${this.worldId}:`,
-          (err as Error).message,
-        );
+        console.error(`[mvtt] snapshot write failed for ${this.worldId}:`, (err as Error).message);
       });
     }
   }
@@ -267,9 +264,7 @@ export class WorldsRegistry {
       throw new Error(`world ${JSON.stringify(worldId)} does not exist`);
     }
     if (record.archivedAt !== null) {
-      throw new Error(
-        `world ${JSON.stringify(worldId)} is archived and cannot be acquired`,
-      );
+      throw new Error(`world ${JSON.stringify(worldId)} is archived and cannot be acquired`);
     }
     const { plugins } = resolveActivePlugins({
       infrastructure: this.opts.infrastructure,

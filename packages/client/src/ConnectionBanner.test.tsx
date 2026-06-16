@@ -18,10 +18,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createSignal } from "solid-js";
 import { cleanup, screen } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { ConnectionBanner } from "./ConnectionBanner";
 
 /**
@@ -34,10 +31,7 @@ function mountBanner(initial: { connected: boolean; synced: boolean }) {
   const h = buildTestClient({ plugins: [] });
   const [connected, setConnected] = createSignal(initial.connected);
   const [synced, setSynced] = createSignal(initial.synced);
-  mountWithClient(
-    { ...h, client: { ...h.client, connected, synced } },
-    () => <ConnectionBanner />,
-  );
+  mountWithClient({ ...h, client: { ...h.client, connected, synced } }, () => <ConnectionBanner />);
   return { setConnected, setSynced };
 }
 

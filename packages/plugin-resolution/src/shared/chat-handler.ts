@@ -45,18 +45,13 @@ function rollHandler(prefix: string, describe: string): ChatInputHandler {
       return RequestRoll({
         notation: rest,
         visibility: ctx.gmOnly ? "gm-only" : "public",
-        ...(ctx.speakingAsCharacterId
-          ? { speakingAsCharacterId: ctx.speakingAsCharacterId }
-          : {}),
+        ...(ctx.speakingAsCharacterId ? { speakingAsCharacterId: ctx.speakingAsCharacterId } : {}),
       });
     },
   };
 }
 
-export const RollChatHandler = rollHandler(
-  "/r ",
-  "/r <notation> — roll dice (e.g. /r 1d20+5)",
-);
+export const RollChatHandler = rollHandler("/r ", "/r <notation> — roll dice (e.g. /r 1d20+5)");
 export const RollChatHandlerLong = rollHandler(
   "/roll ",
   "/roll <notation> — alias for /r (e.g. /roll 1d20+5)",

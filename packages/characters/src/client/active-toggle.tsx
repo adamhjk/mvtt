@@ -76,15 +76,9 @@ export function ActiveToggle(props: {
         "font-family": "var(--font-display)",
         "font-size": fontSize(),
         "letter-spacing": "0.1em",
-        "border-color": isActive()
-          ? "var(--color-accent)"
-          : "var(--color-border-muted)",
-        "background-color": isActive()
-          ? "var(--color-accent)"
-          : "var(--color-surface-elevated)",
-        color: isActive()
-          ? "var(--color-accent-fg)"
-          : "var(--color-fg-muted)",
+        "border-color": isActive() ? "var(--color-accent)" : "var(--color-border-muted)",
+        "background-color": isActive() ? "var(--color-accent)" : "var(--color-surface-elevated)",
+        color: isActive() ? "var(--color-accent-fg)" : "var(--color-fg-muted)",
       }}
     >
       {isActive() ? "Active" : "Inactive"}

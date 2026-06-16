@@ -33,11 +33,7 @@ Fire-and-forget. Background loading happens one asset at a time to avoid blockin
 ### Background-loading an array
 
 ```ts
-Assets.backgroundLoad([
-  "images/sprite1.png",
-  "images/sprite2.png",
-  "images/background.png",
-]);
+Assets.backgroundLoad(["images/sprite1.png", "images/sprite2.png", "images/background.png"]);
 ```
 
 Queues multiple assets for background loading. They're processed sequentially.
@@ -102,7 +98,6 @@ Assets.backgroundLoadBundle("level2");
 
 `backgroundLoad` and `backgroundLoadBundle` don't accept progress callbacks. They're silent. For visible progress, use the foreground `Assets.load` / `Assets.loadBundle` with an `onProgress` argument.
 
-
 ### [MEDIUM] Assuming background load completes before next foreground load
 
 Wrong:
@@ -125,11 +120,9 @@ onStart(async () => {
 
 Background loading is best-effort. If the player hits Start before it finishes, the foreground `loadBundle` still needs to await the remaining work. Always `await` the real load before using the assets.
 
-
 ### [MEDIUM] Background-loading assets that are never used
 
 Each queued background load consumes bandwidth and GPU memory. If the player never visits level 2, you've wasted that bandwidth. Background-load only what you're confident will be needed soon.
-
 
 ## API Reference
 

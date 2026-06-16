@@ -123,15 +123,13 @@ export function parseInner(
   // 1. Pull off optional alias (`|alias`). Pipe is unambiguous because
   //    body and anchor disallow it.
   const pipeIdx = trimmed.indexOf("|");
-  const aliasPart =
-    pipeIdx >= 0 ? trimmed.slice(pipeIdx + 1).trim() : null;
+  const aliasPart = pipeIdx >= 0 ? trimmed.slice(pipeIdx + 1).trim() : null;
   const headPart = pipeIdx >= 0 ? trimmed.slice(0, pipeIdx) : trimmed;
   if (aliasPart !== null && aliasPart.length === 0) return null;
 
   // 2. Pull off optional anchor (`#anchor`).
   const hashIdx = headPart.indexOf("#");
-  const anchorPart =
-    hashIdx >= 0 ? headPart.slice(hashIdx + 1).trim() : null;
+  const anchorPart = hashIdx >= 0 ? headPart.slice(hashIdx + 1).trim() : null;
   const beforeAnchor = hashIdx >= 0 ? headPart.slice(0, hashIdx) : headPart;
   if (anchorPart !== null && anchorPart.length === 0) return null;
 
@@ -189,10 +187,7 @@ export function parseInner(
  * delimited inline code*. Anything else (paragraphs, lists, tables,
  * blockquotes, headings) is fair game.
  */
-export function parseLinks(
-  text: string,
-  opts: ParseOptions = {},
-): WikiLinkRef[] {
+export function parseLinks(text: string, opts: ParseOptions = {}): WikiLinkRef[] {
   const out: WikiLinkRef[] = [];
   const masked = maskCode(text);
   let match: RegExpExecArray | null;

@@ -105,7 +105,6 @@ const sprite = new Sprite(texture);
 
 `Assets.get` is synchronous and returns `undefined` if the asset hasn't been loaded yet. Always await `Assets.load` first, or use the return value of `Assets.load` directly.
 
-
 ### [HIGH] Not unloading between levels
 
 Textures stay in the cache indefinitely. A game that loads level after level without calling `Assets.unload` or `Assets.unloadBundle` slowly accumulates GPU memory until it hits browser limits.
@@ -114,7 +113,6 @@ Textures stay in the cache indefinitely. A game that loads level after level wit
 await Assets.unloadBundle("level1");
 await Assets.loadBundle("level2");
 ```
-
 
 ### [MEDIUM] Using sprites after unload
 
@@ -134,7 +132,6 @@ await Assets.unload("hero.png");
 ```
 
 `Assets.unload` destroys the underlying texture. Any sprite still referencing it will render Texture.EMPTY or crash depending on the backend. Destroy the leaf (or reassign its texture) before unloading.
-
 
 ## API Reference
 

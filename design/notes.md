@@ -9,7 +9,7 @@ A VTT without notes makes the GM run their game out of a Google Doc in a second 
 We want one notes system that:
 
 - Is markdown all the way down — the canonical representation is plain text, not a WYSIWYG tree.
-- Edits like Obsidian's *Live Preview*: each line shows raw markdown when the cursor is in it and renders in place when you leave.
+- Edits like Obsidian's _Live Preview_: each line shows raw markdown when the cursor is in it and renders in place when you leave.
 - Lets you link to anything in the world — notes, characters, scenes, assets — with a uniform syntax that survives renames and refactoring.
 - Is extensible by other plugins without the notes plugin having to know about them. The character plugin teaches notes how to link to characters.
 - Has first-class support for inline images via paste / drop / upload.
@@ -48,7 +48,7 @@ Both ride along with the universal infrastructure tier (always loaded into every
 
 ## The wiki-link kind registry
 
-This is the load-bearing piece. The notes plugin owns the grammar; **every plugin that wants to be linkable contributes a *kind*** that owns the resolution, rendering, and activation semantics for its own references.
+This is the load-bearing piece. The notes plugin owns the grammar; **every plugin that wants to be linkable contributes a _kind_** that owns the resolution, rendering, and activation semantics for its own references.
 
 ### Grammar
 
@@ -68,7 +68,7 @@ A sigil shortcut MAY be registered alongside a kind for ergonomic typing (`@` fo
 
 ### Storage normalisation
 
-The user types `[[Goblin Cave]]`. On `SetPageBody` the parser resolves `Goblin Cave` against the default kind's `autocomplete` results plus the on-screen cursor context, picks the unambiguous match, and rewrites the token to its normalised form `[[note:noteId|Goblin Cave]]` — a stable id with the *current* display name as the alias.
+The user types `[[Goblin Cave]]`. On `SetPageBody` the parser resolves `Goblin Cave` against the default kind's `autocomplete` results plus the on-screen cursor context, picks the unambiguous match, and rewrites the token to its normalised form `[[note:noteId|Goblin Cave]]` — a stable id with the _current_ display name as the alias.
 
 If the user types `[[Goblin Cave|the cave]]` the alias is preserved verbatim. If they type just `[[Goblin Cave]]`, the alias slot is treated as derived from the target's title and re-rendered from the live trait at view time. This is the rename-resilience contract: a renamed target is reflected everywhere the alias was implicit, and untouched everywhere the alias was explicit.
 
@@ -94,10 +94,10 @@ defineLinkKind({
 
 ```ts
 type LinkActivation =
-  | { type: "peek";    render: () => JSX.Element }
+  | { type: "peek"; render: () => JSX.Element }
   | { type: "navigate"; pageKind: string; entityId: EntityId }
   | { type: "command"; command: CommandName; payload: unknown }
-  | { type: "custom";  run: (ctx: ActivationCtx) => void };
+  | { type: "custom"; run: (ctx: ActivationCtx) => void };
 ```
 
 A character plugin might register `peek` as the default action and `navigate` as the cmd-click alternate (open the full sheet in a workbench tab). A scene plugin might register `navigate` only — clicking switches the active scene tab. Each plugin owns the click semantics; notes never branches on kind.
@@ -142,7 +142,7 @@ PageHistory   { entries: { rev: number; savedAt: number; savedBy: UserId }[] } /
 EditorLock    { userId: UserId; clientId: ConnectionId; since: number; expires: number }
 ```
 
-`PageDraft` and `EditorLock` are both *trait-level transient* — they reconstitute on next session, never persist. `PageHistory` is durable.
+`PageDraft` and `EditorLock` are both _trait-level transient_ — they reconstitute on next session, never persist. `PageHistory` is durable.
 
 Plus the existing permission traits, attached as needed:
 
@@ -151,7 +151,7 @@ OwnedBy           on every Note (creator)
 EntityVisibility  on every Note (default: everyone), optionally on NotePage
 ```
 
-A `NotePage` without `EntityVisibility` inherits the parent note's. A `NotePage` *with* one is intersected with the parent (see Permissions).
+A `NotePage` without `EntityVisibility` inherits the parent note's. A `NotePage` _with_ one is intersected with the parent (see Permissions).
 
 `Headings` is derived state — maintained by a server-side parse system, never written to directly. Heading ids are content-hashed (`hd:` + first 6 chars of sha1 over normalised heading text + occurrence index) so they're stable across rephrases.
 
@@ -192,39 +192,39 @@ These are `transient: false, broadcast: true` — durable so backlinks survive c
 
 ### Systems
 
-| System | Trigger | Work |
-|---|---|---|
-| `NoteSpawnSystem` | `NoteCreated` | `world.spawnAt(noteId, [Note, NoteOrdering, OwnedBy, EntityVisibility])` |
-| `NoteRenameSystem` | `NoteRenamed` | `world.set(noteId, Note, { ...prev, title })` |
-| `NoteDeleteSystem` | `NoteDeleted` | despawn note entity; emit `RemovePage` for each child page |
-| `PageSpawnSystem` | `PageAdded` | `spawnAt(pageId, [BelongsToNote, Page, PageOrdering])` |
-| `PageBodyParseSystem` | `PageBodySet` | parse mdast → derive `Headings` and emit `LinkAdded`/`LinkRemoved` deltas vs. previous |
-| `PageDraftMirrorSystem` | `PageBodyDraft` | write transient `PageDraft.body`; cleared on `EditEnded` |
-| `PageHistoryAppendSystem` | `PageBodySet` | append `{ rev, savedAt, savedBy }` to `PageHistory.entries`; trim to last 20 |
-| `LockReleaseSystem` *(server-only)* | `ConnectionClosed` | dispatch `EndEdit` for any locks held by the closed `clientId` |
-| `PageMirrorSystem` | `PageBodySet`, `PageRenamed`, … | mirror trait writes |
-| `FtsIndexSystem` *(server-only)* | `PageBodySet`, `PageRenamed`, `NoteRenamed`, `*Deleted` | maintain SQLite FTS5 virtual table |
-| `LinkTargetsIndexSystem` *(server)* | every kind's `indexEvents` | maintain the denormalised `LinkTargets` snapshot pushed to clients |
+| System                              | Trigger                                                 | Work                                                                                   |
+| ----------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `NoteSpawnSystem`                   | `NoteCreated`                                           | `world.spawnAt(noteId, [Note, NoteOrdering, OwnedBy, EntityVisibility])`               |
+| `NoteRenameSystem`                  | `NoteRenamed`                                           | `world.set(noteId, Note, { ...prev, title })`                                          |
+| `NoteDeleteSystem`                  | `NoteDeleted`                                           | despawn note entity; emit `RemovePage` for each child page                             |
+| `PageSpawnSystem`                   | `PageAdded`                                             | `spawnAt(pageId, [BelongsToNote, Page, PageOrdering])`                                 |
+| `PageBodyParseSystem`               | `PageBodySet`                                           | parse mdast → derive `Headings` and emit `LinkAdded`/`LinkRemoved` deltas vs. previous |
+| `PageDraftMirrorSystem`             | `PageBodyDraft`                                         | write transient `PageDraft.body`; cleared on `EditEnded`                               |
+| `PageHistoryAppendSystem`           | `PageBodySet`                                           | append `{ rev, savedAt, savedBy }` to `PageHistory.entries`; trim to last 20           |
+| `LockReleaseSystem` _(server-only)_ | `ConnectionClosed`                                      | dispatch `EndEdit` for any locks held by the closed `clientId`                         |
+| `PageMirrorSystem`                  | `PageBodySet`, `PageRenamed`, …                         | mirror trait writes                                                                    |
+| `FtsIndexSystem` _(server-only)_    | `PageBodySet`, `PageRenamed`, `NoteRenamed`, `*Deleted` | maintain SQLite FTS5 virtual table                                                     |
+| `LinkTargetsIndexSystem` _(server)_ | every kind's `indexEvents`                              | maintain the denormalised `LinkTargets` snapshot pushed to clients                     |
 
-Sentinel-entity coordination isn't needed for v1; nothing waits on anything else. Page deletion cascades cleanly via emitted events — `NoteDeleted` causes the system to *emit* `PageDeleted` events; it never deletes from inside another delete.
+Sentinel-entity coordination isn't needed for v1; nothing waits on anything else. Page deletion cascades cleanly via emitted events — `NoteDeleted` causes the system to _emit_ `PageDeleted` events; it never deletes from inside another delete.
 
 ## Editor
 
 CodeMirror 6. Not ProseMirror.
 
-ProseMirror's mental model is a structured tree serialised to markdown on save. That model fights "the line under the cursor is raw markdown." CM6 treats the document *as* markdown and uses `Decoration.replace` to swap rendered widgets in for any range that doesn't currently contain the cursor. This is exactly the Obsidian Live Preview shape.
+ProseMirror's mental model is a structured tree serialised to markdown on save. That model fights "the line under the cursor is raw markdown." CM6 treats the document _as_ markdown and uses `Decoration.replace` to swap rendered widgets in for any range that doesn't currently contain the cursor. This is exactly the Obsidian Live Preview shape.
 
 ### Stack
 
-| Concern | Library |
-|---|---|
-| Editor core | `@codemirror/state`, `@codemirror/view`, `@codemirror/commands` |
-| Markdown highlighting + syntax tree | `@codemirror/lang-markdown`, `@lezer/markdown` |
-| Live-preview decoration | custom `ViewPlugin` (~150 lines) |
-| Wiki-link Lezer extension | custom (~50 lines), shared grammar with the server-side remark plugin |
-| Canonical parse for index work | `unified` + `remark-parse` + `remark-gfm` + custom wiki-link extension |
-| mdast → Solid render (peek, chip, embed) | ~80 lines, no library |
-| Future co-edit cursors | `y-codemirror.next` paths exist if we ever need them; **not used in v1** |
+| Concern                                  | Library                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------ |
+| Editor core                              | `@codemirror/state`, `@codemirror/view`, `@codemirror/commands`          |
+| Markdown highlighting + syntax tree      | `@codemirror/lang-markdown`, `@lezer/markdown`                           |
+| Live-preview decoration                  | custom `ViewPlugin` (~150 lines)                                         |
+| Wiki-link Lezer extension                | custom (~50 lines), shared grammar with the server-side remark plugin    |
+| Canonical parse for index work           | `unified` + `remark-parse` + `remark-gfm` + custom wiki-link extension   |
+| mdast → Solid render (peek, chip, embed) | ~80 lines, no library                                                    |
+| Future co-edit cursors                   | `y-codemirror.next` paths exist if we ever need them; **not used in v1** |
 
 The Lezer grammar (editor-side, incremental) and the remark grammar (server-side, canonical) MUST agree on the wiki-link syntax. The grammar is small (~5 productions); shipping it twice with a shared fixture suite is cheaper than abstracting it once.
 
@@ -234,7 +234,7 @@ The Lezer grammar (editor-side, incremental) and the remark grammar (server-side
 state                         decoration
 ─────────                     ──────────
 **bold text**                 *bold text*  ← cursor here, raw shown
-^cursor                       
+^cursor
 
 **bold text**                 [bold text in <strong> widget]
                               ^cursor elsewhere
@@ -286,12 +286,12 @@ Notes inherit the world's existing visibility model. `@vtt/permissions` already 
 
 ### The four user-facing levels
 
-| Picker label | Builder |
-|---|---|
-| GM only | `gmOnly()` |
-| All players | `everyone()` |
-| Specific players | `actors([userId, …])` |
-| Owner only | `actors([ownerId])` (degenerate) |
+| Picker label     | Builder                          |
+| ---------------- | -------------------------------- |
+| GM only          | `gmOnly()`                       |
+| All players      | `everyone()`                     |
+| Specific players | `actors([userId, …])`            |
+| Owner only       | `actors([ownerId])` (degenerate) |
 
 The substrate already enforces "GM sees everything" centrally, so all four resolve correctly without notes-side logic.
 
@@ -311,12 +311,12 @@ A page can never be wider than its note. The picker disables broader options on 
 
 Read is `EntityVisibility`. Edit is `OwnedBy` + `requireOwnerOrGm` in the command validators. The two axes are independent:
 
-| Pattern | Read | Edit |
-|---|---|---|
-| GM lore | gmOnly | GM only (owner) |
-| Published handout | everyone | GM only (owner) |
-| GM-curated, shared with Alice | actors([Alice]) | GM only (owner) |
-| Alice's journal | everyone (or actors([Alice])) | Alice (owner) + GM god-mode |
+| Pattern                       | Read                          | Edit                        |
+| ----------------------------- | ----------------------------- | --------------------------- |
+| GM lore                       | gmOnly                        | GM only (owner)             |
+| Published handout             | everyone                      | GM only (owner)             |
+| GM-curated, shared with Alice | actors([Alice])               | GM only (owner)             |
+| Alice's journal               | everyone (or actors([Alice])) | Alice (owner) + GM god-mode |
 
 Player-authored notes are GM-readable by default. No "private from GM" preset in v1. Add later if asked.
 
@@ -365,11 +365,11 @@ The substrate also emits `ConnectionClosed` whenever a connection drops. A serve
 
 `PageBodySet` carries the full body. Logging one per keystroke would make the event log explode for any seriously-edited note. The flow is two-tier:
 
-| Tier | Cadence | Command | Event | Logged? |
-|---|---|---|---|---|
-| Draft | every ~1s while typing | `SetDraftBody` | `PageBodyDraft` | no — `transient: true, broadcast: true` |
-| Checkpoint | every ~30s while editing, **only if the body changed since the last durable save** | `SetPageBody` | `PageBodySet` | yes — durable |
-| Final | on `EndEdit` (skipped if no changes since last checkpoint) | `SetPageBody` then `EndEdit` | `PageBodySet`, `EditEnded` | yes — durable |
+| Tier       | Cadence                                                                            | Command                      | Event                      | Logged?                                 |
+| ---------- | ---------------------------------------------------------------------------------- | ---------------------------- | -------------------------- | --------------------------------------- |
+| Draft      | every ~1s while typing                                                             | `SetDraftBody`               | `PageBodyDraft`            | no — `transient: true, broadcast: true` |
+| Checkpoint | every ~30s while editing, **only if the body changed since the last durable save** | `SetPageBody`                | `PageBodySet`              | yes — durable                           |
+| Final      | on `EndEdit` (skipped if no changes since last checkpoint)                         | `SetPageBody` then `EndEdit` | `PageBodySet`, `EditEnded` | yes — durable                           |
 
 Drafts broadcast to all readers but never hit disk. The server-side mirror system writes a transient `PageDraft { body }` trait on the page; readers' rendered views blend `PageDraft` over `Page.body` when present, so they see the editing user's work sub-second.
 
@@ -415,13 +415,13 @@ PageHistory {
 
 The `PageBodySet` mirror system appends and trims. The trait is small (a few hundred bytes regardless of edit volume); UI shows "last 20 edits" as a who-and-when timeline.
 
-The actual *bodies* for old revisions live in the event log, addressable by `(pageId, rev)`. As long as those events are still in the log, a future "Restore version" UI can fetch them. After enough sessions and a snapshot, older bodies become candidates for compaction — but that requires substrate-level support (an `event.compactable` flag plus post-snapshot pruning in the persistence layer). **Not in v1**; called out as a v2 trigger when log size becomes a real ops concern.
+The actual _bodies_ for old revisions live in the event log, addressable by `(pageId, rev)`. As long as those events are still in the log, a future "Restore version" UI can fetch them. After enough sessions and a snapshot, older bodies become candidates for compaction — but that requires substrate-level support (an `event.compactable` flag plus post-snapshot pruning in the persistence layer). **Not in v1**; called out as a v2 trigger when log size becomes a real ops concern.
 
 For v1: capped metadata trait + the inherent "only log when changed" guard is the retention story. SQLite handles thousands of body events per page comfortably (each 10–50 KB), so even heavy editing for months stays in the ops-fine range. When that ceases to be true, substrate-level compaction is the answer — and notes will likely be the plugin that triggers shipping it.
 
 ### What this is not
 
-Two users typing into the same note at the same time is structurally impossible — the lock prevents it. v1 trades concurrent editing for simplicity; the auto-save + live read-mode update means co-authorship in practice is *turn-taking with no friction*, not a merge engine.
+Two users typing into the same note at the same time is structurally impossible — the lock prevents it. v1 trades concurrent editing for simplicity; the auto-save + live read-mode update means co-authorship in practice is _turn-taking with no friction_, not a merge engine.
 
 ### v2 trigger
 
@@ -458,9 +458,9 @@ The FTS table is maintained by `FtsIndexSystem` reacting to `PageBodySet` / `*Re
 3. Build inverted index `targetRef → [{ pageId, anchor }, …]`.
 4. Look up the requested target.
 
-Each client only has the notes it can see, so the backlinks list is *naturally* filtered per recipient — no field-level visibility primitive needed. Memoisation keeps re-parsing bounded; only the changed page re-parses on edit.
+Each client only has the notes it can see, so the backlinks list is _naturally_ filtered per recipient — no field-level visibility primitive needed. Memoisation keeps re-parsing bounded; only the changed page re-parses on edit.
 
-This is one of the rare cases where doing the obvious thing on the client is *more* correct than doing it on the server.
+This is one of the rare cases where doing the obvious thing on the client is _more_ correct than doing it on the server.
 
 ## The `@vtt/assets` plugin
 
@@ -563,7 +563,7 @@ SetAssetVisibility  { assetId, visibility }
 
 ### Default visibility + ergonomic guard
 
-Default for new uploads is `everyone()`. When embedding into a page whose effective visibility is *narrower* than the asset's, the editor shows an inline soft hint ("This image is visible to all players; this note is GM-only") with a one-click *match note visibility* button. We never auto-tighten — the asset might be embedded in five other places.
+Default for new uploads is `everyone()`. When embedding into a page whose effective visibility is _narrower_ than the asset's, the editor shows an inline soft hint ("This image is visible to all players; this note is GM-only") with a one-click _match note visibility_ button. We never auto-tighten — the asset might be embedded in five other places.
 
 ### Future asset library
 
@@ -579,7 +579,7 @@ Ships when someone needs it; no migration.
 
 ## UI
 
-Option A — *the codex* — matches the existing pattern for Characters and Scenes: opening the Notes tab without a selected note shows the picker / create flow, the same shape as opening Characters or Scenes empty.
+Option A — _the codex_ — matches the existing pattern for Characters and Scenes: opening the Notes tab without a selected note shows the picker / create flow, the same shape as opening Characters or Scenes empty.
 
 ### Picker (no note selected)
 
@@ -690,21 +690,21 @@ Per `CLAUDE.md`'s three-layer rule:
 - **Wire smoke** in `packages/server/src/notes.smoke.test.ts`: round-trip `CreateNote` → `AddPage` → `SetPageBody` → assert backlinks index updates server-side, assert FTS query returns the page. One assets-smoke alongside it covering upload + fetch + visibility-deny.
 - **Component tests** under `packages/notes/src/client/` and `packages/assets/src/client/`: mount via `buildTestClient`, assert chip rendering for each kind (with a stub kind registered), autocomplete results, paste-image insertion, owner-gating on the visibility picker.
 
-The CodeMirror live-preview decoration is canvas-adjacent — jsdom renders it but doesn't exercise the real text-measurement paths. We test the *descriptors* (which decoration applies to which range, what the chip's props are) in jsdom; the actual visual flip is verified in the browser.
+The CodeMirror live-preview decoration is canvas-adjacent — jsdom renders it but doesn't exercise the real text-measurement paths. We test the _descriptors_ (which decoration applies to which range, what the chip's props are) in jsdom; the actual visual flip is verified in the browser.
 
 ## Open questions / v2 triggers
 
-| Item | v1 posture | v2 trigger |
-|---|---|---|
-| Block-level locks for simultaneous multi-author editing | Page-level lock + auto-save | Groups want to edit the same page in parallel |
-| Substrate-level event-log compaction (`event.compactable` flag + post-snapshot pruning) | Per-session bound + capped `PageHistory` | Event log size becomes a real ops concern (likely first felt by notes) |
-| Field-level visibility (filter array fields per recipient) | Sidestepped via client-side backlinks | Some other plugin actually needs it |
-| Per-note-visibility check on asset URLs (vs. asset-own visibility) | Asset has its own `EntityVisibility`; this is the correct model | n/a — the asset-entity design solves it |
-| Asset library UI | Not shipped; data model supports it | First user asks |
-| Co-authored notes (multiple owners with edit rights) | Owner + GM only | Multi-author campaigns |
-| Versioning / page history | Not shipped; event log already records every `PageBodySet` | UI for browsing/restoring versions |
-| Templates (NPC, Location, Session Recap) | Hand-rolled by users | Pattern emerges; ship as a slot for plugins to fill |
-| Cross-world linking | Out of scope per `basics.md` non-goals | n/a |
+| Item                                                                                    | v1 posture                                                      | v2 trigger                                                             |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Block-level locks for simultaneous multi-author editing                                 | Page-level lock + auto-save                                     | Groups want to edit the same page in parallel                          |
+| Substrate-level event-log compaction (`event.compactable` flag + post-snapshot pruning) | Per-session bound + capped `PageHistory`                        | Event log size becomes a real ops concern (likely first felt by notes) |
+| Field-level visibility (filter array fields per recipient)                              | Sidestepped via client-side backlinks                           | Some other plugin actually needs it                                    |
+| Per-note-visibility check on asset URLs (vs. asset-own visibility)                      | Asset has its own `EntityVisibility`; this is the correct model | n/a — the asset-entity design solves it                                |
+| Asset library UI                                                                        | Not shipped; data model supports it                             | First user asks                                                        |
+| Co-authored notes (multiple owners with edit rights)                                    | Owner + GM only                                                 | Multi-author campaigns                                                 |
+| Versioning / page history                                                               | Not shipped; event log already records every `PageBodySet`      | UI for browsing/restoring versions                                     |
+| Templates (NPC, Location, Session Recap)                                                | Hand-rolled by users                                            | Pattern emerges; ship as a slot for plugins to fill                    |
+| Cross-world linking                                                                     | Out of scope per `basics.md` non-goals                          | n/a                                                                    |
 
 ## Glossary deltas
 

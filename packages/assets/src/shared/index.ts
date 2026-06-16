@@ -16,14 +16,6 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 export { Asset } from "./traits.js";
-export {
-  AssetDeleted,
-  AssetRegistered,
-  AssetRenamed,
-} from "./events.js";
-export {
-  DeleteAsset,
-  RegisterAsset,
-  RenameAsset,
-} from "./commands.js";
+export { AssetDeleted, AssetRegistered, AssetRenamed } from "./events.js";
+export { DeleteAsset, RegisterAsset, RenameAsset } from "./commands.js";
 export { assetLinkKind } from "./asset-link-kind.js";

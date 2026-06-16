@@ -15,12 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineView,
-  clientOnly,
-  type EntityId,
-  type CommandInstance,
-} from "@vtt/substrate";
+import { defineView, clientOnly, type EntityId, type CommandInstance } from "@vtt/substrate";
 import { useClient, useTrait } from "@vtt/substrate/client";
 import {
   onCleanup,
@@ -40,31 +35,12 @@ import {
   Texture,
   type FederatedPointerEvent,
 } from "pixi.js";
-import {
-  Position,
-  Scene,
-  Sprite,
-  Token,
-  TokenImage,
-} from "../shared/traits.js";
-import {
-  resolveSceneBackgroundUrl,
-  resolveTokenImageUrl,
-} from "../shared/background.js";
-import {
-  CreateToken,
-  MoveToken,
-  PlaceCharacterToken,
-  RemoveToken,
-} from "../shared/commands.js";
+import { Position, Scene, Sprite, Token, TokenImage } from "../shared/traits.js";
+import { resolveSceneBackgroundUrl, resolveTokenImageUrl } from "../shared/background.js";
+import { CreateToken, MoveToken, PlaceCharacterToken, RemoveToken } from "../shared/commands.js";
 import { SceneCanvasSurface } from "../shared/surfaces.js";
 import { TokenUnderlaysSlot, type TokenUnderlay } from "../shared/slot.js";
-import {
-  CHARACTER_DND_MIME,
-  TOKEN_DND_MIME,
-  decodeCharacterDnd,
-  decodeTokenDnd,
-} from "./dnd.js";
+import { CHARACTER_DND_MIME, TOKEN_DND_MIME, decodeCharacterDnd, decodeTokenDnd } from "./dnd.js";
 import { useMe } from "./use-me.js";
 
 /**
@@ -273,9 +249,7 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
       let active: { drags: Drag[] } | null = null;
       let panning = false;
       let panStart = { x: 0, y: 0, wx: 0, wy: 0 };
-      let marquee:
-        | { startScreen: { x: number; y: number }; addToSelection: boolean }
-        | null = null;
+      let marquee: { startScreen: { x: number; y: number }; addToSelection: boolean } | null = null;
 
       // Begin a drag: if `seedId` is in the selection, drag the whole
       // selection together; otherwise drag just that sprite (and
@@ -357,9 +331,7 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         const x1 = Math.max(marquee.startScreen.x, gx);
         const y1 = Math.max(marquee.startScreen.y, gy);
         marqueeOverlay.clear();
-        marqueeOverlay
-          .rect(x0, y0, x1 - x0, y1 - y0)
-          .fill({ color: 0x2ea043, alpha: 0.1 });
+        marqueeOverlay.rect(x0, y0, x1 - x0, y1 - y0).fill({ color: 0x2ea043, alpha: 0.1 });
         marqueeOverlay.setStrokeStyle({ width: 1, color: 0x2ea043, alpha: 0.95 });
         marqueeOverlay.rect(x0, y0, x1 - x0, y1 - y0).stroke();
       };
@@ -399,16 +371,13 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         for (const d of dragsToCommit) {
           d.entry.dragging = false;
           d.entry.sprite.cursor = "grab";
-          const sx =
-            Math.round((d.entry.sprite.x - grid / 2) / grid) * grid + grid / 2;
-          const sy =
-            Math.round((d.entry.sprite.y - grid / 2) / grid) * grid + grid / 2;
+          const sx = Math.round((d.entry.sprite.x - grid / 2) / grid) * grid + grid / 2;
+          const sy = Math.round((d.entry.sprite.y - grid / 2) / grid) * grid + grid / 2;
           d.entry.sprite.x = sx;
           d.entry.sprite.y = sy;
-          client.dispatch(
-            MoveToken({ tokenId: d.id, x: sx, y: sy }) as CommandInstance,
-            { causalState: { lastSeenMovedAt: d.lastSeenMovedAt } },
-          );
+          client.dispatch(MoveToken({ tokenId: d.id, x: sx, y: sy }) as CommandInstance, {
+            causalState: { lastSeenMovedAt: d.lastSeenMovedAt },
+          });
         }
         redrawSelection();
       };
@@ -455,10 +424,7 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         const types = ev.dataTransfer?.types;
         if (!types) return;
         const list = Array.from(types);
-        if (
-          !list.includes(TOKEN_DND_MIME) &&
-          !list.includes(CHARACTER_DND_MIME)
-        ) {
+        if (!list.includes(TOKEN_DND_MIME) && !list.includes(CHARACTER_DND_MIME)) {
           return;
         }
         ev.preventDefault();
@@ -469,9 +435,7 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
        * grid, snapping to the centre of the cell underneath. Returns
        * `null` if the scene's grid info isn't available.
        */
-      const dropTarget = (
-        ev: DragEvent,
-      ): { x: number; y: number; grid: number } | null => {
+      const dropTarget = (ev: DragEvent): { x: number; y: number; grid: number } | null => {
         const sc = client.world.get(ctx.sceneId, [Scene]) as
           | { Scene: { gridSize: number } }
           | undefined;
@@ -555,9 +519,7 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         const wid = client.worldId() ?? "default-world";
         return `vtt:scene-viewport:${wid}:${ctx.sceneId}`;
       })();
-      const loadSavedViewport = ():
-        | { x: number; y: number; scale: number }
-        | null => {
+      const loadSavedViewport = (): { x: number; y: number; scale: number } | null => {
         try {
           const raw = sessionStorage.getItem(viewportKey);
           if (!raw) return null;
@@ -650,9 +612,7 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         // transparent pixels in the image still show the GM's chosen
         // backgroundColor underneath. Without an image, the fill IS the
         // visible background.
-        bgFill
-          .rect(0, 0, s.widthPx, s.heightPx)
-          .fill({ color: parseHexColor(s.backgroundColor) });
+        bgFill.rect(0, 0, s.widthPx, s.heightPx).fill({ color: parseHexColor(s.backgroundColor) });
       };
 
       const drawGrid = () => {
@@ -812,9 +772,7 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
       // Underlay decorators registered by other plugins (e.g. system-simple's
       // HP bar). Materialised once per canvas mount; the slot's contents
       // are stable for the runtime's lifetime.
-      const underlays = (client.registry.fillsForSlot(
-        TokenUnderlaysSlot,
-      ) as TokenUnderlay[])
+      const underlays = (client.registry.fillsForSlot(TokenUnderlaysSlot) as TokenUnderlay[])
         .slice()
         .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
 
@@ -848,10 +806,7 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         const tokenImage = client.world.get(id, [TokenImage]) as
           | { TokenImage: { assetId: string | null; url: string | null } }
           | undefined;
-        const imageUrl = resolveTokenImageUrl(
-          tokenImage?.TokenImage ?? null,
-          client.worldId(),
-        );
+        const imageUrl = resolveTokenImageUrl(tokenImage?.TokenImage ?? null, client.worldId());
 
         const existing = sprites.get(id);
         if (existing) {
@@ -948,8 +903,7 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         },
         imageUrl: string | null,
       ): void => {
-        const textureKeyChanged =
-          got.Sprite.iconSlug !== entry.slug || imageUrl !== entry.imageUrl;
+        const textureKeyChanged = got.Sprite.iconSlug !== entry.slug || imageUrl !== entry.imageUrl;
         if (textureKeyChanged) {
           // Texture identity changed (slug edit, or TokenImage attached/
           // replaced/cleared). Swap texture asynchronously; entity
@@ -1042,11 +996,7 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
         const t = ev.target as HTMLElement | null;
         if (t) {
           const tag = t.tagName;
-          if (
-            tag === "INPUT" ||
-            tag === "TEXTAREA" ||
-            t.isContentEditable
-          ) {
+          if (tag === "INPUT" || tag === "TEXTAREA" || t.isContentEditable) {
             return;
           }
         }
@@ -1104,10 +1054,7 @@ export const SceneCanvasView = defineView<{ sceneId: string }>({
           // remounts leak stale pooled state into the new Application,
           // causing flickering or stale-texture artifacts on the next
           // mount.
-          app.destroy(
-            { removeView: true, releaseGlobalResources: true },
-            { children: true },
-          );
+          app.destroy({ removeView: true, releaseGlobalResources: true }, { children: true });
         });
       });
     });
@@ -1154,10 +1101,7 @@ function loadIcon(slug: string): Promise<Texture> {
  * `?v=<bytes>` cache-bust suffix. Otherwise fall back to the icon
  * manifest.
  */
-function loadTokenTexture(
-  imageUrl: string | null,
-  iconSlug: string,
-): Promise<Texture> {
+function loadTokenTexture(imageUrl: string | null, iconSlug: string): Promise<Texture> {
   if (imageUrl !== null) {
     const cached = textureCache.get(imageUrl);
     if (cached) return cached;

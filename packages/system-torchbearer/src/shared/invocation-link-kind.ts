@@ -79,9 +79,5 @@ export const invocationLinkKind = defineLinkKind<InvocationRef>({
     }
     return out;
   },
-  indexEvents: [
-    InvocationCreated.name,
-    InvocationRemoved.name,
-    InvocationFieldEdited.name,
-  ],
+  indexEvents: [InvocationCreated.name, InvocationRemoved.name, InvocationFieldEdited.name],
 });

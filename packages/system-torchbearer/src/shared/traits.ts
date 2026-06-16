@@ -416,7 +416,6 @@ export const Wises = defineTrait({
     .default({ entries: [] }),
 });
 
-
 /* -------------------------------------------------------------------------
  * Arcane — Relics, Urðr / Burden
  *
@@ -843,13 +842,7 @@ export const Heroic = defineTrait({
  * follows the character across sessions and is visible to any user
  * loading the sheet — same reason ratings live on the character.
  */
-export const PinnedRollAbility = z.enum([
-  "will",
-  "health",
-  "nature",
-  "resources",
-  "circles",
-]);
+export const PinnedRollAbility = z.enum(["will", "health", "nature", "resources", "circles"]);
 
 export const PinnedRollEntry = z.discriminatedUnion("kind", [
   z.object({

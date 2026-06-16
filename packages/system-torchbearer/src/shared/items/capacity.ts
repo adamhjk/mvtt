@@ -16,16 +16,8 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { World } from "@vtt/substrate";
-import {
-  TB_CHARACTER_SLOT_CAPACITY,
-  type TbBodySlot,
-  type TbEquipChannelT,
-} from "./body-slots.js";
-import {
-  TbCarries,
-  TbContainer,
-  TbItemSlotOptions,
-} from "./item-traits.js";
+import { TB_CHARACTER_SLOT_CAPACITY, type TbBodySlot, type TbEquipChannelT } from "./body-slots.js";
+import { TbCarries, TbContainer, TbItemSlotOptions } from "./item-traits.js";
 
 export interface PlacementCheck {
   readonly ok: boolean;
@@ -105,16 +97,11 @@ export function checkPlacementKind(req: PlacementRequest): PlacementCheck {
     return { ok: false, reason: "item has no TbItemSlotOptions; cannot be equipped" };
   }
   const candidateCategories = catalogCategoriesFor(slot, channel, slotsConsumed);
-  const allowedCost = pickCost(
-    itemSlotOpts.TbItemSlotOptions.options,
-    candidateCategories,
-  );
+  const allowedCost = pickCost(itemSlotOpts.TbItemSlotOptions.options, candidateCategories);
   if (allowedCost === undefined) {
     return {
       ok: false,
-      reason: `item not allowed in slot ${slot}${
-        channel === "default" ? "" : `/${channel}`
-      }`,
+      reason: `item not allowed in slot ${slot}${channel === "default" ? "" : `/${channel}`}`,
     };
   }
   if (allowedCost !== slotsConsumed) {
@@ -156,10 +143,7 @@ function catalogCategoriesFor(
   return [slot];
 }
 
-function pickCost(
-  options: Record<string, number>,
-  categories: string[],
-): number | undefined {
+function pickCost(options: Record<string, number>, categories: string[]): number | undefined {
   for (const c of categories) {
     if (options[c] !== undefined) return options[c];
   }
@@ -296,9 +280,7 @@ function computeUsedSlots(
     // character holds without a body placement; it never costs
     // body capacity.
     if (e.slot.startsWith("loose:")) return;
-    const channelMatches = channel
-      ? e.channel === channel || e.channel === "default"
-      : true;
+    const channelMatches = channel ? e.channel === channel || e.channel === "default" : true;
     if (!channelMatches) return;
     if (e.slot === slot) {
       used += e.slotsConsumed;
@@ -308,10 +290,7 @@ function computeUsedSlots(
     // hand. When summing capacity for handR or handL, count the
     // "hands" entry as +1 — not its full slotsConsumed (the catalog
     // cost of 2 represents both hands together; we split it 1+1).
-    if (
-      e.slot === "hands" &&
-      (slot === "handR" || slot === "handL")
-    ) {
+    if (e.slot === "hands" && (slot === "handR" || slot === "handL")) {
       used += 1;
     }
   });
@@ -325,11 +304,7 @@ function computeUsedSlots(
  * if entries 0/1/3 are present it returns 4 — gap-filling can
  * come if we ever need to compact slot indices.
  */
-export function nextSlotIndex(
-  world: World,
-  holderId: string,
-  slot: string,
-): number {
+export function nextSlotIndex(world: World, holderId: string, slot: string): number {
   const got = world.get(holderId as never, [TbCarries]) as
     | { TbCarries: { entries: Array<{ slot: string; slotIndex: number }> } }
     | undefined;

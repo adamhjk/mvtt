@@ -18,10 +18,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
 import { screen, cleanup, fireEvent } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
@@ -111,9 +108,7 @@ describe("comms ChatComposerView", () => {
     fireEvent.input(input, { target: { value: "secret" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
     expect(h.dispatched).toHaveLength(1);
-    expect((h.dispatched[0]!.payload as { visibility: string }).visibility).toBe(
-      "gm-only",
-    );
+    expect((h.dispatched[0]!.payload as { visibility: string }).visibility).toBe("gm-only");
   });
 
   it("hides the GM-only checkbox for non-GM users", () => {

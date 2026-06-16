@@ -17,20 +17,12 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, expect, it, beforeEach } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  screen,
-  waitFor,
-} from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { mountWithClient } from "@vtt/substrate/client-testing";
 import { type EntityId } from "@vtt/substrate";
 import { Character } from "@vtt/characters/shared";
 import { Permissions, everyone } from "@vtt/permissions/shared";
-import {
-  buildAtelierHarness,
-  mountTbEditor,
-} from "../test-helpers.jsx";
+import { buildAtelierHarness, mountTbEditor } from "../test-helpers.jsx";
 import {
   RawAbilities,
   Skills,
@@ -60,12 +52,15 @@ function buildHelpHarness(helper: HelperSetup) {
         Character({ name: "Tarn" }),
         Permissions({ read: everyone(), write: everyone() }),
       ]);
-      const entries: Record<string, {
-        rating: number;
-        advancement: { pass: number; fail: number };
-        taxed: boolean;
-        learningTests: number;
-      }> = {};
+      const entries: Record<
+        string,
+        {
+          rating: number;
+          advancement: { pass: number; fail: number };
+          taxed: boolean;
+          learningTests: number;
+        }
+      > = {};
       for (const [id, rating] of Object.entries(helper.skills)) {
         entries[id] = {
           rating,
@@ -109,9 +104,7 @@ describe("HelpCard — TB helper roster (DH p.37)", () => {
     const btn = screen.getByTestId(`atelier-help-btn-${helperId}`);
     fireEvent.click(btn);
     await waitFor(() => {
-      const c = h.dispatched.find(
-        (d) => d.type === "@vtt/characters/ContributeToPendingRoll",
-      ) as
+      const c = h.dispatched.find((d) => d.type === "@vtt/characters/ContributeToPendingRoll") as
         | {
             payload: {
               contribution: {
@@ -134,12 +127,8 @@ describe("HelpCard — TB helper roster (DH p.37)", () => {
       expect(c!.payload.contribution.payload.source).toBe("help");
       expect(c!.payload.contribution.payload.kind).toBe("dice");
       expect(c!.payload.contribution.payload.value).toBe(1);
-      expect(c!.payload.contribution.payload.providedBy).toBe(
-        `help:${helperId}:skill:hunter`,
-      );
-      expect(c!.payload.contribution.payload.label).toContain(
-        "Tarn helps with Hunter 3",
-      );
+      expect(c!.payload.contribution.payload.providedBy).toBe(`help:${helperId}:skill:hunter`);
+      expect(c!.payload.contribution.payload.label).toContain("Tarn helps with Hunter 3");
     });
   });
 
@@ -151,9 +140,7 @@ describe("HelpCard — TB helper roster (DH p.37)", () => {
     const gmBtn = screen.getByTestId(`atelier-help-gm-btn-${helperId}`);
     fireEvent.click(gmBtn);
     await waitFor(() => {
-      const c = h.dispatched.find(
-        (d) => d.type === "@vtt/characters/ContributeToPendingRoll",
-      ) as
+      const c = h.dispatched.find((d) => d.type === "@vtt/characters/ContributeToPendingRoll") as
         | {
             payload: {
               contribution: {
@@ -164,9 +151,7 @@ describe("HelpCard — TB helper roster (DH p.37)", () => {
         | undefined;
       expect(c).toBeDefined();
       expect(c!.payload.contribution.payload.source).toBe("help");
-      expect(c!.payload.contribution.payload.providedBy).toBe(
-        `help:${helperId}:skill:cook`,
-      );
+      expect(c!.payload.contribution.payload.providedBy).toBe(`help:${helperId}:skill:cook`);
       expect(c!.payload.contribution.payload.label).toContain("(per GM)");
     });
   });
@@ -174,9 +159,7 @@ describe("HelpCard — TB helper roster (DH p.37)", () => {
   it("filters peers with no usable skill or ability rating (DH p.37 'Rating 0 Help')", () => {
     const { h, rollId, helperId } = buildHelpHarness({ skills: {} });
     mountWithClient(h, () => mountTbEditor(rollId) as never);
-    expect(
-      screen.queryByTestId(`atelier-help-row-${helperId}`),
-    ).toBeNull();
+    expect(screen.queryByTestId(`atelier-help-row-${helperId}`)).toBeNull();
     expect(screen.getByTestId("atelier-help-card").textContent).toContain(
       "none of your characters can help",
     );

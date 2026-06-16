@@ -19,13 +19,7 @@
 
 import { useQuery } from "@vtt/substrate/client";
 import { BookCitation } from "@vtt/books/client";
-import {
-  createMemo,
-  createSignal,
-  For,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
   InvocationCatalogIndex,
   InvocationIdentity,
@@ -209,9 +203,7 @@ export function InvocationPicker(props: {
                   "font-size": "0.8rem",
                 }}
               >
-                <span style={{ "font-weight": "500", "min-width": "12rem" }}>
-                  {s.name}
-                </span>
+                <span style={{ "font-weight": "500", "min-width": "12rem" }}>{s.name}</span>
                 <CircleDots circle={s.circle} />
                 <span
                   style={{
@@ -232,11 +224,7 @@ export function InvocationPicker(props: {
                 >
                   <Show
                     when={s.pageRef}
-                    fallback={
-                      <span style={{ color: "var(--color-fg-muted)" }}>
-                        —
-                      </span>
-                    }
+                    fallback={<span style={{ color: "var(--color-fg-muted)" }}>—</span>}
                   >
                     {(ref) => (
                       <BookCitation

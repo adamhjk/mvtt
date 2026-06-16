@@ -27,11 +27,7 @@ import {
 import type { AuthSession } from "@vtt/auth";
 import { Permissions } from "@vtt/permissions/shared";
 import { Character } from "@vtt/characters/shared";
-import {
-  ChatMessage,
-  MessageSent,
-  SendMessage,
-} from "./shared/index.js";
+import { ChatMessage, MessageSent, SendMessage } from "./shared/index.js";
 import { MessageRecordingSystem } from "./server/systems.js";
 
 const serverPlugin = definePlugin({
@@ -123,35 +119,25 @@ describe("@vtt/comms", () => {
   });
 
   it("whisper attaches users-only Permissions containing both sender and recipient", async () => {
-    await dispatch(
-      pipeline,
-      "m1",
-      SendMessage({ body: "psst", whisperTo: ["user-2"] }),
-    );
+    await dispatch(pipeline, "m1", SendMessage({ body: "psst", whisperTo: ["user-2"] }));
     const row = world.query([ChatMessage, Permissions])[0]!;
     const v = row.values as {
       ChatMessage: { whisperTo?: string[] };
       Permissions: { read: { kind: string; userIds?: string[] } };
     };
     expect(v.Permissions.read.kind).toBe("users");
-    expect(v.Permissions.read.userIds).toEqual(
-      expect.arrayContaining([SESSION.userId, "user-2"]),
-    );
-    expect(v.ChatMessage.whisperTo).toEqual(
-      expect.arrayContaining([SESSION.userId, "user-2"]),
-    );
+    expect(v.Permissions.read.userIds).toEqual(expect.arrayContaining([SESSION.userId, "user-2"]));
+    expect(v.ChatMessage.whisperTo).toEqual(expect.arrayContaining([SESSION.userId, "user-2"]));
   });
 
   it("whisper event itself is broadcast with users-restricted visibility", async () => {
     let captured: { visibility?: { kind: string; userIds?: string[] } } | null = null;
     bus.on(MessageSent.name, (e) => {
-      captured = { visibility: (e as { visibility?: { kind: string; userIds?: string[] } }).visibility };
+      captured = {
+        visibility: (e as { visibility?: { kind: string; userIds?: string[] } }).visibility,
+      };
     });
-    await dispatch(
-      pipeline,
-      "m1",
-      SendMessage({ body: "psst", whisperTo: ["user-2"] }),
-    );
+    await dispatch(pipeline, "m1", SendMessage({ body: "psst", whisperTo: ["user-2"] }));
     expect(captured!.visibility?.kind).toBe("users");
     expect(captured!.visibility?.userIds).toEqual(
       expect.arrayContaining([SESSION.userId, "user-2"]),
@@ -230,17 +216,12 @@ describe("@vtt/comms", () => {
         read: { kind: string; userIds?: string[] };
       };
       expect(v.read.kind).toBe("users");
-      expect(v.read.userIds).toEqual(
-        expect.arrayContaining([SESSION.userId, "user-2"]),
-      );
+      expect(v.read.userIds).toEqual(expect.arrayContaining([SESSION.userId, "user-2"]));
     });
   });
 
   describe("speakingAsCharacterId", () => {
-    function spawnCharacter(
-      world: World,
-      args: { name: string; writers: string[] },
-    ): EntityId {
+    function spawnCharacter(world: World, args: { name: string; writers: string[] }): EntityId {
       return world.spawn([
         Character({ name: args.name }),
         Permissions({

@@ -55,11 +55,7 @@ export function useOpenCharacterSheet(): (
   return (characterId, e) => {
     const isMonster = client.world.get(characterId, [TbMonster]) !== undefined;
     const isNpc = client.world.get(characterId, [TbNpc]) !== undefined;
-    const pageKind = isMonster
-      ? MONSTERS_PAGE_KIND
-      : isNpc
-        ? NPCS_PAGE_KIND
-        : CHARACTERS_PAGE_KIND;
+    const pageKind = isMonster ? MONSTERS_PAGE_KIND : isNpc ? NPCS_PAGE_KIND : CHARACTERS_PAGE_KIND;
     follow(
       {
         pageKind,

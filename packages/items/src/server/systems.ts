@@ -334,11 +334,7 @@ export const ItemDestroySystem = defineSystem({
   },
 });
 
-function recordOverride(
-  world: import("@vtt/substrate").World,
-  itemId: string,
-  path: string,
-): void {
+function recordOverride(world: import("@vtt/substrate").World, itemId: string, path: string): void {
   const got = world.get(itemId as never, [ItemDerivedFrom]) as
     | {
         ItemDerivedFrom: {

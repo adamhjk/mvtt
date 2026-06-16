@@ -77,16 +77,21 @@ function ActionsBar(props: { characterId: string }): JSX.Element {
   );
 }
 
-function PinnedButton(props: {
-  characterId: string;
-  entry: PinnedRollEntryT;
-}): JSX.Element {
+function PinnedButton(props: { characterId: string; entry: PinnedRollEntryT }): JSX.Element {
   return (
     <Show
       when={props.entry.kind === "ability"}
-      fallback={<SkillPinButton characterId={props.characterId} entry={props.entry as Extract<PinnedRollEntryT, { kind: "skill" }>} />}
+      fallback={
+        <SkillPinButton
+          characterId={props.characterId}
+          entry={props.entry as Extract<PinnedRollEntryT, { kind: "skill" }>}
+        />
+      }
     >
-      <AbilityPinButtons characterId={props.characterId} entry={props.entry as Extract<PinnedRollEntryT, { kind: "ability" }>} />
+      <AbilityPinButtons
+        characterId={props.characterId}
+        entry={props.entry as Extract<PinnedRollEntryT, { kind: "ability" }>}
+      />
     </Show>
   );
 }
@@ -98,11 +103,7 @@ function AbilityPinButtons(props: {
   const desc = ABILITY_DESCRIPTORS[props.entry.ability];
   return (
     <>
-      <kit.RollButton
-        characterId={props.characterId}
-        rollable={desc.rollable}
-        label={desc.label}
-      />
+      <kit.RollButton characterId={props.characterId} rollable={desc.rollable} label={desc.label} />
       <Show when={props.entry.ability === "nature"}>
         <kit.RollButton
           characterId={props.characterId}

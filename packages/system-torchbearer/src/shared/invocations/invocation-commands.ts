@@ -15,13 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  ok,
-  z,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, ok, z } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
 import { requireWrite } from "@vtt/permissions/shared";
 import { Formula } from "@vtt/resolution/shared";
@@ -103,11 +97,7 @@ export const EditInvocationField = defineCommand({
   name: "@vtt/system-torchbearer/EditInvocationField",
   schema: z.object({
     invocationId: EntityId,
-    trait: z.enum([
-      "InvocationIdentity",
-      "TbInvocationPerforming",
-      "TbInvocationHomebrewProse",
-    ]),
+    trait: z.enum(["InvocationIdentity", "TbInvocationPerforming", "TbInvocationHomebrewProse"]),
     path: z.array(z.string().min(1).max(60)).default([]),
     value: z.unknown(),
   }),
@@ -218,9 +208,7 @@ export const ApplyImmortalBurden = defineCommand({
       | { Formula: { meta?: unknown } }
       | undefined;
     if (!formula) return fail("roll has no Formula trait");
-    const meta = formula.Formula.meta as
-      | { spec?: { invocationPerform?: unknown } }
-      | undefined;
+    const meta = formula.Formula.meta as { spec?: { invocationPerform?: unknown } } | undefined;
     if (!meta?.spec?.invocationPerform) {
       return fail("roll is not an invocation perform");
     }
@@ -229,9 +217,7 @@ export const ApplyImmortalBurden = defineCommand({
     return ok();
   },
   apply: ({ cmd, world }) => {
-    const formula = world.get(cmd.rollId, [Formula]) as
-      | { Formula: { meta?: unknown } }
-      | undefined;
+    const formula = world.get(cmd.rollId, [Formula]) as { Formula: { meta?: unknown } } | undefined;
     const meta = formula?.Formula.meta as
       | {
           spec?: {

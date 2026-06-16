@@ -58,10 +58,9 @@ export function useWorldMembers(): ResourceReturn<WorldMembers | null> {
     () => client.worldId(),
     async (worldId) => {
       if (!worldId) return null;
-      const res = await fetch(
-        `/api/worlds/${encodeURIComponent(worldId)}/memberships`,
-        { credentials: "same-origin" },
-      );
+      const res = await fetch(`/api/worlds/${encodeURIComponent(worldId)}/memberships`, {
+        credentials: "same-origin",
+      });
       if (!res.ok) throw new Error(`memberships → ${res.status}`);
       const body = (await res.json()) as MembershipsResponse;
       const result: WorldMembers = {

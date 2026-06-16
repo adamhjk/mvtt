@@ -173,7 +173,6 @@ const source = await Assets.load("animation.gif");
 
 The GIF loader extension must be registered before loading. Without the side-effect import, the loader does not recognize `.gif` files and the load either fails or returns raw data.
 
-
 ### [MEDIUM] Expecting Assets.load to return a Texture
 
 Wrong:
@@ -191,7 +190,6 @@ const gif = new GifSprite({ source });
 ```
 
 `Assets.load` on a GIF returns a `GifSource` containing frame textures and timing data. Pass the source to `GifSprite`; for a single still frame, read `source.textures[0]`.
-
 
 ### [MEDIUM] GIF memory not released on destroy
 
@@ -212,7 +210,6 @@ await Assets.unload("animation.gif");
 
 GIF frames hold decoded pixel data as individual canvas textures. `gif.destroy()` (or `destroy(false)`) destroys the sprite but keeps the `GifSource` intact. Pass `true` to also destroy the source. For shared sources, only destroy when the last consumer is done, or call `Assets.unload` to let the asset cache handle it.
 
-
 ### [LOW] Do not nest children inside a GifSprite
 
 `GifSprite` extends `Sprite`, which sets `allowChildren = false`. It is a leaf. To group a GIF with other display objects, wrap them all in a plain `Container`:
@@ -221,7 +218,6 @@ GIF frames hold decoded pixel data as individual canvas textures. `gif.destroy()
 const group = new Container();
 group.addChild(gif, label);
 ```
-
 
 ## API Reference
 

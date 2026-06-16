@@ -16,21 +16,18 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { describe, it, expect } from "vitest";
-import {
-  definePlugin,
-  defineTrait,
-  Registry,
-  World,
-  z,
-} from "@vtt/substrate";
+import { definePlugin, defineTrait, Registry, World, z } from "@vtt/substrate";
 import { permissions } from "@vtt/permissions";
-import { Page, BelongsToNote, PageBodySet, MarkdownPostRenderSlot, EditorCompletionSourcesSlot, NotesReferenceSlot } from "@vtt/notes/shared";
-import { adventures } from "./manifest.js";
 import {
-  BlockKindsSlot,
-  defineBlockKind,
-  wikiLink,
-} from "./shared/index.js";
+  Page,
+  BelongsToNote,
+  PageBodySet,
+  MarkdownPostRenderSlot,
+  EditorCompletionSourcesSlot,
+  NotesReferenceSlot,
+} from "@vtt/notes/shared";
+import { adventures } from "./manifest.js";
+import { BlockKindsSlot, defineBlockKind, wikiLink } from "./shared/index.js";
 import { buildBlockYamlCompletionSource } from "./client/yaml-block-completion.js";
 
 const Stat = defineTrait({

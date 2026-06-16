@@ -15,10 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineView,
-  clientOnly,
-} from "@vtt/substrate";
+import { defineView, clientOnly } from "@vtt/substrate";
 import { type JSX } from "solid-js";
 import { BookCanvasSurface } from "../shared/surfaces.js";
 

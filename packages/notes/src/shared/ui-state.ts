@@ -103,9 +103,7 @@ export const SetNotesUiState = defineCommand({
     value: NotesUiStateValue,
   }),
   validate: () => ok(),
-  apply: ({ cmd }) => [
-    NotesUiStateChanged({ entityId: cmd.entityId, value: cmd.value }),
-  ],
+  apply: ({ cmd }) => [NotesUiStateChanged({ entityId: cmd.entityId, value: cmd.value })],
 });
 
 export const NotesUiStateMirror = defineSystem({

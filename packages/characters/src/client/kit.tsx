@@ -24,11 +24,7 @@ import {
   type TraitMeta,
   type TraitName,
 } from "@vtt/substrate";
-import {
-  useClient,
-  useTrait,
-  useTraitPath,
-} from "@vtt/substrate/client";
+import { useClient, useTrait, useTraitPath } from "@vtt/substrate/client";
 import { canWrite, Permissions } from "@vtt/permissions/shared";
 import {
   createEffect,
@@ -114,11 +110,7 @@ export function useCanEdit(
  * the binding's override `command` + `payloadFromValue` if both are
  * provided; otherwise falls back to the universal SetField.
  */
-function buildWriteCommand(
-  binding: FieldBinding,
-  value: unknown,
-  prev: unknown,
-): CommandInstance {
+function buildWriteCommand(binding: FieldBinding, value: unknown, prev: unknown): CommandInstance {
   if (binding.command && binding.payloadFromValue) {
     return binding.command(
       binding.payloadFromValue({
@@ -709,10 +701,7 @@ function useKitStyles(): void {
  * Layout primitives
  * ----------------------------------------------------------------------- */
 
-export function SheetSection(props: {
-  title?: string;
-  children: JSX.Element;
-}): JSX.Element {
+export function SheetSection(props: { title?: string; children: JSX.Element }): JSX.Element {
   useKitStyles();
   return (
     <section class="vk-section">
@@ -732,35 +721,30 @@ export function SheetGroup(props: {
   useKitStyles();
   const cls = createMemo(() => {
     const layout = props.layout ?? "column";
-    const colClass =
-      layout === "grid" && props.cols ? `vk-group--cols-${props.cols}` : "";
+    const colClass = layout === "grid" && props.cols ? `vk-group--cols-${props.cols}` : "";
     const layoutClass = layout === "grid" ? "" : `vk-group--${layout}`;
     return `vk-group ${layoutClass} ${colClass}`.trim();
   });
   return <div class={cls()}>{props.children}</div>;
 }
 
-export function FieldRow(props: {
-  label?: string;
-  children: JSX.Element;
-}): JSX.Element {
+export function FieldRow(props: { label?: string; children: JSX.Element }): JSX.Element {
   useKitStyles();
   return (
     <div class="vk-row">
       <Show when={props.label}>
         <span class="vk-row__label">{props.label}</span>
       </Show>
-      <div style={{ display: "flex", flex: 1, "min-width": 0, gap: "0.5rem", "align-items": "center" }}>
+      <div
+        style={{ display: "flex", flex: 1, "min-width": 0, gap: "0.5rem", "align-items": "center" }}
+      >
         {props.children}
       </div>
     </div>
   );
 }
 
-export function FieldStack(props: {
-  label?: string;
-  children: JSX.Element;
-}): JSX.Element {
+export function FieldStack(props: { label?: string; children: JSX.Element }): JSX.Element {
   useKitStyles();
   return (
     <div class="vk-stack">
@@ -772,10 +756,7 @@ export function FieldStack(props: {
   );
 }
 
-export function SummaryStat(props: {
-  label: string;
-  value: JSX.Element;
-}): JSX.Element {
+export function SummaryStat(props: { label: string; value: JSX.Element }): JSX.Element {
   useKitStyles();
   return (
     <div class="vk-summary">
@@ -815,11 +796,7 @@ export function ValueField(props: {
   });
   const isPlaceholder = createMemo(() => value() === undefined || value() === null);
   return (
-    <span
-      class={`vk-value ${isPlaceholder() ? "vk-value--placeholder" : ""}`}
-    >
-      {display()}
-    </span>
+    <span class={`vk-value ${isPlaceholder() ? "vk-value--placeholder" : ""}`}>{display()}</span>
   );
 }
 
@@ -832,10 +809,12 @@ export function ValueField(props: {
  * Enter; reverts on Escape. Re-syncs from the trait if it changes
  * elsewhere while the user isn't editing.
  */
-export function TextField(props: FieldBinding & {
-  placeholder?: string;
-  maxLength?: number;
-}): JSX.Element {
+export function TextField(
+  props: FieldBinding & {
+    placeholder?: string;
+    maxLength?: number;
+  },
+): JSX.Element {
   useKitStyles();
   const client = useClient();
   const canEdit = useCanEdit(props.characterId, props.requires);
@@ -905,10 +884,12 @@ export function TextField(props: FieldBinding & {
   );
 }
 
-export function TextAreaField(props: FieldBinding & {
-  placeholder?: string;
-  rows?: number;
-}): JSX.Element {
+export function TextAreaField(
+  props: FieldBinding & {
+    placeholder?: string;
+    rows?: number;
+  },
+): JSX.Element {
   useKitStyles();
   const client = useClient();
   const canEdit = useCanEdit(props.characterId, props.requires);
@@ -956,11 +937,13 @@ export function TextAreaField(props: FieldBinding & {
   );
 }
 
-export function NumberField(props: FieldBinding & {
-  min?: number;
-  max?: number;
-  step?: number;
-}): JSX.Element {
+export function NumberField(
+  props: FieldBinding & {
+    min?: number;
+    max?: number;
+    step?: number;
+  },
+): JSX.Element {
   useKitStyles();
   const client = useClient();
   const canEdit = useCanEdit(props.characterId, props.requires);
@@ -1065,9 +1048,11 @@ export function CheckField(props: FieldBinding): JSX.Element {
   );
 }
 
-export function SelectField(props: FieldBinding & {
-  options: ReadonlyArray<{ value: string; label: string }>;
-}): JSX.Element {
+export function SelectField(
+  props: FieldBinding & {
+    options: ReadonlyArray<{ value: string; label: string }>;
+  },
+): JSX.Element {
   useKitStyles();
   const client = useClient();
   const canEdit = useCanEdit(props.characterId, props.requires);
@@ -1082,9 +1067,7 @@ export function SelectField(props: FieldBinding & {
         client.dispatch(buildWriteCommand(props, next, stored()));
       }}
     >
-      <For each={props.options}>
-        {(o) => <option value={o.value}>{o.label}</option>}
-      </For>
+      <For each={props.options}>{(o) => <option value={o.value}>{o.label}</option>}</For>
     </select>
   );
 }
@@ -1100,9 +1083,11 @@ export function SelectField(props: FieldBinding & {
  * Common uses: WoD attribute scores (●●●○○), proficiency rank, FATE
  * skill ladder positions.
  */
-export function DotsField(props: FieldBinding & {
-  max: number;
-}): JSX.Element {
+export function DotsField(
+  props: FieldBinding & {
+    max: number;
+  },
+): JSX.Element {
   useKitStyles();
   const client = useClient();
   const canEdit = useCanEdit(props.characterId, props.requires);
@@ -1134,10 +1119,7 @@ export function DotsField(props: FieldBinding & {
     >
       <For each={dots()}>
         {(n) => (
-          <span
-            class={`vk-dot ${n <= value() ? "vk-dot--filled" : ""}`}
-            onClick={() => setTo(n)}
-          />
+          <span class={`vk-dot ${n <= value() ? "vk-dot--filled" : ""}`} onClick={() => setTo(n)} />
         )}
       </For>
     </span>
@@ -1154,9 +1136,11 @@ export function DotsField(props: FieldBinding & {
  * that wraps a `useTraitPath` and emits the right SetField. The kit
  * focuses on the universal "fill to N" pattern.
  */
-export function TrackField(props: FieldBinding & {
-  max: number;
-}): JSX.Element {
+export function TrackField(
+  props: FieldBinding & {
+    max: number;
+  },
+): JSX.Element {
   useKitStyles();
   const client = useClient();
   const canEdit = useCanEdit(props.characterId, props.requires);
@@ -1287,12 +1271,10 @@ export function Rollable(props: RollableTriggerProps): JSX.Element {
     const rollable = resolveRollable(client, props.rollable);
     if (!rollable) return props.ariaLabel;
     try {
-      const spec = previewRollable(
-        rollable,
-        client.world,
-        props.characterId,
-        props.opts,
-      ) as { notation?: string; label?: string } | null;
+      const spec = previewRollable(rollable, client.world, props.characterId, props.opts) as {
+        notation?: string;
+        label?: string;
+      } | null;
       if (!spec) return props.ariaLabel;
       const label = spec.label ?? props.ariaLabel ?? rollable.name;
       return spec.notation ? `${label} — ${spec.notation}` : label;
@@ -1336,9 +1318,11 @@ export function RollableLabel(props: RollableTriggerProps): JSX.Element {
  * dispatch pipeline; just rendered as a chunky button instead of
  * an inline label.
  */
-export function RollButton(props: RollableTriggerProps & {
-  label?: string;
-}): JSX.Element {
+export function RollButton(
+  props: RollableTriggerProps & {
+    label?: string;
+  },
+): JSX.Element {
   useKitStyles();
   const client = useClient();
   const fire = (ev: MouseEvent | KeyboardEvent) => {
@@ -1436,7 +1420,7 @@ export function Tabs(props: {
 
   const [localId, setLocalId] = createSignal<string | null>(null);
   const isControlled = () => props.onSelectTab !== undefined;
-  const wantedId = () => (isControlled() ? props.activeId ?? null : localId());
+  const wantedId = () => (isControlled() ? (props.activeId ?? null) : localId());
   let barEl: HTMLDivElement | undefined;
   // When the bar is rendered as `position: sticky` (the SheetShell column
   // mode pins it under the identity header), the user is often scrolled
@@ -1464,16 +1448,8 @@ export function Tabs(props: {
 
   return (
     <div class="vk-tabs">
-      <Show
-        when={sorted().length > 0}
-        fallback={props.emptyState ?? null}
-      >
-        <div
-          ref={barEl}
-          class="vk-tabs__bar"
-          role="tablist"
-          aria-label={props.ariaLabel}
-        >
+      <Show when={sorted().length > 0} fallback={props.emptyState ?? null}>
+        <div ref={barEl} class="vk-tabs__bar" role="tablist" aria-label={props.ariaLabel}>
           <For each={sorted()}>
             {(tab) => (
               <button
@@ -1567,17 +1543,17 @@ export function AdvancementTrack(props: {
     const p = passValue();
     const f = failValue();
     const need0 = need();
-    const passOk =
-      typeof p === "number" ? p >= need0.passNeeded : need0.passNeeded === 0;
-    const failOk =
-      typeof f === "number" ? f >= need0.failNeeded : need0.failNeeded === 0;
+    const passOk = typeof p === "number" ? p >= need0.passNeeded : need0.passNeeded === 0;
+    const failOk = typeof f === "number" ? f >= need0.failNeeded : need0.failNeeded === 0;
     return passOk && failOk;
   });
   return (
     <div class="vk-advance" aria-label="advancement track">
       <div class="vk-advance__stack">
         <div class="vk-advance__row">
-          <span class="vk-advance__legend" aria-hidden="true">P</span>
+          <span class="vk-advance__legend" aria-hidden="true">
+            P
+          </span>
           <DotsField
             characterId={props.characterId}
             trait={props.trait}
@@ -1590,13 +1566,17 @@ export function AdvancementTrack(props: {
           when={need().failNeeded > 0}
           fallback={
             <div class="vk-advance__row">
-              <span class="vk-advance__legend" aria-hidden="true">F</span>
+              <span class="vk-advance__legend" aria-hidden="true">
+                F
+              </span>
               <span class="vk-advance__empty">—</span>
             </div>
           }
         >
           <div class="vk-advance__row">
-            <span class="vk-advance__legend" aria-hidden="true">F</span>
+            <span class="vk-advance__legend" aria-hidden="true">
+              F
+            </span>
             <DotsField
               characterId={props.characterId}
               trait={props.trait}
@@ -1659,11 +1639,7 @@ export function LabeledLadder(props: {
     <div class="vk-ladder" role="group" aria-label={props.ariaLabel}>
       <For each={props.items}>
         {(item) => (
-          <label
-            class="vk-ladder__item"
-            data-tone={item.tone ?? "default"}
-            title={item.hint}
-          >
+          <label class="vk-ladder__item" data-tone={item.tone ?? "default"} title={item.hint}>
             <CheckField
               characterId={props.characterId}
               trait={props.trait}
@@ -1705,16 +1681,18 @@ export function LabeledLadder(props: {
  * The override callback receives the **new** array as `value` and
  * the **previous** array as `prev`.
  */
-export function EntryListField(props: FieldBinding & {
-  /** Placeholder shown when there are existing entries. Default: "+ add". */
-  placeholder?: string;
-  /** Placeholder shown when there are no entries yet. Default: "add…". */
-  emptyPlaceholder?: string;
-  /** Max length per entry (chars). Default: 40. */
-  maxEntryLength?: number;
-  /** Allow duplicate entries (case-sensitive, post-trim). Default: false. */
-  allowDuplicates?: boolean;
-}): JSX.Element {
+export function EntryListField(
+  props: FieldBinding & {
+    /** Placeholder shown when there are existing entries. Default: "+ add". */
+    placeholder?: string;
+    /** Placeholder shown when there are no entries yet. Default: "add…". */
+    emptyPlaceholder?: string;
+    /** Max length per entry (chars). Default: 40. */
+    maxEntryLength?: number;
+    /** Allow duplicate entries (case-sensitive, post-trim). Default: false. */
+    allowDuplicates?: boolean;
+  },
+): JSX.Element {
   useKitStyles();
   const stored = useTraitPath(props.characterId, props.trait, props.path);
   const canEdit = useCanEdit(props.characterId, props.requires);
@@ -1752,18 +1730,10 @@ export function EntryListField(props: FieldBinding & {
   };
 
   return (
-    <div
-      class="vk-tags"
-      data-edit={canEdit() ? "true" : "false"}
-      role="list"
-    >
+    <div class="vk-tags" data-edit={canEdit() ? "true" : "false"} role="list">
       <For each={entries()}>
         {(d, i) => (
-          <span
-            class="vk-tag"
-            data-readonly={canEdit() ? "false" : "true"}
-            role="listitem"
-          >
+          <span class="vk-tag" data-readonly={canEdit() ? "false" : "true"} role="listitem">
             <span class="vk-tag__text">{d}</span>
             <Show when={canEdit()}>
               <button
@@ -1791,8 +1761,8 @@ export function EntryListField(props: FieldBinding & {
           class="vk-tags__input"
           placeholder={
             entries().length === 0
-              ? props.emptyPlaceholder ?? props.placeholder ?? "add…"
-              : props.placeholder ?? "+ add"
+              ? (props.emptyPlaceholder ?? props.placeholder ?? "add…")
+              : (props.placeholder ?? "+ add")
           }
           value={draft()}
           maxLength={maxLen()}
@@ -1942,8 +1912,7 @@ export function EntryRowsField<TEntry extends Record<string, unknown>>(
     const entry = cur[i] as TEntry;
     if ((entry as Record<string, unknown>)[key] === value) return;
     const next = cur.map(
-      (e, idx): TEntry =>
-        idx === i ? ({ ...entry, [key]: value } as TEntry) : (e as TEntry),
+      (e, idx): TEntry => (idx === i ? ({ ...entry, [key]: value } as TEntry) : (e as TEntry)),
     );
     writeNext(next);
   };
@@ -1963,18 +1932,10 @@ export function EntryRowsField<TEntry extends Record<string, unknown>>(
 
   return (
     <div class="vk-rows" role="table" aria-label="entry list">
-      <div
-        class="vk-rows__header"
-        role="row"
-        style={{ "grid-template-columns": colTemplate() }}
-      >
+      <div class="vk-rows__header" role="row" style={{ "grid-template-columns": colTemplate() }}>
         <For each={props.columns}>
           {(col) => (
-            <span
-              class="vk-rows__head"
-              role="columnheader"
-              data-align={col.align ?? "left"}
-            >
+            <span class="vk-rows__head" role="columnheader" data-align={col.align ?? "left"}>
               {col.label}
             </span>
           )}
@@ -1985,26 +1946,14 @@ export function EntryRowsField<TEntry extends Record<string, unknown>>(
       </div>
       <Show
         when={entries().length > 0}
-        fallback={
-          <div class="vk-rows__empty">
-            {props.emptyHint ?? "no entries yet"}
-          </div>
-        }
+        fallback={<div class="vk-rows__empty">{props.emptyHint ?? "no entries yet"}</div>}
       >
         <For each={entries()}>
           {(entry, index) => (
-            <div
-              class="vk-rows__row"
-              role="row"
-              style={{ "grid-template-columns": colTemplate() }}
-            >
+            <div class="vk-rows__row" role="row" style={{ "grid-template-columns": colTemplate() }}>
               <For each={props.columns}>
                 {(col) => (
-                  <div
-                    class="vk-rows__cell"
-                    role="cell"
-                    data-align={col.align ?? "left"}
-                  >
+                  <div class="vk-rows__cell" role="cell" data-align={col.align ?? "left"}>
                     <EntryCell
                       entry={entry}
                       column={col}
@@ -2092,11 +2041,7 @@ function EntryCell<TEntry extends Record<string, unknown>>(props: {
     }
     case "check":
       return (
-        <CellCheck
-          value={!!value()}
-          canEdit={props.canEdit}
-          onCommit={(v) => props.onCommit(v)}
-        />
+        <CellCheck value={!!value()} canEdit={props.canEdit} onCommit={(v) => props.onCommit(v)} />
       );
     case "dots": {
       const col = props.column;

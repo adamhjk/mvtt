@@ -10,10 +10,19 @@ Solid's rendering APIs are split between client (`solid-js/web`) and server (`so
 
 ```ts
 import {
-  render, hydrate, Portal, Dynamic, NoHydration,
-  isServer, isDev, DEV,
-  renderToString, renderToStringAsync, renderToStream,
-  generateHydrationScript, HydrationScript,
+  render,
+  hydrate,
+  Portal,
+  Dynamic,
+  NoHydration,
+  isServer,
+  isDev,
+  DEV,
+  renderToString,
+  renderToStringAsync,
+  renderToStream,
+  generateHydrationScript,
+  HydrationScript,
 } from "solid-js/web";
 ```
 
@@ -49,6 +58,7 @@ hydrate(() => <App />, document.getElementById("app")!);
 Use after the server has rendered the same markup. Hydrate doesn't replace the DOM — it walks the existing nodes, attaches event handlers, and resumes reactivity. The server-rendered HTML must match what the client would produce.
 
 If they don't match, you get a "hydration mismatch" — handlers may attach to the wrong nodes or rendering may shift. Common causes:
+
 - Reading `Date.now()` or random values without `isServer` guards.
 - Reading from `localStorage`/`window` (which only exists client-side) without guards.
 - Different content based on viewport (use CSS or post-mount effects, not server-time conditionals).
@@ -58,7 +68,10 @@ If they don't match, you get a "hydration mismatch" — handlers may attach to t
 ### `renderToString` — synchronous
 
 ```ts
-function renderToString(fn: () => JSX.Element, options?: { nonce?: string; renderId?: string }): string;
+function renderToString(
+  fn: () => JSX.Element,
+  options?: { nonce?: string; renderId?: string },
+): string;
 ```
 
 ```ts
@@ -86,7 +99,15 @@ const html = await renderToStringAsync(() => <App />);
 ### `renderToStream` — streaming SSR
 
 ```ts
-function renderToStream(fn: () => JSX.Element, options?: { nonce?: string; renderId?: string; onCompleteShell?: (info: { write: (chunk: string) => void }) => void; onCompleteAll?: (info: { write: (chunk: string) => void }) => void }): {
+function renderToStream(
+  fn: () => JSX.Element,
+  options?: {
+    nonce?: string;
+    renderId?: string;
+    onCompleteShell?: (info: { write: (chunk: string) => void }) => void;
+    onCompleteAll?: (info: { write: (chunk: string) => void }) => void;
+  },
+): {
   pipe(writable: NodeJS.WritableStream): void;
   pipeTo(writable: WritableStream): Promise<void>;
 };
@@ -100,7 +121,7 @@ await stream.pipeTo(response.writable);   // Web streams
 ```
 
 - Sends HTML as it becomes available — the page shell first, then each `<Suspense>` boundary as its resources resolve.
-- Best perceived performance: users see *something* immediately.
+- Best perceived performance: users see _something_ immediately.
 - Requires HTTP streaming on the server.
 
 This is what SolidStart uses by default.
@@ -116,9 +137,13 @@ function ServerHTML() {
   return (
     <html>
       <head>
-        <HydrationScript />     {/* renders to a <script> with the hydration payload */}
+        <HydrationScript /> {/* renders to a <script> with the hydration payload */}
       </head>
-      <body><div id="app"><App /></div></body>
+      <body>
+        <div id="app">
+          <App />
+        </div>
+      </body>
     </html>
   );
 }
@@ -127,6 +152,7 @@ function ServerHTML() {
 Or use `generateHydrationScript()` to get the script string for manual insertion.
 
 The hydration script:
+
 - Sets up the data structures resources need to find their server-fetched values.
 - Provides nonce support for strict CSP.
 
@@ -167,13 +193,13 @@ The cardinal rule: **the server-rendered output must match what the client would
 
 Common gotchas and fixes:
 
-| Problem | Fix |
-|---|---|
-| `if (typeof window !== "undefined")` for client-only content | `<Show when={!isServer}>` or `onMount` |
-| `Math.random()` / `Date.now()` for ids | Pass an id from the parent, or use `createUniqueId` |
-| Reading `localStorage` for initial state | Render a default; correct in `onMount` |
-| Browser-only libraries imported at module top level | `if (isServer) return null` early, or import lazily |
-| Different viewport-based markup | Use CSS media queries instead of JS-conditional output |
+| Problem                                                      | Fix                                                    |
+| ------------------------------------------------------------ | ------------------------------------------------------ |
+| `if (typeof window !== "undefined")` for client-only content | `<Show when={!isServer}>` or `onMount`                 |
+| `Math.random()` / `Date.now()` for ids                       | Pass an id from the parent, or use `createUniqueId`    |
+| Reading `localStorage` for initial state                     | Render a default; correct in `onMount`                 |
+| Browser-only libraries imported at module top level          | `if (isServer) return null` early, or import lazily    |
+| Different viewport-based markup                              | Use CSS media queries instead of JS-conditional output |
 
 ## `<NoHydration>` — opt-out subtree
 

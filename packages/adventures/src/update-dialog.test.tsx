@@ -18,10 +18,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, fireEvent, cleanup } from "@solidjs/testing-library";
-import {
-  AdventureUpdateDialog,
-  type UpdateDiffPayload,
-} from "./client/update-dialog.js";
+import { AdventureUpdateDialog, type UpdateDiffPayload } from "./client/update-dialog.js";
 
 beforeEach(() => cleanup());
 
@@ -31,9 +28,12 @@ const sampleDiff: UpdateDiffPayload = {
   newVersion: "2.0.0",
   notes: [
     { bundlePath: "notes/a.md", title: "A", kind: "fast-forward", blocks: [] },
-    { bundlePath: "notes/b.md", title: "B", kind: "conflict", blocks: [
-      { kind: "block-changed", blockKey: "foo" },
-    ] },
+    {
+      bundlePath: "notes/b.md",
+      title: "B",
+      kind: "conflict",
+      blocks: [{ kind: "block-changed", blockKey: "foo" }],
+    },
     { bundlePath: "notes/c.md", title: "C", kind: "new", blocks: [] },
     { bundlePath: "notes/d.md", title: "D", kind: "unchanged", blocks: [] },
     { bundlePath: "notes/e.md", title: "E", kind: "removed-upstream", blocks: [] },
@@ -85,9 +85,7 @@ describe("AdventureUpdateDialog", () => {
       />
     ));
     // Find the conflict row's "Take theirs" button
-    const conflictRow = container.querySelector(
-      '.advt-update-note[data-bundle-path="notes/b.md"]',
-    );
+    const conflictRow = container.querySelector('.advt-update-note[data-bundle-path="notes/b.md"]');
     expect(conflictRow).not.toBeNull();
     const takeTheirs = conflictRow!.querySelector(
       '[data-action="take-theirs"]',
@@ -103,9 +101,7 @@ describe("AdventureUpdateDialog", () => {
     const { container } = render(() => (
       <AdventureUpdateDialog diff={sampleDiff} onApply={() => {}} />
     ));
-    const conflictRow = container.querySelector(
-      '.advt-update-note[data-bundle-path="notes/b.md"]',
-    );
+    const conflictRow = container.querySelector('.advt-update-note[data-bundle-path="notes/b.md"]');
     expect(conflictRow!.querySelector("details")).not.toBeNull();
     expect(conflictRow!.textContent).toContain("foo");
   });

@@ -17,10 +17,7 @@
 
 import { render } from "solid-js/web";
 import { For, Show, type JSX } from "solid-js";
-import type {
-  MarkdownPostRender,
-  MarkdownPostRenderContext,
-} from "@vtt/notes/shared";
+import type { MarkdownPostRender, MarkdownPostRenderContext } from "@vtt/notes/shared";
 import type { EntityId } from "@vtt/substrate";
 import {
   buildBlockKindIndex,
@@ -113,8 +110,7 @@ function BlockWidget(props: BlockWidgetProps): JSX.Element {
     encounter: "light-dark(#ea580c, #fb923c)",
     loot: "light-dark(#ca8a04, #facc15)",
   };
-  const accent = (): string =>
-    accentByKind[props.kind.name] ?? "var(--color-accent)";
+  const accent = (): string => accentByKind[props.kind.name] ?? "var(--color-accent)";
   return (
     <div
       class="block-widget"
@@ -252,10 +248,7 @@ function BlockWidget(props: BlockWidgetProps): JSX.Element {
  * call re-walks and re-mounts. Solid components are GC'd when their
  * host `<div>` is detached by the next innerHTML.
  */
-export function mountBlockWidgets(
-  container: HTMLElement,
-  ctx: MarkdownPostRenderContext,
-): void {
+export function mountBlockWidgets(container: HTMLElement, ctx: MarkdownPostRenderContext): void {
   const kindIndex = buildBlockKindIndex(ctx.registry);
   if (kindIndex.all.length === 0) return;
   // Prefer the session passed through `MarkdownPostRenderContext` —
@@ -263,8 +256,7 @@ export function mountBlockWidgets(
   // global stays as a fallback for any consumer that hasn't been
   // updated to plumb session through yet (avoids regressing existing
   // setups that relied on it).
-  const isGm =
-    ctx.session?.role === "gm" || readSessionRole() === "gm";
+  const isGm = ctx.session?.role === "gm" || readSessionRole() === "gm";
 
   // Each `<pre><code class="language-X">` is a candidate. We need to
   // know the *pageId* to derive the deterministic entity id, and the
@@ -273,9 +265,7 @@ export function mountBlockWidgets(
   // we fall back to scanning the BlockEntityIndex by info-slug.
   const pageId = (container.dataset.pageId as EntityId | undefined) ?? null;
 
-  const codes = container.querySelectorAll(
-    'pre > code[class*="language-"]',
-  );
+  const codes = container.querySelectorAll('pre > code[class*="language-"]');
   for (let i = 0; i < codes.length; i += 1) {
     const codeEl = codes[i] as HTMLElement;
     const pre = codeEl.parentElement;
@@ -363,10 +353,7 @@ function findBlockByInfoOrFirst(
   for (const [traitName, value] of traits.entries()) {
     if (traitName !== "@vtt/adventures/BlockEntityIndex") continue;
     const v = value as {
-      entries: Record<
-        string,
-        { kind: string; blockKey: string; entityId: EntityId }
-      >;
+      entries: Record<string, { kind: string; blockKey: string; entityId: EntityId }>;
     };
     let fallback: EntityId | null = null;
     for (const e of Object.values(v.entries)) {

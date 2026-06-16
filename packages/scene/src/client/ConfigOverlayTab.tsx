@@ -22,10 +22,7 @@ import { createEffect, createMemo, createSignal, Show, type JSX } from "solid-js
 import { Scene } from "../shared/traits.js";
 import { resolveSceneBackgroundUrl } from "../shared/background.js";
 import { UpdateScene } from "../shared/commands.js";
-import {
-  type SceneOverlayTab,
-  type SceneOverlayTabRenderArgs,
-} from "../shared/slot.js";
+import { type SceneOverlayTab, type SceneOverlayTabRenderArgs } from "../shared/slot.js";
 import { useMe } from "./use-me.js";
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
@@ -82,18 +79,11 @@ function ConfigTabBody(props: { sceneId: string }): JSX.Element {
   };
 
   return (
-    <Show
-      when={scene()}
-      fallback={<div class="text-xs text-fg-subtle">no scene loaded</div>}
-    >
+    <Show when={scene()} fallback={<div class="text-xs text-fg-subtle">no scene loaded</div>}>
       {(s) => (
         <div class="flex h-full flex-col gap-5 overflow-y-auto">
           <Section label="Name">
-            <NameField
-              value={s().name}
-              disabled={!isGm()}
-              onCommit={(name) => update({ name })}
-            />
+            <NameField value={s().name} disabled={!isGm()} onCommit={(name) => update({ name })} />
           </Section>
 
           <div class="grid gap-5 sm:grid-cols-3">
@@ -131,9 +121,11 @@ function ConfigTabBody(props: { sceneId: string }): JSX.Element {
           {/* Derived cell count — read-only hint so the GM can sanity-check
               that gridSize divides cleanly into the playable extent. */}
           <p class="-mt-3 text-[0.7rem] text-fg-subtle">
-            ≈ {Math.floor(s().widthPx / s().gridSize)} × {Math.floor(s().heightPx / s().gridSize)} cells
+            ≈ {Math.floor(s().widthPx / s().gridSize)} × {Math.floor(s().heightPx / s().gridSize)}{" "}
+            cells
             <Show when={s().widthPx % s().gridSize !== 0 || s().heightPx % s().gridSize !== 0}>
-              {" "}(last column/row is partial)
+              {" "}
+              (last column/row is partial)
             </Show>
           </p>
 
@@ -173,9 +165,7 @@ function ConfigTabBody(props: { sceneId: string }): JSX.Element {
                   heightPx: dims.height,
                 })
               }
-              onClear={() =>
-                update({ backgroundAssetId: null, backgroundImage: null })
-              }
+              onClear={() => update({ backgroundAssetId: null, backgroundImage: null })}
             />
           </Section>
         </div>
@@ -286,10 +276,9 @@ function BackgroundImageField(props: {
             </Show>
           </div>
           <p class="text-[0.7rem] text-fg-subtle">
-            PNG, JPG, GIF, WebP, AVIF, or SVG. Max 250 MB. Width/Height
-            auto-fit to the image's natural size on upload — adjust them
-            below if you want a different playable extent. Transparent
-            regions show the background color underneath.
+            PNG, JPG, GIF, WebP, AVIF, or SVG. Max 250 MB. Width/Height auto-fit to the image's
+            natural size on upload — adjust them below if you want a different playable extent.
+            Transparent regions show the background color underneath.
           </p>
           <Show when={error()}>
             <p class="rounded-(--radius-control) border border-danger/40 bg-danger/10 px-2 py-1 text-[0.7rem] text-danger">
@@ -324,9 +313,7 @@ function BackgroundImageField(props: {
  * or to 300×150 if neither is set. Acceptable as a default — the GM
  * can override Width/Height afterward.
  */
-async function readImageDimensions(
-  file: File,
-): Promise<{ width: number; height: number }> {
+async function readImageDimensions(file: File): Promise<{ width: number; height: number }> {
   const url = URL.createObjectURL(file);
   try {
     const img = new Image();
@@ -337,7 +324,6 @@ async function readImageDimensions(
     URL.revokeObjectURL(url);
   }
 }
-
 
 function Section(props: { label: string; children: JSX.Element }): JSX.Element {
   return (
@@ -457,12 +443,7 @@ function NumberField(props: {
 
   const commit = () => {
     const n = Number.parseInt(local(), 10);
-    if (
-      Number.isNaN(n) ||
-      !Number.isInteger(n) ||
-      n < props.min ||
-      n > props.max
-    ) {
+    if (Number.isNaN(n) || !Number.isInteger(n) || n < props.min || n > props.max) {
       setLocal(String(props.value));
       setEditing(false);
       return;

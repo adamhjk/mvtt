@@ -32,9 +32,7 @@ export const PingButtonView = defineView({
     const [count, setCount] = createSignal(0);
     return (
       <div class="flex flex-col gap-3">
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-fg-muted">
-          ping
-        </h2>
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-fg-muted">ping</h2>
         <button
           type="button"
           class="self-start rounded-(--radius-control) bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover transition"
@@ -59,9 +57,7 @@ export const PongLogView = defineView({
     const rows = useQuery([Pong]);
     return (
       <div class="flex flex-col gap-2">
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-fg-muted">
-          pong log
-        </h2>
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-fg-muted">pong log</h2>
         <Show
           when={rows().length > 0}
           fallback={<p class="text-xs text-fg-subtle">no pongs yet — send a ping</p>}

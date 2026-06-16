@@ -29,10 +29,7 @@ export {
 } from "./block-kinds.js";
 export { wikiLink, dice, readBrand } from "./brands.js";
 export { schemaToFields, describeType } from "./schema-to-fields.js";
-export {
-  blockReferenceProvider,
-  buildBlockReferenceSections,
-} from "./block-reference-provider.js";
+export { blockReferenceProvider, buildBlockReferenceSections } from "./block-reference-provider.js";
 export {
   AdventureProvenance,
   BLOCK_ENTITY_INDEX_ID,
@@ -42,18 +39,6 @@ export {
   PageBlocks,
   Tombstoned,
 } from "./traits.js";
-export {
-  BlockEntityTombstoned,
-  BlockEntityUpserted,
-  PageBlocksParsed,
-} from "./events.js";
-export {
-  scanFencedBlocks,
-  slugifyInfo,
-  type FencedBlock,
-} from "./parse-blocks.js";
-export {
-  prepareYaml,
-  restoreWikiLinks,
-  type WikiLinkTable,
-} from "./yaml-wikilinks.js";
+export { BlockEntityTombstoned, BlockEntityUpserted, PageBlocksParsed } from "./events.js";
+export { scanFencedBlocks, slugifyInfo, type FencedBlock } from "./parse-blocks.js";
+export { prepareYaml, restoreWikiLinks, type WikiLinkTable } from "./yaml-wikilinks.js";

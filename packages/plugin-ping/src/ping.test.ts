@@ -16,13 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import {
-  CommandPipeline,
-  EventBus,
-  Registry,
-  World,
-  definePlugin,
-} from "@vtt/substrate";
+import { CommandPipeline, EventBus, Registry, World, definePlugin } from "@vtt/substrate";
 import { Ping, PingReceived, Pong } from "./shared/index.js";
 import { PongRecordingSystem } from "./server/systems.js";
 

@@ -105,7 +105,6 @@ layer.attach(sprite);
 
 `RenderLayer` throws on `addChild`. The object still needs a real scene graph parent (via `addChild` on a Container) for transforms; use `layer.attach()` to control render order.
 
-
 ### [HIGH] Layer and attached children in different render groups
 
 Wrong:
@@ -132,11 +131,9 @@ layer.attach(sprite);
 
 A layer and the objects it attaches must be in the same render group. Otherwise the attached child renders without its correct transform composition.
 
-
 ### [MEDIUM] Expecting parent filters to apply to layer children
 
 Filters on an ancestor Container are applied by capturing the container's children into a texture via push/pop. Layer-attached children skip this capture; they're collected separately and drawn at the layer's position. If you need a filter on a layer-attached object, apply the filter directly to the object (not the ancestor).
-
 
 ## API Reference
 

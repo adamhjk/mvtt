@@ -20,9 +20,7 @@ import type { JSX } from "solid-js";
 /**
  * Simplified mobile header — logo + hamburger trigger.
  */
-export function MobileHeader(props: {
-  onMenuOpen: () => void;
-}): JSX.Element {
+export function MobileHeader(props: { onMenuOpen: () => void }): JSX.Element {
   return (
     <header class="flex items-center justify-between border-b border-border bg-surface px-4 py-2.5">
       <h1

@@ -92,11 +92,7 @@ export const InvocationFieldEdited = defineEvent({
   name: "@vtt/system-torchbearer/InvocationFieldEdited",
   schema: z.object({
     invocationId: EntityId,
-    trait: z.enum([
-      "InvocationIdentity",
-      "TbInvocationPerforming",
-      "TbInvocationHomebrewProse",
-    ]),
+    trait: z.enum(["InvocationIdentity", "TbInvocationPerforming", "TbInvocationHomebrewProse"]),
     path: z.array(z.string().min(1).max(60)),
     value: z.unknown(),
   }),

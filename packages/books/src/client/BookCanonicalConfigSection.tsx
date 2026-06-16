@@ -15,22 +15,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  qualifiedName,
-  type CommandInstance,
-  type EntityId,
-} from "@vtt/substrate";
+import { qualifiedName, type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
 import { createMemo, For, Show, type JSX } from "solid-js";
 import { SetBookCanonical } from "../shared/commands.js";
-import {
-  BookCanonical,
-  CanonicalBookCatalog,
-} from "../shared/traits.js";
-import {
-  type BookConfigSection,
-  type BookConfigSectionRenderArgs,
-} from "../shared/slot.js";
+import { BookCanonical, CanonicalBookCatalog } from "../shared/traits.js";
+import { type BookConfigSection, type BookConfigSectionRenderArgs } from "../shared/slot.js";
 import { useMe } from "./use-me.js";
 
 /**
@@ -131,8 +121,8 @@ function BookCanonicalConfigBody(props: { bookId: string }): JSX.Element {
           </For>
         </select>
         <p class="text-[0.7rem] text-fg-subtle">
-          Plugin content (e.g. monster stat blocks) deep-links into this
-          PDF when the canonical role is set.
+          Plugin content (e.g. monster stat blocks) deep-links into this PDF when the canonical role
+          is set.
         </p>
       </label>
     </Show>

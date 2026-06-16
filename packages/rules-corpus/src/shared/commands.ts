@@ -15,13 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  ok,
-  z,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, ok, z } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
 import { Asset } from "@vtt/assets/shared";
 import {

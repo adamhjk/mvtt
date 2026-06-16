@@ -19,10 +19,7 @@ import { createMemo, createSignal, Index, onCleanup, Show, type JSX } from "soli
 import { useClient } from "@vtt/substrate/client";
 import { Pane } from "./Pane.js";
 import { SetSplitProportions } from "../shared/commands.js";
-import type {
-  WorkspacePane,
-  WorkspaceTree as TreeShape,
-} from "../shared/traits.js";
+import type { WorkspacePane, WorkspaceTree as TreeShape } from "../shared/traits.js";
 
 /**
  * Smallest fraction of a split a pane can be dragged to during resize.
@@ -63,12 +60,7 @@ export function WorkspaceTreeView(props: {
         }) as unknown as JSX.Element
       }
     >
-      <Node
-        node={props.tree}
-        path={[]}
-        paneById={props.paneById}
-        zenPaneId={props.zenPaneId}
-      />
+      <Node node={props.tree} path={[]} paneById={props.paneById} zenPaneId={props.zenPaneId} />
     </Show>
   );
 }
@@ -92,9 +84,7 @@ function Node(props: {
   return (
     <Show
       when={props.node.kind === "split"}
-      fallback={
-        <PaneLeaf node={props.node} paneById={props.paneById} />
-      }
+      fallback={<PaneLeaf node={props.node} paneById={props.paneById} />}
     >
       <SplitBranch
         node={props.node}
@@ -114,9 +104,7 @@ function PaneLeaf(props: {
     if (props.node.kind !== "pane") return null;
     return props.paneById[props.node.paneId] ?? null;
   });
-  return (
-    <Show when={pane()}>{(p) => <Pane pane={p()} />}</Show>
-  );
+  return <Show when={pane()}>{(p) => <Pane pane={p()} />}</Show>;
 }
 
 function SplitBranch(props: {
@@ -150,8 +138,7 @@ function SplitNode(props: {
   // they shadow `props.split.proportions` so the layout follows the
   // cursor smoothly without a substrate roundtrip.
   const [draft, setDraft] = createSignal<number[] | null>(null);
-  const proportions = (): ReadonlyArray<number> =>
-    draft() ?? props.split.proportions;
+  const proportions = (): ReadonlyArray<number> => draft() ?? props.split.proportions;
 
   let containerEl: HTMLDivElement | undefined;
 
@@ -159,12 +146,10 @@ function SplitNode(props: {
     if (!containerEl) return;
     ev.preventDefault();
     const rect = containerEl.getBoundingClientRect();
-    const axisSize =
-      props.split.axis === "row" ? rect.width : rect.height;
+    const axisSize = props.split.axis === "row" ? rect.width : rect.height;
     if (axisSize <= 0) return;
 
-    const startCoord =
-      props.split.axis === "row" ? ev.clientX : ev.clientY;
+    const startCoord = props.split.axis === "row" ? ev.clientX : ev.clientY;
     const base = [...proportions()];
     const total = base.reduce((a, b) => a + b, 0);
     const minPortion = total * MIN_PROPORTION_FRACTION;
@@ -222,15 +207,10 @@ function SplitNode(props: {
 
   const flexAxis = props.split.axis === "row" ? "flex-row" : "flex-col";
   const dividerClass =
-    props.split.axis === "row"
-      ? "w-1 cursor-col-resize"
-      : "h-1 cursor-row-resize";
+    props.split.axis === "row" ? "w-1 cursor-col-resize" : "h-1 cursor-row-resize";
 
   return (
-    <div
-      ref={containerEl}
-      class={`flex min-h-0 min-w-0 flex-1 ${flexAxis}`}
-    >
+    <div ref={containerEl} class={`flex min-h-0 min-w-0 flex-1 ${flexAxis}`}>
       {/*
         `<Index>` not `<For>`. For keys children by reference, so every
         substrate state clone (FocusPane, OpenPage, even bumpInteracted)
@@ -244,16 +224,13 @@ function SplitNode(props: {
       */}
       <Index each={props.split.children}>
         {(child, i) => {
-          const total = () =>
-            proportions().reduce((a, b) => a + b, 0);
+          const total = () => proportions().reduce((a, b) => a + b, 0);
           return (
             <>
               <Show when={i > 0}>
                 <div
                   role="separator"
-                  aria-orientation={
-                    props.split.axis === "row" ? "vertical" : "horizontal"
-                  }
+                  aria-orientation={props.split.axis === "row" ? "vertical" : "horizontal"}
                   class={`group relative shrink-0 bg-border-muted hover:bg-border transition-colors ${dividerClass}`}
                   classList={{
                     "bg-border": draft() !== null,

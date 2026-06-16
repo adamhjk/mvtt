@@ -17,12 +17,7 @@
 
 import { type EntityId, type World } from "@vtt/substrate";
 import { defineLinkKind, type LinkSuggestion } from "./link-kinds.js";
-import {
-  Note,
-  Headings,
-  Page,
-  BelongsToNote,
-} from "./traits.js";
+import { Note, Headings, Page, BelongsToNote } from "./traits.js";
 import {
   NoteCreated,
   NoteRenamed,
@@ -70,11 +65,7 @@ function resolveNoteByName(world: World, raw: string): EntityId | null {
   return resolveNoteByTitle(world, trimmed);
 }
 
-function resolvePageOfNote(
-  world: World,
-  noteId: EntityId,
-  needle: string,
-): EntityId | null {
+function resolvePageOfNote(world: World, noteId: EntityId, needle: string): EntityId | null {
   const trimmed = needle.trim();
   if (trimmed.length === 0) return null;
   if (isEntityIdShape(trimmed) && world.has(trimmed as EntityId)) {
@@ -160,11 +151,7 @@ function splitNotePath(body: string): {
   };
 }
 
-function resolveHeadingOnPage(
-  world: World,
-  pageId: EntityId,
-  needle: string,
-): string | null {
+function resolveHeadingOnPage(world: World, pageId: EntityId, needle: string): string | null {
   const trimmed = needle.trim();
   if (trimmed.length === 0) return null;
   const h = world.get(pageId, [Headings]) as
@@ -199,8 +186,7 @@ function resolveHeadingOnPage(
 export const noteLinkKind = defineLinkKind<NoteRef>({
   name: "note",
   parse: (body, _anchor, world) => {
-    const { note: noteText, page: pageText, heading: headingText } =
-      splitNotePath(body);
+    const { note: noteText, page: pageText, heading: headingText } = splitNotePath(body);
     if (noteText.length === 0) return null;
 
     let noteId: EntityId | null = null;
@@ -224,25 +210,21 @@ export const noteLinkKind = defineLinkKind<NoteRef>({
     if (headingText !== null) {
       const targetPage = pageId ?? firstPageOf(world, noteId);
       anchor = targetPage
-        ? resolveHeadingOnPage(world, targetPage, headingText) ?? headingText
+        ? (resolveHeadingOnPage(world, targetPage, headingText) ?? headingText)
         : headingText;
     }
 
     return { noteId, pageId, anchor };
   },
   display: (ref, world) => {
-    const noteGot = world.get(ref.noteId, [Note]) as
-      | { Note: { title: string } }
-      | undefined;
+    const noteGot = world.get(ref.noteId, [Note]) as { Note: { title: string } } | undefined;
     if (!noteGot) return "(missing note)";
 
     const parts: string[] = [noteGot.Note.title];
 
     const pageId = ref.pageId ?? firstPageOf(world, ref.noteId);
     if (ref.pageId !== null && pageId !== null) {
-      const pageGot = world.get(pageId, [Page]) as
-        | { Page: { title: string } }
-        | undefined;
+      const pageGot = world.get(pageId, [Page]) as { Page: { title: string } } | undefined;
       if (pageGot) parts.push(pageGot.Page.title);
     }
 
@@ -252,9 +234,7 @@ export const noteLinkKind = defineLinkKind<NoteRef>({
         const h = world.get(pageId, [Headings]) as
           | { Headings: { items: Array<{ id: string; text: string }> } }
           | undefined;
-        const heading = h?.Headings.items.find(
-          (i) => i.id === ref.anchor || i.text === ref.anchor,
-        );
+        const heading = h?.Headings.items.find((i) => i.id === ref.anchor || i.text === ref.anchor);
         if (heading) resolved = heading.text;
       }
       parts.push(resolved);
@@ -308,9 +288,7 @@ export const noteLinkKind = defineLinkKind<NoteRef>({
           const p = row.values.Page as { title: string };
           if (!p.title.toLowerCase().includes(needle)) continue;
           const back = row.values.BelongsToNote as { noteId: EntityId };
-          const noteGot = world.get(back.noteId, [Note]) as
-            | { Note: { title: string } }
-            | undefined;
+          const noteGot = world.get(back.noteId, [Note]) as { Note: { title: string } } | undefined;
           if (!noteGot) continue;
           out.push({
             kind: "note",
@@ -330,9 +308,7 @@ export const noteLinkKind = defineLinkKind<NoteRef>({
       if (noteHalf.length === 0) return out;
       const noteId = resolveNoteByName(world, noteHalf);
       if (noteId === null) return out;
-      const noteGot = world.get(noteId, [Note]) as
-        | { Note: { title: string } }
-        | undefined;
+      const noteGot = world.get(noteId, [Note]) as { Note: { title: string } } | undefined;
       if (!noteGot) return out;
       for (const row of world.query([Page, BelongsToNote])) {
         const back = row.values.BelongsToNote as { noteId: EntityId };
@@ -361,21 +337,14 @@ export const noteLinkKind = defineLinkKind<NoteRef>({
       if (noteId === null) return out;
       const pageId = resolvePageOfNote(world, noteId, pageHalf);
       if (pageId === null) return out;
-      const noteGot = world.get(noteId, [Note]) as
-        | { Note: { title: string } }
-        | undefined;
-      const pageGot = world.get(pageId, [Page]) as
-        | { Page: { title: string } }
-        | undefined;
+      const noteGot = world.get(noteId, [Note]) as { Note: { title: string } } | undefined;
+      const pageGot = world.get(pageId, [Page]) as { Page: { title: string } } | undefined;
       const h = world.get(pageId, [Headings]) as
         | { Headings: { items: Array<{ id: string; text: string }> } }
         | undefined;
       if (!noteGot || !pageGot || !h) return out;
       for (const item of h.Headings.items) {
-        if (
-          headingNeedle.length > 0 &&
-          !item.text.toLowerCase().includes(headingNeedle)
-        ) {
+        if (headingNeedle.length > 0 && !item.text.toLowerCase().includes(headingNeedle)) {
           continue;
         }
         out.push({

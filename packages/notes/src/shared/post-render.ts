@@ -43,10 +43,7 @@ export interface MarkdownPostRender {
    * mounted div; ctx carries the live world + registry + worldId so
    * fills can dispatch commands and read trait state.
    */
-  readonly run: (
-    container: HTMLElement,
-    ctx: MarkdownPostRenderContext,
-  ) => void;
+  readonly run: (container: HTMLElement, ctx: MarkdownPostRenderContext) => void;
 }
 
 export interface MarkdownPostRenderContext {

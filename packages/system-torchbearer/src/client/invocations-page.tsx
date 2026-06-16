@@ -23,19 +23,10 @@
 
 import { type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
-import {
-  definePageProvider,
-  RetargetTab,
-} from "@vtt/shell-workbench/shared";
+import { definePageProvider, RetargetTab } from "@vtt/shell-workbench/shared";
 import { kit } from "@vtt/characters/client";
 import { BookCitation } from "@vtt/books/client";
-import {
-  createMemo,
-  createSignal,
-  For,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
   CreateBlankInvocation,
   EditInvocationField,
@@ -78,23 +69,13 @@ export const InvocationsPageProvider = definePageProvider({
     });
   },
   defaultEntity: () => null,
-  render: ({ tabId, entityId }) => (
-    <InvocationsPage tabId={tabId} entityId={entityId} />
-  ),
+  render: ({ tabId, entityId }) => <InvocationsPage tabId={tabId} entityId={entityId} />,
 });
 
-function InvocationsPage(props: {
-  tabId: string;
-  entityId: string | null;
-}): JSX.Element {
+function InvocationsPage(props: { tabId: string; entityId: string | null }): JSX.Element {
   return (
-    <Show
-      when={props.entityId}
-      fallback={<InvocationsHub tabId={props.tabId} />}
-    >
-      {(idAcc) => (
-        <InvocationDetail invocationId={idAcc()} tabId={props.tabId} />
-      )}
+    <Show when={props.entityId} fallback={<InvocationsHub tabId={props.tabId} />}>
+      {(idAcc) => <InvocationDetail invocationId={idAcc()} tabId={props.tabId} />}
     </Show>
   );
 }
@@ -117,12 +98,8 @@ function InvocationsHub(props: { tabId: string }): JSX.Element {
   const client = useClient();
   const me = kit.useMe();
   const [filter, setFilter] = createSignal("");
-  const [circleFilter, setCircleFilter] = createSignal<
-    "all" | InvocationCircle
-  >("all");
-  const [traditionFilter, setTraditionFilter] = createSignal<
-    "all" | InvocationTradition
-  >("all");
+  const [circleFilter, setCircleFilter] = createSignal<"all" | InvocationCircle>("all");
+  const [traditionFilter, setTraditionFilter] = createSignal<"all" | InvocationTradition>("all");
   const [originFilter, setOriginFilter] = createSignal<
     "all" | "catalog" | "homebrew" | "deprecated"
   >("all");
@@ -212,9 +189,7 @@ function InvocationsHub(props: { tabId: string }): JSX.Element {
   };
 
   const createBlank = (): void => {
-    client.dispatch(
-      CreateBlankInvocation({ name: "New invocation" }) as CommandInstance,
-    );
+    client.dispatch(CreateBlankInvocation({ name: "New invocation" }) as CommandInstance);
   };
 
   return (
@@ -238,9 +213,7 @@ function InvocationsHub(props: { tabId: string }): JSX.Element {
         }}
       >
         <h2 style={{ margin: 0, "font-size": "1.1rem" }}>Invocations</h2>
-        <span
-          style={{ color: "var(--color-fg-muted)", "font-size": "0.8rem" }}
-        >
+        <span style={{ color: "var(--color-fg-muted)", "font-size": "0.8rem" }}>
           {filtered().length} of {invocations().length} invocations
         </span>
         <Show when={isGm()}>
@@ -306,17 +279,11 @@ function InvocationsHub(props: { tabId: string }): JSX.Element {
           style={selectStyle()}
         >
           <option value="all">All circles</option>
-          <For each={[1, 2, 3, 4, 5] as const}>
-            {(n) => <option value={n}>Circle {n}</option>}
-          </For>
+          <For each={[1, 2, 3, 4, 5] as const}>{(n) => <option value={n}>Circle {n}</option>}</For>
         </select>
         <select
           value={traditionFilter()}
-          onChange={(e) =>
-            setTraditionFilter(
-              e.currentTarget.value as "all" | InvocationTradition,
-            )
-          }
+          onChange={(e) => setTraditionFilter(e.currentTarget.value as "all" | InvocationTradition)}
           style={selectStyle()}
         >
           <option value="all">All traditions</option>
@@ -327,13 +294,7 @@ function InvocationsHub(props: { tabId: string }): JSX.Element {
         <select
           value={originFilter()}
           onChange={(e) =>
-            setOriginFilter(
-              e.currentTarget.value as
-                | "all"
-                | "catalog"
-                | "homebrew"
-                | "deprecated",
-            )
+            setOriginFilter(e.currentTarget.value as "all" | "catalog" | "homebrew" | "deprecated")
           }
           style={selectStyle()}
         >
@@ -390,16 +351,12 @@ function InvocationsHub(props: { tabId: string }): JSX.Element {
                   "font-size": "0.85rem",
                 }}
               >
-                <span
-                  style={{ "font-weight": "500", "min-width": "12rem" }}
-                >
+                <span style={{ "font-weight": "500", "min-width": "12rem" }}>
                   {r.name || "(unnamed)"}
                 </span>
                 <CircleDots circle={r.circle} />
                 <span style={{ color: "var(--color-fg-muted)" }}>
-                  {r.traditions.length > 0
-                    ? r.traditions.join(", ")
-                    : "—"}
+                  {r.traditions.length > 0 ? r.traditions.join(", ") : "—"}
                 </span>
                 <span
                   style={{
@@ -415,10 +372,7 @@ function InvocationsHub(props: { tabId: string }): JSX.Element {
                 >
                   {r.origin}
                 </span>
-                <span
-                  onClick={(e) => e.stopPropagation()}
-                  style={{ display: "inline-flex" }}
-                >
+                <span onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex" }}>
                   <Show when={r.pageRef}>
                     {(ref) => (
                       <BookCitation
@@ -442,10 +396,7 @@ function InvocationsHub(props: { tabId: string }): JSX.Element {
  * Detail — editor for a single invocation
  * ----------------------------------------------------------------------- */
 
-function InvocationDetail(props: {
-  invocationId: string;
-  tabId: string;
-}): JSX.Element {
+function InvocationDetail(props: { invocationId: string; tabId: string }): JSX.Element {
   const client = useClient();
   const me = kit.useMe();
   const ident = useTrait(props.invocationId, InvocationIdentity);
@@ -485,10 +436,7 @@ function InvocationDetail(props: {
       }) as CommandInstance,
     );
   };
-  const editPerforming = (
-    path: ReadonlyArray<string>,
-    value: unknown,
-  ): void => {
+  const editPerforming = (path: ReadonlyArray<string>, value: unknown): void => {
     client.dispatch(
       EditInvocationField({
         invocationId: props.invocationId as EntityId,
@@ -543,12 +491,7 @@ function InvocationDetail(props: {
           gap: "0.5rem",
         }}
       >
-        <button
-          type="button"
-          onClick={back}
-          data-testid="invocations-back"
-          style={btnStyle()}
-        >
+        <button type="button" onClick={back} data-testid="invocations-back" style={btnStyle()}>
           ← All invocations
         </button>
         <Show when={isGm() && isHomebrew()}>
@@ -584,10 +527,7 @@ function InvocationDetail(props: {
             value={ident()?.circle ?? 1}
             disabled={!isGm()}
             onChange={(e) =>
-              editIdentity(
-                ["circle"],
-                parseInt(e.currentTarget.value, 10) as InvocationCircle,
-              )
+              editIdentity(["circle"], parseInt(e.currentTarget.value, 10) as InvocationCircle)
             }
             style={selectStyle()}
           >
@@ -606,9 +546,7 @@ function InvocationDetail(props: {
           >
             <For each={INVOCATION_TRADITIONS}>
               {(tradition) => {
-                const checked = createMemo(() =>
-                  (ident()?.traditions ?? []).includes(tradition),
-                );
+                const checked = createMemo(() => (ident()?.traditions ?? []).includes(tradition));
                 return (
                   <label
                     style={{
@@ -664,10 +602,7 @@ function InvocationDetail(props: {
             value={performing()?.ritualKind ?? "fixed"}
             disabled={!isGm()}
             onChange={(e) =>
-              editPerforming(
-                ["ritualKind"],
-                e.currentTarget.value as InvocationRitualKind,
-              )
+              editPerforming(["ritualKind"], e.currentTarget.value as InvocationRitualKind)
             }
             style={selectStyle()}
           >
@@ -688,10 +623,7 @@ function InvocationDetail(props: {
               placeholder="(blank — set per ritual)"
               onChange={(e) => {
                 const raw = e.currentTarget.value;
-                editPerforming(
-                  ["fixedOb"],
-                  raw === "" ? null : parseInt(raw, 10),
-                );
+                editPerforming(["fixedOb"], raw === "" ? null : parseInt(raw, 10));
               }}
               style={inputStyle()}
             />
@@ -704,12 +636,7 @@ function InvocationDetail(props: {
               value={performing()?.versusAgainst ?? ""}
               disabled={!isGm()}
               placeholder="e.g. nature, will"
-              onChange={(e) =>
-                editPerforming(
-                  ["versusAgainst"],
-                  e.currentTarget.value || null,
-                )
-              }
+              onChange={(e) => editPerforming(["versusAgainst"], e.currentTarget.value || null)}
               style={inputStyle()}
             />
           </Field>
@@ -722,10 +649,7 @@ function InvocationDetail(props: {
             value={performing()?.invocationTime.noRelic ?? 1}
             disabled={!isGm()}
             onChange={(e) =>
-              editPerforming(
-                ["invocationTime", "noRelic"],
-                parseInt(e.currentTarget.value, 10),
-              )
+              editPerforming(["invocationTime", "noRelic"], parseInt(e.currentTarget.value, 10))
             }
             style={inputStyle()}
           />
@@ -738,10 +662,7 @@ function InvocationDetail(props: {
             value={performing()?.invocationTime.withRelic ?? 0}
             disabled={!isGm()}
             onChange={(e) =>
-              editPerforming(
-                ["invocationTime", "withRelic"],
-                parseInt(e.currentTarget.value, 10),
-              )
+              editPerforming(["invocationTime", "withRelic"], parseInt(e.currentTarget.value, 10))
             }
             style={inputStyle()}
           />
@@ -751,9 +672,7 @@ function InvocationDetail(props: {
             type="text"
             value={performing()?.duration ?? ""}
             disabled={!isGm()}
-            onChange={(e) =>
-              editPerforming(["duration"], e.currentTarget.value)
-            }
+            onChange={(e) => editPerforming(["duration"], e.currentTarget.value)}
             style={inputStyle()}
           />
         </Field>
@@ -765,10 +684,7 @@ function InvocationDetail(props: {
             value={performing()?.immortalBurden.noRelic ?? 2}
             disabled={!isGm()}
             onChange={(e) =>
-              editPerforming(
-                ["immortalBurden", "noRelic"],
-                parseInt(e.currentTarget.value, 10),
-              )
+              editPerforming(["immortalBurden", "noRelic"], parseInt(e.currentTarget.value, 10))
             }
             style={inputStyle()}
           />
@@ -781,10 +697,7 @@ function InvocationDetail(props: {
             value={performing()?.immortalBurden.withRelic ?? 1}
             disabled={!isGm()}
             onChange={(e) =>
-              editPerforming(
-                ["immortalBurden", "withRelic"],
-                parseInt(e.currentTarget.value, 10),
-              )
+              editPerforming(["immortalBurden", "withRelic"], parseInt(e.currentTarget.value, 10))
             }
             style={inputStyle()}
           />
@@ -794,9 +707,7 @@ function InvocationDetail(props: {
             type="text"
             value={performing()?.relicName ?? ""}
             disabled={!isGm()}
-            onChange={(e) =>
-              editPerforming(["relicName"], e.currentTarget.value)
-            }
+            onChange={(e) => editPerforming(["relicName"], e.currentTarget.value)}
             style={inputStyle()}
           />
         </Field>
@@ -806,9 +717,7 @@ function InvocationDetail(props: {
             value={performing()?.relicSlot ?? ""}
             disabled={!isGm()}
             placeholder="e.g. handR, neck, pocket"
-            onChange={(e) =>
-              editPerforming(["relicSlot"], e.currentTarget.value)
-            }
+            onChange={(e) => editPerforming(["relicSlot"], e.currentTarget.value)}
             style={inputStyle()}
           />
         </Field>
@@ -818,9 +727,7 @@ function InvocationDetail(props: {
             value={performing()?.sacramental ?? ""}
             disabled={!isGm()}
             placeholder="optional — +1D when present (DH p.100)"
-            onChange={(e) =>
-              editPerforming(["sacramental"], e.currentTarget.value)
-            }
+            onChange={(e) => editPerforming(["sacramental"], e.currentTarget.value)}
             style={inputStyle()}
           />
         </Field>
@@ -836,9 +743,8 @@ function InvocationDetail(props: {
               margin: 0,
             }}
           >
-            For homebrew invocations without a rulebook page reference,
-            write the effect prose here. Canon entries leave this blank
-            and rely on the page citation chip.
+            For homebrew invocations without a rulebook page reference, write the effect prose here.
+            Canon entries leave this blank and rely on the page citation chip.
           </p>
           <textarea
             value={homebrew()?.effect ?? ""}
@@ -888,11 +794,7 @@ function Section(props: { title: string; children: JSX.Element }): JSX.Element {
         border: "1px solid var(--color-border-muted)",
       }}
     >
-      <h3
-        style={{ margin: 0, "font-size": "0.85rem", "font-weight": "600" }}
-      >
-        {props.title}
-      </h3>
+      <h3 style={{ margin: 0, "font-size": "0.85rem", "font-weight": "600" }}>{props.title}</h3>
       {props.children}
     </section>
   );

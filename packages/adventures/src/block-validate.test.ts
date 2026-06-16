@@ -106,9 +106,7 @@ describe("buildBlockKindIndexFromPlugins", () => {
     registry.validate();
     const fromRegistry = buildBlockKindIndex(registry);
     const fromPlugins = stubIndex();
-    expect([...fromPlugins.byName.keys()].sort()).toEqual(
-      [...fromRegistry.byName.keys()].sort(),
-    );
+    expect([...fromPlugins.byName.keys()].sort()).toEqual([...fromRegistry.byName.keys()].sort());
     expect(fromPlugins.byName.get("stat")).toBe(statKind);
     expect(fromPlugins.byName.get("creature")).toBe(creatureKind);
   });
@@ -167,10 +165,7 @@ describe("validateBlockBodies", () => {
   });
 
   it("collects errors across multiple bad blocks on one page", () => {
-    const body = [
-      fence("stat", "One", "label: a"),
-      fence("stat", "Two", "value: 3"),
-    ].join("\n\n");
+    const body = [fence("stat", "One", "label: a"), fence("stat", "Two", "value: 3")].join("\n\n");
     const errs = validateBlockBodies(body, idx);
     expect(errs).toHaveLength(2);
     expect(errs.map((e) => e.blockKey).sort()).toEqual(["one", "two"]);
@@ -195,19 +190,16 @@ describe("buildBundleFromDir — block validation", () => {
     const noteDir = join(root, "notes", "fixture-note");
     await mkdir(noteDir, { recursive: true });
     await writeFile(join(noteDir, "index.md"), "---\ntitle: Fixture Note\n---\n");
-    await writeFile(
-      join(noteDir, "01-overview.md"),
-      `---\ntitle: Overview\n---\n\n${pageBody}\n`,
-    );
+    await writeFile(join(noteDir, "01-overview.md"), `---\ntitle: Overview\n---\n\n${pageBody}\n`);
     return root;
   }
 
   it("throws naming the page + kind when a block is malformed", async () => {
     const dir = await scaffold(fence("stat", "Broken", "label: defense"));
     try {
-      await expect(
-        buildBundleFromDir({ dir, kindIndex: stubIndex() }),
-      ).rejects.toThrow(/block validation failed[\s\S]*Overview[\s\S]*stat[\s\S]*value/);
+      await expect(buildBundleFromDir({ dir, kindIndex: stubIndex() })).rejects.toThrow(
+        /block validation failed[\s\S]*Overview[\s\S]*stat[\s\S]*value/,
+      );
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

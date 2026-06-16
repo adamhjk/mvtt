@@ -82,7 +82,6 @@ const texture = await Assets.load("https://example.com/image.png");
 
 `Texture.from()` only reads the cache in v8. Use `Assets.load()` first; its return value is the texture.
 
-
 ### [HIGH] Confusing anchor and pivot
 
 Wrong:
@@ -99,16 +98,13 @@ sprite.anchor.set(0.5);
 
 `anchor` shifts only the draw origin. `pivot` shifts the transform origin AND the visual position, causing the sprite to move unexpectedly.
 
-
 ### [HIGH] Old `NineSlicePlane` name
 
 `NineSlicePlane` was renamed to `NineSliceSprite` in v8 and switched to an options-object constructor: `new NineSliceSprite({ texture, leftWidth, topHeight, rightWidth, bottomHeight })`.
 
-
 ### [MEDIUM] Adding children to a sprite
 
 `Sprite`, `NineSliceSprite`, and `TilingSprite` all set `allowChildren = false`. Wrap in a `Container` to group sprites with other content.
-
 
 ## API Reference
 

@@ -17,14 +17,8 @@
 
 import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import { useClient, useQuery } from "@vtt/substrate/client";
-import {
-  usePageProviders,
-  useMe,
-} from "@vtt/shell-workbench/client";
-import type {
-  PageEntity,
-  PageProvider,
-} from "@vtt/shell-workbench/shared";
+import { usePageProviders, useMe } from "@vtt/shell-workbench/client";
+import type { PageEntity, PageProvider } from "@vtt/shell-workbench/shared";
 import { setShellPreference } from "./detect.js";
 
 /**
@@ -154,16 +148,12 @@ function PagesNav(props: {
   // that need a `me` context but the user isn't resolved yet —
   // they'll appear after Identity/Online land.
   const orderedProviders = createMemo<PageProvider[]>(() => {
-    return Array.from(providers().values()).sort((a, b) =>
-      a.label.localeCompare(b.label),
-    );
+    return Array.from(providers().values()).sort((a, b) => a.label.localeCompare(b.label));
   });
 
   return (
     <nav class="flex flex-col gap-1" aria-label="Pages">
-      <h3 class="font-display text-[0.65rem] uppercase tracking-[0.16em] text-fg-subtle">
-        Pages
-      </h3>
+      <h3 class="font-display text-[0.65rem] uppercase tracking-[0.16em] text-fg-subtle">Pages</h3>
       <For each={orderedProviders()}>
         {(provider) => (
           <ProviderSection
@@ -228,11 +218,11 @@ function ProviderSection(props: {
         aria-expanded={expanded()}
       >
         <span class="flex items-center gap-2">
-          <span aria-hidden class="text-fg-subtle">›</span>
-          <span>{props.provider.label}</span>
-          <span class="text-[0.65rem] text-fg-subtle">
-            ({entities().length})
+          <span aria-hidden class="text-fg-subtle">
+            ›
           </span>
+          <span>{props.provider.label}</span>
+          <span class="text-[0.65rem] text-fg-subtle">({entities().length})</span>
         </span>
         <span
           aria-hidden
@@ -260,9 +250,7 @@ function ProviderSection(props: {
             {(entity) => (
               <button
                 type="button"
-                onClick={() =>
-                  props.onNavigate(props.provider.kind, entity.id)
-                }
+                onClick={() => props.onNavigate(props.provider.kind, entity.id)}
                 class="rounded-(--radius-control) px-2 py-1 text-left text-sm text-fg hover:bg-surface-elevated transition"
               >
                 {entity.label}
@@ -270,13 +258,10 @@ function ProviderSection(props: {
             )}
           </For>
           <Show when={entities().length === 0}>
-            <p class="px-2 py-1 text-xs text-fg-subtle italic">
-              none yet
-            </p>
+            <p class="px-2 py-1 text-xs text-fg-subtle italic">none yet</p>
           </Show>
         </div>
       </Show>
     </div>
   );
 }
-

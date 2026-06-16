@@ -99,10 +99,7 @@ async function scaffoldFixture(): Promise<string> {
 
   const noteDir = join(root, "notes", "fixture-note");
   await mkdir(noteDir, { recursive: true });
-  await writeFile(
-    join(noteDir, "index.md"),
-    "---\ntitle: Fixture Note\n---\n",
-  );
+  await writeFile(join(noteDir, "index.md"), "---\ntitle: Fixture Note\n---\n");
   await writeFile(
     join(noteDir, "01-overview.md"),
     "---\ntitle: Overview\n---\n\nFirst page body with ![[asset:portrait]] image.\n",
@@ -151,36 +148,31 @@ describe("buildBundleFromDir", () => {
 
       // Import into a fresh world.
       const dst = makeWorld();
-      const result = await importBundle(
-        dst.world,
-        rehydrated,
-        buildBlockKindIndex(dst.registry),
-        {
-          importerUserId: GM.userId,
-          saveAssetBytes: async (bytes, desc) => {
-            const res = await dst.pipeline.dispatch({
-              id: `import-asset-${desc.sha256}`,
-              issuedBy: "tester",
-              issuedAt: Date.now(),
-              cmd: RegisterAsset({
-                mime: desc.mime,
-                sizeBytes: desc.bytes,
-                sha256: desc.sha256,
-                filename: desc.name,
-                width: null,
-                height: null,
-              }),
-              session: GM,
-            });
-            const registered = res.events.find(
-              (e) => e.type === "@vtt/assets/AssetRegistered",
-            ) as { payload: { assetId: EntityId } } | undefined;
-            if (!registered) throw new Error("RegisterAsset did not fire");
-            expect(bytes.length).toBe(10);
-            return registered.payload.assetId;
-          },
+      const result = await importBundle(dst.world, rehydrated, buildBlockKindIndex(dst.registry), {
+        importerUserId: GM.userId,
+        saveAssetBytes: async (bytes, desc) => {
+          const res = await dst.pipeline.dispatch({
+            id: `import-asset-${desc.sha256}`,
+            issuedBy: "tester",
+            issuedAt: Date.now(),
+            cmd: RegisterAsset({
+              mime: desc.mime,
+              sizeBytes: desc.bytes,
+              sha256: desc.sha256,
+              filename: desc.name,
+              width: null,
+              height: null,
+            }),
+            session: GM,
+          });
+          const registered = res.events.find((e) => e.type === "@vtt/assets/AssetRegistered") as
+            | { payload: { assetId: EntityId } }
+            | undefined;
+          if (!registered) throw new Error("RegisterAsset did not fire");
+          expect(bytes.length).toBe(10);
+          return registered.payload.assetId;
         },
-      );
+      });
       expect(result.notesCreated).toBe(1);
       expect(result.pagesCreated).toBe(2);
       expect(result.assetsUploaded).toBe(1);
@@ -192,11 +184,7 @@ describe("buildBundleFromDir", () => {
 
       const pageRows = dst.world
         .query([Page, BelongsToNote, PageOrdering])
-        .filter(
-          (r) =>
-            (r.values.BelongsToNote as { noteId: EntityId }).noteId ===
-            importedNoteId,
-        )
+        .filter((r) => (r.values.BelongsToNote as { noteId: EntityId }).noteId === importedNoteId)
         .sort(
           (a, b) =>
             (a.values.PageOrdering as { ordinal: number }).ordinal -
@@ -227,9 +215,7 @@ describe("buildBundleFromDir", () => {
   it("rejects a working dir missing bundle.json", async () => {
     const dir = await mkdtemp(join(tmpdir(), "advt-build-bad-"));
     try {
-      await expect(buildBundleFromDir({ dir })).rejects.toThrow(
-        /missing bundle\.json/,
-      );
+      await expect(buildBundleFromDir({ dir })).rejects.toThrow(/missing bundle\.json/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -249,9 +235,7 @@ describe("buildBundleFromDir", () => {
       const noteDir = join(dir, "notes", "lonely");
       await mkdir(noteDir, { recursive: true });
       await writeFile(join(noteDir, "index.md"), "---\ntitle: Lonely\n---\n");
-      await expect(buildBundleFromDir({ dir })).rejects.toThrow(
-        /no page files/,
-      );
+      await expect(buildBundleFromDir({ dir })).rejects.toThrow(/no page files/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

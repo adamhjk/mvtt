@@ -52,4 +52,3 @@ export const ACTION_LABELS: Readonly<Record<ConflictAction, string>> = {
   feint: "Feint",
   maneuver: "Maneuver",
 };
-

@@ -27,20 +27,10 @@ import {
   type EventInstance,
 } from "@vtt/substrate";
 import { Character } from "@vtt/characters/shared";
-import {
-  Conditions,
-  Heroic,
-  Identity,
-} from "./shared/traits.js";
+import { Conditions, Heroic, Identity } from "./shared/traits.js";
 import { ItemIdentity } from "@vtt/items/shared";
 import { Permissions, everyone } from "@vtt/permissions/shared";
-import {
-  Formula,
-  RequestRoll,
-  RolledBy,
-  RollResolved,
-  RollResult,
-} from "@vtt/resolution/shared";
+import { Formula, RequestRoll, RolledBy, RollResolved, RollResult } from "@vtt/resolution/shared";
 import { RollRecordingSystem } from "@vtt/resolution/server";
 import {
   AddSpellToBook,
@@ -259,10 +249,13 @@ describe("@vtt/system-torchbearer arcane spells", () => {
 
   describe("AddSpellToLibrary", () => {
     it("appends the spell id to the character's library", async () => {
-      const r = await dispatch(setup, AddSpellToLibrary({
-        characterId: setup.characterId,
-        spellId: setup.spellId,
-      }));
+      const r = await dispatch(
+        setup,
+        AddSpellToLibrary({
+          characterId: setup.characterId,
+          spellId: setup.spellId,
+        }),
+      );
       expect(r.result.ok).toBe(true);
       const lib = setup.world.get(setup.characterId, [TbLibrary]) as
         | { TbLibrary: { spellIds: EntityId[] } }
@@ -271,16 +264,25 @@ describe("@vtt/system-torchbearer arcane spells", () => {
     });
 
     it("rejects an unknown spell id", async () => {
-      const r = await dispatch(setup, AddSpellToLibrary({
-        characterId: setup.characterId,
-        spellId: "ghost-id" as EntityId,
-      }));
+      const r = await dispatch(
+        setup,
+        AddSpellToLibrary({
+          characterId: setup.characterId,
+          spellId: "ghost-id" as EntityId,
+        }),
+      );
       expect(r.result.ok).toBe(false);
     });
 
     it("is idempotent — second add doesn't duplicate", async () => {
-      await dispatch(setup, AddSpellToLibrary({ characterId: setup.characterId, spellId: setup.spellId }));
-      await dispatch(setup, AddSpellToLibrary({ characterId: setup.characterId, spellId: setup.spellId }));
+      await dispatch(
+        setup,
+        AddSpellToLibrary({ characterId: setup.characterId, spellId: setup.spellId }),
+      );
+      await dispatch(
+        setup,
+        AddSpellToLibrary({ characterId: setup.characterId, spellId: setup.spellId }),
+      );
       const lib = setup.world.get(setup.characterId, [TbLibrary]) as
         | { TbLibrary: { spellIds: EntityId[] } }
         | undefined;
@@ -290,7 +292,10 @@ describe("@vtt/system-torchbearer arcane spells", () => {
 
   describe("AddSpellToBook", () => {
     it("appends the spell id to the book's contents", async () => {
-      const r = await dispatch(setup, AddSpellToBook({ bookId: setup.bookId, spellId: setup.spellId }));
+      const r = await dispatch(
+        setup,
+        AddSpellToBook({ bookId: setup.bookId, spellId: setup.spellId }),
+      );
       expect(r.result.ok).toBe(true);
       const book = setup.world.get(setup.bookId, [TbSpellBook]) as
         | { TbSpellBook: { contents: EntityId[] } }
@@ -300,19 +305,25 @@ describe("@vtt/system-torchbearer arcane spells", () => {
 
     it("rejects when the spell is already in the book", async () => {
       await dispatch(setup, AddSpellToBook({ bookId: setup.bookId, spellId: setup.spellId }));
-      const r = await dispatch(setup, AddSpellToBook({
-        bookId: setup.bookId,
-        spellId: setup.spellId,
-      }));
+      const r = await dispatch(
+        setup,
+        AddSpellToBook({
+          bookId: setup.bookId,
+          spellId: setup.spellId,
+        }),
+      );
       expect(r.result.ok).toBe(false);
     });
 
     it("rejects when adding would exceed folio capacity", async () => {
       // folios = 5; circle-2 + circle-2 + circle-2 = 6, the third is rejected.
-      const a = await dispatch(setup, AddSpellToBook({
-        bookId: setup.bookId,
-        spellId: setup.spellTwoId,
-      }));
+      const a = await dispatch(
+        setup,
+        AddSpellToBook({
+          bookId: setup.bookId,
+          spellId: setup.spellTwoId,
+        }),
+      );
       expect(a.result.ok).toBe(true);
       // For a real test we'd need a *different* circle-2 spell to avoid
       // the dup-check. Set the book to 4 used directly so the next
@@ -321,23 +332,26 @@ describe("@vtt/system-torchbearer arcane spells", () => {
         folios: 5,
         contents: [setup.spellTwoId, setup.spellTwoId], // synthetic 4 used
       });
-      const r = await dispatch(setup, AddSpellToBook({
-        bookId: setup.bookId,
-        spellId: setup.spellId, // circle 1 → 4+1 = 5 ≤ 5, fits
-      }));
+      const r = await dispatch(
+        setup,
+        AddSpellToBook({
+          bookId: setup.bookId,
+          spellId: setup.spellId, // circle 1 → 4+1 = 5 ≤ 5, fits
+        }),
+      );
       expect(r.result.ok).toBe(true);
     });
   });
 
   describe("FillMemoryPalace", () => {
     it("fills slots according to spell circles, leaving each entry uncast", async () => {
-      const r = await dispatch(setup, FillMemoryPalace({
-        characterId: setup.characterId,
-        picks: [
-          { spellId: setup.spellId },
-          { spellId: setup.spellTwoId },
-        ],
-      }));
+      const r = await dispatch(
+        setup,
+        FillMemoryPalace({
+          characterId: setup.characterId,
+          picks: [{ spellId: setup.spellId }, { spellId: setup.spellTwoId }],
+        }),
+      );
       expect(r.result.ok).toBe(true);
       const palace = setup.world.get(setup.characterId, [TbMemoryPalace]) as
         | {
@@ -355,36 +369,48 @@ describe("@vtt/system-torchbearer arcane spells", () => {
 
     it("rejects when picks would exceed capacity", async () => {
       // capacity 3; circle 1 + circle 2 + circle 1 = 4
-      const r = await dispatch(setup, FillMemoryPalace({
-        characterId: setup.characterId,
-        picks: [
-          { spellId: setup.spellId },
-          { spellId: setup.spellTwoId },
-          { spellId: setup.spellId },
-        ],
-      }));
+      const r = await dispatch(
+        setup,
+        FillMemoryPalace({
+          characterId: setup.characterId,
+          picks: [
+            { spellId: setup.spellId },
+            { spellId: setup.spellTwoId },
+            { spellId: setup.spellId },
+          ],
+        }),
+      );
       expect(r.result.ok).toBe(false);
     });
 
     it("rejects when the palace already holds spells (must discharge first)", async () => {
-      await dispatch(setup, FillMemoryPalace({
-        characterId: setup.characterId,
-        picks: [{ spellId: setup.spellId }],
-      }));
-      const r = await dispatch(setup, FillMemoryPalace({
-        characterId: setup.characterId,
-        picks: [{ spellId: setup.spellTwoId }],
-      }));
+      await dispatch(
+        setup,
+        FillMemoryPalace({
+          characterId: setup.characterId,
+          picks: [{ spellId: setup.spellId }],
+        }),
+      );
+      const r = await dispatch(
+        setup,
+        FillMemoryPalace({
+          characterId: setup.characterId,
+          picks: [{ spellId: setup.spellTwoId }],
+        }),
+      );
       expect(r.result.ok).toBe(false);
     });
   });
 
   describe("ClearMemoryPalace", () => {
     it("empties the memorized array, preserving capacity", async () => {
-      await dispatch(setup, FillMemoryPalace({
-        characterId: setup.characterId,
-        picks: [{ spellId: setup.spellId }],
-      }));
+      await dispatch(
+        setup,
+        FillMemoryPalace({
+          characterId: setup.characterId,
+          picks: [{ spellId: setup.spellId }],
+        }),
+      );
       await dispatch(setup, ClearMemoryPalace({ characterId: setup.characterId }));
       const palace = setup.world.get(setup.characterId, [TbMemoryPalace]) as
         | { TbMemoryPalace: { memorized: ReadonlyArray<unknown>; capacity: number } }
@@ -396,12 +422,10 @@ describe("@vtt/system-torchbearer arcane spells", () => {
 
   describe("SpellCastRollable", () => {
     it("compute() populates spec.spellCast for a palace cast", () => {
-      const result = previewRollable(
-        SpellCastRollable,
-        setup.world,
-        setup.characterId,
-        { spellId: setup.spellId, source: { kind: "palace" } },
-      ) as TbRollSpec | null;
+      const result = previewRollable(SpellCastRollable, setup.world, setup.characterId, {
+        spellId: setup.spellId,
+        source: { kind: "palace" },
+      }) as TbRollSpec | null;
       expect(result).not.toBeNull();
       expect(result!.spellCast).toBeDefined();
       expect(result!.spellCast!.source.kind).toBe("palace");
@@ -410,30 +434,23 @@ describe("@vtt/system-torchbearer arcane spells", () => {
     });
 
     it("compute() reads the spell's fixed Ob automatically", () => {
-      const result = previewRollable(
-        SpellCastRollable,
-        setup.world,
-        setup.characterId,
-        { spellId: setup.spellId, source: { kind: "palace" } },
-      ) as TbRollSpec | null;
+      const result = previewRollable(SpellCastRollable, setup.world, setup.characterId, {
+        spellId: setup.spellId,
+        source: { kind: "palace" },
+      }) as TbRollSpec | null;
       // Wayfinder's Friend is fixed Ob 2 — see makeSetup above.
       expect(result!.obstacle).toBe(2);
     });
 
     it("compute() includes the book name on a spellbook source", () => {
-      const result = previewRollable(
-        SpellCastRollable,
-        setup.world,
-        setup.characterId,
-        {
-          spellId: setup.spellId,
-          source: { kind: "spellbook", bookId: setup.bookId },
-        },
-      ) as TbRollSpec | null;
+      const result = previewRollable(SpellCastRollable, setup.world, setup.characterId, {
+        spellId: setup.spellId,
+        source: { kind: "spellbook", bookId: setup.bookId },
+      }) as TbRollSpec | null;
       expect(result!.spellCast!.source.kind).toBe("spellbook");
-      expect(
-        (result!.spellCast!.source as { bookName: string }).bookName,
-      ).toBe("Master Vermes' Primer");
+      expect((result!.spellCast!.source as { bookName: string }).bookName).toBe(
+        "Master Vermes' Primer",
+      );
     });
   });
 
@@ -481,10 +498,13 @@ describe("@vtt/system-torchbearer arcane spells", () => {
     }
 
     it("ConsumePalaceSpell removes the slot from the palace and stamps SpellCastConsumed", async () => {
-      await dispatch(setup, FillMemoryPalace({
-        characterId: setup.characterId,
-        picks: [{ spellId: setup.spellId }],
-      }));
+      await dispatch(
+        setup,
+        FillMemoryPalace({
+          characterId: setup.characterId,
+          picks: [{ spellId: setup.spellId }],
+        }),
+      );
       const rollId = spawnRoll({ kind: "palace" });
       const r = await dispatch(setup, ConsumePalaceSpell({ rollId }));
       expect(r.result.ok).toBe(true);
@@ -497,10 +517,13 @@ describe("@vtt/system-torchbearer arcane spells", () => {
     });
 
     it("ConsumePalaceSpell rejects on a second click (marker gating)", async () => {
-      await dispatch(setup, FillMemoryPalace({
-        characterId: setup.characterId,
-        picks: [{ spellId: setup.spellId }],
-      }));
+      await dispatch(
+        setup,
+        FillMemoryPalace({
+          characterId: setup.characterId,
+          picks: [{ spellId: setup.spellId }],
+        }),
+      );
       const rollId = spawnRoll({ kind: "palace" });
       const r1 = await dispatch(setup, ConsumePalaceSpell({ rollId }));
       const r2 = await dispatch(setup, ConsumePalaceSpell({ rollId }));
@@ -544,16 +567,22 @@ describe("@vtt/system-torchbearer arcane spells", () => {
 
   describe("ScribeSpellToScroll", () => {
     it("stamps the scroll with the chosen spell from library", async () => {
-      await dispatch(setup, AddSpellToLibrary({
-        characterId: setup.characterId,
-        spellId: setup.spellId,
-      }));
-      const r = await dispatch(setup, ScribeSpellToScroll({
-        characterId: setup.characterId,
-        scrollId: setup.scrollId,
-        spellId: setup.spellId,
-        source: "library",
-      }));
+      await dispatch(
+        setup,
+        AddSpellToLibrary({
+          characterId: setup.characterId,
+          spellId: setup.spellId,
+        }),
+      );
+      const r = await dispatch(
+        setup,
+        ScribeSpellToScroll({
+          characterId: setup.characterId,
+          scrollId: setup.scrollId,
+          spellId: setup.spellId,
+          source: "library",
+        }),
+      );
       expect(r.result.ok).toBe(true);
       const scroll = setup.world.get(setup.scrollId, [TbScroll]) as
         | { TbScroll: { spellId: string | null; consumed: boolean } }
@@ -567,26 +596,35 @@ describe("@vtt/system-torchbearer arcane spells", () => {
         spellId: setup.spellTwoId,
         consumed: false,
       });
-      const r = await dispatch(setup, ScribeSpellToScroll({
-        characterId: setup.characterId,
-        scrollId: setup.scrollId,
-        spellId: setup.spellId,
-        source: "library",
-      }));
+      const r = await dispatch(
+        setup,
+        ScribeSpellToScroll({
+          characterId: setup.characterId,
+          scrollId: setup.scrollId,
+          spellId: setup.spellId,
+          source: "library",
+        }),
+      );
       expect(r.result.ok).toBe(false);
     });
 
     it("scribing from the palace removes the spell from the palace", async () => {
-      await dispatch(setup, FillMemoryPalace({
-        characterId: setup.characterId,
-        picks: [{ spellId: setup.spellId }],
-      }));
-      const r = await dispatch(setup, ScribeSpellToScroll({
-        characterId: setup.characterId,
-        scrollId: setup.scrollId,
-        spellId: setup.spellId,
-        source: "palace",
-      }));
+      await dispatch(
+        setup,
+        FillMemoryPalace({
+          characterId: setup.characterId,
+          picks: [{ spellId: setup.spellId }],
+        }),
+      );
+      const r = await dispatch(
+        setup,
+        ScribeSpellToScroll({
+          characterId: setup.characterId,
+          scrollId: setup.scrollId,
+          spellId: setup.spellId,
+          source: "palace",
+        }),
+      );
       expect(r.result.ok).toBe(true);
       const palace = setup.world.get(setup.characterId, [TbMemoryPalace]) as
         | {
@@ -606,30 +644,42 @@ describe("@vtt/system-torchbearer arcane spells", () => {
     });
 
     it("rejects palace source when the spell isn't memorized", async () => {
-      const r = await dispatch(setup, ScribeSpellToScroll({
-        characterId: setup.characterId,
-        scrollId: setup.scrollId,
-        spellId: setup.spellId,
-        source: "palace",
-      }));
+      const r = await dispatch(
+        setup,
+        ScribeSpellToScroll({
+          characterId: setup.characterId,
+          scrollId: setup.scrollId,
+          spellId: setup.spellId,
+          source: "palace",
+        }),
+      );
       expect(r.result.ok).toBe(false);
     });
 
     it("rejects library source when the spell isn't in the library", async () => {
-      const r = await dispatch(setup, ScribeSpellToScroll({
-        characterId: setup.characterId,
-        scrollId: setup.scrollId,
-        spellId: setup.spellId,
-        source: "library",
-      }));
+      const r = await dispatch(
+        setup,
+        ScribeSpellToScroll({
+          characterId: setup.characterId,
+          scrollId: setup.scrollId,
+          spellId: setup.spellId,
+          source: "library",
+        }),
+      );
       expect(r.result.ok).toBe(false);
     });
   });
 
   describe("RemoveSpellFromLibrary / RemoveSpellFromBook", () => {
     it("removes from library", async () => {
-      await dispatch(setup, AddSpellToLibrary({ characterId: setup.characterId, spellId: setup.spellId }));
-      await dispatch(setup, RemoveSpellFromLibrary({ characterId: setup.characterId, spellId: setup.spellId }));
+      await dispatch(
+        setup,
+        AddSpellToLibrary({ characterId: setup.characterId, spellId: setup.spellId }),
+      );
+      await dispatch(
+        setup,
+        RemoveSpellFromLibrary({ characterId: setup.characterId, spellId: setup.spellId }),
+      );
       const lib = setup.world.get(setup.characterId, [TbLibrary]) as
         | { TbLibrary: { spellIds: EntityId[] } }
         | undefined;
@@ -639,12 +689,14 @@ describe("@vtt/system-torchbearer arcane spells", () => {
     it("removes from book and frees folios", async () => {
       await dispatch(setup, AddSpellToBook({ bookId: setup.bookId, spellId: setup.spellTwoId }));
       await dispatch(setup, AddSpellToBook({ bookId: setup.bookId, spellId: setup.spellId }));
-      await dispatch(setup, RemoveSpellFromBook({ bookId: setup.bookId, spellId: setup.spellTwoId }));
+      await dispatch(
+        setup,
+        RemoveSpellFromBook({ bookId: setup.bookId, spellId: setup.spellTwoId }),
+      );
       const book = setup.world.get(setup.bookId, [TbSpellBook]) as
         | { TbSpellBook: { contents: EntityId[] } }
         | undefined;
       expect(book?.TbSpellBook.contents).toEqual([setup.spellId]);
     });
   });
-
 });

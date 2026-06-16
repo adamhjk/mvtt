@@ -46,19 +46,13 @@ describe("Active trait", () => {
 
   it("isActive returns true when active: true is explicitly set", () => {
     const { world } = setup();
-    const id = world.spawn([
-      Character({ name: "Boris" }),
-      Active({ active: true }),
-    ]);
+    const id = world.spawn([Character({ name: "Boris" }), Active({ active: true })]);
     expect(isActive(world, id)).toBe(true);
   });
 
   it("isActive returns false when active: false", () => {
     const { world } = setup();
-    const id = world.spawn([
-      Character({ name: "Library Goblin" }),
-      Active({ active: false }),
-    ]);
+    const id = world.spawn([Character({ name: "Library Goblin" }), Active({ active: false })]);
     expect(isActive(world, id)).toBe(false);
   });
 
@@ -70,10 +64,7 @@ describe("Active trait", () => {
 
   it("readActive returns the stored value when set", () => {
     const { world } = setup();
-    const id = world.spawn([
-      Character({ name: "PC" }),
-      Active({ active: false }),
-    ]);
+    const id = world.spawn([Character({ name: "PC" }), Active({ active: false })]);
     expect(readActive(world, id)).toBe(false);
   });
 });

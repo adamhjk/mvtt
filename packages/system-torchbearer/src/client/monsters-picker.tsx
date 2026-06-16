@@ -127,8 +127,7 @@ export function MonstersRack(props: {
         "max-height": "22rem",
         border: "1px solid var(--color-border-muted)",
         "border-radius": "var(--radius-control)",
-        "background-color":
-          "var(--color-surface-sunken, var(--color-surface))",
+        "background-color": "var(--color-surface-sunken, var(--color-surface))",
       }}
     >
       <Show
@@ -222,34 +221,24 @@ function MonstersRow(props: {
         "align-items": "center",
         "column-gap": "0.7rem",
         padding: "0.45rem 0.7rem 0.45rem 0",
-        "border-bottom": props.isLast
-          ? "0"
-          : "1px solid var(--color-border-muted)",
-        "background-color": props.selected()
-          ? "var(--color-accent)"
-          : "transparent",
-        color: props.selected()
-          ? "var(--color-accent-fg)"
-          : "var(--color-fg)",
+        "border-bottom": props.isLast ? "0" : "1px solid var(--color-border-muted)",
+        "background-color": props.selected() ? "var(--color-accent)" : "transparent",
+        color: props.selected() ? "var(--color-accent-fg)" : "var(--color-fg)",
       }}
       onMouseEnter={(e) => {
         if (props.selected()) return;
-        (e.currentTarget as HTMLLIElement).style.backgroundColor =
-          "var(--color-surface-elevated)";
+        (e.currentTarget as HTMLLIElement).style.backgroundColor = "var(--color-surface-elevated)";
       }}
       onMouseLeave={(e) => {
         if (props.selected()) return;
-        (e.currentTarget as HTMLLIElement).style.backgroundColor =
-          "transparent";
+        (e.currentTarget as HTMLLIElement).style.backgroundColor = "transparent";
       }}
     >
       <span
         aria-hidden="true"
         style={{
           "align-self": "stretch",
-          "background-color": props.selected()
-            ? "var(--color-accent-fg)"
-            : "transparent",
+          "background-color": props.selected() ? "var(--color-accent-fg)" : "transparent",
           width: "0.25rem",
           "margin-left": "0.25rem",
         }}
@@ -284,9 +273,7 @@ function MonstersRow(props: {
           "font-family": "var(--font-mono)",
           "font-size": "0.7rem",
           "letter-spacing": "0.04em",
-          color: props.selected()
-            ? "var(--color-accent-fg)"
-            : "var(--color-fg-muted)",
+          color: props.selected() ? "var(--color-accent-fg)" : "var(--color-fg-muted)",
           opacity: props.selected() ? 0.9 : 1,
         }}
       >
@@ -374,12 +361,10 @@ export function MonstersSearchInput(props: {
           color: "var(--color-fg)",
         }}
         onFocus={(e) => {
-          (e.currentTarget as HTMLInputElement).style.borderColor =
-            "var(--color-accent)";
+          (e.currentTarget as HTMLInputElement).style.borderColor = "var(--color-accent)";
         }}
         onBlur={(e) => {
-          (e.currentTarget as HTMLInputElement).style.borderColor =
-            "var(--color-border-muted)";
+          (e.currentTarget as HTMLInputElement).style.borderColor = "var(--color-border-muted)";
         }}
         data-testid={props.testid ?? "monsters-search"}
         autocomplete="off"

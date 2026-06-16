@@ -22,10 +22,7 @@
 
 import { useTrait } from "@vtt/substrate/client";
 import { createMemo, For, Show, type JSX } from "solid-js";
-import {
-  SpellIdentity,
-  TbMemoryPalace,
-} from "../shared/spells/spell-traits.js";
+import { SpellIdentity, TbMemoryPalace } from "../shared/spells/spell-traits.js";
 
 /**
  * Resolve the i-th memorized entry into an inline display block.
@@ -43,9 +40,7 @@ function MemorizedTile(props: {
       data-testid={`palace-tile-${props.spellId}`}
       style={{
         "grid-column": `span ${props.slotsConsumed}`,
-        background: props.cast
-          ? "var(--color-surface-sunken)"
-          : "var(--color-accent-soft)",
+        background: props.cast ? "var(--color-surface-sunken)" : "var(--color-accent-soft)",
         border: props.cast
           ? "1px dashed var(--color-border-muted)"
           : "1px solid var(--color-accent)",
@@ -83,12 +78,8 @@ export function MemoryPalaceStrip(props: { characterId: string }): JSX.Element {
   const palace = useTrait(props.characterId, TbMemoryPalace);
   const capacity = createMemo(() => palace()?.capacity ?? 0);
   const memorized = createMemo(() => palace()?.memorized ?? []);
-  const usedSlots = createMemo(() =>
-    memorized().reduce((acc, m) => acc + m.slotsConsumed, 0),
-  );
-  const freeSlots = createMemo(() =>
-    Math.max(0, capacity() - usedSlots()),
-  );
+  const usedSlots = createMemo(() => memorized().reduce((acc, m) => acc + m.slotsConsumed, 0));
+  const freeSlots = createMemo(() => Math.max(0, capacity() - usedSlots()));
 
   return (
     <div
@@ -123,8 +114,8 @@ export function MemoryPalaceStrip(props: { characterId: string }): JSX.Element {
               margin: 0,
             }}
           >
-            no memory palace capacity yet — set one via [Set capacity] or a
-            class level benefit (DH p.115).
+            no memory palace capacity yet — set one via [Set capacity] or a class level benefit (DH
+            p.115).
           </p>
         }
       >
@@ -138,11 +129,7 @@ export function MemoryPalaceStrip(props: { characterId: string }): JSX.Element {
         >
           <For each={memorized()}>
             {(m) => (
-              <MemorizedTile
-                spellId={m.spellId}
-                slotsConsumed={m.slotsConsumed}
-                cast={m.cast}
-              />
+              <MemorizedTile spellId={m.spellId} slotsConsumed={m.slotsConsumed} cast={m.cast} />
             )}
           </For>
           <For each={Array.from({ length: freeSlots() })}>

@@ -19,10 +19,7 @@ import type { EntityId } from "@vtt/substrate";
 import { useClient, useQuery } from "@vtt/substrate/client";
 import { createMemo, For, Show, type JSX } from "solid-js";
 import { PendingRoll } from "../shared/pending.js";
-import {
-  PendingRollEditorsSlot,
-  type PendingRollEditor,
-} from "../shared/atelier.js";
+import { PendingRollEditorsSlot, type PendingRollEditor } from "../shared/atelier.js";
 
 /**
  * Stacked-list rendering of every active PendingRoll. Mounts one editor
@@ -40,9 +37,7 @@ export function PendingRollPanels(): JSX.Element {
   const rolls = useQuery([PendingRoll]);
 
   const editors = createMemo<PendingRollEditor[]>(() => {
-    const fills = client.registry.fillsForSlot(
-      PendingRollEditorsSlot,
-    ) as PendingRollEditor[];
+    const fills = client.registry.fillsForSlot(PendingRollEditorsSlot) as PendingRollEditor[];
     return [...fills].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
   });
 

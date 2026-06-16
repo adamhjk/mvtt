@@ -16,21 +16,9 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { type EntityId } from "@vtt/substrate";
-import {
-  createOptimisticTrait,
-  useClient,
-  useQuery,
-} from "@vtt/substrate/client";
+import { createOptimisticTrait, useClient, useQuery } from "@vtt/substrate/client";
 import { useTabSentinel } from "@vtt/shell-workbench/client";
-import {
-  createEffect,
-  createMemo,
-  Match,
-  Show,
-  Switch,
-  type Accessor,
-  type JSX,
-} from "solid-js";
+import { createEffect, createMemo, Match, Show, Switch, type Accessor, type JSX } from "solid-js";
 import { PendingRoll, type PendingRollValue } from "../shared/pending.js";
 import {
   PendingRollEditorsSlot,
@@ -48,9 +36,7 @@ import { RollAtelierEmpty } from "./RollAtelierEmpty.jsx";
 
 /** Discriminated selection — the rail (and the right pane) carry both
  * live PendingRolls and committed Roll entities now. */
-type Selection =
-  | { kind: "pending"; id: EntityId }
-  | { kind: "resolved"; id: EntityId };
+type Selection = { kind: "pending"; id: EntityId } | { kind: "resolved"; id: EntityId };
 
 /**
  * The Atelier shell. Owns a roll's whole lifecycle:
@@ -112,9 +98,7 @@ export function RollAtelier(props: {
   // accessor — Solid hooks must run a stable count per component
   // lifetime, so we read the slot a single time (fills are immutable
   // after registry validation).
-  const feeds = client.registry.fillsForSlot(
-    ResolvedRollFeedSlot,
-  ) as ResolvedRollFeed[];
+  const feeds = client.registry.fillsForSlot(ResolvedRollFeedSlot) as ResolvedRollFeed[];
   const feedAccessors: Accessor<ResolvedRollEntry[]>[] = feeds.map(
     (f) => f.useEntries() as Accessor<ResolvedRollEntry[]>,
   );
@@ -141,10 +125,8 @@ export function RollAtelier(props: {
     const pendings = rolls();
     const res = resolved();
     if (stored) {
-      if (pendings.some((r) => r.id === stored))
-        return { kind: "pending", id: stored };
-      if (res.some((e) => e.id === stored))
-        return { kind: "resolved", id: stored as EntityId };
+      if (pendings.some((r) => r.id === stored)) return { kind: "pending", id: stored };
+      if (res.some((e) => e.id === stored)) return { kind: "resolved", id: stored as EntityId };
       const byOrigin = res.find((e) => e.originPendingRollId === stored);
       if (byOrigin) return { kind: "resolved", id: byOrigin.id as EntityId };
     }
@@ -153,8 +135,7 @@ export function RollAtelier(props: {
     )[0];
     if (newestPending) return { kind: "pending", id: newestPending.id };
     const newestResolved = res[0];
-    if (newestResolved)
-      return { kind: "resolved", id: newestResolved.id as EntityId };
+    if (newestResolved) return { kind: "resolved", id: newestResolved.id as EntityId };
     return null;
   });
 
@@ -178,9 +159,7 @@ export function RollAtelier(props: {
 
   /* — right-pane: pending editor — */
   const editorsBySlot = createMemo<PendingRollEditor[]>(() => {
-    const fills = client.registry.fillsForSlot(
-      PendingRollEditorsSlot,
-    ) as PendingRollEditor[];
+    const fills = client.registry.fillsForSlot(PendingRollEditorsSlot) as PendingRollEditor[];
     return [...fills].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
   });
   const selectedPendingRow = createMemo(() => {
@@ -207,12 +186,8 @@ export function RollAtelier(props: {
 
   /* — right-pane: quick roll — */
   const quickComposer = createMemo<QuickRollComposer | null>(() => {
-    const fills = client.registry.fillsForSlot(
-      QuickRollComposerSlot,
-    ) as QuickRollComposer[];
-    return (
-      [...fills].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))[0] ?? null
-    );
+    const fills = client.registry.fillsForSlot(QuickRollComposerSlot) as QuickRollComposer[];
+    return [...fills].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))[0] ?? null;
   });
   const closeQuickRoll = () => {
     setUi("quickRollOpen", false);
@@ -230,13 +205,9 @@ export function RollAtelier(props: {
       <RollAtelierRail
         rolls={rolls()}
         resolved={resolved()}
-        selectedRollId={
-          effectiveSelection() ? effectiveSelection()!.id : null
-        }
+        selectedRollId={effectiveSelection() ? effectiveSelection()!.id : null}
         onSelect={select}
-        onQuickRoll={
-          quickComposer() ? () => setUi("quickRollOpen", true) : undefined
-        }
+        onQuickRoll={quickComposer() ? () => setUi("quickRollOpen", true) : undefined}
         quickRollActive={ui.quickRollOpen}
       />
       <main class="overflow-y-auto p-4" data-testid="roll-atelier-pane">
@@ -247,9 +218,11 @@ export function RollAtelier(props: {
               <Match when={selectedPendingRow() && editorFor()}>
                 {(editor) => (
                   <>
-                    {editor().render({
-                      rollId: selectedPendingRow()!.id,
-                    }) as JSX.Element}
+                    {
+                      editor().render({
+                        rollId: selectedPendingRow()!.id,
+                      }) as JSX.Element
+                    }
                   </>
                 )}
               </Match>
@@ -259,9 +232,7 @@ export function RollAtelier(props: {
             </Switch>
           }
         >
-          {(qc) => (
-            <>{qc().render({ onClose: closeQuickRoll }) as JSX.Element}</>
-          )}
+          {(qc) => <>{qc().render({ onClose: closeQuickRoll }) as JSX.Element}</>}
         </Show>
       </main>
     </div>

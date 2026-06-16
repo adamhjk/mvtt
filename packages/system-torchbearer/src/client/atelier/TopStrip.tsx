@@ -25,13 +25,11 @@ const MODES: ReadonlyArray<{ mode: AtelierMode; title: string }> = [
   },
   {
     mode: "versus",
-    title:
-      "Versus test — oppose another open roll; their successes become your obstacle (DH p.21)",
+    title: "Versus test — oppose another open roll; their successes become your obstacle (DH p.21)",
   },
   {
     mode: "disposition",
-    title:
-      "Disposition roll — no obstacle, result = base + successes − team penalties (SG p.63)",
+    title: "Disposition roll — no obstacle, result = base + successes − team penalties (SG p.63)",
   },
 ];
 
@@ -43,10 +41,7 @@ const MODES: ReadonlyArray<{ mode: AtelierMode; title: string }> = [
  * place a roll's mode changes; picking "versus" hands off to the
  * Opponent card's pair-with list for choosing who to oppose.
  */
-export function TopStrip(props: {
-  atelier: AtelierState;
-  mode: AtelierMode;
-}): JSX.Element {
+export function TopStrip(props: { atelier: AtelierState; mode: AtelierMode }): JSX.Element {
   const sourceLabel = createMemo<string>(() => {
     const fromSpec = props.atelier.previewedSpec()?.["source"];
     if (typeof fromSpec === "string" && fromSpec.length > 0) return fromSpec;
@@ -56,9 +51,10 @@ export function TopStrip(props: {
   });
 
   const subjectLabel = createMemo<string | null>(() => {
-    const spec = props.atelier.previewedSpec() as
-      | { spellCast?: { spellName?: unknown }; invocationPerform?: { invocationName?: unknown } }
-      | null;
+    const spec = props.atelier.previewedSpec() as {
+      spellCast?: { spellName?: unknown };
+      invocationPerform?: { invocationName?: unknown };
+    } | null;
     if (typeof spec?.spellCast?.spellName === "string") {
       return spec.spellCast.spellName;
     }
@@ -100,8 +96,7 @@ export function TopStrip(props: {
               class="px-2 py-0.5 font-display text-[0.55rem] uppercase tracking-[0.16em] transition"
               classList={{
                 "bg-accent text-accent-fg": props.mode === m.mode,
-                "bg-surface text-fg-muted hover:text-fg":
-                  props.mode !== m.mode,
+                "bg-surface text-fg-muted hover:text-fg": props.mode !== m.mode,
               }}
               onClick={() => props.atelier.setMode(m.mode)}
               data-testid={`atelier-mode-${m.mode}`}

@@ -15,27 +15,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  type CommandInstance,
-  type EntityId,
-} from "@vtt/substrate";
-import {
-  Surface,
-  useClient,
-  useQuery,
-  useTrait,
-} from "@vtt/substrate/client";
-import {
-  definePageProvider,
-  RetargetTab,
-} from "@vtt/shell-workbench/shared";
-import {
-  createMemo,
-  createSignal,
-  For,
-  Show,
-  type JSX,
-} from "solid-js";
+import { type CommandInstance, type EntityId } from "@vtt/substrate";
+import { Surface, useClient, useQuery, useTrait } from "@vtt/substrate/client";
+import { definePageProvider, RetargetTab } from "@vtt/shell-workbench/shared";
+import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
   CreateItem,
   CustomizeItem,
@@ -87,21 +70,10 @@ export const ItemsPageProvider = definePageProvider({
   },
 });
 
-function ItemsPage(props: {
-  tabId: string;
-  entityId: string | null;
-}): JSX.Element {
+function ItemsPage(props: { tabId: string; entityId: string | null }): JSX.Element {
   return (
-    <Show
-      when={props.entityId}
-      fallback={<ItemsHub tabId={props.tabId} />}
-    >
-      {(idAcc) => (
-        <ItemDetail
-          itemId={idAcc() as EntityId}
-          tabId={props.tabId}
-        />
-      )}
+    <Show when={props.entityId} fallback={<ItemsHub tabId={props.tabId} />}>
+      {(idAcc) => <ItemDetail itemId={idAcc() as EntityId} tabId={props.tabId} />}
     </Show>
   );
 }
@@ -117,9 +89,9 @@ interface ItemRow {
 function ItemsHub(props: { tabId: string }): JSX.Element {
   const client = useClient();
   const [filter, setFilter] = createSignal("");
-  const [origin, setOrigin] = createSignal<
-    "all" | "catalog" | "fork" | "ad-hoc" | "deprecated"
-  >("all");
+  const [origin, setOrigin] = createSignal<"all" | "catalog" | "fork" | "ad-hoc" | "deprecated">(
+    "all",
+  );
   const [category, setCategory] = createSignal<string>("all");
 
   const idents = useQuery([ItemIdentity]);
@@ -207,9 +179,7 @@ function ItemsHub(props: { tabId: string }): JSX.Element {
     // landing, retarget the current tab to the new item's detail
     // so the user can fill in subtypes and slot options without
     // having to find the row in the hub.
-    const before = new Set(
-      client.world.query([ItemIdentity]).map((r) => r.id as string),
-    );
+    const before = new Set(client.world.query([ItemIdentity]).map((r) => r.id as string));
     const handle = client.dispatch(
       CreateItem({
         traits: { ItemIdentity: { name } },
@@ -242,9 +212,7 @@ function ItemsHub(props: { tabId: string }): JSX.Element {
         </h2>
         <span class="font-display text-[0.62rem] uppercase tracking-[0.16em] text-fg-subtle">
           {filtered().length}
-          {filter() || origin() !== "all" || category() !== "all"
-            ? " match"
-            : " total"}
+          {filter() || origin() !== "all" || category() !== "all" ? " match" : " total"}
         </span>
       </header>
 
@@ -265,9 +233,7 @@ function ItemsHub(props: { tabId: string }): JSX.Element {
         />
         <select
           value={origin()}
-          onChange={(e) =>
-            setOrigin(e.currentTarget.value as ReturnType<typeof origin>)
-          }
+          onChange={(e) => setOrigin(e.currentTarget.value as ReturnType<typeof origin>)}
           class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-sm"
           aria-label="Origin filter"
         >
@@ -371,9 +337,7 @@ function ItemDetail(props: { itemId: EntityId; tabId: string }): JSX.Element {
   // Slot fills (game-system-contributed sections).
   const sectionFills = createMemo<ItemDetailSection[]>(() => {
     const raw = client.registry.fills.get(ItemDetailSectionsSlot.name) ?? [];
-    return [...(raw as ItemDetailSection[])].sort(
-      (a, b) => (b.priority ?? 0) - (a.priority ?? 0),
-    );
+    return [...(raw as ItemDetailSection[])].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
   });
 
   const traitsOnItem = createMemo(() => {
@@ -391,30 +355,20 @@ function ItemDetail(props: { itemId: EntityId; tabId: string }): JSX.Element {
   );
 
   const editField = (path: string, value: unknown): void => {
-    client.dispatch(
-      EditItemField({ itemId: props.itemId, path, value }) as CommandInstance,
-    );
+    client.dispatch(EditItemField({ itemId: props.itemId, path, value }) as CommandInstance);
   };
   const revertField = (path: string): void => {
-    client.dispatch(
-      RevertItemField({ itemId: props.itemId, path }) as CommandInstance,
-    );
+    client.dispatch(RevertItemField({ itemId: props.itemId, path }) as CommandInstance);
   };
   const lockField = (path: string): void => {
-    client.dispatch(
-      LockItemField({ itemId: props.itemId, path }) as CommandInstance,
-    );
+    client.dispatch(LockItemField({ itemId: props.itemId, path }) as CommandInstance);
   };
   const customize = (): void => {
-    client.dispatch(
-      CustomizeItem({ sourceItemId: props.itemId }) as CommandInstance,
-    );
+    client.dispatch(CustomizeItem({ sourceItemId: props.itemId }) as CommandInstance);
   };
   const destroy = (): void => {
     if (!window.confirm(`Destroy "${ident()?.name ?? "item"}"?`)) return;
-    client.dispatch(
-      DestroyItem({ itemId: props.itemId }) as CommandInstance,
-    );
+    client.dispatch(DestroyItem({ itemId: props.itemId }) as CommandInstance);
     // Send the user back to the hub.
     client.dispatch(
       RetargetTab({
@@ -448,30 +402,20 @@ function ItemDetail(props: { itemId: EntityId; tabId: string }): JSX.Element {
   return (
     <Show
       when={ident()}
-      fallback={
-        <p class="text-fg-subtle italic p-5">
-          Item not found or no longer visible.
-        </p>
-      }
+      fallback={<p class="text-fg-subtle italic p-5">Item not found or no longer visible.</p>}
     >
       <div class="flex h-full flex-col gap-4 px-5 py-4 overflow-y-auto">
         <header class="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={back}
-            class="text-xs text-fg-subtle hover:text-fg"
-          >
+          <button type="button" onClick={back} class="text-xs text-fg-subtle hover:text-fg">
             ← All items
           </button>
-          <span class="font-mono text-[0.62rem] text-fg-subtle">
-            {props.itemId}
-          </span>
+          <span class="font-mono text-[0.62rem] text-fg-subtle">{props.itemId}</span>
         </header>
 
         <Show when={derived()?.deprecated}>
           <div class="rounded-(--radius-control) border border-warning bg-warning/10 px-3 py-2 text-sm text-warning">
-            This item's catalog template has been removed upstream. The entity
-            persists; future template changes will not flow into it.
+            This item's catalog template has been removed upstream. The entity persists; future
+            template changes will not flow into it.
           </div>
         </Show>
 
@@ -496,9 +440,7 @@ function ItemDetail(props: { itemId: EntityId; tabId: string }): JSX.Element {
         <For each={applicableSections()}>
           {(section) => (
             <section class="rounded-(--radius-control) border border-border-muted bg-surface-elevated p-3">
-              <h3 class="text-xs uppercase tracking-wider text-fg-subtle mb-2">
-                {section.label}
-              </h3>
+              <h3 class="text-xs uppercase tracking-wider text-fg-subtle mb-2">{section.label}</h3>
               {
                 section.render({
                   itemId: props.itemId,
@@ -512,9 +454,7 @@ function ItemDetail(props: { itemId: EntityId; tabId: string }): JSX.Element {
         <Show when={derived()}>
           {(d) => (
             <section class="rounded-(--radius-control) border border-border-muted bg-surface-elevated p-3 text-xs">
-              <h3 class="uppercase tracking-wider text-fg-subtle mb-1.5">
-                Origin
-              </h3>
+              <h3 class="uppercase tracking-wider text-fg-subtle mb-1.5">Origin</h3>
               <dl class="grid grid-cols-[max-content,1fr] gap-x-3 gap-y-1">
                 <dt class="text-fg-subtle">Template</dt>
                 <dd class="font-mono">{d().templateId}</dd>
@@ -581,9 +521,7 @@ function IdentityEditor(props: {
 }): JSX.Element {
   return (
     <section class="rounded-(--radius-control) border border-border-muted bg-surface-elevated p-3">
-      <h3 class="text-xs uppercase tracking-wider text-fg-subtle mb-2">
-        Identity
-      </h3>
+      <h3 class="text-xs uppercase tracking-wider text-fg-subtle mb-2">Identity</h3>
       <FieldRow
         label="Name"
         path="ItemIdentity.name"
@@ -634,9 +572,7 @@ function EconomicsEditor(props: {
 }): JSX.Element {
   return (
     <section class="rounded-(--radius-control) border border-border-muted bg-surface-elevated p-3">
-      <h3 class="text-xs uppercase tracking-wider text-fg-subtle mb-2">
-        Economics
-      </h3>
+      <h3 class="text-xs uppercase tracking-wider text-fg-subtle mb-2">Economics</h3>
       <NumberRow
         label="Cost (Ob)"
         path="ItemEconomics.cost"
@@ -738,9 +674,7 @@ function NumberRow(props: {
   isCatalog: boolean;
 }): JSX.Element {
   const isOverridden = createMemo(() => props.overrides.includes(props.path));
-  const [draft, setDraft] = createSignal(
-    props.value === undefined ? "" : String(props.value),
-  );
+  const [draft, setDraft] = createSignal(props.value === undefined ? "" : String(props.value));
   let lastSeen = props.value;
   if (props.value !== lastSeen) {
     setDraft(props.value === undefined ? "" : String(props.value));

@@ -90,7 +90,6 @@ const rope = new MeshRope({ texture, points });
 
 Renamed in v8: `SimpleMesh` → `MeshSimple`, `SimplePlane` → `MeshPlane`, `SimpleRope` → `MeshRope`. All switched to options-object constructors.
 
-
 ### [HIGH] Positional constructor args for `MeshGeometry`
 
 Wrong:
@@ -112,7 +111,6 @@ const geom = new MeshGeometry({
 
 v8 uses an options object. Note the property is `positions`, not `vertices`; the `vertices` name is only used by `MeshSimple`.
 
-
 ### [MEDIUM] Adding children to a mesh
 
 Wrong:
@@ -129,7 +127,6 @@ group.addChild(mesh, otherMesh);
 ```
 
 `Mesh` sets `allowChildren = false`. Adding children logs a deprecation warning. Group meshes inside a plain `Container`.
-
 
 ## API Reference
 

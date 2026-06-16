@@ -171,7 +171,13 @@ interface OutputTemplate {
     | { type: "gear" }
     | { type: "armor"; armorType: string; absorbs: number }
     | { type: "weapon"; wield: 1 | 2; conflictBonuses: ConflictBonuses }
-    | { type: "supply"; supplyType: string; turnsRemaining: number; lit: boolean; nameSingular: string }
+    | {
+        type: "supply";
+        supplyType: string;
+        turnsRemaining: number;
+        lit: boolean;
+        nameSingular: string;
+      }
     | { type: "container"; containerType: string; containerSlots: number };
 }
 
@@ -362,9 +368,7 @@ async function importPacks(sourceDir: string): Promise<OutputTemplate[]> {
         value: isObject(sys.value)
           ? {
               dice: asNumber((sys.value as Record<string, unknown>).dice) ?? 0,
-              negotiated: Boolean(
-                (sys.value as Record<string, unknown>).negotiated,
-              ),
+              negotiated: Boolean((sys.value as Record<string, unknown>).negotiated),
             }
           : undefined,
         slotOptions: buildSlotOptions(sys.slotOptions),
@@ -405,7 +409,7 @@ function emitTs(templates: OutputTemplate[]): string {
   lines.push("// upstream Foundry data changes AND you want those changes to");
   lines.push("// flow through.");
   lines.push("");
-  lines.push("import type { TbItemTemplate } from \"./catalog-types.js\";");
+  lines.push('import type { TbItemTemplate } from "./catalog-types.js";');
   lines.push("");
   lines.push("export const TB_ITEM_TEMPLATES: ReadonlyArray<TbItemTemplate> = [");
   for (const t of templates) {

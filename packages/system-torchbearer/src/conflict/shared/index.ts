@@ -44,11 +44,7 @@ export {
 } from "./conflict-types.js";
 export { CONFLICT_PAGE_KIND } from "./page-kind.js";
 export { ConflictSideEnum, otherSide, type ConflictSide } from "./sides.js";
-export {
-  ScriptSlotSchema,
-  scrubSlot,
-  type ScriptSlot,
-} from "./resolution.js";
+export { ScriptSlotSchema, scrubSlot, type ScriptSlot } from "./resolution.js";
 export {
   ALL_CONFLICT_TRAITS,
   TbConflict,

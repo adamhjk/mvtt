@@ -55,7 +55,12 @@ const charactersTestSystem = definePlugin({
   gameSystem: true,
 });
 
-interface AckMsg { kind: "ack"; commandId: string; ok: boolean; reason?: string }
+interface AckMsg {
+  kind: "ack";
+  commandId: string;
+  ok: boolean;
+  reason?: string;
+}
 interface EventMsg {
   kind: "event";
   seq: number;
@@ -143,9 +148,9 @@ describe("characters wire smoke", () => {
     });
     await new Promise((r) => setTimeout(r, 80));
 
-    const renamed = handle.worldsRegistry
-      .get(worldId)!
-      .world.get(characterId, [Character]) as { Character: { name: string } };
+    const renamed = handle.worldsRegistry.get(worldId)!.world.get(characterId, [Character]) as {
+      Character: { name: string };
+    };
     expect(renamed.Character.name).toBe("Tarn the Bolder");
 
     send({

@@ -46,12 +46,7 @@ export type InvocationCircle = z.infer<typeof InvocationCircleSchema>;
  *   - `"versus"`    — versus test (e.g. Wrath of the Lords of Law: Ritualist vs Nature)
  *   - `"skill-swap"`— performs without a roll, swaps Ritualist for another skill
  */
-export const InvocationRitualKindSchema = z.enum([
-  "fixed",
-  "factors",
-  "versus",
-  "skill-swap",
-]);
+export const InvocationRitualKindSchema = z.enum(["fixed", "factors", "versus", "skill-swap"]);
 export type InvocationRitualKind = z.infer<typeof InvocationRitualKindSchema>;
 
 const PageRefSchema = z

@@ -94,11 +94,7 @@ function visiblePage(
   return true;
 }
 
-function entityVisible(
-  runtime: WorldRuntime,
-  entityId: string,
-  recipient: Recipient,
-): boolean {
+function entityVisible(runtime: WorldRuntime, entityId: string, recipient: Recipient): boolean {
   if (!runtime.world.has(entityId)) return false;
   // Collect the entity's traits as the resolver expects.
   const out: Record<string, unknown> = {};

@@ -17,32 +17,17 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  screen,
-  waitFor,
-} from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { createSignal, Show } from "solid-js";
-import {
-  definePlugin,
-  qualifiedName,
-  type EntityId,
-} from "@vtt/substrate";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { definePlugin, qualifiedName, type EntityId } from "@vtt/substrate";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { notes } from "@vtt/notes";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
-import {
-  TabSentinel,
-  tabSentinelEntityId,
-} from "@vtt/shell-workbench/shared";
+import { TabSentinel, tabSentinelEntityId } from "@vtt/shell-workbench/shared";
 import { characters } from "./manifest.js";
 import { CharacterSheet } from "./client/CharacterSheet.js";
 import {
@@ -99,14 +84,7 @@ interface Setup {
 function setupHarness(seedActiveTabId: string | null = null) {
   let setup: Setup | undefined;
   const h = buildTestClient({
-    plugins: [
-      shellWorkbench,
-      identity,
-      permissions,
-      notes,
-      characters,
-      sheetTabsTestPlugin(),
-    ],
+    plugins: [shellWorkbench, identity, permissions, notes, characters, sheetTabsTestPlugin()],
     clientId: ME_CLIENT,
     session: {
       userId: ME,
@@ -121,10 +99,7 @@ function setupHarness(seedActiveTabId: string | null = null) {
         Online({ clientId: ME_CLIENT, since: 0 }),
       ]);
       const characterId = world.allocateId();
-      world.spawnAt(characterId, [
-        Character({ name: "Krell" }),
-        Permissions(ownedBy(ME)),
-      ]);
+      world.spawnAt(characterId, [Character({ name: "Krell" }), Permissions(ownedBy(ME))]);
       const sentinelId = tabSentinelEntityId(TAB_ID);
       world.spawnAt(sentinelId, [
         TabSentinel({ tabId: TAB_ID }),
@@ -140,50 +115,28 @@ function setupHarness(seedActiveTabId: string | null = null) {
 describe("CharacterSheet sub-tab persistence", () => {
   it("falls back to the highest-priority tab when no selection is stored", () => {
     const h = setupHarness(null);
-    mountWithClient(h, () => (
-      <CharacterSheet
-        characterId={h.setup.characterId}
-        tabId={TAB_ID}
-      />
-    ));
+    mountWithClient(h, () => <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />);
     expect(screen.getByTestId("body")).toHaveTextContent("alpha");
-    expect(screen.getByRole("tab", { name: "Alpha" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(screen.getByRole("tab", { name: "Alpha" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("uses the seeded activeTabId on first render", () => {
     const h = setupHarness("@test/sheet/beta");
-    mountWithClient(h, () => (
-      <CharacterSheet
-        characterId={h.setup.characterId}
-        tabId={TAB_ID}
-      />
-    ));
+    mountWithClient(h, () => <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />);
     expect(screen.getByTestId("body")).toHaveTextContent("beta");
-    expect(screen.getByRole("tab", { name: "Beta" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(screen.getByRole("tab", { name: "Beta" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("clicking a tab dispatches SetSheetUiState with the new active id", () => {
     const h = setupHarness(null);
-    mountWithClient(h, () => (
-      <CharacterSheet
-        characterId={h.setup.characterId}
-        tabId={TAB_ID}
-      />
-    ));
+    mountWithClient(h, () => <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />);
     fireEvent.click(screen.getByRole("tab", { name: "Gamma" }));
 
-    const cmd = h.dispatched.find(
-      (c) => c.type === "@vtt/characters/SetSheetUiState",
-    );
+    const cmd = h.dispatched.find((c) => c.type === "@vtt/characters/SetSheetUiState");
     expect(cmd).toBeDefined();
-    expect((cmd!.payload as { value: { activeTabId: string } }).value.activeTabId)
-      .toBe("@test/sheet/gamma");
+    expect((cmd!.payload as { value: { activeTabId: string } }).value.activeTabId).toBe(
+      "@test/sheet/gamma",
+    );
     // The body re-renders to the newly selected tab via the optimistic
     // local-store update, before the server round-trip even starts.
     expect(screen.getByTestId("body")).toHaveTextContent("gamma");
@@ -198,10 +151,7 @@ describe("CharacterSheet sub-tab persistence", () => {
     const [mounted, setMounted] = createSignal(true);
     mountWithClient(h, () => (
       <Show when={mounted()}>
-        <CharacterSheet
-          characterId={h.setup.characterId}
-          tabId={TAB_ID}
-        />
+        <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />
       </Show>
     ));
     fireEvent.click(screen.getByRole("tab", { name: "Beta" }));
@@ -222,22 +172,14 @@ describe("CharacterSheet sub-tab persistence", () => {
     setMounted(true);
 
     expect(screen.getByTestId("body")).toHaveTextContent("beta");
-    expect(screen.getByRole("tab", { name: "Beta" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(screen.getByRole("tab", { name: "Beta" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("falls back to the first tab if the stored id is unknown", () => {
     // Stale id — e.g. the user previously selected a tab from a
     // game-system plugin that's no longer loaded.
     const h = setupHarness("@test/sheet/long-gone");
-    mountWithClient(h, () => (
-      <CharacterSheet
-        characterId={h.setup.characterId}
-        tabId={TAB_ID}
-      />
-    ));
+    mountWithClient(h, () => <CharacterSheet characterId={h.setup.characterId} tabId={TAB_ID} />);
     expect(screen.getByTestId("body")).toHaveTextContent("alpha");
   });
 });

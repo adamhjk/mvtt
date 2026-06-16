@@ -23,73 +23,73 @@ For the long-form description and trigger keywords of every skill, see [referenc
 
 ### Foundations
 
-| Skill | Load when... |
-|---|---|
-| [solid-mental-model](../solid-mental-model/SKILL.md) | Reasoning about Solid's reactive model: components run once, tracking scopes, fine-grained updates, owner tree, props as reactive proxies, signals vs stores. **Start here for any non-trivial Solid task.** |
-| [solid-signals](../solid-signals/SKILL.md) | Calling `createSignal`, reading via getter, writing via setter (incl. function form), typing with `Signal<T>`, choosing signal vs store. |
-| [solid-effects](../solid-effects/SKILL.md) | `createEffect`, `onMount`, `onCleanup`, why effects shouldn't write to signals, lifecycle ordering, nested effects, automatic batching inside effects. |
-| [solid-memos](../solid-memos/SKILL.md) | `createMemo` for derived/cached values, custom `equals`, deciding between memo and plain `() => derive()`. |
-| [solid-resources](../solid-resources/SKILL.md) | `createResource` for async data: with/without source, `mutate`/`refetch`, state machine (`unresolved`/`pending`/`ready`/`refreshing`/`errored`), Suspense integration, `initialValue`, `deferStream`, `ssrLoadFrom`. |
+| Skill                                                | Load when...                                                                                                                                                                                                         |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [solid-mental-model](../solid-mental-model/SKILL.md) | Reasoning about Solid's reactive model: components run once, tracking scopes, fine-grained updates, owner tree, props as reactive proxies, signals vs stores. **Start here for any non-trivial Solid task.**         |
+| [solid-signals](../solid-signals/SKILL.md)           | Calling `createSignal`, reading via getter, writing via setter (incl. function form), typing with `Signal<T>`, choosing signal vs store.                                                                             |
+| [solid-effects](../solid-effects/SKILL.md)           | `createEffect`, `onMount`, `onCleanup`, why effects shouldn't write to signals, lifecycle ordering, nested effects, automatic batching inside effects.                                                               |
+| [solid-memos](../solid-memos/SKILL.md)               | `createMemo` for derived/cached values, custom `equals`, deciding between memo and plain `() => derive()`.                                                                                                           |
+| [solid-resources](../solid-resources/SKILL.md)       | `createResource` for async data: with/without source, `mutate`/`refetch`, state machine (`unresolved`/`pending`/`ready`/`refreshing`/`errored`), Suspense integration, `initialValue`, `deferStream`, `ssrLoadFrom`. |
 
 ### Components & props
 
-| Skill | Load when... |
-|---|---|
-| [solid-components](../solid-components/SKILL.md) | Component basics: capital-letter naming, run-once lifecycle, exports/imports, organizing component trees. |
-| [solid-props](../solid-props/SKILL.md) | Anything to do with `props`: **never destructure**, `mergeProps`, `splitProps`, `children` helper, default values, prop drilling — the most common Solid bug source. |
-| [solid-jsx](../solid-jsx/SKILL.md) | JSX semantics in Solid: single-root, self-closing, dynamic expressions, properties vs attributes, fragments, ordering of expressions. |
+| Skill                                                    | Load when...                                                                                                                                                              |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [solid-components](../solid-components/SKILL.md)         | Component basics: capital-letter naming, run-once lifecycle, exports/imports, organizing component trees.                                                                 |
+| [solid-props](../solid-props/SKILL.md)                   | Anything to do with `props`: **never destructure**, `mergeProps`, `splitProps`, `children` helper, default values, prop drilling — the most common Solid bug source.      |
+| [solid-jsx](../solid-jsx/SKILL.md)                       | JSX semantics in Solid: single-root, self-closing, dynamic expressions, properties vs attributes, fragments, ordering of expressions.                                     |
 | [solid-jsx-attributes](../solid-jsx-attributes/SKILL.md) | Specific JSX attribute prefixes: `class`, `classList`, `style`, `ref`, `attr:`, `prop:`, `bool:`, `on:`, `on*`, `oncapture:`, `use:`, `innerHTML`, `textContent`, `once`. |
-| [solid-events](../solid-events/SKILL.md) | Event handlers: delegated (`on*`) vs native (`on:`), case sensitivity, array binding form, delegated event list, `stopPropagation` gotcha, Portal event flow. |
-| [solid-refs](../solid-refs/SKILL.md) | DOM access: `ref` variable form, callback form, signal refs, forwarding through components, custom directives via `use:`. |
+| [solid-events](../solid-events/SKILL.md)                 | Event handlers: delegated (`on*`) vs native (`on:`), case sensitivity, array binding form, delegated event list, `stopPropagation` gotcha, Portal event flow.             |
+| [solid-refs](../solid-refs/SKILL.md)                     | DOM access: `ref` variable form, callback form, signal refs, forwarding through components, custom directives via `use:`.                                                 |
 
 ### State
 
-| Skill | Load when... |
-|---|---|
-| [solid-stores](../solid-stores/SKILL.md) | `createStore` for nested reactive state, path syntax (key, array of keys, `{from,to,by}` ranges, filter functions), `produce`, `reconcile`, `unwrap`, `createMutable`, `modifyMutable`. |
-| [solid-context](../solid-context/SKILL.md) | `createContext`, `useContext`, custom Provider/hook patterns, default values, throwing on undefined, typing context with `ReturnType`, signals-in-context. |
-| [solid-state-management](../solid-state-management/SKILL.md) | Cross-cutting decision: signal vs store vs context vs external store. When to reach for what. |
+| Skill                                                        | Load when...                                                                                                                                                                            |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [solid-stores](../solid-stores/SKILL.md)                     | `createStore` for nested reactive state, path syntax (key, array of keys, `{from,to,by}` ranges, filter functions), `produce`, `reconcile`, `unwrap`, `createMutable`, `modifyMutable`. |
+| [solid-context](../solid-context/SKILL.md)                   | `createContext`, `useContext`, custom Provider/hook patterns, default values, throwing on undefined, typing context with `ReturnType`, signals-in-context.                              |
+| [solid-state-management](../solid-state-management/SKILL.md) | Cross-cutting decision: signal vs store vs context vs external store. When to reach for what.                                                                                           |
 
 ### Control flow
 
-| Skill | Load when... |
-|---|---|
+| Skill                                                | Load when...                                                                                                                                                                                                                          |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [solid-control-flow](../solid-control-flow/SKILL.md) | All built-in flow components: `<Show>`, `<Switch>`/`<Match>`, `<For>`, `<Index>` (incl. For-vs-Index decision), `<Dynamic>`, `<Portal>`, `<ErrorBoundary>`, `<Suspense>`, `<SuspenseList>`, `lazy`, `<NoHydration>`, `createDynamic`. |
 
 ### Reactive utilities
 
-| Skill | Load when... |
-|---|---|
-| [solid-reactive-utilities](../solid-reactive-utilities/SKILL.md) | `batch`, `untrack`, `on` (with `defer`), `observable`, `from`, `createRoot`, `getOwner`, `runWithOwner`, `indexArray`, `mapArray`, `startTransition`, `useTransition`, `catchError`, `mergeProps`, `splitProps`, `children`. |
-| [solid-secondary-primitives](../solid-secondary-primitives/SKILL.md) | `createComputed`, `createDeferred`, `createReaction`, `createRenderEffect`, `createSelector` — when and why to choose these over `createEffect`/`createMemo`. |
+| Skill                                                                | Load when...                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [solid-reactive-utilities](../solid-reactive-utilities/SKILL.md)     | `batch`, `untrack`, `on` (with `defer`), `observable`, `from`, `createRoot`, `getOwner`, `runWithOwner`, `indexArray`, `mapArray`, `startTransition`, `useTransition`, `catchError`, `mergeProps`, `splitProps`, `children`. |
+| [solid-secondary-primitives](../solid-secondary-primitives/SKILL.md) | `createComputed`, `createDeferred`, `createReaction`, `createRenderEffect`, `createSelector` — when and why to choose these over `createEffect`/`createMemo`.                                                                |
 
 ### Rendering & SSR
 
-| Skill | Load when... |
-|---|---|
+| Skill                                          | Load when...                                                                                                                                                                                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [solid-rendering](../solid-rendering/SKILL.md) | `render` (client mount), `hydrate`, `renderToString`, `renderToStringAsync`, `renderToStream`, `generateHydrationScript`/`<HydrationScript>`, `isServer`, `isDev`, `DEV` — picking a rendering strategy and avoiding hydration mismatches. |
 
 ### Routing
 
-| Skill | Load when... |
-|---|---|
+| Skill                                    | Load when...                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [solid-router](../solid-router/SKILL.md) | `@solidjs/router`: `<Router>`/`<Route>`/`<A>`/`<Navigate>`/`<HashRouter>`/`<MemoryRouter>`, dynamic params, `matchFilters`, optional/wildcard, layouts, nested routes, `useParams`/`useLocation`/`useNavigate`/`useSearchParams`/`useBeforeLeave`/`useIsRouting`/`useResolvedPath`/`usePreloadRoute`, `query`, `createAsync`, `createAsyncStore`, `action`, `useAction`, `useSubmission`(`s`), response helpers (`redirect`, `reload`, `json`), revalidation, lazy routes, preloading, SPA vs SSR. |
 
 ### Meta-framework
 
-| Skill | Load when... |
-|---|---|
+| Skill                                  | Load when...                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [solid-start](../solid-start/SKILL.md) | SolidStart: `app.config.ts`, file-based routing under `src/routes`, `<FileRoutes>`, layouts, server functions (`"use server"`), `createMiddleware`, `useSession`, request/response helpers, websockets, API routes, prerendering, head & metadata, CSS/styling, static assets, single-flight mutations, deployment presets, migrating from v1. |
-| [solid-meta](../solid-meta/SKILL.md) | `@solidjs/meta`: `<MetaProvider>`, `<Title>`, `<Meta>`, `<Link>`, `<Style>`, `<Base>`, `useHead`, server vs client setup. |
+| [solid-meta](../solid-meta/SKILL.md)   | `@solidjs/meta`: `<MetaProvider>`, `<Title>`, `<Meta>`, `<Link>`, `<Style>`, `<Base>`, `useHead`, server vs client setup.                                                                                                                                                                                                                      |
 
 ### Tooling & types
 
-| Skill | Load when... |
-|---|---|
-| [solid-typescript](../solid-typescript/SKILL.md) | TS in Solid: `tsconfig` (`jsx: "preserve"`, `jsxImportSource: "solid-js"`), `Component`/`ParentComponent`/`VoidComponent`/`FlowComponent`, generic components, `JSX.Element`, `JSX.EventHandler<T,E>`, `currentTarget` typing, ref definitive assignment, narrowing with `<Show>`/optional chaining, `Directives`/`DirectiveFunctions`, `CustomEvents`, `ExplicitProperties`/`Attributes`/`BoolAttributes`. |
-| [solid-configuration](../solid-configuration/SKILL.md) | Project setup: env vars (`VITE_*`/`PUBLIC_*`), `.env` files, `vite-plugin-solid` options, build configuration, `app.config` in SolidStart. |
-| [solid-testing](../solid-testing/SKILL.md) | Testing Solid: `vitest` + `@solidjs/testing-library` setup, `render`, `screen` queries, `fireEvent`, jsdom config, testing reactive logic and routes. |
-| [solid-migration](../solid-migration/SKILL.md) | Upgrades: Solid major versions, `@solidjs/router` migration (renamed APIs), SolidStart v1 migration, deprecated `className` → `class`, etc. |
+| Skill                                                  | Load when...                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [solid-typescript](../solid-typescript/SKILL.md)       | TS in Solid: `tsconfig` (`jsx: "preserve"`, `jsxImportSource: "solid-js"`), `Component`/`ParentComponent`/`VoidComponent`/`FlowComponent`, generic components, `JSX.Element`, `JSX.EventHandler<T,E>`, `currentTarget` typing, ref definitive assignment, narrowing with `<Show>`/optional chaining, `Directives`/`DirectiveFunctions`, `CustomEvents`, `ExplicitProperties`/`Attributes`/`BoolAttributes`. |
+| [solid-configuration](../solid-configuration/SKILL.md) | Project setup: env vars (`VITE_*`/`PUBLIC_*`), `.env` files, `vite-plugin-solid` options, build configuration, `app.config` in SolidStart.                                                                                                                                                                                                                                                                  |
+| [solid-testing](../solid-testing/SKILL.md)             | Testing Solid: `vitest` + `@solidjs/testing-library` setup, `render`, `screen` queries, `fireEvent`, jsdom config, testing reactive logic and routes.                                                                                                                                                                                                                                                       |
+| [solid-migration](../solid-migration/SKILL.md)         | Upgrades: Solid major versions, `@solidjs/router` migration (renamed APIs), SolidStart v1 migration, deprecated `className` → `class`, etc.                                                                                                                                                                                                                                                                 |
 
 ## Cross-cutting principles (read these once, internalize them)
 

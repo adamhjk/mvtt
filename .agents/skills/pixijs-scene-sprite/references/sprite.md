@@ -138,7 +138,6 @@ const sprite = new Sprite(texture);
 
 In v8, `Texture.from()` only retrieves from the cache. It does not fetch. Use `Assets.load()` first; its return value is the texture, so you don't need a separate `Texture.from()` call.
 
-
 ### [HIGH] Confusing anchor with pivot
 
 Wrong:
@@ -154,7 +153,6 @@ sprite.anchor.set(0.5);
 ```
 
 `anchor` is normalized `[0, 1]` and shifts where the texture draws without offsetting position. `pivot` is in pixel space and offsets both the transform origin and the rendered position. For centering a sprite, always use `anchor`.
-
 
 ### [MEDIUM] Adding children to a Sprite
 
@@ -172,7 +170,6 @@ group.addChild(sprite, childSprite);
 ```
 
 `Sprite` sets `allowChildren = false`. Adding children logs a deprecation warning and will become a hard error. Group leaves inside a `Container`.
-
 
 ## API Reference
 

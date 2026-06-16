@@ -25,10 +25,7 @@ import {
 } from "@vtt/substrate";
 import { Character, OpenPendingRoll } from "@vtt/characters/shared";
 import { canWrite, Permissions } from "@vtt/permissions/shared";
-import type {
-  PaletteAction,
-  PaletteActionProvider,
-} from "@vtt/shell-workbench/shared";
+import type { PaletteAction, PaletteActionProvider } from "@vtt/shell-workbench/shared";
 import {
   ALL_SKILLS,
   CirclesCheck,
@@ -70,14 +67,10 @@ function rollablePool(
   name: string,
   opts: Record<string, unknown>,
 ): number | null {
-  const rollable = registry.rollables.get(
-    name as Parameters<typeof registry.rollables.get>[0],
-  );
+  const rollable = registry.rollables.get(name as Parameters<typeof registry.rollables.get>[0]);
   if (!rollable) return null;
   try {
-    const spec = previewRollable(rollable, world, charId, opts) as
-      | { pool?: number }
-      | null;
+    const spec = previewRollable(rollable, world, charId, opts) as { pool?: number } | null;
     if (!spec) return null;
     return typeof spec.pool === "number" ? spec.pool : 0;
   } catch {
@@ -138,9 +131,7 @@ export function tbRollablesForCharacter(
  * players, GM-only monsters in a player session).
  */
 export const TbRollPaletteActions: PaletteActionProvider = {
-  id: qualifiedName(
-    "@vtt/system-torchbearer/roll-actions",
-  ) as PaletteActionProvider["id"],
+  id: qualifiedName("@vtt/system-torchbearer/roll-actions") as PaletteActionProvider["id"],
   reads: [Character, RawAbilities, TownAbilities, Skills, Permissions],
   list: (ctx) => {
     const actor = { userId: ctx.userId, role: ctx.role };
@@ -151,11 +142,7 @@ export const TbRollPaletteActions: PaletteActionProvider = {
         | undefined;
       if (!canWrite(actor, permRow?.Permissions)) continue;
       const charName = (row.values.Character as { name: string }).name;
-      for (const r of tbRollablesForCharacter(
-        ctx.registry,
-        ctx.world,
-        row.id as EntityId,
-      )) {
+      for (const r of tbRollablesForCharacter(ctx.registry, ctx.world, row.id as EntityId)) {
         const skillId = (r.opts as { skillId?: string }).skillId ?? "";
         out.push({
           id: `tb-roll:${row.id}:${r.rollableName}:${skillId}`,

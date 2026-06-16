@@ -112,7 +112,6 @@ Assets.add({ alias: "hero", src: "hero@{1,2}x.png" });
 
 The expansion syntax uses `{}` (like shell brace expansion), not `[]`. Square brackets aren't recognized and the resolver tries to load the literal filename.
 
-
 ### [MEDIUM] Missing fallback format
 
 Wrong:
@@ -129,11 +128,9 @@ Assets.add({ alias: "hero", src: "hero.{avif,png}" });
 
 If a browser doesn't support AVIF, the loader fails. Always list at least one fallback format that all target browsers support.
 
-
 ### [MEDIUM] Mismatch between spritesheet.json `meta.scale` and actual image
 
 In v8, a spritesheet's `meta.scale` field directly sets the resolution of the atlas texture. If the JSON says `"1"` but the image was exported at 2x, frames render at double the intended size. Verify `meta.scale` matches the actual image resolution; atlas tools like TexturePacker set this automatically.
-
 
 ## API Reference
 

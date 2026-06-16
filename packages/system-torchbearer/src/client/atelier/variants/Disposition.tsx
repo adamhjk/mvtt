@@ -31,9 +31,7 @@ import { PersonaNatureCard } from "../cards/PersonaNatureCard.jsx";
  * (monster). Persona / Channel Nature card is suppressed for monsters
  * inside its own Show.
  */
-export function TbDispositionEditor(props: {
-  atelier: AtelierState;
-}): JSX.Element {
+export function TbDispositionEditor(props: { atelier: AtelierState }): JSX.Element {
   return (
     <div class="grid gap-3 sm:grid-cols-2" data-testid="atelier-variant-disposition">
       <PoolCard atelier={props.atelier} />

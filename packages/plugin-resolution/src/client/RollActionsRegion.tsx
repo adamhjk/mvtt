@@ -19,10 +19,7 @@ import { type EntityId } from "@vtt/substrate";
 import { useClient, useTrait } from "@vtt/substrate/client";
 import { createMemo, For, Show, type JSX } from "solid-js";
 import { Formula } from "../shared/traits.js";
-import {
-  RollActionsSlot,
-  type RollActionsContributor,
-} from "../shared/slot.js";
+import { RollActionsSlot, type RollActionsContributor } from "../shared/slot.js";
 
 /**
  * Stack of `RollActionsSlot` fills for a resolved Roll entity.
@@ -57,9 +54,7 @@ export function RollActionsRegion(props: { rollId: EntityId }): JSX.Element {
   });
 
   const contributors = createMemo<RollActionsContributor[]>(() => {
-    const fills = client.registry.fillsForSlot(
-      RollActionsSlot,
-    ) as RollActionsContributor[];
+    const fills = client.registry.fillsForSlot(RollActionsSlot) as RollActionsContributor[];
     const name = rollableName();
     const matching = fills.filter((f) => {
       if (!f.rollablePrefix) return true;

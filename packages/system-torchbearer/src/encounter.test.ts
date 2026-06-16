@@ -16,20 +16,9 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  CommandPipeline,
-  definePlugin,
-  EntityId,
-  EventBus,
-  Registry,
-  World,
-} from "@vtt/substrate";
+import { CommandPipeline, definePlugin, EntityId, EventBus, Registry, World } from "@vtt/substrate";
 import { adventures } from "@vtt/adventures";
-import {
-  BlockKindsSlot,
-  buildBlockKindIndex,
-  EncounterTemplate,
-} from "@vtt/adventures/shared";
+import { BlockKindsSlot, buildBlockKindIndex, EncounterTemplate } from "@vtt/adventures/shared";
 import { runBlockParse, blockEntityId } from "@vtt/adventures/server";
 import { permissions as permissionsPlugin } from "@vtt/permissions";
 import { Permissions } from "@vtt/permissions/shared";
@@ -43,7 +32,14 @@ type AuthSession = {
   name: string;
   role: "gm" | "player";
 };
-import { Page, BelongsToNote, PageBodySet, MarkdownPostRenderSlot, EditorCompletionSourcesSlot, NotesReferenceSlot } from "@vtt/notes/shared";
+import {
+  Page,
+  BelongsToNote,
+  PageBodySet,
+  MarkdownPostRenderSlot,
+  EditorCompletionSourcesSlot,
+  NotesReferenceSlot,
+} from "@vtt/notes/shared";
 import {
   CharacterTraits,
   Conditions,
@@ -68,11 +64,7 @@ import {
   StartEncounter,
 } from "./shared/encounter-commands.js";
 import { ConflictDeclared } from "./conflict/shared/index.js";
-import {
-  characterBlockKind,
-  encounterBlockKind,
-  monsterBlockKind,
-} from "./shared/blocks/index.js";
+import { characterBlockKind, encounterBlockKind, monsterBlockKind } from "./shared/blocks/index.js";
 
 const notesStub = definePlugin({
   name: "@vtt/notes",
@@ -91,11 +83,7 @@ const charactersStub = definePlugin({
 const tbEncounterTestPlugin = definePlugin({
   name: "@vtt/system-torchbearer-encounter-test",
   version: "0",
-  dependsOn: [
-    "@vtt/permissions@^0",
-    "@vtt/characters@^0",
-    "@vtt/adventures@^0",
-  ],
+  dependsOn: ["@vtt/permissions@^0", "@vtt/characters@^0", "@vtt/adventures@^0"],
   traits: [
     Identity,
     RawAbilities,
@@ -148,10 +136,7 @@ const gmSession: AuthSession = {
 
 function buildPage(world: World): EntityId {
   const noteId = world.spawn([]);
-  return world.spawn([
-    Page({ title: "p", body: "", bodyRev: 0 }),
-    BelongsToNote({ noteId }),
-  ]);
+  return world.spawn([Page({ title: "p", body: "", bodyRev: 0 }), BelongsToNote({ noteId })]);
 }
 
 describe("TB encounter block kind", () => {
@@ -319,8 +304,7 @@ describe("StartEncounter — hybrid binding", () => {
     expect(res.result.ok).toBe(true);
     const started = res.events.find((e) => e.type === EncounterStarted.name);
     expect(started).toBeDefined();
-    const sides = (started!.payload as { sides: Array<{ participantIds: EntityId[] }> })
-      .sides;
+    const sides = (started!.payload as { sides: Array<{ participantIds: EntityId[] }> }).sides;
     expect(sides[0]!.participantIds).toEqual([skarraId]);
     // No copies spawned for singular.
     expect(world.query([MonsterCopy])).toHaveLength(0);
@@ -348,9 +332,8 @@ describe("StartEncounter — hybrid binding", () => {
     const res = await dispatchAsGm(StartEncounter({ templateId: encId }));
     expect(res.result.ok).toBe(true);
     const started = res.events.find((e) => e.type === EncounterStarted.name);
-    const participantIds = (
-      started!.payload as { sides: Array<{ participantIds: EntityId[] }> }
-    ).sides[0]!.participantIds;
+    const participantIds = (started!.payload as { sides: Array<{ participantIds: EntityId[] }> })
+      .sides[0]!.participantIds;
     expect(participantIds).toHaveLength(4);
     // Each id is a real entity carrying MonsterCopy + Character (cloned from template).
     const copies = world.query([MonsterCopy]);
@@ -393,8 +376,16 @@ describe("StartEncounter — hybrid binding", () => {
     const res2 = await dispatchAsGm(StartEncounter({ templateId: encId }));
     expect(res1.result.ok).toBe(true);
     expect(res2.result.ok).toBe(true);
-    const ids1 = (res1.events.find((e) => e.type === EncounterStarted.name)!.payload as { sides: Array<{ participantIds: EntityId[] }> }).sides[0]!.participantIds;
-    const ids2 = (res2.events.find((e) => e.type === EncounterStarted.name)!.payload as { sides: Array<{ participantIds: EntityId[] }> }).sides[0]!.participantIds;
+    const ids1 = (
+      res1.events.find((e) => e.type === EncounterStarted.name)!.payload as {
+        sides: Array<{ participantIds: EntityId[] }>;
+      }
+    ).sides[0]!.participantIds;
+    const ids2 = (
+      res2.events.find((e) => e.type === EncounterStarted.name)!.payload as {
+        sides: Array<{ participantIds: EntityId[] }>;
+      }
+    ).sides[0]!.participantIds;
     expect(ids1.length).toBe(2);
     expect(ids2.length).toBe(2);
     expect(new Set(ids1).size + new Set(ids2).size).toBe(4); // no overlap
@@ -420,12 +411,14 @@ describe("StartEncounter — hybrid binding", () => {
     const encId = blockEntityId(pageId, "howl");
     const res = await dispatchAsGm(StartEncounter({ templateId: encId }));
     expect(res.result.ok).toBe(true);
-    const sides = (res.events.find((e) => e.type === EncounterStarted.name)!.payload as { sides: Array<{ participantIds: EntityId[] }> }).sides;
+    const sides = (
+      res.events.find((e) => e.type === EncounterStarted.name)!.payload as {
+        sides: Array<{ participantIds: EntityId[] }>;
+      }
+    ).sides;
     const copyIds = sides[0]!.participantIds;
     const beforeMight = (
-      world.get(copyIds[0]!, [TownAbilities]) as
-        | { TownAbilities: { might: number } }
-        | undefined
+      world.get(copyIds[0]!, [TownAbilities]) as { TownAbilities: { might: number } } | undefined
     )?.TownAbilities.might;
     expect(beforeMight).toBe(3);
 
@@ -448,19 +441,19 @@ describe("StartEncounter — hybrid binding", () => {
     );
     // Existing copies are unchanged.
     const afterMight = (
-      world.get(copyIds[0]!, [TownAbilities]) as
-        | { TownAbilities: { might: number } }
-        | undefined
+      world.get(copyIds[0]!, [TownAbilities]) as { TownAbilities: { might: number } } | undefined
     )?.TownAbilities.might;
     expect(afterMight).toBe(3);
 
     // A fresh start picks up the new might.
     const res2 = await dispatchAsGm(StartEncounter({ templateId: encId }));
-    const newCopyIds = (res2.events.find((e) => e.type === EncounterStarted.name)!.payload as { sides: Array<{ participantIds: EntityId[] }> }).sides[0]!.participantIds;
+    const newCopyIds = (
+      res2.events.find((e) => e.type === EncounterStarted.name)!.payload as {
+        sides: Array<{ participantIds: EntityId[] }>;
+      }
+    ).sides[0]!.participantIds;
     const newMight = (
-      world.get(newCopyIds[0]!, [TownAbilities]) as
-        | { TownAbilities: { might: number } }
-        | undefined
+      world.get(newCopyIds[0]!, [TownAbilities]) as { TownAbilities: { might: number } } | undefined
     )?.TownAbilities.might;
     expect(newMight).toBe(5);
   });
@@ -480,15 +473,15 @@ describe("StartEncounter — hybrid binding", () => {
     const res = await dispatchAsGm(StartEncounter({ templateId: encId }));
     expect(res.result.ok).toBe(true);
     const started = res.events.find((e) => e.type === EncounterStarted.name)!;
-    const sides = (started.payload as {
-      sides: Array<{
-        participantIds: EntityId[];
-        missing: Array<{ kind: string; body: string }>;
-      }>;
-    }).sides;
-    expect(sides[0]!.missing).toEqual([
-      { kind: "character", body: "NonExistent NPC" },
-    ]);
+    const sides = (
+      started.payload as {
+        sides: Array<{
+          participantIds: EntityId[];
+          missing: Array<{ kind: string; body: string }>;
+        }>;
+      }
+    ).sides;
+    expect(sides[0]!.missing).toEqual([{ kind: "character", body: "NonExistent NPC" }]);
     expect(sides[0]!.participantIds).toEqual([]);
   });
 
@@ -514,15 +507,15 @@ describe("StartEncounter — hybrid binding", () => {
     const res = await dispatchAsGm(StartEncounter({ templateId: encId }));
     expect(res.result.ok).toBe(true);
     const started = res.events.find((e) => e.type === EncounterStarted.name)!;
-    const sides = (started.payload as {
-      sides: Array<{
-        missing: Array<{ kind: string; body: string }>;
-        participantIds: EntityId[];
-      }>;
-    }).sides;
-    expect(sides[0]!.missing).toEqual([
-      { kind: "character", body: "Skarra" },
-    ]);
+    const sides = (
+      started.payload as {
+        sides: Array<{
+          missing: Array<{ kind: string; body: string }>;
+          participantIds: EntityId[];
+        }>;
+      }
+    ).sides;
+    expect(sides[0]!.missing).toEqual([{ kind: "character", body: "Skarra" }]);
     expect(sides[0]!.participantIds).toEqual([]);
   });
 });
@@ -558,10 +551,7 @@ describe("StartEncounter — orchestrates ConflictDeclared", () => {
 
   it("emits ConflictDeclared with party and enemy participants", async () => {
     // Spawn a party PC manually (no character block).
-    const pc = world.spawn([
-      Character({ name: "Greta the PC" }),
-      Team({ kind: "party" }),
-    ]);
+    const pc = world.spawn([Character({ name: "Greta the PC" }), Team({ kind: "party" })]);
     parse(
       [
         "```character Skarra",
@@ -595,25 +585,14 @@ describe("StartEncounter — orchestrates ConflictDeclared", () => {
     expect(payload.captainCharacterId).toBe(pc);
     expect(payload.partyParticipants[0]!.characterId).toBe(pc);
     expect(payload.enemyParticipants).toHaveLength(1);
-    expect(payload.enemyParticipants[0]!.characterId).toBe(
-      blockEntityId(pageId, "skarra"),
-    );
+    expect(payload.enemyParticipants[0]!.characterId).toBe(blockEntityId(pageId, "skarra"));
   });
 
   it("auto-resolves an empty 'pcs' side from the world's party Characters", async () => {
-    const pc1 = world.spawn([
-      Character({ name: "PC One" }),
-      Team({ kind: "party" }),
-    ]);
-    const pc2 = world.spawn([
-      Character({ name: "PC Two" }),
-      Team({ kind: "party" }),
-    ]);
+    const pc1 = world.spawn([Character({ name: "PC One" }), Team({ kind: "party" })]);
+    const pc2 = world.spawn([Character({ name: "PC Two" }), Team({ kind: "party" })]);
     // Decoy non-party char that should NOT be picked up.
-    world.spawn([
-      Character({ name: "Decoy" }),
-      Team({ kind: "enemy" }),
-    ]);
+    world.spawn([Character({ name: "Decoy" }), Team({ kind: "enemy" })]);
     parse(
       [
         "```monster Goblin",
@@ -639,9 +618,7 @@ describe("StartEncounter — orchestrates ConflictDeclared", () => {
     const payload = declared!.payload as {
       partyParticipants: ReadonlyArray<{ characterId: EntityId }>;
     };
-    expect(payload.partyParticipants.map((p) => p.characterId).sort()).toEqual(
-      [pc1, pc2].sort(),
-    );
+    expect(payload.partyParticipants.map((p) => p.characterId).sort()).toEqual([pc1, pc2].sort());
   });
 
   it("maps the YAML 'drive_off' to the conflict enum 'driveOff'", async () => {

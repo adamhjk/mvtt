@@ -18,10 +18,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
 import { screen, cleanup, fireEvent } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { type EntityId } from "@vtt/substrate";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { Identity, Online } from "@vtt/identity/shared";
@@ -96,10 +93,7 @@ function harness(opts: SeedOpts) {
         Online({ clientId: TEST_CLIENT_ID, since: 0 }),
       ]);
       for (const c of opts.characters) {
-        const id = world.spawn([
-          Character({ name: c.name }),
-          Permissions(ownedBy(c.ownerUserId)),
-        ]);
+        const id = world.spawn([Character({ name: c.name }), Permissions(ownedBy(c.ownerUserId))]);
         if (c.imageUrl !== undefined) {
           world.set(id, CharacterToken, { imageUrl: c.imageUrl });
         }
@@ -135,9 +129,7 @@ describe("CharactersOverlayTab", () => {
         { name: "Brom", ownerUserId: ME_GM.userId },
       ],
     });
-    mountWithClient(h, () =>
-      CharactersOverlayTab.render({ sceneId: h.sceneId }) as never,
-    );
+    mountWithClient(h, () => CharactersOverlayTab.render({ sceneId: h.sceneId }) as never);
     expect(screen.getByText("Tarn")).toBeInTheDocument();
     expect(screen.getByText("Brom")).toBeInTheDocument();
   });
@@ -153,13 +145,9 @@ describe("CharactersOverlayTab", () => {
         },
       ],
     });
-    mountWithClient(h, () =>
-      CharactersOverlayTab.render({ sceneId: h.sceneId }) as never,
-    );
+    mountWithClient(h, () => CharactersOverlayTab.render({ sceneId: h.sceneId }) as never);
     fireEvent.click(screen.getByRole("button", { name: /Tarn/i }));
-    const dispatched = h.dispatched.filter(
-      (c) => c.type === PlaceCharacterToken.name,
-    );
+    const dispatched = h.dispatched.filter((c) => c.type === PlaceCharacterToken.name);
     expect(dispatched).toHaveLength(1);
     const payload = dispatched[0]!.payload as {
       sceneId: string;
@@ -192,16 +180,12 @@ describe("CharactersOverlayTab", () => {
         movedAt: 0,
       }),
     ]);
-    mountWithClient(h, () =>
-      CharactersOverlayTab.render({ sceneId: h.sceneId }) as never,
-    );
+    mountWithClient(h, () => CharactersOverlayTab.render({ sceneId: h.sceneId }) as never);
     const button = screen.getByRole("button", { name: /Tarn/i });
     expect(button).toBeDisabled();
     // Click is suppressed by the disabled attribute; no dispatch.
     fireEvent.click(button);
-    const dispatched = h.dispatched.filter(
-      (c) => c.type === PlaceCharacterToken.name,
-    );
+    const dispatched = h.dispatched.filter((c) => c.type === PlaceCharacterToken.name);
     expect(dispatched).toHaveLength(0);
   });
 
@@ -210,9 +194,7 @@ describe("CharactersOverlayTab", () => {
       session: ME_PLAYER,
       characters: [{ name: "OtherSomeone", ownerUserId: "other-player" }],
     });
-    mountWithClient(h, () =>
-      CharactersOverlayTab.render({ sceneId: h.sceneId }) as never,
-    );
+    mountWithClient(h, () => CharactersOverlayTab.render({ sceneId: h.sceneId }) as never);
     const button = screen.getByRole("button", { name: /OtherSomeone/i });
     expect(button).toBeDisabled();
   });
@@ -222,9 +204,7 @@ describe("CharactersOverlayTab", () => {
       session: ME_GM,
       characters: [{ name: "Tarn", ownerUserId: ME_GM.userId }],
     });
-    mountWithClient(h, () =>
-      CharactersOverlayTab.render({ sceneId: h.sceneId }) as never,
-    );
+    mountWithClient(h, () => CharactersOverlayTab.render({ sceneId: h.sceneId }) as never);
     const button = screen.getByRole("button", { name: /Tarn/i });
     expect(button).toBeEnabled();
     fireEvent.click(button);

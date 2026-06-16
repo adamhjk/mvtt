@@ -17,10 +17,7 @@
 
 import type { EntityId } from "@vtt/substrate";
 import { For, Show, type JSX } from "solid-js";
-import type {
-  ConflictSide,
-  ScriptSlot,
-} from "../shared/index.js";
+import type { ConflictSide, ScriptSlot } from "../shared/index.js";
 import { useScript, type ConflictView } from "./hooks.js";
 import { ACTION_COLORS, ACTION_LETTERS } from "./styles.js";
 
@@ -35,10 +32,7 @@ interface RoundBandProps {
 
 export function RoundBand(props: RoundBandProps): JSX.Element {
   return (
-    <section
-      class="px-3 py-3 flex flex-col gap-3"
-      data-testid="round-band"
-    >
+    <section class="px-3 py-3 flex flex-col gap-3" data-testid="round-band">
       <h2 class="font-display text-[0.7rem] uppercase tracking-[0.16em] text-fg-subtle">
         ROUND {props.conflict.round}
       </h2>
@@ -78,7 +72,7 @@ function ScriptRow(props: {
             {(i) => (
               <SlotChip
                 slot={(script()?.slots[i] ?? { status: "empty" }) as ScriptSlot}
-                visible={isOwn() || (script()?.slots[i]?.status === "revealed")}
+                visible={isOwn() || script()?.slots[i]?.status === "revealed"}
               />
             )}
           </For>
@@ -98,8 +92,7 @@ function ScriptRow(props: {
 
 function SlotChip(props: { slot: ScriptSlot; visible: boolean }): JSX.Element {
   const showRevealed = (): boolean => props.slot.status === "revealed";
-  const showFilledOwn = (): boolean =>
-    props.visible && props.slot.status === "filled";
+  const showFilledOwn = (): boolean => props.visible && props.slot.status === "filled";
   const action = (): string | null => {
     if (props.slot.status === "filled" || props.slot.status === "revealed") {
       return props.slot.action;
@@ -118,8 +111,7 @@ function SlotChip(props: { slot: ScriptSlot; visible: boolean }): JSX.Element {
       classList={{
         "border border-border-muted bg-surface-elevated text-fg-subtle":
           !showRevealed() && !showFilledOwn(),
-        "border border-dotted bg-surface-elevated":
-          showFilledOwn() && !showRevealed(),
+        "border border-dotted bg-surface-elevated": showFilledOwn() && !showRevealed(),
         "border-2": showRevealed(),
       }}
       style={
@@ -139,10 +131,7 @@ function SlotChip(props: { slot: ScriptSlot; visible: boolean }): JSX.Element {
           : undefined
       }
     >
-      {showRevealed() || showFilledOwn()
-        ? ACTION_LETTERS[a as keyof typeof ACTION_LETTERS]
-        : "?"}
+      {showRevealed() || showFilledOwn() ? ACTION_LETTERS[a as keyof typeof ACTION_LETTERS] : "?"}
     </span>
   );
 }
-

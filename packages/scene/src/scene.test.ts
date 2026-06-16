@@ -64,16 +64,7 @@ import {
 const sceneServerPlugin = definePlugin({
   name: "@vtt/scene",
   version: "0.4.0",
-  traits: [
-    Scene,
-    Position,
-    Sprite,
-    Token,
-    TokenImage,
-    LinkedCharacter,
-    Permissions,
-    Character,
-  ],
+  traits: [Scene, Position, Sprite, Token, TokenImage, LinkedCharacter, Permissions, Character],
   events: [
     SceneCreated,
     SceneRemoved,
@@ -394,11 +385,7 @@ describe("@vtt/scene", () => {
         Position: { movedAt: number };
       };
       const start = Date.now();
-      const res = await dispatch(
-        pipeline,
-        MoveToken({ tokenId, x: 175, y: 245 }),
-        PLAYER,
-      );
+      const res = await dispatch(pipeline, MoveToken({ tokenId, x: 175, y: 245 }), PLAYER);
       expect(res.result.ok).toBe(true);
       expect(res.events.map((e) => e.type)).toEqual([TokenMoved.name]);
       const after = world.get(tokenId, [Position]) as {
@@ -415,11 +402,7 @@ describe("@vtt/scene", () => {
       await makeScene(pipeline);
       const sceneId = world.query([Scene])[0]!.id;
       const tokenId = await makeToken(pipeline, world, sceneId, PLAYER.userId);
-      const res = await dispatch(
-        pipeline,
-        MoveToken({ tokenId, x: 99, y: 99 }),
-        GM,
-      );
+      const res = await dispatch(pipeline, MoveToken({ tokenId, x: 99, y: 99 }), GM);
       expect(res.result.ok).toBe(true);
     });
 
@@ -427,11 +410,7 @@ describe("@vtt/scene", () => {
       await makeScene(pipeline);
       const sceneId = world.query([Scene])[0]!.id;
       const tokenId = await makeToken(pipeline, world, sceneId, PLAYER.userId);
-      const res = await dispatch(
-        pipeline,
-        MoveToken({ tokenId, x: 0, y: 0 }),
-        OTHER_PLAYER,
-      );
+      const res = await dispatch(pipeline, MoveToken({ tokenId, x: 0, y: 0 }), OTHER_PLAYER);
       expect(res.result.ok).toBe(false);
     });
 
@@ -441,22 +420,15 @@ describe("@vtt/scene", () => {
       const tokenId = await makeToken(pipeline, world, sceneId, PLAYER.userId);
 
       // First move sets movedAt to a real timestamp.
-      await dispatch(
-        pipeline,
-        MoveToken({ tokenId, x: 70, y: 70 }),
-        PLAYER,
-      );
+      await dispatch(pipeline, MoveToken({ tokenId, x: 70, y: 70 }), PLAYER);
       const after = world.get(tokenId, [Position]) as {
         Position: { movedAt: number };
       };
       const stale = after.Position.movedAt - 1;
 
-      const res = await dispatch(
-        pipeline,
-        MoveToken({ tokenId, x: 140, y: 70 }),
-        PLAYER,
-        { lastSeenMovedAt: stale },
-      );
+      const res = await dispatch(pipeline, MoveToken({ tokenId, x: 140, y: 70 }), PLAYER, {
+        lastSeenMovedAt: stale,
+      });
       expect(res.result.ok).toBe(false);
       // Coords must remain at the previous server-authoritative move.
       const pos = world.get(tokenId, [Position]) as {
@@ -472,12 +444,9 @@ describe("@vtt/scene", () => {
       const cur = world.get(tokenId, [Position]) as {
         Position: { movedAt: number };
       };
-      const res = await dispatch(
-        pipeline,
-        MoveToken({ tokenId, x: 7, y: 7 }),
-        PLAYER,
-        { lastSeenMovedAt: cur.Position.movedAt },
-      );
+      const res = await dispatch(pipeline, MoveToken({ tokenId, x: 7, y: 7 }), PLAYER, {
+        lastSeenMovedAt: cur.Position.movedAt,
+      });
       expect(res.result.ok).toBe(true);
     });
 
@@ -485,11 +454,7 @@ describe("@vtt/scene", () => {
       await makeScene(pipeline);
       const sceneId = world.query([Scene])[0]!.id;
       const tokenId = await makeToken(pipeline, world, sceneId, PLAYER.userId);
-      const res = await dispatch(
-        pipeline,
-        MoveToken({ tokenId, x: 0, y: 0 }),
-        undefined,
-      );
+      const res = await dispatch(pipeline, MoveToken({ tokenId, x: 0, y: 0 }), undefined);
       expect(res.result.ok).toBe(false);
     });
 
@@ -520,11 +485,7 @@ describe("@vtt/scene", () => {
       await makeScene(pipeline);
       const sceneId = world.query([Scene])[0]!.id;
       const tokenId = await makeToken(pipeline, world, sceneId, PLAYER.userId);
-      const res = await dispatch(
-        pipeline,
-        RemoveToken({ tokenId }),
-        PLAYER,
-      );
+      const res = await dispatch(pipeline, RemoveToken({ tokenId }), PLAYER);
       expect(res.result.ok).toBe(true);
       expect(world.has(tokenId)).toBe(false);
     });
@@ -533,21 +494,13 @@ describe("@vtt/scene", () => {
       await makeScene(pipeline);
       const sceneId = world.query([Scene])[0]!.id;
       const tokenId = await makeToken(pipeline, world, sceneId, PLAYER.userId);
-      const res = await dispatch(
-        pipeline,
-        RemoveToken({ tokenId }),
-        OTHER_PLAYER,
-      );
+      const res = await dispatch(pipeline, RemoveToken({ tokenId }), OTHER_PLAYER);
       expect(res.result.ok).toBe(false);
       expect(world.has(tokenId)).toBe(true);
     });
 
     it("rejects when the tokenId does not exist", async () => {
-      const res = await dispatch(
-        pipeline,
-        RemoveToken({ tokenId: "ghost" as EntityId }),
-        GM,
-      );
+      const res = await dispatch(pipeline, RemoveToken({ tokenId: "ghost" as EntityId }), GM);
       expect(res.result.ok).toBe(false);
     });
   });
@@ -627,9 +580,7 @@ describe("@vtt/scene", () => {
     it("SceneSpawningSystem: handler is wired to SceneCreated and writes Scene", () => {
       expect(SceneSpawningSystem.name).toBe("SceneSpawning");
       expect(SceneSpawningSystem.on.name).toBe(SceneCreated.name);
-      expect(SceneSpawningSystem.writes.map((t) => t.name)).toContain(
-        Scene.name,
-      );
+      expect(SceneSpawningSystem.writes.map((t) => t.name)).toContain(Scene.name);
     });
 
     it("TokenSpawningSystem writes the four token-related traits", () => {
@@ -641,12 +592,8 @@ describe("@vtt/scene", () => {
 
     it("TokenMovementSystem is a Position read+write reactor", () => {
       expect(TokenMovementSystem.on.name).toBe(TokenMoved.name);
-      expect(TokenMovementSystem.reads.map((t) => t.name)).toContain(
-        Position.name,
-      );
-      expect(TokenMovementSystem.writes.map((t) => t.name)).toContain(
-        Position.name,
-      );
+      expect(TokenMovementSystem.reads.map((t) => t.name)).toContain(Position.name);
+      expect(TokenMovementSystem.writes.map((t) => t.name)).toContain(Position.name);
     });
 
     it("TokenRemovalSystem is a no-op for an already-despawned id", () => {
@@ -688,11 +635,7 @@ describe("@vtt/scene", () => {
           backgroundColor: string;
         };
       };
-      const res = await dispatch(
-        pipeline,
-        UpdateScene({ sceneId, name: "Renamed Scene" }),
-        GM,
-      );
+      const res = await dispatch(pipeline, UpdateScene({ sceneId, name: "Renamed Scene" }), GM);
       expect(res.result.ok).toBe(true);
       expect(res.events.map((e) => e.type)).toEqual([SceneUpdated.name]);
       const after = world.get(sceneId, [Scene]) as {
@@ -749,11 +692,7 @@ describe("@vtt/scene", () => {
     it("rejects a player dispatch", async () => {
       await makeScene(pipeline);
       const sceneId = world.query([Scene])[0]!.id;
-      const res = await dispatch(
-        pipeline,
-        UpdateScene({ sceneId, name: "Hax" }),
-        PLAYER,
-      );
+      const res = await dispatch(pipeline, UpdateScene({ sceneId, name: "Hax" }), PLAYER);
       expect(res.result.ok).toBe(false);
       const after = world.get(sceneId, [Scene]) as {
         Scene: { name: string };
@@ -792,11 +731,7 @@ describe("@vtt/scene", () => {
       await makeScene(pipeline);
       const sceneId = world.query([Scene])[0]!.id;
       const url = `/plugin-data/default/@vtt/scene/scenes/${sceneId}/background.png?v=12345`;
-      const res = await dispatch(
-        pipeline,
-        UpdateScene({ sceneId, backgroundImage: url }),
-        GM,
-      );
+      const res = await dispatch(pipeline, UpdateScene({ sceneId, backgroundImage: url }), GM);
       expect(res.result.ok).toBe(true);
       const after = world.get(sceneId, [Scene]) as {
         Scene: { backgroundImage: string | null };
@@ -817,11 +752,7 @@ describe("@vtt/scene", () => {
         GM,
       );
       // Then clear
-      const res = await dispatch(
-        pipeline,
-        UpdateScene({ sceneId, backgroundImage: null }),
-        GM,
-      );
+      const res = await dispatch(pipeline, UpdateScene({ sceneId, backgroundImage: null }), GM);
       expect(res.result.ok).toBe(true);
       const after = world.get(sceneId, [Scene]) as {
         Scene: { backgroundImage: string | null };
@@ -836,8 +767,7 @@ describe("@vtt/scene", () => {
         pipeline,
         UpdateScene({
           sceneId,
-          backgroundImage:
-            "/plugin-data/default/@vtt/scene/scenes/some-other-scene/background.png",
+          backgroundImage: "/plugin-data/default/@vtt/scene/scenes/some-other-scene/background.png",
         }),
         GM,
       );
@@ -1005,21 +935,13 @@ describe("@vtt/scene", () => {
     it("rejects a player dispatch", async () => {
       await makeScene(pipeline);
       const sceneId = world.query([Scene])[0]!.id;
-      const res = await dispatch(
-        pipeline,
-        RemoveScene({ sceneId }),
-        PLAYER,
-      );
+      const res = await dispatch(pipeline, RemoveScene({ sceneId }), PLAYER);
       expect(res.result.ok).toBe(false);
       expect(world.has(sceneId)).toBe(true);
     });
 
     it("rejects when sceneId does not exist", async () => {
-      const res = await dispatch(
-        pipeline,
-        RemoveScene({ sceneId: "ghost-scene" as EntityId }),
-        GM,
-      );
+      const res = await dispatch(pipeline, RemoveScene({ sceneId: "ghost-scene" as EntityId }), GM);
       expect(res.result.ok).toBe(false);
     });
   });
@@ -1031,10 +953,7 @@ describe("@vtt/scene", () => {
      * matching Permissions and skip the normal CharacterCreated flow.
      */
     function spawnCharacter(ownerUserId: string): EntityId {
-      return world.spawn([
-        Character({ name: "Tarn" }),
-        Permissions(ownedBy(ownerUserId)),
-      ]);
+      return world.spawn([Character({ name: "Tarn" }), Permissions(ownedBy(ownerUserId))]);
     }
 
     function placePayload(
@@ -1093,20 +1012,15 @@ describe("@vtt/scene", () => {
       await makeScene(pipeline);
       const sceneId = world.query([Scene])[0]!.id;
       const charId = spawnCharacter(PLAYER.userId);
-      const url =
-        `/plugin-data/${world.worldId}/@vtt/characters/characters/${charId}/token.png?v=42`;
+      const url = `/plugin-data/${world.worldId}/@vtt/characters/characters/${charId}/token.png?v=42`;
       const res = await dispatch(
         pipeline,
-        PlaceCharacterToken(
-          placePayload(sceneId, charId, PLAYER.userId, { imageUrl: url }),
-        ),
+        PlaceCharacterToken(placePayload(sceneId, charId, PLAYER.userId, { imageUrl: url })),
         PLAYER,
       );
       expect(res.result.ok).toBe(true);
       const tokenId = world.query([LinkedCharacter])[0]!.id;
-      const got = world.get(tokenId, [TokenImage]) as
-        | { TokenImage: { url: string } }
-        | undefined;
+      const got = world.get(tokenId, [TokenImage]) as { TokenImage: { url: string } } | undefined;
       expect(got).toBeDefined();
       expect(got!.TokenImage.url).toBe(url);
     });
@@ -1140,9 +1054,7 @@ describe("@vtt/scene", () => {
       const charId = spawnCharacter(PLAYER.userId);
       const res = await dispatch(
         pipeline,
-        PlaceCharacterToken(
-          placePayload("ghost-scene" as EntityId, charId, PLAYER.userId),
-        ),
+        PlaceCharacterToken(placePayload("ghost-scene" as EntityId, charId, PLAYER.userId)),
         PLAYER,
       );
       expect(res.result.ok).toBe(false);
@@ -1153,9 +1065,7 @@ describe("@vtt/scene", () => {
       const sceneId = world.query([Scene])[0]!.id;
       const res = await dispatch(
         pipeline,
-        PlaceCharacterToken(
-          placePayload(sceneId, "ghost-char" as EntityId, PLAYER.userId),
-        ),
+        PlaceCharacterToken(placePayload(sceneId, "ghost-char" as EntityId, PLAYER.userId)),
         PLAYER,
       );
       expect(res.result.ok).toBe(false);
@@ -1189,9 +1099,7 @@ describe("@vtt/scene", () => {
       expect(r1.result.ok).toBe(true);
       const r2 = await dispatch(
         pipeline,
-        PlaceCharacterToken(
-          placePayload(sceneId, charId, PLAYER.userId, { x: 700, y: 700 }),
-        ),
+        PlaceCharacterToken(placePayload(sceneId, charId, PLAYER.userId, { x: 700, y: 700 })),
         PLAYER,
       );
       expect(r2.result.ok).toBe(false);
@@ -1230,9 +1138,7 @@ describe("@vtt/scene", () => {
     });
 
     it("CharacterTokenPlacementSystem is wired and writes Token + LinkedCharacter", () => {
-      expect(CharacterTokenPlacementSystem.on.name).toBe(
-        CharacterTokenPlaced.name,
-      );
+      expect(CharacterTokenPlacementSystem.on.name).toBe(CharacterTokenPlaced.name);
       const writes = CharacterTokenPlacementSystem.writes.map((t) => t.name);
       expect(writes).toEqual(
         expect.arrayContaining([Token.name, LinkedCharacter.name, TokenImage.name]),

@@ -87,14 +87,8 @@ export interface RollableDef<
    */
   readonly ambientInputs: ReadonlyArray<TraitMeta>;
   readonly command: CommandDef<CmdSchema>;
-  readonly compute: (
-    args: ValuesOf<Inputs>,
-    ctx: RollableContext<z.infer<OptsSchema>>,
-  ) => Spec;
-  readonly toPayload: (
-    spec: Spec,
-    ctx: RollableContext<z.infer<OptsSchema>>,
-  ) => z.input<CmdSchema>;
+  readonly compute: (args: ValuesOf<Inputs>, ctx: RollableContext<z.infer<OptsSchema>>) => Spec;
+  readonly toPayload: (spec: Spec, ctx: RollableContext<z.infer<OptsSchema>>) => z.input<CmdSchema>;
   /**
    * Optional Zod schema for the per-call options bag. When provided, opts
    * are parsed at invocation; the kit's situational-mods popover renders
@@ -259,9 +253,7 @@ export function validateRollables(
   const seen = new Set<string>();
   for (const r of rollables) {
     if (seen.has(r.name)) {
-      errors.push(
-        `rollable name ${JSON.stringify(r.name)} is registered more than once`,
-      );
+      errors.push(`rollable name ${JSON.stringify(r.name)} is registered more than once`);
       continue;
     }
     seen.add(r.name);
@@ -279,8 +271,6 @@ export function validateRollables(
     }
   }
   if (errors.length > 0) {
-    throw new Error(
-      `rollable registration failed:\n  - ${errors.join("\n  - ")}`,
-    );
+    throw new Error(`rollable registration failed:\n  - ${errors.join("\n  - ")}`);
   }
 }

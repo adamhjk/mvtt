@@ -20,10 +20,7 @@ import { createOptimisticTrait, useClient } from "@vtt/substrate/client";
 import { type EntityId } from "@vtt/substrate";
 import { useTabSentinel } from "@vtt/shell-workbench/client";
 import { SceneUiState, SetSceneUiState } from "../shared/ui-state.js";
-import {
-  SceneOverlayTabsSlot,
-  type SceneOverlayTab,
-} from "../shared/slot.js";
+import { SceneOverlayTabsSlot, type SceneOverlayTab } from "../shared/slot.js";
 
 interface SceneDockProps {
   sceneId: string;
@@ -58,9 +55,7 @@ export function SceneDock(props: SceneDockProps): JSX.Element {
   });
 
   const tabs = createMemo<SceneOverlayTab[]>(() => {
-    const fills = client.registry.fillsForSlot(
-      SceneOverlayTabsSlot,
-    ) as SceneOverlayTab[];
+    const fills = client.registry.fillsForSlot(SceneOverlayTabsSlot) as SceneOverlayTab[];
     return [...fills].sort((a, b) => {
       const pa = a.priority ?? 0;
       const pb = b.priority ?? 0;
@@ -100,9 +95,7 @@ export function SceneDock(props: SceneDockProps): JSX.Element {
       // doesn't get squashed.
     >
       {/* tab strip — always visible */}
-      <header
-        class="flex h-9 shrink-0 items-stretch gap-px border-b border-border-muted px-1"
-      >
+      <header class="flex h-9 shrink-0 items-stretch gap-px border-b border-border-muted px-1">
         <button
           type="button"
           onClick={toggle}
@@ -124,9 +117,7 @@ export function SceneDock(props: SceneDockProps): JSX.Element {
         >
           <For each={tabs()}>
             {(tab) => {
-              const isActive = createMemo(
-                () => open() && activeId() === tab.id,
-              );
+              const isActive = createMemo(() => open() && activeId() === tab.id);
               return (
                 <button
                   type="button"
@@ -139,7 +130,9 @@ export function SceneDock(props: SceneDockProps): JSX.Element {
                   aria-pressed={isActive()}
                 >
                   <Show when={tab.icon}>
-                    <span aria-hidden class="text-[0.85rem]">{tab.icon}</span>
+                    <span aria-hidden class="text-[0.85rem]">
+                      {tab.icon}
+                    </span>
                   </Show>
                   <span>{tab.label}</span>
                   <Show when={isActive()}>

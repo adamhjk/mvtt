@@ -18,10 +18,7 @@
 import { type CommandInstance } from "@vtt/substrate";
 import { useClient, useQuery } from "@vtt/substrate/client";
 import { Active, Character, isActive } from "@vtt/characters/shared";
-import {
-  definePageProvider,
-  RetargetTab,
-} from "@vtt/shell-workbench/shared";
+import { definePageProvider, RetargetTab } from "@vtt/shell-workbench/shared";
 import { ActiveToggle, kit } from "@vtt/characters/client";
 import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
@@ -79,15 +76,9 @@ export const MonstersPageProvider = definePageProvider({
   },
 });
 
-function MonstersPage(props: {
-  tabId: string;
-  entityId: string | null;
-}): JSX.Element {
+function MonstersPage(props: { tabId: string; entityId: string | null }): JSX.Element {
   return (
-    <Show
-      when={props.entityId}
-      fallback={<MonstersHub tabId={props.tabId} />}
-    >
+    <Show when={props.entityId} fallback={<MonstersHub tabId={props.tabId} />}>
       {(idAcc) => <MonsterSheet characterId={idAcc()} />}
     </Show>
   );
@@ -139,9 +130,7 @@ function MonstersHub(props: { tabId: string }): JSX.Element {
     return monsters().filter((m) => fuzzyMatch(m.name, q));
   });
   const activeMonsters = createMemo(() => filtered().filter((m) => m.active));
-  const inactiveMonsters = createMemo(() =>
-    filtered().filter((m) => !m.active),
-  );
+  const inactiveMonsters = createMemo(() => filtered().filter((m) => !m.active));
 
   const isGm = createMemo(() => me()?.role === "gm");
 
@@ -212,11 +201,7 @@ function MonstersHub(props: { tabId: string }): JSX.Element {
               </p>
               <Show
                 when={isGm()}
-                fallback={
-                  <p class="text-xs text-fg-subtle">
-                    only the GM can spawn monsters.
-                  </p>
-                }
+                fallback={<p class="text-xs text-fg-subtle">only the GM can spawn monsters.</p>}
               >
                 <CatalogPicker tabId={props.tabId} />
               </Show>
@@ -245,38 +230,23 @@ function MonstersHub(props: { tabId: string }): JSX.Element {
           <Show
             when={filtered().length > 0}
             fallback={
-              <p
-                class="text-center text-xs text-fg-subtle italic"
-                data-testid="monsters-empty"
-              >
+              <p class="text-center text-xs text-fg-subtle italic" data-testid="monsters-empty">
                 No monsters match "{query()}".
               </p>
             }
           >
             <Show when={activeMonsters().length > 0}>
               <section class="flex flex-col gap-2">
-                <SectionHeader
-                  label="Active"
-                  count={activeMonsters().length}
-                />
-                <ul
-                  class="flex flex-col gap-1"
-                  data-testid="monsters-active-list"
-                >
+                <SectionHeader label="Active" count={activeMonsters().length} />
+                <ul class="flex flex-col gap-1" data-testid="monsters-active-list">
                   <For each={activeMonsters()}>{renderRow}</For>
                 </ul>
               </section>
             </Show>
             <Show when={inactiveMonsters().length > 0}>
               <section class="flex flex-col gap-2">
-                <SectionHeader
-                  label="Inactive"
-                  count={inactiveMonsters().length}
-                />
-                <ul
-                  class="flex flex-col gap-1"
-                  data-testid="monsters-inactive-list"
-                >
+                <SectionHeader label="Inactive" count={inactiveMonsters().length} />
+                <ul class="flex flex-col gap-1" data-testid="monsters-inactive-list">
                   <For each={inactiveMonsters()}>{renderRow}</For>
                 </ul>
               </section>
@@ -308,9 +278,7 @@ function SectionHeader(props: { label: string; count: number }): JSX.Element {
       <h3 class="font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle">
         {props.label}
       </h3>
-      <span class="font-mono text-[0.6rem] text-fg-subtle tabular-nums">
-        {props.count}
-      </span>
+      <span class="font-mono text-[0.6rem] text-fg-subtle tabular-nums">{props.count}</span>
     </header>
   );
 }
@@ -366,9 +334,7 @@ function FilterInput(props: {
 function CatalogPicker(props: { tabId: string }): JSX.Element {
   const client = useClient();
   const [query, setQuery] = createSignal("");
-  const [selected, setSelected] = createSignal<string | null>(
-    TB_MONSTER_TEMPLATES[0]?.id ?? null,
-  );
+  const [selected, setSelected] = createSignal<string | null>(TB_MONSTER_TEMPLATES[0]?.id ?? null);
   const [blankName, setBlankName] = createSignal("New Monster");
   const [busy, setBusy] = createSignal(false);
 
@@ -386,19 +352,15 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
     setSelected(list[0]!.id);
   });
 
-  const selectedTemplate = createMemo(() =>
-    TB_MONSTER_TEMPLATES.find((t) => t.id === selected()) ?? null,
+  const selectedTemplate = createMemo(
+    () => TB_MONSTER_TEMPLATES.find((t) => t.id === selected()) ?? null,
   );
 
   const subscribeAndRetarget = () => {
-    const beforeIds = new Set(
-      client.world.query([Character, TbMonster]).map((r) => r.id),
-    );
+    const beforeIds = new Set(client.world.query([Character, TbMonster]).map((r) => r.id));
     const off = client.bus.on(MonsterCreated.name, () => {
       off();
-      const fresh = client.world
-        .query([Character, TbMonster])
-        .find((r) => !beforeIds.has(r.id));
+      const fresh = client.world.query([Character, TbMonster]).find((r) => !beforeIds.has(r.id));
       if (fresh) {
         client.dispatch(
           RetargetTab({
@@ -418,9 +380,7 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
     if (!tmplId) return;
     setBusy(true);
     subscribeAndRetarget();
-    client.dispatch(
-      CreateMonsterFromCatalog({ templateId: tmplId }) as CommandInstance,
-    );
+    client.dispatch(CreateMonsterFromCatalog({ templateId: tmplId }) as CommandInstance);
   };
 
   const spawnBlank = () => {
@@ -433,10 +393,7 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
   };
 
   return (
-    <div
-      class="flex w-full flex-col gap-3"
-      data-testid="monsters-catalog-picker"
-    >
+    <div class="flex w-full flex-col gap-3" data-testid="monsters-catalog-picker">
       <MonstersSearchInput
         query={query}
         setQuery={setQuery}
@@ -455,8 +412,7 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
             style={{
               border: "1px dashed var(--color-border-muted)",
               "border-radius": "var(--radius-control)",
-              "background-color":
-                "var(--color-surface-sunken, var(--color-surface))",
+              "background-color": "var(--color-surface-sunken, var(--color-surface))",
             }}
             data-testid="monster-template-empty"
           >
@@ -502,10 +458,7 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
         <summary class="cursor-pointer font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle hover:text-fg transition">
           or spawn a blank homebrew monster
         </summary>
-        <div
-          class="mt-2 flex flex-col gap-2"
-          data-testid="monster-blank-form"
-        >
+        <div class="mt-2 flex flex-col gap-2" data-testid="monster-blank-form">
           <input
             type="text"
             name="blank-monster-name"

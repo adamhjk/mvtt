@@ -139,16 +139,13 @@ await Assets.load({
 
 Mobile browsers block autoplay with sound. The promise resolves, but the video stays frozen on frame 0 until the user interacts.
 
-
 ### [MEDIUM] Expecting sprite.texture to update itself
 
 The `Sprite` reflects the current video frame automatically because `VideoSource` re-uploads on every render. You don't need to call `update()` yourself. If playback looks frozen, check that the underlying video element is actually playing (`videoSource.resource.paused` should be `false`).
 
-
 ### [MEDIUM] Missing CORS for cross-origin video
 
 Video served from another origin without `Access-Control-Allow-Origin` headers taints the canvas and most WebGL operations (`readPixels`, snapshots) fail silently. Either serve with CORS headers or pass `data: { crossorigin: false }` and accept that the texture can't be extracted.
-
 
 ## API Reference
 

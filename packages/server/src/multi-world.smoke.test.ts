@@ -150,21 +150,15 @@ describe("multi-world wire smoke", () => {
     const bPongs = rtB!.world.query([Pong]);
     expect(aPongs).toHaveLength(1);
     expect(bPongs).toHaveLength(1);
-    expect((aPongs[0]!.values as { Pong: { message: string } }).Pong.message).toBe(
-      "from-alpha",
-    );
-    expect((bPongs[0]!.values as { Pong: { message: string } }).Pong.message).toBe(
-      "from-beta",
-    );
+    expect((aPongs[0]!.values as { Pong: { message: string } }).Pong.message).toBe("from-alpha");
+    expect((bPongs[0]!.values as { Pong: { message: string } }).Pong.message).toBe("from-beta");
 
     // Per-world seq counters: equal traffic → equal currentSeq, not a
     // shared counter that would diverge.
     expect(rtA!.pipeline.currentSeq).toBe(rtB!.pipeline.currentSeq);
 
     // Unknown worldId is rejected at the WS upgrade.
-    const ghostWs = new WebSocket(
-      `ws://127.0.0.1:${handle.port}/ws?worldId=does-not-exist`,
-    );
+    const ghostWs = new WebSocket(`ws://127.0.0.1:${handle.port}/ws?worldId=does-not-exist`);
     const ghostResult = await new Promise<"opened" | "rejected">((resolve) => {
       ghostWs.on("open", () => resolve("opened"));
       ghostWs.on("error", () => resolve("rejected"));

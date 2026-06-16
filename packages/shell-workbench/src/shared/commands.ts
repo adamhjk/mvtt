@@ -129,8 +129,7 @@ function splitTree(
 ): WorkspaceTree {
   if (tree.kind === "pane") {
     if (tree.paneId !== targetPaneId) return tree;
-    const axis: "row" | "column" =
-      direction === "left" || direction === "right" ? "row" : "column";
+    const axis: "row" | "column" = direction === "left" || direction === "right" ? "row" : "column";
     const original: WorkspaceTree = { kind: "pane", paneId: targetPaneId };
     const fresh: WorkspaceTree = { kind: "pane", paneId: newPaneId };
     const orderFirst = direction === "right" || direction === "bottom";
@@ -144,9 +143,7 @@ function splitTree(
   return {
     kind: "split",
     axis: tree.axis,
-    children: tree.children.map((c) =>
-      splitTree(c, targetPaneId, newPaneId, direction),
-    ),
+    children: tree.children.map((c) => splitTree(c, targetPaneId, newPaneId, direction)),
     proportions: [...tree.proportions],
   };
 }
@@ -156,10 +153,7 @@ function splitTree(
  * the drop, collapse it to that child. Returns null if removal would
  * produce an empty tree (forbidden — caller must rehome instead).
  */
-function removePaneFromTree(
-  tree: WorkspaceTree,
-  paneId: string,
-): WorkspaceTree | null {
+function removePaneFromTree(tree: WorkspaceTree, paneId: string): WorkspaceTree | null {
   if (tree.kind === "pane") {
     return tree.paneId === paneId ? null : tree;
   }
@@ -185,8 +179,7 @@ function findExistingTab(
 ): { paneId: string; tabId: string } | null {
   for (const tab of Object.values(state.tabs)) {
     if (tab.pageKind !== pageKind) continue;
-    const matchEntity =
-      entityId === null ? tab.entityId === null : tab.entityId === entityId;
+    const matchEntity = entityId === null ? tab.entityId === null : tab.entityId === entityId;
     if (!matchEntity) continue;
     for (const pane of Object.values(state.panes)) {
       if (pane.tabIds.includes(tab.id)) {
@@ -249,10 +242,7 @@ function clone(
     ...state,
     tabs: { ...state.tabs },
     panes: Object.fromEntries(
-      Object.entries(state.panes).map(([k, p]) => [
-        k,
-        { ...p, tabIds: [...p.tabIds] },
-      ]),
+      Object.entries(state.panes).map(([k, p]) => [k, { ...p, tabIds: [...p.tabIds] }]),
     ),
     tree: structuredClone(state.tree),
   };
@@ -271,10 +261,7 @@ function bumpInteracted(
  * in `findRetargetCandidate`. No-ops gracefully if the tab id is
  * missing or null (e.g. when a pane just emptied).
  */
-function bumpTabFocus(
-  state: z.infer<typeof WorkspaceState.schema>,
-  tabId: string | null,
-): void {
+function bumpTabFocus(state: z.infer<typeof WorkspaceState.schema>, tabId: string | null): void {
   if (!tabId) return;
   const tab = state.tabs[tabId];
   if (!tab) return;
@@ -688,9 +675,7 @@ function replaceAtPath(
   return {
     kind: "split",
     axis: tree.axis,
-    children: tree.children.map((c, i) =>
-      i === head ? replaceAtPath(c, path.slice(1), next) : c,
-    ),
+    children: tree.children.map((c, i) => (i === head ? replaceAtPath(c, path.slice(1), next) : c)),
     proportions: [...tree.proportions],
   };
 }

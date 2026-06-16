@@ -18,20 +18,12 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
-import {
-  DEFAULT_RULES_PROFILE,
-  RulesProfile,
-  type RulesProfileT,
-} from "@vtt/rules-corpus/shared";
+import { DEFAULT_RULES_PROFILE, RulesProfile, type RulesProfileT } from "@vtt/rules-corpus/shared";
 import { buildChunks } from "./chunker.js";
 import { extractImages } from "./images.js";
 import { buildPageMap } from "./page-numbers.js";
 import { loadPdf } from "./text.js";
-import {
-  CHUNKER_VERSION,
-  type Chunk,
-  type CorpusManifest,
-} from "./types.js";
+import { CHUNKER_VERSION, type Chunk, type CorpusManifest } from "./types.js";
 
 /**
  * Run the full extraction pipeline against a single PDF.
@@ -72,9 +64,7 @@ export async function extractCorpus(args: {
   log(`pdf bytes=${bytes.length} sha=${sourceSha.slice(0, 12)}…`);
 
   log("loading pdf (text + outline + metadata)…");
-  const { pageCount, title: pdfTitle, pages, outline } = await loadPdf(
-    new Uint8Array(bytes),
-  );
+  const { pageCount, title: pdfTitle, pages, outline } = await loadPdf(new Uint8Array(bytes));
   log(
     `pdf loaded: pages=${pageCount} outlineEntries=${outline?.length ?? 0} title=${JSON.stringify(pdfTitle)}`,
   );
@@ -117,16 +107,10 @@ export async function extractCorpus(args: {
     tags,
     chunkerVersion: CHUNKER_VERSION,
     indexedAt: Date.now(),
-    pageMap: Object.fromEntries(
-      [...pageMap.entries()].map(([k, v]) => [String(k), v]),
-    ),
+    pageMap: Object.fromEntries([...pageMap.entries()].map(([k, v]) => [String(k), v])),
     gameSystemPlugin: args.gameSystemPlugin ?? null,
   };
-  writeFileSync(
-    resolve(args.outDir, "manifest.json"),
-    JSON.stringify(manifest, null, 2),
-    "utf8",
-  );
+  writeFileSync(resolve(args.outDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
   log(
     `extraction complete: ${chunks.length} chunks, ${pageCount} pages, indexedAt=${manifest.indexedAt}`,
   );
@@ -142,7 +126,10 @@ function writeChunks(path: string, chunks: Chunk[]): void {
 
 function writePageTexts(
   pagesDir: string,
-  pages: ReadonlyArray<{ pdfPage: number; items: ReadonlyArray<{ str: string; hasEOL?: boolean }> }>,
+  pages: ReadonlyArray<{
+    pdfPage: number;
+    items: ReadonlyArray<{ str: string; hasEOL?: boolean }>;
+  }>,
 ): void {
   mkdirSync(pagesDir, { recursive: true });
   for (const page of pages) {

@@ -22,21 +22,21 @@ Existing virtual tabletops are difficult to develop, test, and extend. New rule 
 
 mvtt uses two complementary patterns. **Classic DDD** structures the substrate, persistence, content catalogs, asset storage, user accounts, and long-running orchestration. **ECS** structures the live game World, which is itself one DDD aggregate root. Plugins are bounded contexts and may contribute to both.
 
-| DDD building block | mvtt expression |
-|---|---|
-| **Aggregate Root** | Two roots, at different levels. **`World`** — owns the entities, traits, and event log of one live game session (ECS internally). **`Worlds`** (the substrate-level aggregate) — owns the *set* of worlds the deployment hosts, plus per-world membership rows. The two are orthogonal: `Worlds` decides which `World`s exist and who can connect to each; `World` runs one game's mechanics. |
-| **Aggregate (logical, within a World)** | Sentinel entity + its traits + the systems and validators that maintain its invariants (e.g. `Encounter`, `PendingAttack`, in-flight `Spell`, `Roll`) |
-| **Entity (within an aggregate)** | An ECS entity (bare ID with composed traits) |
-| **Value Object** | Trait instance, Event payload, Command payload, schema-defined immutable shapes; cross-plugin types like `DiceFormula`, `Coordinates`, `Money` |
-| **Domain Service** | A System — pure function over event + world snapshot |
-| **Application Service** | A Command's `validate` + `apply` (one transactional mutation on the World); for non-World workflows like campaign import, classic async-iterable application services per the `ddd` skill |
-| **Repository** | The `PersistenceAdapter` for the World aggregate's event log + snapshots; the `WorldsRepository` for the `Worlds` aggregate (worlds index + memberships); better-auth's adapter for global user accounts |
-| **Domain Event** | An Event in the event-sourced spine |
-| **Factory** | Pattern helpers like `defineDamageSpell` produce template Value Objects |
-| **Bounded Context** | A plugin |
-| **Ubiquitous Language** | Plugin-namespaced trait/event/command names (`@vtt/scene/Position`, `@vtt/dnd5e/HitDice`) |
+| DDD building block                      | mvtt expression                                                                                                                                                                                                                                                                                                                                                                               |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Aggregate Root**                      | Two roots, at different levels. **`World`** — owns the entities, traits, and event log of one live game session (ECS internally). **`Worlds`** (the substrate-level aggregate) — owns the _set_ of worlds the deployment hosts, plus per-world membership rows. The two are orthogonal: `Worlds` decides which `World`s exist and who can connect to each; `World` runs one game's mechanics. |
+| **Aggregate (logical, within a World)** | Sentinel entity + its traits + the systems and validators that maintain its invariants (e.g. `Encounter`, `PendingAttack`, in-flight `Spell`, `Roll`)                                                                                                                                                                                                                                         |
+| **Entity (within an aggregate)**        | An ECS entity (bare ID with composed traits)                                                                                                                                                                                                                                                                                                                                                  |
+| **Value Object**                        | Trait instance, Event payload, Command payload, schema-defined immutable shapes; cross-plugin types like `DiceFormula`, `Coordinates`, `Money`                                                                                                                                                                                                                                                |
+| **Domain Service**                      | A System — pure function over event + world snapshot                                                                                                                                                                                                                                                                                                                                          |
+| **Application Service**                 | A Command's `validate` + `apply` (one transactional mutation on the World); for non-World workflows like campaign import, classic async-iterable application services per the `ddd` skill                                                                                                                                                                                                     |
+| **Repository**                          | The `PersistenceAdapter` for the World aggregate's event log + snapshots; the `WorldsRepository` for the `Worlds` aggregate (worlds index + memberships); better-auth's adapter for global user accounts                                                                                                                                                                                      |
+| **Domain Event**                        | An Event in the event-sourced spine                                                                                                                                                                                                                                                                                                                                                           |
+| **Factory**                             | Pattern helpers like `defineDamageSpell` produce template Value Objects                                                                                                                                                                                                                                                                                                                       |
+| **Bounded Context**                     | A plugin                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Ubiquitous Language**                 | Plugin-namespaced trait/event/command names (`@vtt/scene/Position`, `@vtt/dnd5e/HitDice`)                                                                                                                                                                                                                                                                                                     |
 
-ECS is not a general-purpose architecture; it is the internal pattern for the World aggregate. Anything *outside* the live World — content catalogs loaded from disk, asset storage, user accounts, plugin manifests, campaign archives, long-running orchestration — uses classic DDD with full aggregates, repositories, and application services.
+ECS is not a general-purpose architecture; it is the internal pattern for the World aggregate. Anything _outside_ the live World — content catalogs loaded from disk, asset storage, user accounts, plugin manifests, campaign archives, long-running orchestration — uses classic DDD with full aggregates, repositories, and application services.
 
 Detailed guidance lives in the two skills:
 
@@ -45,17 +45,17 @@ Detailed guidance lives in the two skills:
 
 ## Vocabulary
 
-| Term | Meaning |
-|---|---|
-| **Entity** | An identifier (`EntityId`). Has no inherent type; meaning comes from attached traits. |
-| **Trait** | A typed data record attached to an entity. Schema-defined. ECS "component" — renamed to avoid colliding with Solid components. |
-| **Event** | An immutable record of something that happened. Authoritative facts. |
-| **Command** | A typed intent issued by an actor. Validated against world state, may be rejected. Successful commands produce events. |
-| **System** | A pure function `(world, event) → events[]` reacting to one event type. Never mutates the world directly; only emits further events. |
-| **View** | A Solid component bound to a surface and a trait query. Subscribes to signals; dispatches commands. |
-| **Surface** | A named UI extension point declared by a plugin. Other plugins fill it with views. |
-| **Plugin** | A unit of distribution. Ships traits, events, commands, systems, views, and content. Has a manifest, a version, and dependencies on other plugins. |
-| **Substrate** | The runtime that loads plugins and provides the registries, the world, the network, and the reactivity bridge. |
+| Term          | Meaning                                                                                                                                            |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Entity**    | An identifier (`EntityId`). Has no inherent type; meaning comes from attached traits.                                                              |
+| **Trait**     | A typed data record attached to an entity. Schema-defined. ECS "component" — renamed to avoid colliding with Solid components.                     |
+| **Event**     | An immutable record of something that happened. Authoritative facts.                                                                               |
+| **Command**   | A typed intent issued by an actor. Validated against world state, may be rejected. Successful commands produce events.                             |
+| **System**    | A pure function `(world, event) → events[]` reacting to one event type. Never mutates the world directly; only emits further events.               |
+| **View**      | A Solid component bound to a surface and a trait query. Subscribes to signals; dispatches commands.                                                |
+| **Surface**   | A named UI extension point declared by a plugin. Other plugins fill it with views.                                                                 |
+| **Plugin**    | A unit of distribution. Ships traits, events, commands, systems, views, and content. Has a manifest, a version, and dependencies on other plugins. |
+| **Substrate** | The runtime that loads plugins and provides the registries, the world, the network, and the reactivity bridge.                                     |
 
 ## The substrate
 
@@ -126,9 +126,9 @@ export const Health = defineTrait({
   name: "Health",
   schema: z.object({
     current: z.number().int(),
-    max:     z.number().int().positive(),
+    max: z.number().int().positive(),
   }),
-})
+});
 ```
 
 No methods. No behavior. One file per trait, owned by one plugin. The trait's name is namespaced by its owning plugin (`@vtt/scene/Position`, `@vtt/dnd5e/HitDice`).
@@ -140,10 +140,10 @@ export const DamageDealt = defineEvent({
   name: "@vtt/simple-d100/DamageDealt",
   schema: z.object({
     targetId: EntityId,
-    amount:   z.number().int().positive(),
-    source:   z.string().optional(),
+    amount: z.number().int().positive(),
+    source: z.string().optional(),
   }),
-})
+});
 ```
 
 Events carry visibility metadata that the substrate uses to filter per-recipient broadcasts (see Trust & visibility below).
@@ -156,17 +156,17 @@ export const DeclareAttack = defineCommand({
   schema: z.object({ attackerId: EntityId, targetId: EntityId }),
 
   validate: ({ cmd, world, actor }) => {
-    const attacker = world.get(cmd.attackerId, [Strength, Health, Combatant])
-    const target   = world.get(cmd.targetId,   [Strength, Health, Combatant])
-    if (!attacker || !target)         return fail("missing required traits")
-    if (attacker.Health.current <= 0) return fail("attacker is defeated")
-    if (target.Health.current <= 0)   return fail("target is already defeated")
-    if (!world.turn.isCurrentActor(cmd.attackerId, actor)) return fail("not your turn")
-    return ok()
+    const attacker = world.get(cmd.attackerId, [Strength, Health, Combatant]);
+    const target = world.get(cmd.targetId, [Strength, Health, Combatant]);
+    if (!attacker || !target) return fail("missing required traits");
+    if (attacker.Health.current <= 0) return fail("attacker is defeated");
+    if (target.Health.current <= 0) return fail("target is already defeated");
+    if (!world.turn.isCurrentActor(cmd.attackerId, actor)) return fail("not your turn");
+    return ok();
   },
 
   apply: ({ cmd }) => [AttackDeclared({ attackerId: cmd.attackerId, targetId: cmd.targetId })],
-})
+});
 ```
 
 The split between `validate` and `apply` is intentional: validation reads world state, application produces events. Systems then react to those events.
@@ -177,15 +177,15 @@ The split between `validate` and `apply` is intentional: validation reads world 
 export const DamageApplicationSystem = defineSystem({
   name: "DamageApplication",
   on: DamageDealt,
-  reads:  [Health],
+  reads: [Health],
   writes: [Health],
   run: ({ event, world }) => {
-    const target = world.get(event.targetId, [Health])!
-    const next = Math.max(0, target.Health.current - event.amount)
-    world.set(event.targetId, Health, { ...target.Health, current: next })
-    return next === 0 ? [CombatantDefeated({ id: event.targetId })] : []
+    const target = world.get(event.targetId, [Health])!;
+    const next = Math.max(0, target.Health.current - event.amount);
+    world.set(event.targetId, Health, { ...target.Health, current: next });
+    return next === 0 ? [CombatantDefeated({ id: event.targetId })] : [];
   },
-})
+});
 ```
 
 `reads`/`writes` are declared so the substrate can parallelize systems and so the AI author can see what touches what without reading bodies.
@@ -214,7 +214,7 @@ The manifest is the contract surface. Nothing in a plugin reaches outside its de
 
 ```ts
 export default definePlugin({
-  name:    "@vtt/simple-d100",
+  name: "@vtt/simple-d100",
   version: "0.1.0",
   dependsOn: [
     "@vtt/substrate@^1",
@@ -224,17 +224,17 @@ export default definePlugin({
     // ships its own minimal turn system; doesn't depend on a shared initiative plugin
   ],
 
-  traits:    [Strength, Health, Combatant],
-  events:    [AttackDeclared, AttackResolved, DamageDealt, CombatantDefeated],
-  commands:  [DeclareAttack],
-  systems:   [AttackInitiationSystem, AttackCompletionSystem, DamageApplicationSystem],
-  views:     [HealthBarView, CombatLogView, AttackButtonView],
+  traits: [Strength, Health, Combatant],
+  events: [AttackDeclared, AttackResolved, DamageDealt, CombatantDefeated],
+  commands: [DeclareAttack],
+  systems: [AttackInitiationSystem, AttackCompletionSystem, DamageApplicationSystem],
+  views: [HealthBarView, CombatLogView, AttackButtonView],
 
   // declarations of slots this plugin exposes for other plugins to fill
   slots: {
     statusEffects: defineSlot<StatusEffectDef>(),
   },
-})
+});
 ```
 
 ### Slots: how plugins extend each other
@@ -268,7 +268,7 @@ export const fireball = defineDamageSpell({
   damage: { dice: "8d6", type: "fire", scaling: { perLevel: "1d6" } },
   targeting: { kind: "sphere", radius: 20, originatesFrom: "point" },
   save: { ability: "dex", halfOnSave: true },
-})
+});
 ```
 
 ## Standard core plugins
@@ -277,13 +277,13 @@ The substrate ships with a default bundle (`@vtt/standard-core`) of plugins. Eac
 
 The bar for inclusion in standard core is high: **it must be universal across tabletops, not just RPGs.** Anything specific to a genre (initiative, hit points, inventory) or a family of systems (d20 mechanics, dice pools, card draws beyond raw randomization) belongs in a layer above core.
 
-| Plugin | Bounded context | Provides |
-|---|---|---|
-| `@vtt/identity` | Identity | `Name`, `OwnedBy`, actor concepts |
-| `@vtt/permissions` | Permissions | Visibility rules, GM/player roles |
-| `@vtt/scene` | Scene | `Scene`, `Layer`, `Position`, `Token`, surfaces for token overlays |
-| `@vtt/resolution` | Resolution | `Formula`, `RollResult`, `Visibility`; dice rolls as entities |
-| `@vtt/comms` | Communication | `ChatMessage`, `Whisper`, `Channel` |
+| Plugin             | Bounded context | Provides                                                           |
+| ------------------ | --------------- | ------------------------------------------------------------------ |
+| `@vtt/identity`    | Identity        | `Name`, `OwnedBy`, actor concepts                                  |
+| `@vtt/permissions` | Permissions     | Visibility rules, GM/player roles                                  |
+| `@vtt/scene`       | Scene           | `Scene`, `Layer`, `Position`, `Token`, surfaces for token overlays |
+| `@vtt/resolution`  | Resolution      | `Formula`, `RollResult`, `Visibility`; dice rolls as entities      |
+| `@vtt/comms`       | Communication   | `ChatMessage`, `Whisper`, `Channel`                                |
 
 Notably **not** in standard core:
 
@@ -292,7 +292,7 @@ Notably **not** in standard core:
 - **Hit points, conditions, status effects, ability scores.** All game-system concerns.
 - **Encounters as a structured concept.** Even "what is an encounter" is system-specific.
 
-Between standard core and game systems sits a **shared-mechanics tier** of plugins that capture mechanics common to *families* of systems. They have no privileged status — they're just plugins that depend on standard core and are depended on by multiple game systems.
+Between standard core and game systems sits a **shared-mechanics tier** of plugins that capture mechanics common to _families_ of systems. They have no privileged status — they're just plugins that depend on standard core and are depended on by multiple game systems.
 
 ```
                        ┌──────────────────┐
@@ -394,16 +394,16 @@ No locks, no transactions, no consensus protocol. Just CAS plus event replay.
 
 Optimistic prediction is a UX comfort layer; the default is **don't predict**.
 
-| Command | Predict? | Why |
-|---|---|---|
-| `MoveToken` (drag end) | yes | Deterministic, snappy UX matters |
-| `SendChatMessage` | yes | Local echo is universally expected |
-| `EndTurn` | yes | No randomness, predictable advancement |
-| `OpenContainer` (UI-only) | yes | Cheap, local, easily reverted |
-| `RollDice` (raw) | no | Randomness lives on server |
-| `CastSpell` | no | GM-private info, dice, cascading effects |
-| `AttackRoll` | no | Same |
-| `ApplyCondition` | usually no | May depend on resistances client can't see |
+| Command                   | Predict?   | Why                                        |
+| ------------------------- | ---------- | ------------------------------------------ |
+| `MoveToken` (drag end)    | yes        | Deterministic, snappy UX matters           |
+| `SendChatMessage`         | yes        | Local echo is universally expected         |
+| `EndTurn`                 | yes        | No randomness, predictable advancement     |
+| `OpenContainer` (UI-only) | yes        | Cheap, local, easily reverted              |
+| `RollDice` (raw)          | no         | Randomness lives on server                 |
+| `CastSpell`               | no         | GM-private info, dice, cascading effects   |
+| `AttackRoll`              | no         | Same                                       |
+| `ApplyCondition`          | usually no | May depend on resistances client can't see |
 
 A 50–150ms wait for server confirmation is fine for almost anything that involves a die. The dramatic beat of "I cast fireball → brief pause → roar of dice → damage numbers floating up" is good UX, not bad.
 
@@ -413,7 +413,7 @@ Token drag, cursor position, "X is typing" — high-frequency ephemeral state �
 
 - Throttled position updates broadcast to all clients
 - Other clients render these as ghost overlays, not authoritative state
-- On drag-end, the dragging client fires *one* `MoveToken` command with CAS
+- On drag-end, the dragging client fires _one_ `MoveToken` command with CAS
 - If CAS fails (someone else moved the token first), the ghost snaps back
 
 In ECS terms: presence state is **never event-sourced**. It lives as ephemeral traits in client memory only. A `BeingDragged{by, ghostX, ghostY}` trait is a different kind of trait than `Position` — different store, different rules, no conflation.
@@ -425,7 +425,7 @@ Because the canonical state is an event log, reconnection is mechanical. The imp
 The client side of this lives in `substrate/src/connection.ts` — a reconnecting socket wrapper owned by `startClient`:
 
 - **Auto-reconnect** with jittered exponential backoff on any close/error.
-- **Resume triggers** (`visibilitychange`, `pageshow`, `online`, `focus`) force an immediate redial when a suspended tab comes back with a dead socket — Safari kills background-tab sockets aggressively and often *without firing a close event*.
+- **Resume triggers** (`visibilitychange`, `pageshow`, `online`, `focus`) force an immediate redial when a suspended tab comes back with a dead socket — Safari kills background-tab sockets aggressively and often _without firing a close event_.
 - **Zombie watchdog**: an app-level `{kind:"ping"}` → `{kind:"pong"}` wire pair (the ws-protocol-level heartbeat is answered by the browser's network stack, invisibly to page JS). A socket that claims OPEN but has received nothing for the staleness window is forcibly recycled.
 - **Fail-fast dispatch**: while disconnected, `dispatch` resolves its ack `{ok:false, reason:"disconnected"}` immediately — commands are never queued for replay, because a command issued against a pre-disconnect world could act on state that moved during the gap. Presence publishes are dropped silently (ephemeral by design).
 - The shell shows a banner (`ConnectionBanner` in `@vtt/client`) for the reconnecting/resyncing states so a dropped socket is never invisible to the player.
@@ -441,14 +441,14 @@ A deployment is **one process hosting many independent worlds**. Each world is a
 There are two DDD aggregates at play, at different levels:
 
 - **`World`** — one live game session. ECS internally (entities, traits, events, commands, systems). Every game-mechanics concern lives here.
-- **`Worlds`** — substrate-level aggregate over the *set* of worlds the deployment hosts. Persists as two SQLite tables: `world` (id, name, gameSystemPlugin, ownerUserId, createdAt, archivedAt) and `world_membership` (worldId, userId, role). Owns the questions "which worlds exist?" and "who can connect to which?"
+- **`Worlds`** — substrate-level aggregate over the _set_ of worlds the deployment hosts. Persists as two SQLite tables: `world` (id, name, gameSystemPlugin, ownerUserId, createdAt, archivedAt) and `world_membership` (worldId, userId, role). Owns the questions "which worlds exist?" and "who can connect to which?"
 
 The split is the cleanest way to keep the in-world rules-engine code uncontaminated by tenancy concerns. A plugin's command never asks "does this world exist" or "is this user allowed in this world" — by the time the command reaches the pipeline, the substrate has already validated both at WS upgrade.
 
 ### Roles, memberships, and the "global GM"
 
 - **User accounts are global.** One sign-in, one `userId`. Lives in the better-auth `user` table.
-- **The first signup becomes the global GM.** Subsequent signups are players. The `role` column on the `user` row is `gm` or `player` — a *capability* flag (only the GM may create worlds), not a per-world role.
+- **The first signup becomes the global GM.** Subsequent signups are players. The `role` column on the `user` row is `gm` or `player` — a _capability_ flag (only the GM may create worlds), not a per-world role.
 - **Permissions are per-world.** Membership rows `(worldId, userId, role)` grant a global user access to a specific world. The owner of a world is implicitly its GM and does not need a membership row.
 - **Per-world session.** When a WS connection opens, the substrate looks up the user's membership for the target worldId and synthesizes a per-world session: `{ userId, email, name, role: <per-world role> }`. Plugin code reads `session.role` and gets per-world semantics — no plugin needs to know about the global capability flag.
 
@@ -473,7 +473,7 @@ export const systemSimple = definePlugin({
   version: "0.1.0",
   dependsOn: ["@vtt/substrate@^0", "@vtt/characters@^0", "@vtt/dice-tray@^0"],
   gameSystem: true,
-})
+});
 ```
 
 The substrate splits the universe of compiled-in plugins two ways:
@@ -494,11 +494,12 @@ Result: a world running `@vtt/system-simple` loads dice-tray + characters; a hyp
 ```
 
 Each runtime owns:
-- its own filtered `Registry` (loaded plugins for *that world's* game system)
+
+- its own filtered `Registry` (loaded plugins for _that world's_ game system)
 - its own `World` (entity/trait state)
 - its own `EventBus` (broadcast scope)
 - its own `CommandPipeline` (its own seq counter)
-- its own snapshot cadence (every N durable events for *that* world)
+- its own snapshot cadence (every N durable events for _that_ world)
 
 Cross-world isolation is verified by the substrate's `multi-world-smoke` integration test: two clients connect to two worlds, each dispatches a command, and the assertion is that neither world ever sees the other's events.
 
@@ -578,56 +579,62 @@ A view declares the surface it fills, the trait set it requires, and a Solid com
 ```tsx
 // @vtt/simple-d100/client/views/HealthBar.tsx
 export const HealthBarView = defineView({
-  surface:  "token-overlay",
+  surface: "token-overlay",
   requires: [Health],
   render: ({ entityId }) => {
-    const health = useTrait(entityId, Health)              // Solid signal
+    const health = useTrait(entityId, Health); // Solid signal
     return (
       <div class="health-bar">
         <div class="fill" style={{ width: `${(health().current / health().max) * 100}%` }} />
-        <span>{health().current} / {health().max}</span>
+        <span>
+          {health().current} / {health().max}
+        </span>
       </div>
-    )
+    );
   },
-})
+});
 ```
 
 ```tsx
 export const AttackButtonView = defineView({
-  surface:  "token-action-bar",
+  surface: "token-action-bar",
   requires: [Combatant, Health],
   render: ({ entityId }) => {
-    const target   = useSelectedTarget()
-    const dispatch = useDispatch()
-    const myTurn   = useIsMyTurn(entityId)
+    const target = useSelectedTarget();
+    const dispatch = useDispatch();
+    const myTurn = useIsMyTurn(entityId);
     return (
       <button
         disabled={!target() || !myTurn()}
-        onClick={() => dispatch(DeclareAttack({
-          attackerId: entityId,
-          targetId:   target()!.id,
-        }))}
+        onClick={() =>
+          dispatch(
+            DeclareAttack({
+              attackerId: entityId,
+              targetId: target()!.id,
+            }),
+          )
+        }
       >
         Attack
       </button>
-    )
+    );
   },
-})
+});
 ```
 
 ### Surfaces are extension points
 
 A plugin declares the surfaces it offers. Other plugins fill them. Multiple views may register against the same surface; the registry orders them by declared priority and renders the stack.
 
-| Surface | Declared by | Purpose |
-|---|---|---|
-| `token-overlay` | `@vtt/scene` | Stacked above each token (HP bars, status icons) |
-| `token-action-bar` | `@vtt/scene` | Buttons available when a token is selected |
-| `side-panel` | app shell | Right-rail components (initiative tracker, chat) |
-| `chat-stream` | `@vtt/comms` | Per-message renderers for chat entries |
-| `bottom-bar` | app shell | Persistent bottom UI (dice tray) |
-| `sheet:header` / `sheet:stats` / `sheet:actions` | `@vtt/scene` (sheet host) | Slots within a character sheet |
-| `floating` | app shell | Transient overlays (round banners, animations) |
+| Surface                                          | Declared by               | Purpose                                          |
+| ------------------------------------------------ | ------------------------- | ------------------------------------------------ |
+| `token-overlay`                                  | `@vtt/scene`              | Stacked above each token (HP bars, status icons) |
+| `token-action-bar`                               | `@vtt/scene`              | Buttons available when a token is selected       |
+| `side-panel`                                     | app shell                 | Right-rail components (initiative tracker, chat) |
+| `chat-stream`                                    | `@vtt/comms`              | Per-message renderers for chat entries           |
+| `bottom-bar`                                     | app shell                 | Persistent bottom UI (dice tray)                 |
+| `sheet:header` / `sheet:stats` / `sheet:actions` | `@vtt/scene` (sheet host) | Slots within a character sheet                   |
+| `floating`                                       | app shell                 | Transient overlays (round banners, animations)   |
 
 A FATE plugin that wants a horizontal initiative track replaces the `InitiativeTrackerView` registered against `side-panel`. Same data, different presentation.
 
@@ -751,9 +758,9 @@ For convenience, the framework offers sugar over the entity flow:
 
 ```ts
 const [a, d] = await ctx.roll([
-  { formula: "1d100", reason: "attack",  actor: attackerId, target: targetId },
+  { formula: "1d100", reason: "attack", actor: attackerId, target: targetId },
   { formula: "1d100", reason: "defense", actor: targetId },
-])
+]);
 ```
 
 Under the hood it spawns the entities, awaits their `RollResolved` events, returns the results.
@@ -838,9 +845,9 @@ Events declare visibility hints. The substrate filters per recipient before broa
 
 ```ts
 SaveResolved({
-  publicData:  { saved: true },
-  privateData: { rollTotal: 17, dc: 14, modifier: +3 },   // → only delivered to GM client
-})
+  publicData: { saved: true },
+  privateData: { rollTotal: 17, dc: 14, modifier: +3 }, // → only delivered to GM client
+});
 ```
 
 Players see "the orc saved." The GM sees the actual numbers. Plugins emit events with visibility metadata; the substrate enforces partitioning. This is hard to get right in a client-runs-everything architecture; trivial in this one.
@@ -878,7 +885,7 @@ The substrate provides a `PersistenceAdapter` interface (event log + snapshots) 
 - **Multi-master replication / CRDTs.** Server-authoritative is sufficient for VTT use cases. CRDTs add complexity that doesn't pay back here.
 - **Sandboxing untrusted plugin code.** Plugins are reviewed and accepted by the GM before installation. The substrate does not attempt to sandbox arbitrary plugin code at runtime.
 - **A spell-description DSL.** Plugins are TypeScript. There is no separate language for content.
-- **Cross-region distribution.** Each *deployment* is one process; that one process hosts many worlds (see "Worlds and tenancy"), but worlds don't span processes. Sticky sessions at the load balancer if you front it with one. Multi-region is a different conversation if it ever happens.
+- **Cross-region distribution.** Each _deployment_ is one process; that one process hosts many worlds (see "Worlds and tenancy"), but worlds don't span processes. Sticky sessions at the load balancer if you front it with one. Multi-region is a different conversation if it ever happens.
 - **Cross-world chat / DMs / global lobby.** Comms, presence, scene, characters, dice — everything is keyed by `worldId`. A "global lobby across worlds" would be a future plugin, not a relaxation of the per-world isolation.
 - **Mid-session world swap.** Switching worlds is a full reconnect. We don't tear down and rebuild the substrate's client on the same page; the page reloads with `?worldId=`.
 - **Backwards compatibility across substrate major versions.** Plugins are expected to follow substrate semver. Hot-loading does not paper over schema drift.

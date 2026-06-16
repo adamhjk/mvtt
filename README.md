@@ -2,9 +2,9 @@
 
 mvtt is a self hosted virtual tabletop, distributed as free software. It's designed to be:
 
-* Easy to use for players and GMs - it's flexible enough to support many different game systems, but uses the same fundamental design language, so that if you learn how to play one game on mvtt, you know how to play others.
-* Easy to extend with an AI Agent. Almost everything in mvtt is a plugin, and mvtt ships with skills that teach agents how to create new game systems, or extend existing features. 
-* Free and open source.
+- Easy to use for players and GMs - it's flexible enough to support many different game systems, but uses the same fundamental design language, so that if you learn how to play one game on mvtt, you know how to play others.
+- Easy to extend with an AI Agent. Almost everything in mvtt is a plugin, and mvtt ships with skills that teach agents how to create new game systems, or extend existing features.
+- Free and open source.
 
 ## Status
 
@@ -179,7 +179,7 @@ mvtt is free software, licensed under the **GNU Affero General Public License, v
 In plain language, the AGPL means:
 
 - You can run mvtt for any purpose, study how it works, modify it, and share it.
-- If you distribute mvtt — *or run a modified version of it as a network service that other people interact with* — you must make the corresponding source code (including your modifications) available to those users under the same AGPLv3 terms.
+- If you distribute mvtt — _or run a modified version of it as a network service that other people interact with_ — you must make the corresponding source code (including your modifications) available to those users under the same AGPLv3 terms.
 - There is no warranty. mvtt is alpha software; see the Status section.
 
 ### Icons
@@ -189,4 +189,3 @@ The icons under [`assets/icons/`](./assets/icons) are **not** covered by the AGP
 ## Contributions
 
 mvtt is closed to contributions, but open to your ideas and issues. We will implement them with an agent under our control - in this era, it is impossible to safely review and accept external contributions.
-

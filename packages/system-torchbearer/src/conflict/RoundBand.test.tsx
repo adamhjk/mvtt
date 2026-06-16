@@ -17,10 +17,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, screen } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { definePlugin, type EntityId } from "@vtt/substrate";
 import { permissions } from "@vtt/permissions";
 import { Permissions, actors } from "@vtt/permissions/shared";
@@ -53,10 +50,10 @@ interface Setup {
   enemyChar: EntityId;
 }
 
-function makeHarness(opts: {
-  heroSlot0Filled?: boolean;
-  heroSlot0Revealed?: boolean;
-}): { harness: ReturnType<typeof buildTestClient>; setup: Setup } {
+function makeHarness(opts: { heroSlot0Filled?: boolean; heroSlot0Revealed?: boolean }): {
+  harness: ReturnType<typeof buildTestClient>;
+  setup: Setup;
+} {
   let captured: Setup | null = null;
   const h = buildTestClient({
     plugins: [permissions, conflictTestPlugin],
@@ -83,7 +80,11 @@ function makeHarness(opts: {
           revealIndex: 0,
           dispoParty: { current: 6, max: 8 },
           dispoEnemy: { current: 4, max: 7 },
-          winner: null, endedAt: null, partyLocked: false, enemyLocked: false, revealedSlots: [null, null, null] as const,
+          winner: null,
+          endedAt: null,
+          partyLocked: false,
+          enemyLocked: false,
+          revealedSlots: [null, null, null] as const,
         }),
       ]);
       const partyParticipantId = world.spawn([
@@ -136,11 +137,7 @@ function makeHarness(opts: {
           conflictId,
           side: "enemy",
           locked: false,
-          slots: [
-            { status: "empty" },
-            { status: "empty" },
-            { status: "empty" },
-          ],
+          slots: [{ status: "empty" }, { status: "empty" }, { status: "empty" }],
         }),
       ]);
       captured = { conflictId, partyChar, enemyChar };
@@ -173,7 +170,11 @@ describe("<RoundBand>", () => {
           revealIndex: 0,
           dispoParty: { current: 6, max: 8 },
           dispoEnemy: { current: 4, max: 7 },
-          winner: null, endedAt: null, partyLocked: false, enemyLocked: false, revealedSlots: [null, null, null] as const,
+          winner: null,
+          endedAt: null,
+          partyLocked: false,
+          enemyLocked: false,
+          revealedSlots: [null, null, null] as const,
         }}
         viewerSide="party"
       />
@@ -196,7 +197,11 @@ describe("<RoundBand>", () => {
           revealIndex: 0,
           dispoParty: { current: 6, max: 8 },
           dispoEnemy: { current: 4, max: 7 },
-          winner: null, endedAt: null, partyLocked: false, enemyLocked: false, revealedSlots: [null, null, null] as const,
+          winner: null,
+          endedAt: null,
+          partyLocked: false,
+          enemyLocked: false,
+          revealedSlots: [null, null, null] as const,
         }}
         viewerSide="party"
       />
@@ -221,7 +226,11 @@ describe("<RoundBand>", () => {
           revealIndex: 0,
           dispoParty: { current: 6, max: 8 },
           dispoEnemy: { current: 4, max: 7 },
-          winner: null, endedAt: null, partyLocked: false, enemyLocked: false, revealedSlots: [null, null, null] as const,
+          winner: null,
+          endedAt: null,
+          partyLocked: false,
+          enemyLocked: false,
+          revealedSlots: [null, null, null] as const,
         }}
         viewerSide="party"
       />
@@ -237,17 +246,15 @@ describe("<TopStripe>", () => {
     // The harness's TbConflict trait is set to round=1 by makeHarness;
     // tweak it here so the test reads round 2.
     harness.world.set(setup.conflictId, TbConflict, {
-      ...((harness.world.get(setup.conflictId, [TbConflict]) as {
-        TbConflict: ReturnType<typeof TbConflict>["value"];
-      }).TbConflict),
+      ...(
+        harness.world.get(setup.conflictId, [TbConflict]) as {
+          TbConflict: ReturnType<typeof TbConflict>["value"];
+        }
+      ).TbConflict,
       round: 2,
     });
-    mountWithClient(harness, () => (
-      <TopStripe conflictId={setup.conflictId} />
-    ));
-    expect(
-      screen.getByTestId("conflict-round-counter").textContent,
-    ).toContain("round 2");
+    mountWithClient(harness, () => <TopStripe conflictId={setup.conflictId} />);
+    expect(screen.getByTestId("conflict-round-counter").textContent).toContain("round 2");
   });
 });
 
@@ -288,16 +295,14 @@ describe("<ActionMatrix>", () => {
     //   Feint        —      I      V     I
     //   Maneuver     V      V      I     I
     const expected: Record<string, Record<string, string>> = {
-      attack:   { attack: "I", defend: "V", feint: "I", maneuver: "V" },
-      defend:   { attack: "V", defend: "I", feint: "—", maneuver: "V" },
-      feint:    { attack: "—", defend: "I", feint: "V", maneuver: "I" },
+      attack: { attack: "I", defend: "V", feint: "I", maneuver: "V" },
+      defend: { attack: "V", defend: "I", feint: "—", maneuver: "V" },
+      feint: { attack: "—", defend: "I", feint: "V", maneuver: "I" },
       maneuver: { attack: "V", defend: "V", feint: "I", maneuver: "I" },
     };
     for (const r of Object.keys(expected)) {
       for (const c of Object.keys(expected[r]!)) {
-        expect(screen.getByTestId(`matrix-cell-${r}-${c}`).textContent).toBe(
-          expected[r]![c]!,
-        );
+        expect(screen.getByTestId(`matrix-cell-${r}-${c}`).textContent).toBe(expected[r]![c]!);
       }
     }
   });

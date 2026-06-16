@@ -146,11 +146,7 @@ describe("topological sort", () => {
         events: [SaveBonusesChanged, SkillBonusesChanged, PassivePerceptionChanged],
         // Register PassivePerception (depends on SkillBonuses) BEFORE
         // SkillBonuses, to prove sort doesn't rely on registration order.
-        derivations: [
-          PassivePerceptionDerivation,
-          SaveBonusesDerivation,
-          SkillBonusesDerivation,
-        ],
+        derivations: [PassivePerceptionDerivation, SaveBonusesDerivation, SkillBonusesDerivation],
       }),
     ]);
     const order = r.derivations.map((d) => d.name);
@@ -165,8 +161,14 @@ describe("topological sort", () => {
   it("rejects a cycle at validate time with a descriptive message", () => {
     const A = defineTrait({ name: "@test/cycle/A", schema: z.number() });
     const B = defineTrait({ name: "@test/cycle/B", schema: z.number() });
-    const Achanged = defineEvent({ name: "@test/cycle/Achanged", schema: z.object({ entityId: z.string(), value: z.number() }) });
-    const Bchanged = defineEvent({ name: "@test/cycle/Bchanged", schema: z.object({ entityId: z.string(), value: z.number() }) });
+    const Achanged = defineEvent({
+      name: "@test/cycle/Achanged",
+      schema: z.object({ entityId: z.string(), value: z.number() }),
+    });
+    const Bchanged = defineEvent({
+      name: "@test/cycle/Bchanged",
+      schema: z.object({ entityId: z.string(), value: z.number() }),
+    });
     const dA = defineDerivation({
       name: "@test/cycle/derive-A",
       inputs: [B] as const,
@@ -218,7 +220,10 @@ describe("topological sort", () => {
   it("rejects a derivation whose input trait is undeclared by any plugin", () => {
     const Undeclared = defineTrait({ name: "@test/missing/Undeclared", schema: z.number() });
     const Out = defineTrait({ name: "@test/missing/Out", schema: z.number() });
-    const Outchanged = defineEvent({ name: "@test/missing/Outchanged", schema: z.object({ entityId: z.string(), value: z.number() }) });
+    const Outchanged = defineEvent({
+      name: "@test/missing/Outchanged",
+      schema: z.object({ entityId: z.string(), value: z.number() }),
+    });
     const d = defineDerivation({
       name: "@test/missing/d",
       inputs: [Undeclared] as const,
@@ -249,11 +254,7 @@ describe("derivation runtime", () => {
         version: "0.0.0",
         traits: [Abilities, Proficiency, SaveBonuses, SkillBonuses, PassivePerception],
         events: [SaveBonusesChanged, SkillBonusesChanged, PassivePerceptionChanged],
-        derivations: [
-          SaveBonusesDerivation,
-          SkillBonusesDerivation,
-          PassivePerceptionDerivation,
-        ],
+        derivations: [SaveBonusesDerivation, SkillBonusesDerivation, PassivePerceptionDerivation],
       }),
     );
     r.validate();
@@ -313,12 +314,16 @@ describe("derivation runtime", () => {
     return result.then((r) => {
       expect(r.result.ok).toBe(true);
       const entityId = world.query([Abilities])[0]!.id;
-      const got = world.get(entityId, [SaveBonuses]) as { SaveBonuses: { str: number; dex: number } } | undefined;
+      const got = world.get(entityId, [SaveBonuses]) as
+        | { SaveBonuses: { str: number; dex: number } }
+        | undefined;
       expect(got).toBeDefined();
       // mod(16) = +3, prof = 2 → save +5. mod(14) = +2 → +4.
       expect(got!.SaveBonuses).toEqual({ str: 5, dex: 4 });
       // Cascading derivation: Skill → PassivePerception
-      const pp = world.get(entityId, [PassivePerception]) as { PassivePerception: number } | undefined;
+      const pp = world.get(entityId, [PassivePerception]) as
+        | { PassivePerception: number }
+        | undefined;
       // SkillBonus.athletics = +3 + 2 = 5; PP = 10 + 5 = 15
       expect(pp!.PassivePerception).toBe(15);
       // Both *Changed events appeared in the broadcast.
@@ -340,7 +345,9 @@ describe("derivation runtime", () => {
       validate: () => ok(),
       apply: ({ cmd, world }) => {
         // Re-write the same Abilities value — should not change SaveBonuses output.
-        const cur = world.get(cmd.entityId, [Abilities]) as { Abilities: { str: number; dex: number } };
+        const cur = world.get(cmd.entityId, [Abilities]) as {
+          Abilities: { str: number; dex: number };
+        };
         world.set(cmd.entityId, Abilities, cur.Abilities);
         return [];
       },
@@ -388,7 +395,9 @@ describe("derivation runtime", () => {
       cmd: Spawn({}),
     });
     const id = world.query([Abilities])[0]!.id;
-    const got = world.get(id, [SaveBonuses]) as { SaveBonuses: { str: number; dex: number } } | undefined;
+    const got = world.get(id, [SaveBonuses]) as
+      | { SaveBonuses: { str: number; dex: number } }
+      | undefined;
     expect(got).toBeDefined();
     // Default proficiency = 2.
     expect(got!.SaveBonuses).toEqual({ str: 5, dex: 4 });
@@ -465,13 +474,20 @@ describe("derivation runtime", () => {
       schema: z.object({ entityId: z.string() }),
       validate: () => ok(),
       apply: ({ cmd, world }) => {
-        const cur = world.get(cmd.entityId, [Abilities]) as { Abilities: { str: number; dex: number } };
+        const cur = world.get(cmd.entityId, [Abilities]) as {
+          Abilities: { str: number; dex: number };
+        };
         world.set(cmd.entityId, Abilities, cur.Abilities);
         return [];
       },
     });
     registry.commands.set(Touch.name, Touch);
-    await pipeline.dispatch({ id: "c0", issuedBy: "u1", issuedAt: 0, cmd: Touch({ entityId: id }) });
+    await pipeline.dispatch({
+      id: "c0",
+      issuedBy: "u1",
+      issuedAt: 0,
+      cmd: Touch({ entityId: id }),
+    });
     let pp = world.get(id, [PassivePerception]) as { PassivePerception: number };
     expect(pp.PassivePerception).toBe(12); // mod(10)+2=2; PP=12
 
@@ -486,7 +502,12 @@ describe("derivation runtime", () => {
       },
     });
     registry.commands.set(Bump.name, Bump);
-    const r = await pipeline.dispatch({ id: "c1", issuedBy: "u1", issuedAt: 0, cmd: Bump({ entityId: id }) });
+    const r = await pipeline.dispatch({
+      id: "c1",
+      issuedBy: "u1",
+      issuedAt: 0,
+      cmd: Bump({ entityId: id }),
+    });
     pp = world.get(id, [PassivePerception]) as { PassivePerception: number };
     // mod(18)=4 + prof 2 = 6; PP = 16
     expect(pp.PassivePerception).toBe(16);

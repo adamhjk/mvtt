@@ -179,7 +179,6 @@ export const SpellCastConsumeLogged = defineEvent({
   }),
 });
 
-
 /* -------------------------------------------------------------------------
  * Catalog provenance — fork-on-customize, parallels ItemForked
  * ----------------------------------------------------------------------- */
@@ -230,12 +229,7 @@ export const SpellFieldEdited = defineEvent({
   name: "@vtt/system-torchbearer/SpellFieldEdited",
   schema: z.object({
     spellId: EntityId,
-    trait: z.enum([
-      "SpellIdentity",
-      "TbSpellCasting",
-      "TbSpellLearning",
-      "TbSpellHomebrewProse",
-    ]),
+    trait: z.enum(["SpellIdentity", "TbSpellCasting", "TbSpellLearning", "TbSpellHomebrewProse"]),
     path: z.array(z.string().min(1).max(60)),
     value: z.unknown(),
   }),

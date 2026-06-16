@@ -128,9 +128,7 @@ function ensureCatalogIndex(world: World, pluginName: string): string {
     const v = row.values.ItemCatalogIndex as { pluginName: string };
     if (v.pluginName === pluginName) return row.id;
   }
-  return world.spawn([
-    ItemCatalogIndex({ pluginName, entries: {} }),
-  ]);
+  return world.spawn([ItemCatalogIndex({ pluginName, entries: {} })]);
 }
 
 function spawnTemplateEntity(args: {
@@ -189,10 +187,7 @@ function mergeTemplateInto(args: {
         `catalog template ${templateId}: unknown trait ${shortName} during merge (plugin ${pluginName})`,
       );
     }
-    const parsedTemplate = def.schema.parse(templateValue) as Record<
-      string,
-      unknown
-    >;
+    const parsedTemplate = def.schema.parse(templateValue) as Record<string, unknown>;
     const currentGet = world.get(itemId as never, [def]);
     if (!currentGet) {
       // Trait is on the template but missing from the entity — adopt
@@ -201,10 +196,7 @@ function mergeTemplateInto(args: {
       world.set(itemId as never, def, parsedTemplate);
       continue;
     }
-    const current = (currentGet as Record<string, unknown>)[shortName] as Record<
-      string,
-      unknown
-    >;
+    const current = (currentGet as Record<string, unknown>)[shortName] as Record<string, unknown>;
     const merged = mergeOneTrait({
       shortName,
       current,

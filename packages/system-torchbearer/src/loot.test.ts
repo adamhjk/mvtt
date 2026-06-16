@@ -16,25 +16,21 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  CommandPipeline,
-  definePlugin,
-  EntityId,
-  EventBus,
-  Registry,
-  World,
-} from "@vtt/substrate";
+import { CommandPipeline, definePlugin, EntityId, EventBus, Registry, World } from "@vtt/substrate";
 import { adventures } from "@vtt/adventures";
-import {
-  BlockKindsSlot,
-  buildBlockKindIndex,
-  LootParcel,
-} from "@vtt/adventures/shared";
+import { BlockKindsSlot, buildBlockKindIndex, LootParcel } from "@vtt/adventures/shared";
 import { runBlockParse, blockEntityId } from "@vtt/adventures/server";
 import { permissions as permissionsPlugin } from "@vtt/permissions";
 import { items } from "@vtt/items";
 import { Character } from "@vtt/characters/shared";
-import { Page, BelongsToNote, PageBodySet, MarkdownPostRenderSlot, EditorCompletionSourcesSlot, NotesReferenceSlot } from "@vtt/notes/shared";
+import {
+  Page,
+  BelongsToNote,
+  PageBodySet,
+  MarkdownPostRenderSlot,
+  EditorCompletionSourcesSlot,
+  NotesReferenceSlot,
+} from "@vtt/notes/shared";
 import {
   TbCarries,
   TbItemSlotOptions,
@@ -51,11 +47,7 @@ import {
   LootPlacementSystem,
   PlaceLootInScene,
 } from "./shared/loot-commands.js";
-import {
-  ItemDerivedFrom,
-  ItemEconomics,
-  ItemIdentity,
-} from "@vtt/items/shared";
+import { ItemDerivedFrom, ItemEconomics, ItemIdentity } from "@vtt/items/shared";
 import { ItemPosition } from "./shared/items/item-traits.js";
 
 const notesStub = definePlugin({
@@ -75,11 +67,7 @@ const charactersStub = definePlugin({
 const tbLootTestPlugin = definePlugin({
   name: "@vtt/system-torchbearer-loot-test",
   version: "0",
-  dependsOn: [
-    "@vtt/permissions@^0",
-    "@vtt/items@^0",
-    "@vtt/adventures@^0",
-  ],
+  dependsOn: ["@vtt/permissions@^0", "@vtt/items@^0", "@vtt/adventures@^0"],
   traits: [
     TbItemSlotOptions,
     TbWeapon,
@@ -134,10 +122,7 @@ describe("TB loot block kind", () => {
     registry = s.registry;
     world = s.world;
     const noteId = world.spawn([]);
-    pageId = world.spawn([
-      Page({ title: "p", body: "", bodyRev: 0 }),
-      BelongsToNote({ noteId }),
-    ]);
+    pageId = world.spawn([Page({ title: "p", body: "", bodyRev: 0 }), BelongsToNote({ noteId })]);
   });
 
   function parse(body: string) {
@@ -194,10 +179,7 @@ describe("AwardLoot", () => {
     world = s.world;
     pipeline = s.pipeline;
     const noteId = world.spawn([]);
-    pageId = world.spawn([
-      Page({ title: "p", body: "", bodyRev: 0 }),
-      BelongsToNote({ noteId }),
-    ]);
+    pageId = world.spawn([Page({ title: "p", body: "", bodyRev: 0 }), BelongsToNote({ noteId })]);
   });
 
   function parse(body: string) {
@@ -285,21 +267,11 @@ describe("AwardLoot", () => {
       | { TbCarries: { entries: Array<{ slot: string }> } }
       | undefined;
     expect(carries!.TbCarries.entries).toHaveLength(2);
-    expect(carries!.TbCarries.entries.map((e) => e.slot)).toEqual([
-      "loose:0",
-      "loose:1",
-    ]);
+    expect(carries!.TbCarries.entries.map((e) => e.slot)).toEqual(["loose:0", "loose:1"]);
   });
 
   it("missing items are reported in the LootAwarded event without crashing", async () => {
-    parse(
-      [
-        "```loot Mystery",
-        "items:",
-        "  - item:Nonexistent",
-        "```",
-      ].join("\n"),
-    );
+    parse(["```loot Mystery", "items:", "  - item:Nonexistent", "```"].join("\n"));
     const holderId = world.spawn([Character({ name: "Carol" })]);
     const parcelId = blockEntityId(pageId, "mystery");
     const res = await dispatch(AwardLoot({ parcelId, holderId }));
@@ -345,10 +317,7 @@ describe("loot widget action: 'Place on ground'", () => {
     registry = s.registry;
     world = s.world;
     const noteId = world.spawn([]);
-    pageId = world.spawn([
-      Page({ title: "p", body: "", bodyRev: 0 }),
-      BelongsToNote({ noteId }),
-    ]);
+    pageId = world.spawn([Page({ title: "p", body: "", bodyRev: 0 }), BelongsToNote({ noteId })]);
   });
 
   function parse(body: string) {
@@ -394,7 +363,10 @@ describe("loot widget action: 'Place on ground'", () => {
       },
     });
     expect(dispatched).toHaveLength(1);
-    const cmd = dispatched[0] as { type: string; payload: { parcelId: EntityId; sceneId: EntityId; x: number; y: number } };
+    const cmd = dispatched[0] as {
+      type: string;
+      payload: { parcelId: EntityId; sceneId: EntityId; x: number; y: number };
+    };
     expect(cmd.type).toBe(PlaceLootInScene.name);
     expect(cmd.payload.parcelId).toBe(parcelId);
     expect(cmd.payload.sceneId).toBe(sceneId);
@@ -431,10 +403,7 @@ describe("PlaceLootInScene", () => {
     world = s.world;
     pipeline = s.pipeline;
     const noteId = world.spawn([]);
-    pageId = world.spawn([
-      Page({ title: "p", body: "", bodyRev: 0 }),
-      BelongsToNote({ noteId }),
-    ]);
+    pageId = world.spawn([Page({ title: "p", body: "", bodyRev: 0 }), BelongsToNote({ noteId })]);
   });
 
   function parse(body: string) {
@@ -470,9 +439,7 @@ describe("PlaceLootInScene", () => {
     const parcelId = blockEntityId(pageId, "treasure-pile");
     const sourceItemId = blockEntityId(pageId, "gold-idol");
     const beforeCount = world.query([ItemPosition]).length;
-    const res = await dispatch(
-      PlaceLootInScene({ parcelId, sceneId, x: 100, y: 200 }),
-    );
+    const res = await dispatch(PlaceLootInScene({ parcelId, sceneId, x: 100, y: 200 }));
     expect(res.result.ok).toBe(true);
     // The 2× translates to 1 placement entry per quantity unit? No —
     // v1 collapses each parcel item into one placement (quantity is
@@ -513,9 +480,7 @@ describe("PlaceLootInScene", () => {
     const sceneId = world.spawn([]);
     const parcelId = blockEntityId(pageId, "k");
     const sourceItemId = blockEntityId(pageId, "knife");
-    const res = await dispatch(
-      PlaceLootInScene({ parcelId, sceneId, x: 0, y: 0 }),
-    );
+    const res = await dispatch(PlaceLootInScene({ parcelId, sceneId, x: 0, y: 0 }));
     expect(res.result.ok).toBe(true);
     const placed = world.query([ItemPosition])[0]!;
     const derived = world.get(placed.id, [ItemDerivedFrom]) as
@@ -532,19 +497,10 @@ describe("PlaceLootInScene", () => {
   });
 
   it("missing items don't crash and are reported in the event", async () => {
-    parse(
-      [
-        "```loot Mystery",
-        "items:",
-        "  - item:Nothing",
-        "```",
-      ].join("\n"),
-    );
+    parse(["```loot Mystery", "items:", "  - item:Nothing", "```"].join("\n"));
     const sceneId = world.spawn([]);
     const parcelId = blockEntityId(pageId, "mystery");
-    const res = await dispatch(
-      PlaceLootInScene({ parcelId, sceneId, x: 0, y: 0 }),
-    );
+    const res = await dispatch(PlaceLootInScene({ parcelId, sceneId, x: 0, y: 0 }));
     expect(res.result.ok).toBe(true);
     const event = res.events.find((e) => e.type === LootPlacedInScene.name)!;
     const payload = event.payload as {

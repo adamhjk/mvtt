@@ -17,12 +17,7 @@
 
 import { defineView, clientOnly, RootSurface } from "@vtt/substrate";
 import { Surface } from "@vtt/substrate/client";
-import {
-  HeaderSurface,
-  MainSurface,
-  SidebarSurface,
-  FooterSurface,
-} from "../shared/surfaces.js";
+import { HeaderSurface, MainSurface, SidebarSurface, FooterSurface } from "../shared/surfaces.js";
 
 export const ChromeView = defineView({
   name: "ChromeView",

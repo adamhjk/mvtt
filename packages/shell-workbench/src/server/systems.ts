@@ -25,11 +25,7 @@ import {
   type WorkspaceTree,
 } from "../shared/traits.js";
 import { tabSentinelEntityId } from "../shared/tab-sentinel.js";
-import {
-  TabShared,
-  WorkspaceBootstrapped,
-  WorkspaceStateChanged,
-} from "../shared/events.js";
+import { TabShared, WorkspaceBootstrapped, WorkspaceStateChanged } from "../shared/events.js";
 
 /**
  * The empty default workspace: one pane, one empty tab, no zen, no UI

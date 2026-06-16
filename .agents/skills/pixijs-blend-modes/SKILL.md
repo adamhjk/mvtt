@@ -130,11 +130,9 @@ sprite.blendMode = "color-burn";
 
 Advanced blend modes (color-burn, overlay, etc.) require the extension import. Without it, only standard modes (normal, add, multiply, screen) are available. The invalid mode silently falls back.
 
-
 ### [MEDIUM] Mixing blend modes across adjacent objects
 
 Different blend modes break the render batch. `screen / normal / screen / normal` produces 4 draw calls, while `screen / screen / normal / normal` produces 2. Sort children so objects with the same blend mode are adjacent.
-
 
 ### [HIGH] Using the v7 BLEND_MODES enum
 
@@ -153,7 +151,6 @@ sprite.blendMode = "add";
 ```
 
 In v8, `BLEND_MODES` is a TypeScript type only (a union of string literals). There is no runtime enum export, so `BLEND_MODES.ADD` evaluates to accessing a property on `undefined`. Use the string form.
-
 
 ### [HIGH] Advanced blend modes without useBackBuffer
 
@@ -176,7 +173,6 @@ sprite.blendMode = "color-burn";
 ```
 
 Advanced modes read from the back buffer. On WebGL, the blend silently falls back if the back buffer is not enabled. WebGPU enables the back buffer unconditionally.
-
 
 ## API Reference
 

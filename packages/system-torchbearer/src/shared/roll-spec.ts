@@ -86,11 +86,7 @@ import { z } from "@vtt/substrate";
 export const TbRollModifierKindSchema = z.enum(["dice", "success", "obstacle"]);
 export type TbRollModifierKind = z.infer<typeof TbRollModifierKindSchema>;
 
-export const TbRollModifierApplySchema = z.enum([
-  "always",
-  "on-success",
-  "on-fail",
-]);
+export const TbRollModifierApplySchema = z.enum(["always", "on-success", "on-fail"]);
 export type TbRollModifierApply = z.infer<typeof TbRollModifierApplySchema>;
 
 export const TbRollModifierSourceSchema = z.enum([
@@ -157,13 +153,7 @@ export type TbRollModifier = z.infer<typeof TbRollModifierSchema>;
  * TbRollSpec — the structured roll the panel + chat row consume
  * ----------------------------------------------------------------------- */
 
-export const TbRollKindSchema = z.enum([
-  "ability",
-  "town-ability",
-  "skill",
-  "skill-bl",
-  "versus",
-]);
+export const TbRollKindSchema = z.enum(["ability", "town-ability", "skill", "skill-bl", "versus"]);
 export type TbRollKind = z.infer<typeof TbRollKindSchema>;
 
 export const TbRollSpecSchema = z.object({
@@ -225,9 +215,7 @@ export const TbRollSpecSchema = z.object({
    * and replay tooling don't have to re-derive it on every read.
    * The notation builder uses this verbatim (`Nd6>=T`).
    */
-  successTarget: z
-    .union([z.literal(3), z.literal(4)])
-    .default(4),
+  successTarget: z.union([z.literal(3), z.literal(4)]).default(4),
 
   /**
    * The **base** obstacle declared for this test — the GM's "this
@@ -478,9 +466,7 @@ export const InvocationPerformContextSchema = z.object({
   burdenAdded: z.number().int().min(0).max(20),
 });
 
-export type InvocationPerformContext = z.infer<
-  typeof InvocationPerformContextSchema
->;
+export type InvocationPerformContext = z.infer<typeof InvocationPerformContextSchema>;
 
 export const TbRollMetaSchema = z.object({
   system: z.literal(TB_ROLL_META_SYSTEM),
@@ -630,11 +616,7 @@ export function foldBlModifiers(
  * resolution short-circuits anyway, but the wire format stays
  * well-formed.
  */
-export function buildTbNotation(
-  pool: number,
-  bonusSuccesses: number,
-  heroic: boolean,
-): string {
+export function buildTbNotation(pool: number, bonusSuccesses: number, heroic: boolean): string {
   const target = heroic ? 3 : 4;
   if (pool <= 0) {
     // Auto-fail. Bonus successes from a non-roll don't apply per

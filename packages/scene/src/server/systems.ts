@@ -15,11 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineSystem,
-  type EntityId,
-  type TraitName,
-} from "@vtt/substrate";
+import { defineSystem, type EntityId, type TraitName } from "@vtt/substrate";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import {
   CharacterTokenPlaced,
@@ -30,14 +26,7 @@ import {
   TokenMoved,
   TokenRemoved,
 } from "../shared/events.js";
-import {
-  LinkedCharacter,
-  Position,
-  Scene,
-  Sprite,
-  Token,
-  TokenImage,
-} from "../shared/traits.js";
+import { LinkedCharacter, Position, Scene, Sprite, Token, TokenImage } from "../shared/traits.js";
 
 /**
  * Universal mirror system: spawns the Scene entity on every side
@@ -155,11 +144,10 @@ export const CharacterTokenPlacementSystem = defineSystem({
     // Fall back to "everyone reads, no one writes" if the character
     // somehow lacks Permissions — a safe deny for write that lets the
     // token still render. In practice every character carries it.
-    const perm =
-      charPerm?.Permissions ?? {
-        read: { kind: "everyone" as const },
-        write: { kind: "users" as const, userIds: [] },
-      };
+    const perm = charPerm?.Permissions ?? {
+      read: { kind: "everyone" as const },
+      write: { kind: "users" as const, userIds: [] },
+    };
     const traits: Array<{ name: TraitName; value: unknown }> = [
       Token({ label: event.label, kind: "creature" }),
       Sprite({

@@ -47,7 +47,7 @@ When the skill returns chunks, **read the body carefully**, write the mechanic s
 
 - Implementing a new mechanic in a game-system plugin: search the rule first, encode second.
 - Verifying an existing implementation against the source — pull the chunk and diff in your head.
-- Disambiguating a vague mechanic name a player or tester used ("how does *fate* work?").
+- Disambiguating a vague mechanic name a player or tester used ("how does _fate_ work?").
 - Deciding chunker tuning (e.g. seeing whether headings are getting picked up correctly).
 
 ## How to use
@@ -60,13 +60,13 @@ node .claude/skills/rules-lookup/query.mjs <query> [options]
 
 ### Options
 
-| Flag | Meaning |
-|---|---|
-| `--system <tag>` | Filter corpora by tag (case-insensitive). Most common: `--system torchbearer`. |
-| `--corpus <dir>` | Point at a specific corpus directory directly. Useful for ad-hoc PDFs outside the data dir. |
-| `--limit <n>` | Max results (default 5). |
-| `--list` | List discovered corpora and exit; useful first run. |
-| `--data-dir <dir>` | Override the data-dir scan root (default: `<repo>/data`). |
+| Flag               | Meaning                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| `--system <tag>`   | Filter corpora by tag (case-insensitive). Most common: `--system torchbearer`.              |
+| `--corpus <dir>`   | Point at a specific corpus directory directly. Useful for ad-hoc PDFs outside the data dir. |
+| `--limit <n>`      | Max results (default 5).                                                                    |
+| `--list`           | List discovered corpora and exit; useful first run.                                         |
+| `--data-dir <dir>` | Override the data-dir scan root (default: `<repo>/data`).                                   |
 
 ### Discovery
 

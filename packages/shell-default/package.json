@@ -16,10 +16,10 @@
     "@vtt/tokens": "workspace:*",
     "zod": "^4.3.6"
   },
-  "peerDependencies": {
+  "devDependencies": {
     "solid-js": "^1.9.0"
   },
-  "devDependencies": {
+  "peerDependencies": {
     "solid-js": "^1.9.0"
   }
 }

@@ -73,9 +73,7 @@ function HelpWithCharacterPanel(props: PendingRollContributorArgs): JSX.Element 
     return allCharacters()
       .filter((row) => {
         if (row.id === props.initiatorCharacterId) return false;
-        const perm = row.values.Permissions as
-          | Parameters<typeof canWrite>[1]
-          | undefined;
+        const perm = row.values.Permissions as Parameters<typeof canWrite>[1] | undefined;
         return canWrite(m, perm);
       })
       .map((row) => ({
@@ -138,9 +136,7 @@ function HelpWithCharacterPanel(props: PendingRollContributorArgs): JSX.Element 
                   onChange={(e) => setPick(c.id, e.currentTarget.value as StatKey)}
                   class="rounded-(--radius-control) border border-border bg-surface-elevated px-1 py-0.5 text-[0.65rem] text-fg outline-none focus:border-accent"
                 >
-                  <For each={STATS}>
-                    {(s) => <option value={s}>{capitalize(s)}</option>}
-                  </For>
+                  <For each={STATS}>{(s) => <option value={s}>{capitalize(s)}</option>}</For>
                 </select>
                 <button
                   type="button"

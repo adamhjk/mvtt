@@ -26,10 +26,7 @@ import {
   TbConflictScript,
   TbConflictWeapon,
 } from "../shared/index.js";
-import type {
-  ConflictSide,
-  ScriptSlot,
-} from "../shared/index.js";
+import type { ConflictSide, ScriptSlot } from "../shared/index.js";
 
 /**
  * Set of item-entity ids carried by *any* character in the world.
@@ -96,10 +93,7 @@ export interface ParticipantView {
   readonly label?: string;
 }
 
-export function useParticipants(
-  conflictId: EntityId,
-  side: ConflictSide,
-): () => ParticipantView[] {
+export function useParticipants(conflictId: EntityId, side: ConflictSide): () => ParticipantView[] {
   const all = useQuery([TbConflictParticipant]);
   return createMemo(() => {
     const out: ParticipantView[] = [];
@@ -128,9 +122,7 @@ export interface EquippedArmor {
   readonly shieldItemId: EntityId | null;
 }
 
-export function useEquippedArmor(
-  characterId: EntityId,
-): () => EquippedArmor {
+export function useEquippedArmor(characterId: EntityId): () => EquippedArmor {
   const carries = useTrait(characterId, TbCarries) as () =>
     | ReturnType<typeof TbCarries>["value"]
     | undefined;
@@ -153,8 +145,7 @@ export function useEquippedArmor(
       if (!t) continue;
       if (t === "helmet") helmet = entry.itemId as EntityId;
       else if (t === "shield") shield = entry.itemId as EntityId;
-      else if (t === "leather" || t === "chain" || t === "plate")
-        armor = entry.itemId as EntityId;
+      else if (t === "leather" || t === "chain" || t === "plate") armor = entry.itemId as EntityId;
     }
     return { armorItemId: armor, helmetItemId: helmet, shieldItemId: shield };
   });
@@ -166,13 +157,8 @@ export function useEquippedArmor(
  * renaming a character in the Characters tab updates the conflict
  * board immediately.
  */
-export function useCharacterName(
-  characterId: EntityId,
-  fallback = "(character)",
-): () => string {
-  const ch = useTrait(characterId, Character) as () =>
-    | { name: string }
-    | undefined;
+export function useCharacterName(characterId: EntityId, fallback = "(character)"): () => string {
+  const ch = useTrait(characterId, Character) as () => { name: string } | undefined;
   return createMemo(() => ch()?.name ?? fallback);
 }
 
@@ -189,16 +175,12 @@ export interface WeaponView {
  * referencing the same Goblin character entity can wield two
  * different weapons.
  */
-export function useWeaponBindings(
-  conflictId: EntityId,
-): () => Map<EntityId, WeaponView> {
+export function useWeaponBindings(conflictId: EntityId): () => Map<EntityId, WeaponView> {
   const all = useQuery([TbConflictWeapon]);
   return createMemo(() => {
     const out = new Map<EntityId, WeaponView>();
     for (const row of all()) {
-      const w = row.values.TbConflictWeapon as ReturnType<
-        typeof TbConflictWeapon
-      >["value"];
+      const w = row.values.TbConflictWeapon as ReturnType<typeof TbConflictWeapon>["value"];
       if (w.conflictId !== conflictId) continue;
       out.set(w.participantEntityId, w);
     }
@@ -214,16 +196,11 @@ export interface ScriptView {
   readonly slots: [ScriptSlot, ScriptSlot, ScriptSlot];
 }
 
-export function useScript(
-  conflictId: EntityId,
-  side: ConflictSide,
-): () => ScriptView | null {
+export function useScript(conflictId: EntityId, side: ConflictSide): () => ScriptView | null {
   const all = useQuery([TbConflictScript]);
   return createMemo(() => {
     for (const row of all()) {
-      const s = row.values.TbConflictScript as ReturnType<
-        typeof TbConflictScript
-      >["value"];
+      const s = row.values.TbConflictScript as ReturnType<typeof TbConflictScript>["value"];
       if (s.conflictId === conflictId && s.side === side) {
         return { ...s, entityId: row.id };
       }
@@ -231,4 +208,3 @@ export function useScript(
     return null;
   });
 }
-

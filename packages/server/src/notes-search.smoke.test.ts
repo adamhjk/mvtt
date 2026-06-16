@@ -17,25 +17,14 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import Database from "better-sqlite3";
-import {
-  startServer,
-  type ServerHandle,
-} from "@vtt/substrate/server";
-import {
-  definePlugin,
-  InMemoryWorldsRepository,
-  type WorldId,
-} from "@vtt/substrate";
+import { startServer, type ServerHandle } from "@vtt/substrate/server";
+import { definePlugin, InMemoryWorldsRepository, type WorldId } from "@vtt/substrate";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { notes } from "@vtt/notes";
 import { assets } from "@vtt/assets";
-import {
-  attachNotesSearchBridge,
-  handleNotesSearch,
-  NotesSearchIndex,
-} from "@vtt/notes/server";
+import { attachNotesSearchBridge, handleNotesSearch, NotesSearchIndex } from "@vtt/notes/server";
 import {
   AddPage,
   BeginEdit,
@@ -116,18 +105,11 @@ describe("notes FTS search smoke", () => {
       if (m && req.method === "GET") {
         const u = new URL(url, "http://placeholder");
         const q = u.searchParams.get("q") ?? "";
-        await handleNotesSearch(
-          req,
-          res,
-          decodeURIComponent(m[1]!) as WorldId,
-          q,
-          25,
-          {
-            registry: registryRef.value,
-            index,
-            authenticate,
-          },
-        );
+        await handleNotesSearch(req, res, decodeURIComponent(m[1]!) as WorldId, q, 25, {
+          registry: registryRef.value,
+          index,
+          authenticate,
+        });
         return true;
       }
       return false;
@@ -203,9 +185,7 @@ describe("notes FTS search smoke", () => {
   });
 
   it("returns nothing for unauthenticated requests", async () => {
-    const r = await fetch(
-      `${baseUrl()}/api/worlds/${worldId}/notes/search?q=warren`,
-    );
+    const r = await fetch(`${baseUrl()}/api/worlds/${worldId}/notes/search?q=warren`);
     expect(r.status).toBe(401);
   });
 
@@ -219,15 +199,12 @@ describe("notes FTS search smoke", () => {
       cmd: CreateNote({ title: "GM Secret" }),
       session: GM,
     });
-    const noteRow = runtime.world.query([Note]).find(
-      (r) => (r.values.Note as { title: string }).title === "GM Secret",
-    )!;
+    const noteRow = runtime.world
+      .query([Note])
+      .find((r) => (r.values.Note as { title: string }).title === "GM Secret")!;
     const secretPage = runtime.world
       .query([Page, BelongsToNote])
-      .find(
-        (r) =>
-          (r.values.BelongsToNote as { noteId: string }).noteId === noteRow.id,
-      )!;
+      .find((r) => (r.values.BelongsToNote as { noteId: string }).noteId === noteRow.id)!;
     await runtime.pipeline.dispatch({
       id: "c-begin-secret",
       issuedBy: "client-A" as never,
@@ -276,9 +253,9 @@ describe("notes FTS search smoke", () => {
 
   it("indexes additional pages added to a note", async () => {
     const runtime = handle.worldsRegistry.get(worldId)!;
-    const noteRow = runtime.world.query([Note]).find(
-      (r) => (r.values.Note as { title: string }).title === "Goblin Cave",
-    )!;
+    const noteRow = runtime.world
+      .query([Note])
+      .find((r) => (r.values.Note as { title: string }).title === "Goblin Cave")!;
     await runtime.pipeline.dispatch({
       id: "c-add-page",
       issuedBy: "tester" as never,
@@ -286,10 +263,9 @@ describe("notes FTS search smoke", () => {
       cmd: AddPage({ noteId: noteRow.id, title: "Inhabitants" }),
       session: GM,
     });
-    const pages = runtime.world.query([Page, BelongsToNote]).filter(
-      (r) =>
-        (r.values.BelongsToNote as { noteId: string }).noteId === noteRow.id,
-    );
+    const pages = runtime.world
+      .query([Page, BelongsToNote])
+      .filter((r) => (r.values.BelongsToNote as { noteId: string }).noteId === noteRow.id);
     const newPage = pages[pages.length - 1]!;
     await runtime.pipeline.dispatch({
       id: "c-begin2",

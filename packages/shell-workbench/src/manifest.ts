@@ -16,16 +16,8 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { definePlugin } from "@vtt/substrate";
-import {
-  WorkspaceState,
-  WorkspaceOwner,
-  TabSentinel,
-} from "./shared/traits.js";
-import {
-  TabShared,
-  WorkspaceStateChanged,
-  WorkspaceBootstrapped,
-} from "./shared/events.js";
+import { WorkspaceState, WorkspaceOwner, TabSentinel } from "./shared/traits.js";
+import { TabShared, WorkspaceStateChanged, WorkspaceBootstrapped } from "./shared/events.js";
 import {
   WorkbenchHeaderSurface,
   WorkbenchChatRailSurface,
@@ -57,19 +49,9 @@ import { WorkbenchView } from "./client/Workbench.js";
 export const shellWorkbench = definePlugin({
   name: "@vtt/shell-workbench",
   version: "0.1.0",
-  dependsOn: [
-    "@vtt/substrate@^0",
-    "@vtt/auth@^0",
-    "@vtt/identity@^0",
-    "@vtt/permissions@^0",
-  ],
+  dependsOn: ["@vtt/substrate@^0", "@vtt/auth@^0", "@vtt/identity@^0", "@vtt/permissions@^0"],
   traits: [WorkspaceState, WorkspaceOwner, TabSentinel, NotificationDismissals],
-  events: [
-    WorkspaceStateChanged,
-    WorkspaceBootstrapped,
-    TabShared,
-    NotificationDismissed,
-  ],
+  events: [WorkspaceStateChanged, WorkspaceBootstrapped, TabShared, NotificationDismissed],
   commands: [...allCommands, DismissNotification],
   systems: [
     WorkspaceBootstrapSystem,
@@ -77,11 +59,7 @@ export const shellWorkbench = definePlugin({
     TabSharedApplySystem,
     NotificationDismissedSystem,
   ],
-  surfaces: [
-    WorkbenchHeaderSurface,
-    WorkbenchChatRailSurface,
-    PaletteSurface,
-  ],
+  surfaces: [WorkbenchHeaderSurface, WorkbenchChatRailSurface, PaletteSurface],
   slots: [
     PagesSlot,
     PaletteCommandsSlot,

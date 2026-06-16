@@ -43,10 +43,7 @@ async function fetchUserFromDb(id: string) {
 //   - a cache that the router seeds via preload
 //   - automatic revalidation after a successful action
 // The name ("user") is required so SSR and the client agree on the cache key.
-const getUser = query(
-  (id: string) => fetchUserFromDb(id),
-  "user",
-);
+const getUser = query((id: string) => fetchUserFromDb(id), "user");
 
 // --- Route preload ---------------------------------------------------------
 // Exported so we can attach it to the <Route> declaration. The router runs
@@ -120,11 +117,11 @@ import UserPage, { route as userRoute } from "./routes/users/[id]";
 
 ## Why each requirement is satisfied
 
-| Requirement | How it's met |
-|---|---|
-| Server function fetch | `fetchUserFromDb` with `"use server"` |
-| Hover preloading | `route.preload` + `<A>` (router auto-runs preload on hover/focus) |
-| Automatic dedup | `query(fn, "user")` — concurrent/repeat calls share the same in-flight promise and cached result |
-| Loading state | `<Suspense fallback={…}>` wrapping the `createAsync` reader |
-| Error boundary + retry | `<ErrorBoundary fallback={(err, reset) => …}>` with a Retry button that calls `revalidate(getUser.keyFor(params.id))` then `reset()` |
-| Reactive to `:id` changes | `createAsync(() => getUser(params.id))` (thunk form, not eager) |
+| Requirement               | How it's met                                                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Server function fetch     | `fetchUserFromDb` with `"use server"`                                                                                                |
+| Hover preloading          | `route.preload` + `<A>` (router auto-runs preload on hover/focus)                                                                    |
+| Automatic dedup           | `query(fn, "user")` — concurrent/repeat calls share the same in-flight promise and cached result                                     |
+| Loading state             | `<Suspense fallback={…}>` wrapping the `createAsync` reader                                                                          |
+| Error boundary + retry    | `<ErrorBoundary fallback={(err, reset) => …}>` with a Retry button that calls `revalidate(getUser.keyFor(params.id))` then `reset()` |
+| Reactive to `:id` changes | `createAsync(() => getUser(params.id))` (thunk form, not eager)                                                                      |

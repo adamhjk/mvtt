@@ -11,18 +11,18 @@ Apply these patterns when contributing to the live game World inside an mvtt plu
 
 Choose the appropriate type based on these criteria:
 
-| Type                       | Mutability                                | Identity                                | When to Use                                                                                                                |
-| -------------------------- | ----------------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **Trait**                  | Immutable record (replaced, never mutated) | None — attached to an entity            | Typed data describing one facet of an entity (`Position`, `Health`, `Strength`)                                            |
-| **Entity**                 | Bare ID; meaning by composition            | Unique within the World                 | An addressable thing in the World; a token, a creature, or a sentinel for coordination                                     |
-| **Sentinel Entity**        | Same as Entity; ephemeral lifetime         | Unique within the World                 | Form a logical aggregate for stateful coordination (`PendingAttack`, `Encounter`, `Roll`, `Concentration`)                 |
-| **Event**                  | Immutable                                  | Has a sequence number when committed    | A fact about what happened in the World; the wire format and the audit log                                                 |
-| **Command**                | Immutable intent                           | Has a `CommandId` for dedup             | Client intent to mutate the World; validated against world state, may be rejected                                          |
-| **System**                 | Stateless function                         | None                                    | React to one event type; emit further events; never mutate the World except through trait writes declared in `writes`      |
-| **View**                   | Stateless Solid component                  | None — bound to surface + entity query  | Render trait queries; dispatch commands; never mutate state                                                                |
-| **Pattern Helper / Factory** | Stateless function                       | None                                    | Produce template value objects (`defineDamageSpell`, `defineMonster`, `defineFeat`)                                        |
-| **Surface**                | Declarative slot                           | Named string                            | Declare a UI extension point views can fill                                                                                |
-| **Slot**                   | Declarative typed list                     | Named within the declaring plugin       | Allow dependent plugins to contribute typed data (`spellTemplates`, `monsterTemplates`)                                    |
+| Type                         | Mutability                                 | Identity                               | When to Use                                                                                                           |
+| ---------------------------- | ------------------------------------------ | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Trait**                    | Immutable record (replaced, never mutated) | None — attached to an entity           | Typed data describing one facet of an entity (`Position`, `Health`, `Strength`)                                       |
+| **Entity**                   | Bare ID; meaning by composition            | Unique within the World                | An addressable thing in the World; a token, a creature, or a sentinel for coordination                                |
+| **Sentinel Entity**          | Same as Entity; ephemeral lifetime         | Unique within the World                | Form a logical aggregate for stateful coordination (`PendingAttack`, `Encounter`, `Roll`, `Concentration`)            |
+| **Event**                    | Immutable                                  | Has a sequence number when committed   | A fact about what happened in the World; the wire format and the audit log                                            |
+| **Command**                  | Immutable intent                           | Has a `CommandId` for dedup            | Client intent to mutate the World; validated against world state, may be rejected                                     |
+| **System**                   | Stateless function                         | None                                   | React to one event type; emit further events; never mutate the World except through trait writes declared in `writes` |
+| **View**                     | Stateless Solid component                  | None — bound to surface + entity query | Render trait queries; dispatch commands; never mutate state                                                           |
+| **Pattern Helper / Factory** | Stateless function                         | None                                   | Produce template value objects (`defineDamageSpell`, `defineMonster`, `defineFeat`)                                   |
+| **Surface**                  | Declarative slot                           | Named string                           | Declare a UI extension point views can fill                                                                           |
+| **Slot**                     | Declarative typed list                     | Named within the declaring plugin      | Allow dependent plugins to contribute typed data (`spellTemplates`, `monsterTemplates`)                               |
 
 ### Quick Decision Flow
 
@@ -141,18 +141,18 @@ See "Entity ids are server-authoritative" in `design/basics.md` for the full rat
 
 The live game World is one DDD Aggregate Root. ECS is the internal pattern for that aggregate's contents. The mapping:
 
-| DDD building block          | ECS expression in mvtt                                                                                  |
-| --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| **Aggregate Root**          | The `World` — owns all entities, traits, and the event log                                              |
-| **Aggregate (logical)**     | Sentinel entity + its traits + the systems/validators that maintain its invariants                      |
-| **Entity (within aggregate)** | An ECS entity (bare ID with composed traits)                                                          |
-| **Value Object**            | Trait instance, Event payload, Command payload                                                          |
-| **Domain Service**          | A System                                                                                                |
-| **Application Service**     | A Command's `validate` + `apply` (one transactional mutation)                                           |
-| **Repository**              | The substrate's `PersistenceAdapter` for the World aggregate                                            |
-| **Domain Event**            | An Event in the event-sourced spine                                                                     |
-| **Factory**                 | Pattern helpers like `defineDamageSpell`                                                                |
-| **Bounded Context**         | A plugin                                                                                                |
-| **Ubiquitous Language**     | Plugin-namespaced trait/event/command names                                                             |
+| DDD building block            | ECS expression in mvtt                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------- |
+| **Aggregate Root**            | The `World` — owns all entities, traits, and the event log                         |
+| **Aggregate (logical)**       | Sentinel entity + its traits + the systems/validators that maintain its invariants |
+| **Entity (within aggregate)** | An ECS entity (bare ID with composed traits)                                       |
+| **Value Object**              | Trait instance, Event payload, Command payload                                     |
+| **Domain Service**            | A System                                                                           |
+| **Application Service**       | A Command's `validate` + `apply` (one transactional mutation)                      |
+| **Repository**                | The substrate's `PersistenceAdapter` for the World aggregate                       |
+| **Domain Event**              | An Event in the event-sourced spine                                                |
+| **Factory**                   | Pattern helpers like `defineDamageSpell`                                           |
+| **Bounded Context**           | A plugin                                                                           |
+| **Ubiquitous Language**       | Plugin-namespaced trait/event/command names                                        |
 
-For everything *outside* the live World — content catalogs, asset storage, user accounts, plugin manifests, long-running orchestration like campaign import — use classic DDD per the `ddd` skill. ECS is not a general-purpose architecture; it is the internal pattern for one specific aggregate.
+For everything _outside_ the live World — content catalogs, asset storage, user accounts, plugin manifests, long-running orchestration like campaign import — use classic DDD per the `ddd` skill. ECS is not a general-purpose architecture; it is the internal pattern for one specific aggregate.

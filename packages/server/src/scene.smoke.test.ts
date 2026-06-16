@@ -74,13 +74,21 @@ const sceneTestSystem = definePlugin({
   gameSystem: true,
 });
 
-interface SnapshotMsg { kind: "snapshot"; atSeq: number }
+interface SnapshotMsg {
+  kind: "snapshot";
+  atSeq: number;
+}
 interface EventMsg {
   kind: "event";
   seq: number;
   event: { type: string; payload: Record<string, unknown> };
 }
-interface AckMsg { kind: "ack"; commandId: string; ok: boolean; reason?: string }
+interface AckMsg {
+  kind: "ack";
+  commandId: string;
+  ok: boolean;
+  reason?: string;
+}
 type Msg =
   | { kind: "hello"; clientId: string }
   | SnapshotMsg
@@ -304,7 +312,6 @@ describe("scene wire smoke", () => {
           label: "Tarn",
           x: 105,
           y: 105,
-
         }).payload,
       },
     });
@@ -340,7 +347,6 @@ describe("scene wire smoke", () => {
           label: "Tarn II",
           x: 245,
           y: 245,
-
         }).payload,
       },
     });
@@ -352,13 +358,11 @@ describe("scene wire smoke", () => {
     expect(placeAgain!.ok).toBe(false);
 
     // Still exactly one linked token for this character on this scene.
-    const placedAfter = runtime.world
-      .query([LinkedCharacter, Position])
-      .filter((r) => {
-        const lc = r.values.LinkedCharacter as { characterId: string };
-        const pos = r.values.Position as { sceneId: string };
-        return lc.characterId === charId && pos.sceneId === sceneId;
-      });
+    const placedAfter = runtime.world.query([LinkedCharacter, Position]).filter((r) => {
+      const lc = r.values.LinkedCharacter as { characterId: string };
+      const pos = r.values.Position as { sceneId: string };
+      return lc.characterId === charId && pos.sceneId === sceneId;
+    });
     expect(placedAfter).toHaveLength(1);
 
     const eventTypes = messages

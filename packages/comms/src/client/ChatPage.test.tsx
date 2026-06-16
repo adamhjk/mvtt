@@ -18,10 +18,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
 import { screen, cleanup } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
@@ -68,10 +65,7 @@ describe("comms ChatPageProvider", () => {
 
   it("mounts the chat surface (composer + stream) as a page", () => {
     const h = harness();
-    mountWithClient(
-      h,
-      () => ChatPageProvider.render({ tabId: "t1", entityId: null }) as never,
-    );
+    mountWithClient(h, () => ChatPageProvider.render({ tabId: "t1", entityId: null }) as never);
     expect(screen.getByTestId("chat-page")).toBeInTheDocument();
     // The chat composer (a WorkbenchChatRailSurface view) renders inside
     // the page — chat now lives in a tab, not the retired right rail.

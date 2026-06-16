@@ -19,9 +19,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { definePlugin } from "@vtt/substrate";
-import {
-  buildCharacterHarness,
-} from "@vtt/characters/testing";
+import { buildCharacterHarness } from "@vtt/characters/testing";
 import { mountWithClient } from "@vtt/substrate/client-testing";
 import {
   CharacterSheetActionsSlot,
@@ -35,7 +33,10 @@ import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { BlockKindsSlot } from "@vtt/adventures/shared";
 import {
-  NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
+  NotificationsSlot,
+  PaletteActionsSlot,
+  PaletteCommandsSlot,
+  WorkbenchStatusSlot,
   WorkbenchChatRailSurface,
 } from "@vtt/shell-workbench/shared";
 import {
@@ -62,7 +63,10 @@ const sheetSlotsTestInfra = definePlugin({
     ChatTimelineContributorSlot,
     RollActionsSlot,
     ItemDetailSectionsSlot,
-    NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
+    NotificationsSlot,
+    PaletteActionsSlot,
+    PaletteCommandsSlot,
+    WorkbenchStatusSlot,
     LinkKindsSlot,
     BlockKindsSlot,
   ],
@@ -100,16 +104,8 @@ describe("ConflictPage — inline NPC spawn picker", () => {
     expect(screen.queryByTestId("declare-npc-picker")).not.toBeNull();
     // The NPC rack lists the catalog entries by default (no filter).
     const opts = screen.getByTestId("declare-npc-options");
-    expect(
-      opts.querySelector(
-        '[data-testid="declare-npc-option-tb/npc/bandit"]',
-      ),
-    ).not.toBeNull();
-    expect(
-      opts.querySelector(
-        '[data-testid="declare-npc-option-tb/npc/soldier"]',
-      ),
-    ).not.toBeNull();
+    expect(opts.querySelector('[data-testid="declare-npc-option-tb/npc/bandit"]')).not.toBeNull();
+    expect(opts.querySelector('[data-testid="declare-npc-option-tb/npc/soldier"]')).not.toBeNull();
   });
 
   it("typing into the NPC search filters the rack via subsequence fuzzy match", () => {
@@ -122,22 +118,12 @@ describe("ConflictPage — inline NPC spawn picker", () => {
           entityId: null,
         }) as never,
     );
-    const search = screen.getByTestId(
-      "declare-npc-input",
-    ) as HTMLInputElement;
+    const search = screen.getByTestId("declare-npc-input") as HTMLInputElement;
     fireEvent.input(search, { target: { value: "soldr" } });
     const opts = screen.getByTestId("declare-npc-options");
-    expect(
-      opts.querySelector(
-        '[data-testid="declare-npc-option-tb/npc/soldier"]',
-      ),
-    ).not.toBeNull();
+    expect(opts.querySelector('[data-testid="declare-npc-option-tb/npc/soldier"]')).not.toBeNull();
     // Bandit gets filtered out by the "soldr" subsequence match.
-    expect(
-      opts.querySelector(
-        '[data-testid="declare-npc-option-tb/npc/bandit"]',
-      ),
-    ).toBeNull();
+    expect(opts.querySelector('[data-testid="declare-npc-option-tb/npc/bandit"]')).toBeNull();
   });
 
   it("clicking an NPC row + Conjure dispatches CreateNpcFromCatalog", () => {
@@ -150,13 +136,9 @@ describe("ConflictPage — inline NPC spawn picker", () => {
           entityId: null,
         }) as never,
     );
-    fireEvent.click(
-      screen.getByTestId("declare-npc-option-tb/npc/soldier"),
-    );
+    fireEvent.click(screen.getByTestId("declare-npc-option-tb/npc/soldier"));
     fireEvent.click(screen.getByTestId("declare-npc-spawn"));
-    const dispatched = h.dispatched.find(
-      (d) => d.type === CreateNpcFromCatalog.name,
-    );
+    const dispatched = h.dispatched.find((d) => d.type === CreateNpcFromCatalog.name);
     expect(dispatched).toBeTruthy();
     expect(dispatched!.payload).toMatchObject({
       templateId: "tb/npc/soldier",
@@ -173,12 +155,8 @@ describe("ConflictPage — inline NPC spawn picker", () => {
           entityId: null,
         }) as never,
     );
-    fireEvent.click(
-      screen.getByTestId("declare-npc-option-tb/npc/bandit"),
-    );
-    const countInput = screen.getByTestId(
-      "declare-npc-count",
-    ) as HTMLInputElement;
+    fireEvent.click(screen.getByTestId("declare-npc-option-tb/npc/bandit"));
+    const countInput = screen.getByTestId("declare-npc-count") as HTMLInputElement;
     fireEvent.input(countInput, { target: { value: "4" } });
     const spawnBtn = screen.getByTestId("declare-npc-spawn");
     expect(spawnBtn.textContent).toContain("Bandit");
@@ -195,9 +173,7 @@ describe("ConflictPage — inline NPC spawn picker", () => {
           entityId: null,
         }) as never,
     );
-    const search = screen.getByTestId(
-      "declare-npc-input",
-    ) as HTMLInputElement;
+    const search = screen.getByTestId("declare-npc-input") as HTMLInputElement;
     fireEvent.input(search, { target: { value: "qzx" } });
     expect(screen.getByTestId("declare-npc-empty")).toBeInTheDocument();
   });

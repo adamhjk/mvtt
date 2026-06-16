@@ -41,9 +41,7 @@ class MemoryWorldsRepo implements WorldsRepository {
   memberships: MembershipRecord[] = [];
   async migrate(): Promise<void> {}
   async list(opts?: { includeArchived?: boolean }): Promise<WorldRecord[]> {
-    return [...this.worlds.values()].filter(
-      (w) => opts?.includeArchived || w.archivedAt === null,
-    );
+    return [...this.worlds.values()].filter((w) => opts?.includeArchived || w.archivedAt === null);
   }
   async get(id: WorldId): Promise<WorldRecord | null> {
     return this.worlds.get(id) ?? null;
@@ -77,11 +75,7 @@ class MemoryWorldsRepo implements WorldsRepository {
     this.worlds.delete(id);
     this.memberships = this.memberships.filter((m) => m.worldId !== id);
   }
-  async addMembership(input: {
-    worldId: WorldId;
-    userId: string;
-    role: WorldRole;
-  }): Promise<void> {
+  async addMembership(input: { worldId: WorldId; userId: string; role: WorldRole }): Promise<void> {
     this.memberships = this.memberships.filter(
       (m) => !(m.worldId === input.worldId && m.userId === input.userId),
     );

@@ -60,10 +60,7 @@ export interface DerivationDef<
   readonly name: string;
   readonly inputs: Inputs;
   readonly output: Output;
-  readonly compute: (
-    args: ValuesOf<Inputs>,
-    ctx: DerivationContext,
-  ) => ValueOf<Output> | undefined;
+  readonly compute: (args: ValuesOf<Inputs>, ctx: DerivationContext) => ValueOf<Output> | undefined;
   /**
    * Build the domain `*Changed` event the substrate emits when this
    * derivation's output value changes. Optional: if omitted, no event is
@@ -130,11 +127,7 @@ export function defineDerivation<
  * shouldn't materialize traits that never explicitly existed, otherwise the
  * event log fills with traits the user never touched.
  */
-export function readTraitWithDefault(
-  world: World,
-  id: EntityId,
-  trait: TraitMeta,
-): unknown {
+export function readTraitWithDefault(world: World, id: EntityId, trait: TraitMeta): unknown {
   if (!world.has(id)) return undefined;
   const got = world.get(id, [trait]);
   if (got !== undefined) {
@@ -152,11 +145,7 @@ export function readTraitWithDefault(
  * skip-on-unchanged comparison and for invokeRollable. Returns undefined
  * if the entity or the trait is absent.
  */
-export function readTraitDirect(
-  world: World,
-  id: EntityId,
-  trait: TraitMeta,
-): unknown {
+export function readTraitDirect(world: World, id: EntityId, trait: TraitMeta): unknown {
   if (!world.has(id)) return undefined;
   const got = world.get(id, [trait]);
   if (got === undefined) return undefined;
@@ -196,9 +185,7 @@ export function topoSortDerivations(
     }
   }
   if (errors.length > 0) {
-    throw new Error(
-      `derivation registration failed:\n  - ${errors.join("\n  - ")}`,
-    );
+    throw new Error(`derivation registration failed:\n  - ${errors.join("\n  - ")}`);
   }
 
   // Build the trait-producer map: for each output trait, which derivation

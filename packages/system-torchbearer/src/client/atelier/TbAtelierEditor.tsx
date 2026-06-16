@@ -38,11 +38,7 @@ function TbAtelierEditorBody(props: {
   const mode = atelier.activeMode;
 
   return (
-    <article
-      class="flex flex-col gap-3"
-      data-testid="atelier-editor"
-      data-mode={mode()}
-    >
+    <article class="flex flex-col gap-3" data-testid="atelier-editor" data-mode={mode()}>
       <TopStrip atelier={atelier} mode={mode()} />
       <Switch>
         <Match when={mode() === "disposition"}>

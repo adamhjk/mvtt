@@ -73,11 +73,13 @@ describe("ItemsPageProvider", () => {
   describe("hub view", () => {
     it("lists every item with its name", () => {
       const h = buildHarness();
-      mountWithClient(h, () =>
-        ItemsPageProvider.render({
-          tabId: "tab-1",
-          entityId: null,
-        }) as never,
+      mountWithClient(
+        h,
+        () =>
+          ItemsPageProvider.render({
+            tabId: "tab-1",
+            entityId: null,
+          }) as never,
       );
       expect(screen.getByText("Sword")).toBeInTheDocument();
       expect(screen.getByText("Bow")).toBeInTheDocument();
@@ -85,11 +87,13 @@ describe("ItemsPageProvider", () => {
 
     it("filters by name", () => {
       const h = buildHarness();
-      mountWithClient(h, () =>
-        ItemsPageProvider.render({
-          tabId: "tab-1",
-          entityId: null,
-        }) as never,
+      mountWithClient(
+        h,
+        () =>
+          ItemsPageProvider.render({
+            tabId: "tab-1",
+            entityId: null,
+          }) as never,
       );
       fireEvent.input(screen.getByPlaceholderText("filter by name…"), {
         target: { value: "bow" },
@@ -100,19 +104,19 @@ describe("ItemsPageProvider", () => {
 
     it("renders a list of clickable open buttons per item", () => {
       const h = buildHarness();
-      mountWithClient(h, () =>
-        ItemsPageProvider.render({
-          tabId: "tab-1",
-          entityId: null,
-        }) as never,
+      mountWithClient(
+        h,
+        () =>
+          ItemsPageProvider.render({
+            tabId: "tab-1",
+            entityId: null,
+          }) as never,
       );
       const swordRow = h.world.query([ItemIdentity]).find((r) => {
         const v = r.values.ItemIdentity as { name: string };
         return v.name === "Sword";
       })!;
-      expect(
-        screen.getByTestId(`open-item-${swordRow.id}`),
-      ).toBeInTheDocument();
+      expect(screen.getByTestId(`open-item-${swordRow.id}`)).toBeInTheDocument();
     });
   });
 
@@ -123,15 +127,15 @@ describe("ItemsPageProvider", () => {
         const v = r.values.ItemIdentity as { name: string };
         return v.name === "Sword";
       })!;
-      mountWithClient(h, () =>
-        ItemsPageProvider.render({
-          tabId: "tab-1",
-          entityId: swordRow.id,
-        }) as never,
+      mountWithClient(
+        h,
+        () =>
+          ItemsPageProvider.render({
+            tabId: "tab-1",
+            entityId: swordRow.id,
+          }) as never,
       );
-      const nameInput = screen.getByTestId(
-        "field-ItemIdentity.name",
-      ) as HTMLInputElement;
+      const nameInput = screen.getByTestId("field-ItemIdentity.name") as HTMLInputElement;
       expect(nameInput.value).toBe("Sword");
     });
 
@@ -141,20 +145,18 @@ describe("ItemsPageProvider", () => {
         const v = r.values.ItemIdentity as { name: string };
         return v.name === "Sword";
       })!;
-      mountWithClient(h, () =>
-        ItemsPageProvider.render({
-          tabId: "tab-1",
-          entityId: swordRow.id,
-        }) as never,
+      mountWithClient(
+        h,
+        () =>
+          ItemsPageProvider.render({
+            tabId: "tab-1",
+            entityId: swordRow.id,
+          }) as never,
       );
-      const nameInput = screen.getByTestId(
-        "field-ItemIdentity.name",
-      ) as HTMLInputElement;
+      const nameInput = screen.getByTestId("field-ItemIdentity.name") as HTMLInputElement;
       fireEvent.input(nameInput, { target: { value: "Mythril Sword" } });
       fireEvent.blur(nameInput);
-      const dispatched = h.dispatched.find(
-        (d) => d.type === EditItemField.name,
-      );
+      const dispatched = h.dispatched.find((d) => d.type === EditItemField.name);
       expect(dispatched).toBeDefined();
       const payload = dispatched!.payload as {
         path: string;
@@ -182,20 +184,19 @@ describe("ItemsPageProvider", () => {
         ...derived.ItemDerivedFrom,
         overrides: ["ItemIdentity.name"],
       });
-      mountWithClient(h, () =>
-        ItemsPageProvider.render({
-          tabId: "tab-1",
-          entityId: swordRow.id,
-        }) as never,
+      mountWithClient(
+        h,
+        () =>
+          ItemsPageProvider.render({
+            tabId: "tab-1",
+            entityId: swordRow.id,
+          }) as never,
       );
       const revertBtn = screen.getByTestId("revert-ItemIdentity.name");
       expect(revertBtn).toBeInTheDocument();
       fireEvent.click(revertBtn);
-      const dispatched = h.dispatched.find(
-        (d) => d.type === RevertItemField.name,
-      );
+      const dispatched = h.dispatched.find((d) => d.type === RevertItemField.name);
       expect(dispatched).toBeDefined();
     });
   });
 });
-

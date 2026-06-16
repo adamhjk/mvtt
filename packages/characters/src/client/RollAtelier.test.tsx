@@ -17,16 +17,8 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, expect, it, beforeEach } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  screen,
-  waitFor,
-} from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { TabSentinel, tabSentinelEntityId } from "@vtt/shell-workbench/shared";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
@@ -85,9 +77,7 @@ const testFeed: ResolvedRollFeed = {
           subtitle: "result",
           originPendingRollId: v.origin,
           outcome: { tone: "success" as const, text: "Pass · 3s · +1" },
-          render: () => (
-            <div data-testid={`fake-card-${r.id}`}>{v.title} card</div>
-          ),
+          render: () => <div data-testid={`fake-card-${r.id}`}>{v.title} card</div>,
         };
       }),
     );
@@ -99,11 +89,7 @@ const testQuickRoll: QuickRollComposer = {
   id: qualifiedName("@vtt/test/quick") as QuickRollComposer["id"],
   render: (args) => (
     <div data-testid="fake-quick-roll">
-      <button
-        type="button"
-        data-testid="fake-quick-roll-close"
-        onClick={() => args.onClose()}
-      >
+      <button type="button" data-testid="fake-quick-roll-close" onClick={() => args.onClose()}>
         done
       </button>
     </div>
@@ -151,14 +137,7 @@ function seedTab(world: import("@vtt/substrate").World, tabId: string) {
 
 function harness() {
   return buildTestClient({
-    plugins: [
-      shellWorkbench,
-      identity,
-      permissions,
-      notes,
-      characters,
-      testRollFeeds,
-    ],
+    plugins: [shellWorkbench, identity, permissions, notes, characters, testRollFeeds],
     session: SESSION,
     setupWorld: ({ world }) => {
       world.spawn([
@@ -191,7 +170,10 @@ function spawnRoll(
       contributions: [],
       openedAt: args.openedAt,
     }),
-    Permissions({ read: { kind: "everyone" }, write: { kind: "users", userIds: [args.initiatorUserId ?? ME] } }),
+    Permissions({
+      read: { kind: "everyone" },
+      write: { kind: "users", userIds: [args.initiatorUserId ?? ME] },
+    }),
   ]);
   return { rollId, characterId: charId };
 }
@@ -202,9 +184,7 @@ describe("RollAtelier shell", () => {
   it("renders the empty state when no pending rolls exist", () => {
     const h = harness();
     seedTab(h.world, "tab-1");
-    mountWithClient(h, () => (
-      <RollAtelier tabId="tab-1" initialSelection={null} />
-    ));
+    mountWithClient(h, () => <RollAtelier tabId="tab-1" initialSelection={null} />);
     expect(screen.getByTestId("atelier-empty-state")).toBeInTheDocument();
   });
 
@@ -213,9 +193,7 @@ describe("RollAtelier shell", () => {
     seedTab(h.world, "tab-1");
     spawnRoll(h.world, { characterName: "Tarn", openedAt: 1 });
     spawnRoll(h.world, { characterName: "Brunhilda", openedAt: 2 });
-    mountWithClient(h, () => (
-      <RollAtelier tabId="tab-1" initialSelection={null} />
-    ));
+    mountWithClient(h, () => <RollAtelier tabId="tab-1" initialSelection={null} />);
     const rail = screen.getByTestId("atelier-rail");
     expect(rail.textContent).toContain("Tarn");
     expect(rail.textContent).toContain("Brunhilda");
@@ -231,9 +209,7 @@ describe("RollAtelier shell", () => {
       characterName: "Tarn",
       openedAt: 1,
     });
-    mountWithClient(h, () => (
-      <RollAtelier tabId="tab-1" initialSelection={null} />
-    ));
+    mountWithClient(h, () => <RollAtelier tabId="tab-1" initialSelection={null} />);
     const pill = screen.getByTestId(`atelier-rail-pill-${rollId}`);
     fireEvent.click(pill);
     await waitFor(() => {
@@ -246,9 +222,7 @@ describe("RollAtelier shell", () => {
     seedTab(h.world, "tab-1");
     spawnRoll(h.world, { characterName: "Old", openedAt: 1 });
     spawnRoll(h.world, { characterName: "Recent", openedAt: 99 });
-    mountWithClient(h, () => (
-      <RollAtelier tabId="tab-1" initialSelection={null} />
-    ));
+    mountWithClient(h, () => <RollAtelier tabId="tab-1" initialSelection={null} />);
     // The editor is mounted for the most recent roll — the headline
     // includes the recent character's name.
     const editor = screen.getByTestId("atelier-generic-editor");
@@ -264,13 +238,9 @@ describe("RollAtelier — resolved rolls", () => {
       title: "Goblin ambush",
       rolledAt: 10,
     });
-    mountWithClient(h, () => (
-      <RollAtelier tabId="tab-1" initialSelection={null} />
-    ));
+    mountWithClient(h, () => <RollAtelier tabId="tab-1" initialSelection={null} />);
     // Recent pill present…
-    expect(
-      screen.getByTestId(`atelier-recent-pill-${rollId}`),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId(`atelier-recent-pill-${rollId}`)).toBeInTheDocument();
     // …showing the colour-coded outcome (pass/fail · successes · margin)…
     const outcome = screen.getByTestId(`atelier-recent-outcome-${rollId}`);
     expect(outcome).toHaveTextContent("Pass · 3s · +1");
@@ -289,14 +259,10 @@ describe("RollAtelier — resolved rolls", () => {
       characterName: "Tarn",
       openedAt: 1,
     });
-    mountWithClient(h, () => (
-      <RollAtelier tabId="tab-1" initialSelection={null} />
-    ));
+    mountWithClient(h, () => <RollAtelier tabId="tab-1" initialSelection={null} />);
     // Select the pending roll — its editor shows.
     fireEvent.click(screen.getByTestId(`atelier-rail-pill-${pendingId}`));
-    await waitFor(() =>
-      expect(screen.getByTestId("atelier-generic-editor")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId("atelier-generic-editor")).toBeInTheDocument());
     // Simulate commit: the pending roll despawns and a resolved roll
     // appears stamped with its origin.
     h.world.despawn(pendingId as never);
@@ -319,45 +285,29 @@ describe("RollAtelier — resolved rolls", () => {
     const b = spawnRoll(h.world, { characterName: "Bravo", openedAt: 2 });
 
     // Open the Atelier targeting roll A — its editor shows.
-    mountWithClient(h, () => (
-      <RollAtelier tabId="tab-1" initialSelection={a.rollId as never} />
-    ));
+    mountWithClient(h, () => <RollAtelier tabId="tab-1" initialSelection={a.rollId as never} />);
     await waitFor(() =>
-      expect(screen.getByTestId("atelier-generic-editor").textContent).toContain(
-        "Alfa",
-      ),
+      expect(screen.getByTestId("atelier-generic-editor").textContent).toContain("Alfa"),
     );
 
     // Requesting roll B re-opens the same tab (same sentinel, selection
     // already persisted to A) with a fresh initialSelection. The Atelier
     // must land on B, not stay on A.
     cleanup();
-    mountWithClient(h, () => (
-      <RollAtelier tabId="tab-1" initialSelection={b.rollId as never} />
-    ));
+    mountWithClient(h, () => <RollAtelier tabId="tab-1" initialSelection={b.rollId as never} />);
     await waitFor(() =>
-      expect(screen.getByTestId("atelier-generic-editor").textContent).toContain(
-        "Bravo",
-      ),
+      expect(screen.getByTestId("atelier-generic-editor").textContent).toContain("Bravo"),
     );
-    expect(screen.getByTestId("atelier-generic-editor").textContent).not.toContain(
-      "Alfa",
-    );
+    expect(screen.getByTestId("atelier-generic-editor").textContent).not.toContain("Alfa");
   });
 
   it("opens the quick-roll composer and closes it", async () => {
     const h = harness();
     seedTab(h.world, "tab-1");
-    mountWithClient(h, () => (
-      <RollAtelier tabId="tab-1" initialSelection={null} />
-    ));
+    mountWithClient(h, () => <RollAtelier tabId="tab-1" initialSelection={null} />);
     fireEvent.click(screen.getByTestId("atelier-quick-roll"));
-    await waitFor(() =>
-      expect(screen.getByTestId("fake-quick-roll")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId("fake-quick-roll")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("fake-quick-roll-close"));
-    await waitFor(() =>
-      expect(screen.queryByTestId("fake-quick-roll")).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByTestId("fake-quick-roll")).toBeNull());
   });
 });

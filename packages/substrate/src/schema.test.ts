@@ -74,12 +74,8 @@ describe("qualified-name brands", () => {
   });
 
   it("definers reject malformed names at definition time", () => {
-    expect(() =>
-      defineTrait({ name: "Health", schema: z.object({}) }),
-    ).toThrow();
-    expect(() =>
-      defineEvent({ name: "@vtt/Pong", schema: z.object({}) }),
-    ).toThrow();
+    expect(() => defineTrait({ name: "Health", schema: z.object({}) })).toThrow();
+    expect(() => defineEvent({ name: "@vtt/Pong", schema: z.object({}) })).toThrow();
     expect(() =>
       defineCommand({
         name: "Ping",
@@ -95,9 +91,7 @@ describe("qualified-name brands", () => {
         context: z.object({}),
       }),
     ).toThrow();
-    expect(() =>
-      defineSlot({ name: "spell-templates", schema: z.object({}) }),
-    ).toThrow();
+    expect(() => defineSlot({ name: "spell-templates", schema: z.object({}) })).toThrow();
   });
 
   it("kinds are not interchangeable at the type level", () => {
@@ -127,14 +121,13 @@ describe("qualified-name brands", () => {
     reg.surfaces.get(sln);
   });
 
-  it.each([
-    "@vtt/scene",
-    "@vtt/d20-initiative",
-    "@scope/plugin-name",
-  ])("plugin name accepts %s (two-segment)", (s) => {
-    expect(isPluginName(s)).toBe(true);
-    expect(pluginName(s)).toBe(s);
-  });
+  it.each(["@vtt/scene", "@vtt/d20-initiative", "@scope/plugin-name"])(
+    "plugin name accepts %s (two-segment)",
+    (s) => {
+      expect(isPluginName(s)).toBe(true);
+      expect(pluginName(s)).toBe(s);
+    },
+  );
 
   it.each([
     "vtt/scene",

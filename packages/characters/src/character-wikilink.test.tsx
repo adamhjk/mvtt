@@ -17,12 +17,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  screen,
-  waitFor,
-} from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { type EntityId } from "@vtt/substrate";
 import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { shellWorkbench } from "@vtt/shell-workbench";
@@ -31,13 +26,7 @@ import { permissions } from "@vtt/permissions";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { notes } from "@vtt/notes";
-import {
-  Note,
-  NotesUiState,
-  Page,
-  BelongsToNote,
-  PageOrdering,
-} from "@vtt/notes/shared";
+import { Note, NotesUiState, Page, BelongsToNote, PageOrdering } from "@vtt/notes/shared";
 import { NotesPageProvider } from "@vtt/notes/client";
 import { TabSentinel, tabSentinelEntityId } from "@vtt/shell-workbench/shared";
 import { characters } from "./manifest.js";
@@ -78,10 +67,7 @@ function harness(): {
       ]);
 
       const characterId = world.allocateId();
-      world.spawnAt(characterId, [
-        Character({ name: "Krell" }),
-        Permissions(ownedBy(ME)),
-      ]);
+      world.spawnAt(characterId, [Character({ name: "Krell" }), Permissions(ownedBy(ME))]);
 
       const noteId = world.allocateId();
       const pageId = world.allocateId();
@@ -126,9 +112,7 @@ const RETARGET_TAB = "@vtt/shell-workbench/RetargetTab";
 
 async function findCharacterChip(): Promise<HTMLElement> {
   const buttons = await screen.findAllByRole("button");
-  const chip = buttons.find(
-    (b) => b.getAttribute("data-link-kind") === "character",
-  );
+  const chip = buttons.find((b) => b.getAttribute("data-link-kind") === "character");
   expect(chip, "expected a [[character:Krell]] chip with data-link-kind=character").toBeDefined();
   return chip!;
 }
@@ -136,11 +120,13 @@ async function findCharacterChip(): Promise<HTMLElement> {
 describe("character wiki-link click in a note", () => {
   it("plain click dispatches OpenPage targeting the character (focus existing or open new)", async () => {
     const h = harness();
-    mountWithClient(h as never, () =>
-      NotesPageProvider.render({
-        tabId: "tab-1",
-        entityId: h.setup.noteId,
-      }) as never,
+    mountWithClient(
+      h as never,
+      () =>
+        NotesPageProvider.render({
+          tabId: "tab-1",
+          entityId: h.setup.noteId,
+        }) as never,
     );
 
     const chip = await findCharacterChip();
@@ -157,18 +143,18 @@ describe("character wiki-link click in a note", () => {
 
     // The notes tab itself must not be retargeted — the user stays in
     // their reading flow; cross-kind links open a separate tab.
-    expect(
-      h.dispatched.some((c) => c.type === RETARGET_TAB),
-    ).toBe(false);
+    expect(h.dispatched.some((c) => c.type === RETARGET_TAB)).toBe(false);
   });
 
   it("cmd-click forces a new tab via OpenPageInNewTab", async () => {
     const h = harness();
-    mountWithClient(h as never, () =>
-      NotesPageProvider.render({
-        tabId: "tab-1",
-        entityId: h.setup.noteId,
-      }) as never,
+    mountWithClient(
+      h as never,
+      () =>
+        NotesPageProvider.render({
+          tabId: "tab-1",
+          entityId: h.setup.noteId,
+        }) as never,
     );
 
     const chip = await findCharacterChip();
@@ -176,10 +162,7 @@ describe("character wiki-link click in a note", () => {
 
     await waitFor(() => {
       const open = h.dispatched.find((c) => c.type === OPEN_PAGE_NEW_TAB);
-      expect(
-        open,
-        "expected OpenPageInNewTab to be dispatched on cmd-click",
-      ).toBeDefined();
+      expect(open, "expected OpenPageInNewTab to be dispatched on cmd-click").toBeDefined();
       expect(open!.payload).toMatchObject({
         pageKind: CHARACTERS_KIND,
         entityId: h.setup.characterId,
@@ -187,8 +170,6 @@ describe("character wiki-link click in a note", () => {
     });
     // And the dedup variant should NOT have fired — cmd-click is
     // explicitly "always new tab."
-    expect(
-      h.dispatched.some((c) => c.type === OPEN_PAGE),
-    ).toBe(false);
+    expect(h.dispatched.some((c) => c.type === OPEN_PAGE)).toBe(false);
   });
 });

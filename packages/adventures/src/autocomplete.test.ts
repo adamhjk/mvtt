@@ -17,10 +17,7 @@
 
 import { describe, it, expect } from "vitest";
 import { World, z } from "@vtt/substrate";
-import {
-  computeBlockCompletions,
-  schemaAtPath,
-} from "./client/block-autocomplete.js";
+import { computeBlockCompletions, schemaAtPath } from "./client/block-autocomplete.js";
 import { defineBlockKind, wikiLink, dice } from "./shared/index.js";
 
 const NpcSchema = z.object({
@@ -146,12 +143,7 @@ describe("computeBlockCompletions — value slot", () => {
       allKinds,
       ctx: { world: new World() },
     });
-    expect(out.map((c) => c.value).sort()).toEqual([
-      "beast",
-      "dragon",
-      "humanoid",
-      "undead",
-    ]);
+    expect(out.map((c) => c.value).sort()).toEqual(["beast", "dragon", "humanoid", "undead"]);
   });
 
   it("filters enum values by query prefix", () => {

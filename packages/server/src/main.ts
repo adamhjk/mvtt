@@ -17,28 +17,24 @@
 
 import { fileURLToPath } from "node:url";
 import { dirname, resolve, basename } from "node:path";
-import {
-  existsSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-  mkdirSync,
-} from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { startServer, WorldsService } from "@vtt/substrate/server";
-import { listGameSystems, resolveActivePlugins, type EntityId, type WorldId, type WorldsRegistry } from "@vtt/substrate";
+import {
+  listGameSystems,
+  resolveActivePlugins,
+  type EntityId,
+  type WorldId,
+  type WorldsRegistry,
+} from "@vtt/substrate";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { shellMobile } from "@vtt/shell-mobile";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { comms } from "@vtt/comms";
 import { notes } from "@vtt/notes";
-import {
-  attachNotesSearchBridge,
-  handleNotesSearch,
-  NotesSearchIndex,
-} from "@vtt/notes/server";
+import { attachNotesSearchBridge, handleNotesSearch, NotesSearchIndex } from "@vtt/notes/server";
 import { assets } from "@vtt/assets";
 import {
   handleAssetFetch,
@@ -48,11 +44,7 @@ import {
 } from "@vtt/assets/server";
 import { maybeHandleAdventureRoute } from "@vtt/adventures/routes";
 import { rulesCorpus } from "@vtt/rules-corpus";
-import {
-  handleRulesSearch,
-  RulesExtractRunner,
-  RulesSearchIndex,
-} from "@vtt/rules-corpus/server";
+import { handleRulesSearch, RulesExtractRunner, RulesSearchIndex } from "@vtt/rules-corpus/server";
 import { resolution } from "@vtt/resolution";
 import { scene } from "@vtt/scene";
 import { books } from "@vtt/books";
@@ -131,9 +123,7 @@ const worldsService = new WorldsService({
 // deploy time so there's no need to rescan; the picker fetches this
 // manifest once per session and caches it client-side.
 type IconEntry = { slug: string; artist: string; name: string };
-const iconManifest: IconEntry[] = existsSync(iconsRoot)
-  ? buildIconManifest(iconsRoot)
-  : [];
+const iconManifest: IconEntry[] = existsSync(iconsRoot) ? buildIconManifest(iconsRoot) : [];
 const iconManifestBody = JSON.stringify({ icons: iconManifest });
 
 // ---- assets upload policy ----
@@ -214,21 +204,8 @@ notesSearchIndex.migrate();
 const rulesSearchIndex = new RulesSearchIndex(auth.db);
 rulesSearchIndex.migrate();
 
-const rulesExtractCliEntry = resolve(
-  here,
-  "..",
-  "..",
-  "rules-extract",
-  "src",
-  "cli.ts",
-);
-const rulesProfilesDir = resolve(
-  here,
-  "..",
-  "..",
-  "rules-corpus",
-  "profiles",
-);
+const rulesExtractCliEntry = resolve(here, "..", "..", "rules-extract", "src", "cli.ts");
+const rulesProfilesDir = resolve(here, "..", "..", "rules-corpus", "profiles");
 const rulesExtractRunner = new RulesExtractRunner({
   index: rulesSearchIndex,
   pluginDataDir,
@@ -251,8 +228,7 @@ async function authenticateForWorld(
   if (!session) return null;
   const allowed = await worldsService.canAccess(worldId, session.userId);
   if (!allowed) return null;
-  const perWorldRole =
-    (await worldsService.roleFor(worldId, session.userId)) ?? "player";
+  const perWorldRole = (await worldsService.roleFor(worldId, session.userId)) ?? "player";
   return {
     userId: session.userId,
     email: session.email,
@@ -368,18 +344,11 @@ const httpHandler = async (req: IncomingMessage, res: ServerResponse): Promise<b
     const q = u.searchParams.get("q") ?? "";
     const limitRaw = u.searchParams.get("limit");
     const limit = limitRaw ? Number(limitRaw) : 25;
-    await handleNotesSearch(
-      req,
-      res,
-      worldId,
-      q,
-      Number.isFinite(limit) ? limit : 25,
-      {
-        registry: assetWorldsRegistry,
-        index: notesSearchIndex,
-        authenticate: authenticateForWorld,
-      },
-    );
+    await handleNotesSearch(req, res, worldId, q, Number.isFinite(limit) ? limit : 25, {
+      registry: assetWorldsRegistry,
+      index: notesSearchIndex,
+      authenticate: authenticateForWorld,
+    });
     return true;
   }
 
@@ -398,23 +367,14 @@ const httpHandler = async (req: IncomingMessage, res: ServerResponse): Promise<b
     // corpusId is optional — omitted means "cross-corpus search across
     // every visible corpus in the world", used by the Rules page's
     // top-level search box. Single-corpus admin views still pass it.
-    const corpusId =
-      corpusIdParam.length === 0 ? null : (corpusIdParam as EntityId);
+    const corpusId = corpusIdParam.length === 0 ? null : (corpusIdParam as EntityId);
     const limitRaw = u.searchParams.get("limit");
     const limit = limitRaw ? Number(limitRaw) : 25;
-    await handleRulesSearch(
-      req,
-      res,
-      worldId,
-      q,
-      corpusId,
-      Number.isFinite(limit) ? limit : 25,
-      {
-        registry: assetWorldsRegistry,
-        index: rulesSearchIndex,
-        authenticate: authenticateForWorld,
-      },
-    );
+    await handleRulesSearch(req, res, worldId, q, corpusId, Number.isFinite(limit) ? limit : 25, {
+      registry: assetWorldsRegistry,
+      index: rulesSearchIndex,
+      authenticate: authenticateForWorld,
+    });
     return true;
   }
 
@@ -479,10 +439,7 @@ async function requireSession(req: IncomingMessage): Promise<AuthSession | null>
   return parseAuthSession(await auth.resolveSession(fromNodeHeaders(req.headers)));
 }
 
-async function handleListGameSystems(
-  req: IncomingMessage,
-  res: ServerResponse,
-): Promise<boolean> {
+async function handleListGameSystems(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   const session = await requireSession(req);
   if (!session) {
     sendJson(res, 401, { error: "not authenticated" });
@@ -498,10 +455,7 @@ async function handleListGameSystems(
   return true;
 }
 
-async function handleListWorlds(
-  req: IncomingMessage,
-  res: ServerResponse,
-): Promise<boolean> {
+async function handleListWorlds(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   const session = await requireSession(req);
   if (!session) {
     sendJson(res, 401, { error: "not authenticated" });
@@ -561,10 +515,7 @@ function resolveActivePluginsForWorld(gameSystemPlugin: string): string[] {
   }
 }
 
-async function handleCreateWorld(
-  req: IncomingMessage,
-  res: ServerResponse,
-): Promise<boolean> {
+async function handleCreateWorld(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   const session = await requireSession(req);
   if (!session) {
     sendJson(res, 401, { error: "not authenticated" });
@@ -591,9 +542,7 @@ async function handleCreateWorld(
     sendJson(res, 400, { error: "missing gameSystem" });
     return true;
   }
-  const game = optionalPlugins.find(
-    (p) => p.name === input.gameSystem && p.gameSystem === true,
-  );
+  const game = optionalPlugins.find((p) => p.name === input.gameSystem && p.gameSystem === true);
   if (!game) {
     sendJson(res, 400, { error: "unknown game system" });
     return true;
@@ -695,8 +644,7 @@ async function handleListMemberships(
   }
   const ms = await worldsRepo.listMemberships(worldId);
   const isMember =
-    world.ownerUserId === session.userId ||
-    ms.some((m) => m.userId === session.userId);
+    world.ownerUserId === session.userId || ms.some((m) => m.userId === session.userId);
   if (!isMember) {
     sendJson(res, 403, { error: "not a member of this world" });
     return true;
@@ -707,9 +655,7 @@ async function handleListMemberships(
   const placeholders = userIds.map(() => "?").join(",");
   const rows = userIds.length
     ? (auth.db
-        .prepare(
-          `SELECT id, name, email FROM "user" WHERE id IN (${placeholders})`,
-        )
+        .prepare(`SELECT id, name, email FROM "user" WHERE id IN (${placeholders})`)
         .all(...userIds) as Array<{ id: string; name: string; email: string }>)
     : [];
   const lookup = new Map(rows.map((r) => [r.id, r]));
@@ -836,8 +782,7 @@ const handle = await startServer({
     // Per-world session: override the global role with whatever role
     // applies to this world. Plugins read `session.role` and expect
     // per-world semantics.
-    const perWorldRole = (await worldsService.roleFor(worldId, session.userId))
-      ?? "player";
+    const perWorldRole = (await worldsService.roleFor(worldId, session.userId)) ?? "player";
     const perWorldSession: AuthSession = {
       userId: session.userId,
       email: session.email,
@@ -875,12 +820,12 @@ const handle = await startServer({
 assetWorldsRegistry = handle.worldsRegistry;
 
 console.log(`mvtt server listening on ${baseURL}`);
-console.log(
-  `infrastructure: ${infrastructurePlugins.map((p) => p.name).join(", ")}`,
-);
+console.log(`infrastructure: ${infrastructurePlugins.map((p) => p.name).join(", ")}`);
 console.log(`optional: ${optionalPlugins.map((p) => p.name).join(", ")}`);
 console.log(
-  `game systems: ${listGameSystems(optionalPlugins).map((p) => p.name).join(", ")}`,
+  `game systems: ${listGameSystems(optionalPlugins)
+    .map((p) => p.name)
+    .join(", ")}`,
 );
 console.log(`auth db: ${dbPath}`);
 console.log(

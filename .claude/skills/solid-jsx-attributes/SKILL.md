@@ -8,21 +8,21 @@ Solid recognizes a small but specific set of JSX attribute prefixes. Knowing the
 
 ## Quick reference
 
-| Attribute / prefix | Type | Purpose |
-|---|---|---|
-| `class` | `string` | Set the `class` attribute. Replaces `className` (deprecated). |
-| `classList` | `Record<string, boolean \| undefined>` | Toggle classes individually from a map. |
-| `style` | `string \| CSSProperties` | Inline styles. Object keys must be **kebab-case**. |
-| `ref` | `T \| (el: T) => void` | Capture the DOM element. |
-| `attr:foo` | `string \| boolean \| number` | Force `setAttribute("foo", ...)`. Useful for custom attributes. |
-| `prop:foo` | `any` | Force property assignment. Preserves objects, arrays, etc. |
-| `bool:foo` | `boolean` | Boolean attribute (presence-based) — equivalent to `attr:foo` with toggle semantics. |
-| `on:foo` | `(e) => void \| EventListenerObject` | Native event listener (`addEventListener`). Case-sensitive. |
-| `onfoo` / `onFoo` | `(e) => void \| [handler, data]` | Delegated event listener (Solid's synthetic event system). |
-| `oncapture:foo` | `(e) => void` | **Deprecated.** Native capture-phase listener. Use `on:foo` with `{ capture: true, handleEvent }`. |
-| `use:dir` | directive arg | Apply a custom directive. |
-| `innerHTML` / `textContent` / `innerText` | `string` | Content properties. `innerHTML` does not parse JSX — pass HTML as a string. |
-| `once` | `boolean` (in event-listener objects) | Run the listener once. |
+| Attribute / prefix                        | Type                                   | Purpose                                                                                            |
+| ----------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `class`                                   | `string`                               | Set the `class` attribute. Replaces `className` (deprecated).                                      |
+| `classList`                               | `Record<string, boolean \| undefined>` | Toggle classes individually from a map.                                                            |
+| `style`                                   | `string \| CSSProperties`              | Inline styles. Object keys must be **kebab-case**.                                                 |
+| `ref`                                     | `T \| (el: T) => void`                 | Capture the DOM element.                                                                           |
+| `attr:foo`                                | `string \| boolean \| number`          | Force `setAttribute("foo", ...)`. Useful for custom attributes.                                    |
+| `prop:foo`                                | `any`                                  | Force property assignment. Preserves objects, arrays, etc.                                         |
+| `bool:foo`                                | `boolean`                              | Boolean attribute (presence-based) — equivalent to `attr:foo` with toggle semantics.               |
+| `on:foo`                                  | `(e) => void \| EventListenerObject`   | Native event listener (`addEventListener`). Case-sensitive.                                        |
+| `onfoo` / `onFoo`                         | `(e) => void \| [handler, data]`       | Delegated event listener (Solid's synthetic event system).                                         |
+| `oncapture:foo`                           | `(e) => void`                          | **Deprecated.** Native capture-phase listener. Use `on:foo` with `{ capture: true, handleEvent }`. |
+| `use:dir`                                 | directive arg                          | Apply a custom directive.                                                                          |
+| `innerHTML` / `textContent` / `innerText` | `string`                               | Content properties. `innerHTML` does not parse JSX — pass HTML as a string.                        |
+| `once`                                    | `boolean` (in event-listener objects)  | Run the listener once.                                                                             |
 
 Plus all standard HTML attributes (`id`, `href`, `disabled`, `value`, etc.).
 
@@ -56,7 +56,7 @@ Keys can be space-separated; each is toggled independently:
 
 ### Combining `class` and `classList`
 
-If both are present, `classList` runs after `class`. But a **reactive** `class` write *re-sets* the whole attribute and can clobber `classList`-managed classes mid-flight. Pick one as your source of truth, or compute a single class string and pass it to `class`.
+If both are present, `classList` runs after `class`. But a **reactive** `class` write _re-sets_ the whole attribute and can clobber `classList`-managed classes mid-flight. Pick one as your source of truth, or compute a single class string and pass it to `class`.
 
 ```tsx
 // Safe: class is static, classList is dynamic.
@@ -85,11 +85,13 @@ Cheap to write; replaces the whole inline style on each update.
 ### Object form (kebab-case keys)
 
 ```tsx
-<div style={{
-  color: "red",
-  "background-color": bg(),
-  "font-size": `${size()}px`,
-}} />
+<div
+  style={{
+    color: "red",
+    "background-color": bg(),
+    "font-size": `${size()}px`,
+  }}
+/>
 ```
 
 Each property is set with `element.style.setProperty(...)`. Only changed properties are re-set. **Keys must be kebab-case** — `fontSize` won't work.
@@ -122,7 +124,13 @@ let el!: HTMLDivElement;
 return <div ref={el}>...</div>;
 
 // callback form (runs before insertion)
-return <div ref={(node) => { el = node; }} />;
+return (
+  <div
+    ref={(node) => {
+      el = node;
+    }}
+  />
+);
 ```
 
 In the variable form, Solid assigns the variable just before insertion. In TypeScript, use `let el!: HTMLDivElement` (definitive assignment) so the type is non-undefined.
@@ -132,6 +140,7 @@ For refs to elements that come and go (e.g. inside `<Show>`), use a signal as th
 ## `attr:*`
 
 Force `setAttribute`. Useful for:
+
 - Custom data attributes that should appear in markup.
 - Custom-element attributes that aren't typed as DOM properties.
 - ARIA attributes.
@@ -154,6 +163,7 @@ Force property assignment, bypassing the attribute layer. Preserves objects, arr
 ```
 
 Use when:
+
 - An attribute serializes incorrectly (e.g. arrays).
 - A custom element exposes a property that doesn't have a string-form attribute.
 
@@ -191,7 +201,7 @@ function autoFocus(el: HTMLElement) {
   setTimeout(() => el.focus());
 }
 
-<input use:autoFocus />
+<input use:autoFocus />;
 ```
 
 With an argument:
@@ -200,10 +210,10 @@ With an argument:
 function model(el: HTMLInputElement, accessor: () => Signal<string>) {
   const [v, setV] = accessor();
   createRenderEffect(() => (el.value = v()));
-  el.addEventListener("input", e => setV((e.target as HTMLInputElement).value));
+  el.addEventListener("input", (e) => setV((e.target as HTMLInputElement).value));
 }
 
-<input use:model={[name, setName]} />
+<input use:model={[name, setName]} />;
 ```
 
 Directives are NOT forwarded through user-defined components — they only attach to native elements. For TypeScript typing, augment `JSX.Directives` (see `solid-typescript`).

@@ -187,7 +187,6 @@ const bg = new TilingSprite({ texture, width: 800, height: 600 });
 
 The runtime default is `Texture.EMPTY` (set in `TilingSprite.defaultOptions`), so omitting the texture produces an invisible sprite with nothing to tile. Always pass a real texture.
 
-
 ### [HIGH] Scaling the sprite instead of the tile
 
 Wrong:
@@ -204,11 +203,9 @@ bg.tileScale.set(2);
 
 Scaling the sprite stretches everything; including the visible area. Use `tileScale` to make each tile larger while keeping the sprite's region the same size.
 
-
 ### [MEDIUM] Non-power-of-two textures with `tileScale`
 
 Some WebGL implementations cannot repeat non-power-of-two textures in hardware. If you see the pattern clamp to the edge instead of wrapping, resize the source texture to power-of-two dimensions (128, 256, 512, etc.) or pre-bake the tile pattern into a larger texture.
-
 
 ## API Reference
 

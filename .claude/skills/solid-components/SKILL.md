@@ -19,13 +19,17 @@ That's it. No `useState`, no re-render, no `memo`. Reactivity is implicit.
 ## Naming — capital letter is mandatory
 
 ```tsx
-function Card() { return <p>card</p> }       // ✓ component
-function card() { return <p>card</p> }       // ❌ parsed as a lowercase DOM element
+function Card() {
+  return <p>card</p>;
+} // ✓ component
+function card() {
+  return <p>card</p>;
+} // ❌ parsed as a lowercase DOM element
 
 return (
   <>
-    <Card />     {/* renders the component */}
-    <card />     {/* renders an unknown HTML tag — no error, just wrong */}
+    <Card /> {/* renders the component */}
+    <card /> {/* renders an unknown HTML tag — no error, just wrong */}
   </>
 );
 ```
@@ -37,10 +41,8 @@ This is JSX-level: the parser uses the leading capital to decide "component" vs 
 ```tsx
 function Counter() {
   const [count, setCount] = createSignal(0);
-  console.log("Counter setup");           // logs ONCE
-  return (
-    <button onClick={() => setCount(c => c + 1)}>{count()}</button>
-  );
+  console.log("Counter setup"); // logs ONCE
+  return <button onClick={() => setCount((c) => c + 1)}>{count()}</button>;
 }
 ```
 
@@ -58,7 +60,11 @@ function MaybeShow(props: { show: boolean }) {
 
 // ✓ reactive
 function MaybeShow(props: { show: boolean }) {
-  return <Show when={props.show} fallback={<B />}><A /></Show>;
+  return (
+    <Show when={props.show} fallback={<B />}>
+      <A />
+    </Show>
+  );
 }
 ```
 
@@ -90,7 +96,11 @@ Each `<Item>` runs its own `Item` function on first mount, gets its own signals,
 ```tsx
 // ./Card.tsx
 export function Card(props: { title: string }) {
-  return <article><h3>{props.title}</h3></article>;
+  return (
+    <article>
+      <h3>{props.title}</h3>
+    </article>
+  );
 }
 
 // ./App.tsx
@@ -101,7 +111,9 @@ import { Card } from "./Card";
 
 ```tsx
 // ./Page.tsx
-export default function Page() { return <p>page</p>; }
+export default function Page() {
+  return <p>page</p>;
+}
 
 // ./App.tsx
 import Page from "./Page";
@@ -116,17 +128,20 @@ const LazyPage = lazy(() => import("./Page")); // requires default export
 import type { Component, ParentComponent, VoidComponent, FlowComponent } from "solid-js";
 ```
 
-| Type | Children allowed? | When to use |
-|---|---|---|
-| `Component<P>` | No (TS will error) | Most leaf components — buttons, inputs, badges. |
-| `ParentComponent<P>` | Optional `children` | Layouts, cards, anything wrapping content. |
-| `VoidComponent<P>` | Forbidden (TS will error) | Like `Component`, but used to make the no-children intent explicit. |
-| `FlowComponent<P, T>` | Required, of type `T` | Components like `<Show>`, `<For>` that take a function as `children`. |
+| Type                  | Children allowed?         | When to use                                                           |
+| --------------------- | ------------------------- | --------------------------------------------------------------------- |
+| `Component<P>`        | No (TS will error)        | Most leaf components — buttons, inputs, badges.                       |
+| `ParentComponent<P>`  | Optional `children`       | Layouts, cards, anything wrapping content.                            |
+| `VoidComponent<P>`    | Forbidden (TS will error) | Like `Component`, but used to make the no-children intent explicit.   |
+| `FlowComponent<P, T>` | Required, of type `T`     | Components like `<Show>`, `<For>` that take a function as `children`. |
 
 ```tsx
 const Badge: Component<{ count: number }> = (p) => <span>{p.count}</span>;
 const Card: ParentComponent<{ title: string }> = (p) => (
-  <article><h3>{p.title}</h3>{p.children}</article>
+  <article>
+    <h3>{p.title}</h3>
+    {p.children}
+  </article>
 );
 const Spacer: VoidComponent = () => <div style={{ height: "1rem" }} />;
 ```
@@ -165,14 +180,22 @@ function Profile(props: { id: string }) {
   const [user] = createResource(() => props.id, fetchUser);
 
   // Derived — function, reactive, recomputed on read.
-  const initials = () => user()?.name.split(" ").map(s => s[0]).join("");
+  const initials = () =>
+    user()
+      ?.name.split(" ")
+      .map((s) => s[0])
+      .join("");
 
   // Side effect — runs on dependency changes.
   createEffect(() => {
     document.title = user()?.name ?? "Loading...";
   });
 
-  return <p>{initials()} — {user()?.name}</p>;
+  return (
+    <p>
+      {initials()} — {user()?.name}
+    </p>
+  );
 }
 ```
 
@@ -189,14 +212,44 @@ Notice `() => props.id` — passing the accessor (not the value) to `createResou
 ## Imports cheat sheet
 
 ```ts
-import { createSignal, createEffect, createMemo, createResource,
-         onMount, onCleanup, Show, For, Index, Switch, Match,
-         ErrorBoundary, Suspense, lazy, createContext, useContext,
-         children, mergeProps, splitProps, batch, untrack, on,
-         type Component, type ParentComponent, type JSX } from "solid-js";
+import {
+  createSignal,
+  createEffect,
+  createMemo,
+  createResource,
+  onMount,
+  onCleanup,
+  Show,
+  For,
+  Index,
+  Switch,
+  Match,
+  ErrorBoundary,
+  Suspense,
+  lazy,
+  createContext,
+  useContext,
+  children,
+  mergeProps,
+  splitProps,
+  batch,
+  untrack,
+  on,
+  type Component,
+  type ParentComponent,
+  type JSX,
+} from "solid-js";
 
-import { render, hydrate, Portal, Dynamic, NoHydration,
-         renderToString, renderToStringAsync, renderToStream } from "solid-js/web";
+import {
+  render,
+  hydrate,
+  Portal,
+  Dynamic,
+  NoHydration,
+  renderToString,
+  renderToStringAsync,
+  renderToStream,
+} from "solid-js/web";
 
 import { createStore, produce, reconcile, unwrap, createMutable } from "solid-js/store";
 ```

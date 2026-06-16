@@ -51,19 +51,9 @@ const serverPlugin = definePlugin({
   name: "@vtt/rules-corpus-test",
   version: "0.1.0",
   traits: [Asset, Permissions, RulesLibrary, RulesCorpus],
-  events: [
-    RulesIndexingStarted,
-    RulesIndexingCompleted,
-    RulesIndexingFailed,
-    RulesCorpusRemoved,
-  ],
+  events: [RulesIndexingStarted, RulesIndexingCompleted, RulesIndexingFailed, RulesCorpusRemoved],
   commands: [IndexRules, RemoveRulesCorpus],
-  systems: [
-    CorpusSpawningSystem,
-    CorpusStatusMirror,
-    CorpusFailureMirror,
-    CorpusDespawnSystem,
-  ],
+  systems: [CorpusSpawningSystem, CorpusStatusMirror, CorpusFailureMirror, CorpusDespawnSystem],
 });
 
 const GM: AuthSession = {
@@ -90,11 +80,7 @@ function setup() {
 }
 
 let cmdSeq = 0;
-async function dispatch(
-  pipeline: CommandPipeline,
-  cmd: CommandInstance,
-  session: unknown,
-) {
+async function dispatch(pipeline: CommandPipeline, cmd: CommandInstance, session: unknown) {
   return pipeline.dispatch({
     id: `cmd-${++cmdSeq}`,
     issuedBy: "tester",
@@ -104,10 +90,7 @@ async function dispatch(
   });
 }
 
-function seedAsset(
-  world: World,
-  mime: string = "application/pdf",
-): EntityId {
+function seedAsset(world: World, mime: string = "application/pdf"): EntityId {
   const id = world.allocateId();
   world.spawnAt(id, [
     Asset({
@@ -135,15 +118,9 @@ describe("@vtt/rules-corpus", () => {
   describe("IndexRules", () => {
     it("GM indexes a PDF asset; mirror spawns library + corpus in pending", async () => {
       const assetId = seedAsset(world);
-      const res = await dispatch(
-        pipeline,
-        IndexRules({ assetId, tags: ["torchbearer"] }),
-        GM,
-      );
+      const res = await dispatch(pipeline, IndexRules({ assetId, tags: ["torchbearer"] }), GM);
       expect(res.result.ok).toBe(true);
-      const startedEvents = res.events.filter(
-        (e) => e.type === RulesIndexingStarted.name,
-      );
+      const startedEvents = res.events.filter((e) => e.type === RulesIndexingStarted.name);
       expect(startedEvents).toHaveLength(1);
       // The runner needs the dispatcher's identity to issue follow-up
       // completion / failure dispatches; verify the apply embedded it.
@@ -172,37 +149,21 @@ describe("@vtt/rules-corpus", () => {
 
     it("rejects a player dispatch", async () => {
       const assetId = seedAsset(world);
-      const res = await dispatch(
-        pipeline,
-        IndexRules({ assetId, tags: [] }),
-        PLAYER,
-      );
+      const res = await dispatch(pipeline, IndexRules({ assetId, tags: [] }), PLAYER);
       expect(res.result.ok).toBe(false);
     });
 
     it("rejects an asset whose mime is not application/pdf", async () => {
       const imageAsset = seedAsset(world, "image/png");
-      const res = await dispatch(
-        pipeline,
-        IndexRules({ assetId: imageAsset, tags: [] }),
-        GM,
-      );
+      const res = await dispatch(pipeline, IndexRules({ assetId: imageAsset, tags: [] }), GM);
       expect(res.result.ok).toBe(false);
     });
 
     it("rejects re-indexing the same asset", async () => {
       const assetId = seedAsset(world);
-      const r1 = await dispatch(
-        pipeline,
-        IndexRules({ assetId, tags: [] }),
-        GM,
-      );
+      const r1 = await dispatch(pipeline, IndexRules({ assetId, tags: [] }), GM);
       expect(r1.result.ok).toBe(true);
-      const r2 = await dispatch(
-        pipeline,
-        IndexRules({ assetId, tags: [] }),
-        GM,
-      );
+      const r2 = await dispatch(pipeline, IndexRules({ assetId, tags: [] }), GM);
       expect(r2.result.ok).toBe(false);
     });
 
@@ -221,11 +182,7 @@ describe("@vtt/rules-corpus", () => {
       const assetId = seedAsset(world);
       await dispatch(pipeline, IndexRules({ assetId, tags: [] }), GM);
       const corpus = world.query([RulesCorpus])[0]!;
-      const res = await dispatch(
-        pipeline,
-        RemoveRulesCorpus({ corpusId: corpus.id }),
-        GM,
-      );
+      const res = await dispatch(pipeline, RemoveRulesCorpus({ corpusId: corpus.id }), GM);
       expect(res.result.ok).toBe(true);
       expect(res.events.map((e) => e.type)).toContain(RulesCorpusRemoved.name);
       expect(world.has(corpus.id)).toBe(false);
@@ -235,11 +192,7 @@ describe("@vtt/rules-corpus", () => {
       const assetId = seedAsset(world);
       await dispatch(pipeline, IndexRules({ assetId, tags: [] }), GM);
       const corpus = world.query([RulesCorpus])[0]!;
-      const res = await dispatch(
-        pipeline,
-        RemoveRulesCorpus({ corpusId: corpus.id }),
-        PLAYER,
-      );
+      const res = await dispatch(pipeline, RemoveRulesCorpus({ corpusId: corpus.id }), PLAYER);
       expect(res.result.ok).toBe(false);
     });
   });
@@ -267,9 +220,7 @@ describe("@vtt/rules-corpus", () => {
 
     it("rejects nonsense inputs", () => {
       expect(() => RulesProfile.parse({ columns: 7 })).toThrow();
-      expect(() =>
-        RulesProfile.parse({ pageNumber: { strategy: "banana" } }),
-      ).toThrow();
+      expect(() => RulesProfile.parse({ pageNumber: { strategy: "banana" } })).toThrow();
     });
   });
 

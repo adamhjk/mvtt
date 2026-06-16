@@ -54,14 +54,10 @@ export function InvocationsCard(props: { atelier: AtelierState }): JSX.Element {
           <For each={props.atelier.initiatorTraits()?.entries ?? []}>
             {(t, i) => {
               const usesLeft = (): number =>
-                t.level >= 3
-                  ? Infinity
-                  : Math.max(0, t.level - (t.beneficialUses ?? 0));
-              const usedAgainstThisSession = (): boolean =>
-                t.usedAgainst === true;
+                t.level >= 3 ? Infinity : Math.max(0, t.level - (t.beneficialUses ?? 0));
+              const usedAgainstThisSession = (): boolean => t.usedAgainst === true;
               const forDisabled = (): boolean =>
-                props.atelier.traitAlreadyUsed() ||
-                (t.level < 3 && usesLeft() <= 0);
+                props.atelier.traitAlreadyUsed() || (t.level < 3 && usesLeft() <= 0);
               const againstDisabled = (): boolean =>
                 props.atelier.traitAlreadyUsed() || usedAgainstThisSession();
               return (
@@ -73,9 +69,7 @@ export function InvocationsCard(props: { atelier: AtelierState }): JSX.Element {
                     {t.name}
                     <span class="ml-1 text-fg-subtle">
                       Lv {t.level}
-                      {t.level < 3
-                        ? ` · ${usesLeft()}/${t.level}`
-                        : " · all tests"}
+                      {t.level < 3 ? ` · ${usesLeft()}/${t.level}` : " · all tests"}
                       <Show when={usedAgainstThisSession()}>
                         <span class="ml-1">· vs self ✓</span>
                       </Show>
@@ -94,9 +88,7 @@ export function InvocationsCard(props: { atelier: AtelierState }): JSX.Element {
                     type="button"
                     class="rounded-(--radius-control) border border-dashed border-border bg-surface px-2 py-0.5 text-[0.65rem] text-fg-muted hover:border-accent hover:text-fg transition disabled:opacity-40 disabled:cursor-not-allowed"
                     disabled={againstDisabled()}
-                    onClick={() =>
-                      props.atelier.useTraitAgainst(i(), "minus-1d")
-                    }
+                    onClick={() => props.atelier.useTraitAgainst(i(), "minus-1d")}
                     data-testid={`atelier-trait-against-${i()}`}
                   >
                     −1D / +1 ✓
@@ -106,9 +98,7 @@ export function InvocationsCard(props: { atelier: AtelierState }): JSX.Element {
                       type="button"
                       class="rounded-(--radius-control) border border-dashed border-border bg-surface px-2 py-0.5 text-[0.65rem] text-fg-muted hover:border-accent hover:text-fg transition disabled:opacity-40 disabled:cursor-not-allowed"
                       disabled={againstDisabled()}
-                      onClick={() =>
-                        props.atelier.useTraitAgainst(i(), "plus-2d-opp")
-                      }
+                      onClick={() => props.atelier.useTraitAgainst(i(), "plus-2d-opp")}
                       data-testid={`atelier-trait-opp-${i()}`}
                     >
                       +2D opp / +2 ✓

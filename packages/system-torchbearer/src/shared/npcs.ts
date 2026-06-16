@@ -15,14 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  ok,
-  z,
-  type EventInstance,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, ok, z, type EventInstance } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
 import { requireWrite } from "@vtt/permissions/shared";
 import { ItemCatalogIndex } from "@vtt/items/shared";
@@ -60,9 +53,7 @@ function resolveCatalogItemId(
  * dozen NPC templates and the catalog is built once at module load.
  * If runtime cost ever matters this becomes a Map.
  */
-export function npcTemplateById(
-  templateId: string,
-): TbNpcTemplate | undefined {
+export function npcTemplateById(templateId: string): TbNpcTemplate | undefined {
   return TB_NPC_TEMPLATES.find((t) => t.id === templateId);
 }
 

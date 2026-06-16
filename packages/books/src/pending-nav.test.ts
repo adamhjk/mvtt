@@ -72,5 +72,4 @@ describe("pendingBookNav signal", () => {
     clearBookNav("e2" as EntityId, nav.nonce);
     expect(pendingBookNav()).not.toBeNull();
   });
-
 });

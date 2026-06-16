@@ -147,11 +147,7 @@ export async function handleRulesSearch(
   });
 }
 
-function corpusVisible(
-  runtime: WorldRuntime,
-  corpusId: EntityId,
-  recipient: Recipient,
-): boolean {
+function corpusVisible(runtime: WorldRuntime, corpusId: EntityId, recipient: Recipient): boolean {
   if (recipient.role === "gm") return true;
   const out: Record<string, unknown> = {};
   for (const [name, def] of runtime.registry.traits) {

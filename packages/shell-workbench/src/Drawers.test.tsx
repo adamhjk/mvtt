@@ -153,10 +153,7 @@ describe("shell-workbench Drawers", () => {
 
   it("renders one tab per registered bottom drawer", () => {
     const h = harness({
-      drawers: [
-        drawer("Tray", "tray body"),
-        drawer("Notes", "notes body"),
-      ],
+      drawers: [drawer("Tray", "tray body"), drawer("Notes", "notes body")],
     });
     render(() => (
       <ClientProvider value={h.client}>
@@ -215,16 +212,13 @@ describe("shell-workbench Drawers", () => {
     // CloseDrawer for tray + OpenDrawer for notes (in some order).
     expect(
       h.dispatched.some(
-        (c) =>
-          c.type === CloseDrawer.name &&
-          (c.payload as { id: string }).id === trayId,
+        (c) => c.type === CloseDrawer.name && (c.payload as { id: string }).id === trayId,
       ),
     ).toBe(true);
     expect(
       h.dispatched.some(
         (c) =>
-          c.type === OpenDrawer.name &&
-          (c.payload as { id: string }).id === "@test/drawers/notes",
+          c.type === OpenDrawer.name && (c.payload as { id: string }).id === "@test/drawers/notes",
       ),
     ).toBe(true);
   });

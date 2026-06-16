@@ -20,14 +20,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { screen, cleanup, fireEvent, render } from "@solidjs/testing-library";
 import { buildTestClient } from "@vtt/substrate/client-testing";
 import { ClientProvider } from "@vtt/substrate/client";
-import {
-  defineCommand,
-  definePlugin,
-  defineTrait,
-  ok,
-  qualifiedName,
-  z,
-} from "@vtt/substrate";
+import { defineCommand, definePlugin, defineTrait, ok, qualifiedName, z } from "@vtt/substrate";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import { actors, Permissions } from "@vtt/permissions/shared";
 import { identity } from "@vtt/identity";
@@ -269,7 +262,12 @@ describe("shell-workbench Palette", () => {
     let closed = false;
     render(() => (
       <ClientProvider value={h.client}>
-        <Palette open={true} onClose={() => { closed = true; }} />
+        <Palette
+          open={true}
+          onClose={() => {
+            closed = true;
+          }}
+        />
       </ClientProvider>
     ));
     const input = screen.getByRole("textbox") as HTMLInputElement;

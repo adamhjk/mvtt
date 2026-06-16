@@ -23,10 +23,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, screen } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { definePlugin, type EntityId } from "@vtt/substrate";
 import { permissions } from "@vtt/permissions";
 import { Permissions, actors } from "@vtt/permissions/shared";
@@ -121,11 +118,7 @@ function makeLpHarness(opts: {
           conflictId: conflictId!,
           side: "party",
           locked: false,
-          slots: [
-            { status: "empty" },
-            { status: "empty" },
-            { status: "empty" },
-          ],
+          slots: [{ status: "empty" }, { status: "empty" }, { status: "empty" }],
         }),
       ]);
       world.spawn([
@@ -133,11 +126,7 @@ function makeLpHarness(opts: {
           conflictId: conflictId!,
           side: "enemy",
           locked: false,
-          slots: [
-            { status: "empty" },
-            { status: "empty" },
-            { status: "empty" },
-          ],
+          slots: [{ status: "empty" }, { status: "empty" }, { status: "empty" }],
         }),
       ]);
       world.spawn([
@@ -169,9 +158,7 @@ describe("lp conflict reproduction", () => {
         <TeamColumn conflictId={conflictId} side="enemy" title="Enemy" />
       </>
     ));
-    expect(screen.getByTestId("team-column-party").textContent).toContain(
-      "gasf123",
-    );
+    expect(screen.getByTestId("team-column-party").textContent).toContain("gasf123");
     expect(screen.getByTestId("team-column-enemy").textContent).toContain("gg");
   });
 
@@ -181,9 +168,7 @@ describe("lp conflict reproduction", () => {
     // ConflictDeclaredSystem, which collides with the next
     // server-allocated participant id on the client mirror and
     // silently swallows the second participant's spawnAt error.
-    const { CommandPipeline, EventBus, Registry, World } = await import(
-      "@vtt/substrate"
-    );
+    const { CommandPipeline, EventBus, Registry, World } = await import("@vtt/substrate");
     const { permissions: perms } = await import("@vtt/permissions");
     const registry = new Registry();
     registry.load(perms);

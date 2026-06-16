@@ -145,10 +145,7 @@ type PersistedReaderState = {
  * whitespace-insensitive), walking the tree depth-first. Returns the
  * matching node or null.
  */
-function findOutlineByTitle(
-  nodes: ReadonlyArray<OutlineNode>,
-  needle: string,
-): OutlineNode | null {
+function findOutlineByTitle(nodes: ReadonlyArray<OutlineNode>, needle: string): OutlineNode | null {
   const normalised = needle.trim().toLowerCase().replace(/\s+/g, " ");
   for (const n of nodes) {
     const title = n.title.trim().toLowerCase().replace(/\s+/g, " ");
@@ -174,26 +171,22 @@ export function PdfReader(props: {
   tabId: string;
 }): JSX.Element {
   const sentinelId: EntityId = useTabSentinel(props.tabId);
-  const [readerState, setReaderState] = createOptimisticTrait(
-    sentinelId,
-    PdfReaderState,
-    {
-      write: (value) => SetPdfReaderState({ entityId: sentinelId, value }),
-      // Page changes, scroll, and zoom can fire many times per second
-      // during rapid scrolling. Coalesce to one dispatch per ~250ms,
-      // flushed on cleanup.
-      debounceMs: 250,
-      // Push pdfjs's current viewer state into the store before every
-      // dispatch. Without this, share-time `flushFor` reads whatever
-      // the last `pagechanging` / scroll / zoom event happened to
-      // commit — which lags the user's actual position whenever they
-      // navigate, then click share before the next persist event fires.
-      // Symptom: "shared page 95, recipient gets page 62". Defined
-      // lazily so it can reference `persist` (declared further down)
-      // at call time rather than initialisation time.
-      prepareFlush: () => persist(),
-    },
-  );
+  const [readerState, setReaderState] = createOptimisticTrait(sentinelId, PdfReaderState, {
+    write: (value) => SetPdfReaderState({ entityId: sentinelId, value }),
+    // Page changes, scroll, and zoom can fire many times per second
+    // during rapid scrolling. Coalesce to one dispatch per ~250ms,
+    // flushed on cleanup.
+    debounceMs: 250,
+    // Push pdfjs's current viewer state into the store before every
+    // dispatch. Without this, share-time `flushFor` reads whatever
+    // the last `pagechanging` / scroll / zoom event happened to
+    // commit — which lags the user's actual position whenever they
+    // navigate, then click share before the next persist event fires.
+    // Symptom: "shared page 95, recipient gets page 62". Defined
+    // lazily so it can reference `persist` (declared further down)
+    // at call time rather than initialisation time.
+    prepareFlush: () => persist(),
+  });
   const [pageNumber, setPageNumber] = createSignal(1);
   const [pageCount, setPageCount] = createSignal(0);
   // Default scale is "page-width" rather than "auto": auto recomputes
@@ -351,14 +344,11 @@ export function PdfReader(props: {
     });
     // scalechanging: zoom-driven scale change. Show the percent and
     // persist so the user's preferred zoom is remembered.
-    eventBus.on(
-      "scalechanging",
-      (evt: { scale: number; presetValue?: string }) => {
-        setScalePct(Math.round(evt.scale * 100));
-        if (evt.presetValue) setScaleValue(evt.presetValue);
-        persist();
-      },
-    );
+    eventBus.on("scalechanging", (evt: { scale: number; presetValue?: string }) => {
+      setScalePct(Math.round(evt.scale * 100));
+      if (evt.presetValue) setScaleValue(evt.presetValue);
+      persist();
+    });
     // updatefindmatchescount fires while pdf.js is searching all
     // pages; updatefindcontrolstate fires when a navigation action
     // (next/prev) lands on a match. Both carry the latest count.
@@ -550,10 +540,7 @@ export function PdfReader(props: {
     if (!viewer) return;
     if (req.page !== undefined) {
       if (!pagesReady()) return;
-      const clamped = Math.max(
-        1,
-        Math.min(pageCount(), Math.floor(req.page)),
-      );
+      const clamped = Math.max(1, Math.min(pageCount(), Math.floor(req.page)));
       viewer.currentPageNumber = clamped;
       clearBookNav(req.bookId, req.nonce);
       return;
@@ -565,9 +552,7 @@ export function PdfReader(props: {
         const hit = findOutlineByTitle(nodes, req.tocTitle);
         if (hit && hit.dest != null && linkService) {
           void linkService.goToDestination(
-            hit.dest as string | unknown[] as Parameters<
-              PDFLinkService["goToDestination"]
-            >[0],
+            hit.dest as string | unknown[] as Parameters<PDFLinkService["goToDestination"]>[0],
           );
           setOutlineOpen(true);
         }
@@ -605,10 +590,7 @@ export function PdfReader(props: {
   // pdfjs's find pipeline takes a `find` event with `type` either
   // empty (new search) or "again" (next/prev match). Issuing "again"
   // with `findPrevious: true` jumps to the previous match.
-  const dispatchFind = (
-    type: "" | "again",
-    opts: { findPrevious?: boolean } = {},
-  ) => {
+  const dispatchFind = (type: "" | "again", opts: { findPrevious?: boolean } = {}) => {
     if (!eventBus) return;
     eventBus.dispatch("find", {
       source: window,
@@ -652,9 +634,7 @@ export function PdfReader(props: {
       void linkService.goToDestination(
         // pdfjs's signature is `string | any[]`; we model `dest` as
         // `string | unknown[]` for type safety on our side.
-        node.dest as string | unknown[] as Parameters<
-          PDFLinkService["goToDestination"]
-        >[0],
+        node.dest as string | unknown[] as Parameters<PDFLinkService["goToDestination"]>[0],
       );
     }
   };
@@ -712,10 +692,7 @@ export function PdfReader(props: {
           from a height-only change like the bottom dock.) */}
       <div class="flex min-h-0 flex-1">
         <Show when={outlineOpen() && outlineState() === "ready"}>
-          <OutlineSidebar
-            nodes={outline() ?? []}
-            onPick={goToOutlineEntry}
-          />
+          <OutlineSidebar nodes={outline() ?? []} onPick={goToOutlineEntry} />
         </Show>
         {/* PDFViewer requires an `overflow:auto` container with a
             definite size. The inner `pdfViewer` is the element it
@@ -723,10 +700,7 @@ export function PdfReader(props: {
             the container makes pdfjs's coordinate math work — see
             the official viewer.css. */}
         <div class="relative min-h-0 min-w-0 flex-1">
-          <div
-            ref={(el) => (containerEl = el)}
-            class="absolute inset-0 overflow-auto"
-          >
+          <div ref={(el) => (containerEl = el)} class="absolute inset-0 overflow-auto">
             <div ref={(el) => (viewerEl = el)} class="pdfViewer" />
           </div>
         </div>
@@ -757,9 +731,7 @@ function OutlineSidebar(props: {
       </h3>
       <ul class="flex flex-col gap-px">
         <For each={props.nodes}>
-          {(node) => (
-            <OutlineRow node={node} depth={0} onPick={props.onPick} />
-          )}
+          {(node) => <OutlineRow node={node} depth={0} onPick={props.onPick} />}
         </For>
       </ul>
     </aside>
@@ -781,10 +753,7 @@ function OutlineRow(props: {
         class="group flex items-start gap-1 rounded-(--radius-control) px-1 py-0.5 hover:bg-surface-elevated"
         style={{ "padding-left": indent() }}
       >
-        <Show
-          when={hasChildren()}
-          fallback={<span aria-hidden class="w-3 shrink-0" />}
-        >
+        <Show when={hasChildren()} fallback={<span aria-hidden class="w-3 shrink-0" />}>
           <button
             type="button"
             onClick={() => setExpanded(!expanded())}
@@ -812,13 +781,7 @@ function OutlineRow(props: {
       <Show when={hasChildren() && expanded()}>
         <ul class="flex flex-col gap-px">
           <For each={props.node.items}>
-            {(child) => (
-              <OutlineRow
-                node={child}
-                depth={props.depth + 1}
-                onPick={props.onPick}
-              />
-            )}
+            {(child) => <OutlineRow node={child} depth={props.depth + 1} onPick={props.onPick} />}
           </For>
         </ul>
       </Show>
@@ -879,8 +842,7 @@ function Toolbar(props: ToolbarProps): JSX.Element {
         aria-pressed={props.outlineOpen}
         class="rounded-(--radius-control) border border-border bg-surface px-2 py-0.5 font-mono text-xs text-fg-muted hover:border-accent hover:text-fg transition disabled:cursor-not-allowed disabled:opacity-40"
         classList={{
-          "!border-accent !text-fg":
-            props.outlineOpen && props.outlineState === "ready",
+          "!border-accent !text-fg": props.outlineOpen && props.outlineState === "ready",
         }}
       >
         ☰
@@ -917,10 +879,7 @@ function Toolbar(props: ToolbarProps): JSX.Element {
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                const n = Number.parseInt(
-                  (e.currentTarget as HTMLInputElement).value,
-                  10,
-                );
+                const n = Number.parseInt((e.currentTarget as HTMLInputElement).value, 10);
                 if (Number.isFinite(n)) props.onJumpPage(n);
                 (e.currentTarget as HTMLInputElement).blur();
               }
@@ -939,9 +898,7 @@ function Toolbar(props: ToolbarProps): JSX.Element {
         </span>
         <ToolbarButton
           onClick={props.onNextPage}
-          disabled={
-            props.pageNumber >= props.pageCount || props.pageCount === 0
-          }
+          disabled={props.pageNumber >= props.pageCount || props.pageCount === 0}
           title="next page"
           label="▶"
         />
@@ -982,9 +939,7 @@ function Toolbar(props: ToolbarProps): JSX.Element {
           title="zoom in"
           label="+"
         />
-        <span class="ml-1 font-mono text-[0.65rem] text-fg-subtle">
-          {props.scalePct}%
-        </span>
+        <span class="ml-1 font-mono text-[0.65rem] text-fg-subtle">{props.scalePct}%</span>
       </div>
 
       <span aria-hidden class="mx-1 h-5 w-px bg-border-muted" />

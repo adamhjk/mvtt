@@ -8,22 +8,22 @@ Use **`<Index>`**. It is the right primitive for a list of input fields where th
 
 You are almost certainly using `<For>` with the field's text value as the array element (e.g. `string[]`). `<For>` keys **by reference**: when a keystroke replaces `items[i]` with a new string, `<For>` sees a brand-new value at that slot, disposes the old row, and creates a new one. The old `<input>` DOM node is destroyed and a fresh one mounts in its place — and a fresh DOM node has no focus, so the caret jumps out as you type.
 
-Note this is not the *whole* list re-rendering — Solid components run once and the surrounding component never re-runs. What you are seeing is per-row reconciliation: every keystroke writes a new string into the array, `<For>` treats that slot as a new item, and that single row gets torn down and remounted. It looks like "the list re-rendered" because the input you were typing in vanishes.
+Note this is not the _whole_ list re-rendering — Solid components run once and the surrounding component never re-runs. What you are seeing is per-row reconciliation: every keystroke writes a new string into the array, `<For>` treats that slot as a new item, and that single row gets torn down and remounted. It looks like "the list re-rendered" because the input you were typing in vanishes.
 
 `<Index>` keys **by position** instead:
 
-- The component for each *position* is created once when the array grows and disposed when it shrinks.
+- The component for each _position_ is created once when the array grows and disposed when it shrinks.
 - The element at each slot is exposed as a **signal** (`item()`), not a value. When `items[i]` changes, the signal updates in place — the row's DOM (including your focused `<input>`) is reused, and only the bound text value changes.
 - `index` is a plain number (not a signal), since the position is fixed for that rendered row.
 
 The decision-rule from the skill matches your situation exactly:
 
-| You have | Use |
-|---|---|
-| Array of primitives (strings, numbers, booleans) | `<Index>` |
-| Form fields tied to position | `<Index>` |
-| Array of objects with stable identity (id), order changes | `<For>` |
-| Sortable/drag-droppable list | `<For>` |
+| You have                                                  | Use       |
+| --------------------------------------------------------- | --------- |
+| Array of primitives (strings, numbers, booleans)          | `<Index>` |
+| Form fields tied to position                              | `<Index>` |
+| Array of objects with stable identity (id), order changes | `<For>`   |
+| Sortable/drag-droppable list                              | `<For>`   |
 
 You have primitives, the fields are tied to position, and there is no reordering. `<Index>` it is.
 
@@ -39,8 +39,7 @@ export function FieldList() {
 
   const addField = () => setFields((prev) => [...prev, ""]);
 
-  const removeField = (i: number) =>
-    setFields((prev) => prev.filter((_, idx) => idx !== i));
+  const removeField = (i: number) => setFields((prev) => prev.filter((_, idx) => idx !== i));
 
   const updateField = (i: number, value: string) =>
     setFields((prev) => prev.map((v, idx) => (idx === i ? value : v)));
@@ -51,10 +50,7 @@ export function FieldList() {
         {(value, i) => (
           <div>
             {/* value is a signal: call it. i is a plain number. */}
-            <input
-              value={value()}
-              onInput={(e) => updateField(i, e.currentTarget.value)}
-            />
+            <input value={value()} onInput={(e) => updateField(i, e.currentTarget.value)} />
             <button type="button" onClick={() => removeField(i)}>
               Remove
             </button>

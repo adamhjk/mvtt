@@ -78,28 +78,17 @@ export class NotesSearchIndex {
           `INSERT INTO notes_fts (worldId, noteId, pageId, noteTitle, pageTitle, body)
            VALUES (?, ?, ?, ?, ?, ?)`,
         )
-        .run(
-          args.worldId,
-          args.noteId,
-          args.pageId,
-          args.noteTitle,
-          args.pageTitle,
-          args.body,
-        );
+        .run(args.worldId, args.noteId, args.pageId, args.noteTitle, args.pageTitle, args.body);
     });
     tx();
   }
 
   removePage(worldId: WorldId, pageId: EntityId): void {
-    this.db
-      .prepare(`DELETE FROM notes_fts WHERE worldId = ? AND pageId = ?`)
-      .run(worldId, pageId);
+    this.db.prepare(`DELETE FROM notes_fts WHERE worldId = ? AND pageId = ?`).run(worldId, pageId);
   }
 
   removeNote(worldId: WorldId, noteId: EntityId): void {
-    this.db
-      .prepare(`DELETE FROM notes_fts WHERE worldId = ? AND noteId = ?`)
-      .run(worldId, noteId);
+    this.db.prepare(`DELETE FROM notes_fts WHERE worldId = ? AND noteId = ?`).run(worldId, noteId);
   }
 
   /**
@@ -112,9 +101,7 @@ export class NotesSearchIndex {
     // is contentless; here we delete-and-re-insert at the row level
     // because UPDATE on FTS5 is column-set-only.
     const rows = this.db
-      .prepare(
-        `SELECT pageId, pageTitle, body FROM notes_fts WHERE worldId = ? AND noteId = ?`,
-      )
+      .prepare(`SELECT pageId, pageTitle, body FROM notes_fts WHERE worldId = ? AND noteId = ?`)
       .all(worldId, noteId) as Array<{
       pageId: string;
       pageTitle: string;
@@ -141,12 +128,8 @@ export class NotesSearchIndex {
    */
   retitlePage(worldId: WorldId, pageId: EntityId, pageTitle: string): void {
     const row = this.db
-      .prepare(
-        `SELECT noteId, noteTitle, body FROM notes_fts WHERE worldId = ? AND pageId = ?`,
-      )
-      .get(worldId, pageId) as
-      | { noteId: string; noteTitle: string; body: string }
-      | undefined;
+      .prepare(`SELECT noteId, noteTitle, body FROM notes_fts WHERE worldId = ? AND pageId = ?`)
+      .get(worldId, pageId) as { noteId: string; noteTitle: string; body: string } | undefined;
     if (!row) return;
     this.indexPage({
       worldId,
@@ -168,11 +151,7 @@ export class NotesSearchIndex {
    * the obvious denial-of-service shapes (extreme length, empty after
    * trim) but otherwise trust FTS5's parser.
    */
-  query(args: {
-    worldId: WorldId;
-    q: string;
-    limit?: number;
-  }): SearchHit[] {
+  query(args: { worldId: WorldId; q: string; limit?: number }): SearchHit[] {
     const trimmed = args.q.trim();
     if (trimmed.length === 0) return [];
     if (trimmed.length > 256) return [];

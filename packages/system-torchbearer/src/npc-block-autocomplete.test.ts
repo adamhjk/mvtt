@@ -18,10 +18,7 @@
 import { describe, it, expect } from "vitest";
 import { definePlugin, Registry, World, z } from "@vtt/substrate";
 import { adventures } from "@vtt/adventures";
-import {
-  BlockKindsSlot,
-  buildBlockKindIndex,
-} from "@vtt/adventures/shared";
+import { BlockKindsSlot, buildBlockKindIndex } from "@vtt/adventures/shared";
 import { permissions } from "@vtt/permissions";
 import { Character, Team } from "@vtt/characters/shared";
 import {
@@ -47,15 +44,9 @@ import {
   WhatYouFightFor,
   Wises,
 } from "./shared/index.js";
-import {
-  TbCarries,
-  TbItemSlotOptions,
-} from "./shared/items/index.js";
+import { TbCarries, TbItemSlotOptions } from "./shared/items/index.js";
 import { TbNpc } from "./shared/npc-traits.js";
-import {
-  characterBlockKind,
-  monsterBlockKind,
-} from "./shared/blocks/character.js";
+import { characterBlockKind, monsterBlockKind } from "./shared/blocks/character.js";
 import { npcBlockKind } from "./shared/blocks/npc.js";
 
 const notesStub = definePlugin({
@@ -63,11 +54,7 @@ const notesStub = definePlugin({
   version: "0.1.0",
   traits: [Page, BelongsToNote],
   events: [PageBodySet],
-  slots: [
-    MarkdownPostRenderSlot,
-    EditorCompletionSourcesSlot,
-    NotesReferenceSlot,
-  ],
+  slots: [MarkdownPostRenderSlot, EditorCompletionSourcesSlot, NotesReferenceSlot],
 });
 
 const charactersStub = definePlugin({

@@ -15,14 +15,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  type CommandInstance,
-} from "@vtt/substrate";
+import { type CommandInstance } from "@vtt/substrate";
 import { Surface, useClient, useQuery } from "@vtt/substrate/client";
-import {
-  definePageProvider,
-  RetargetTab,
-} from "@vtt/shell-workbench/shared";
+import { definePageProvider, RetargetTab } from "@vtt/shell-workbench/shared";
 import { createMemo, createSignal, For, onMount, Show, type JSX } from "solid-js";
 import { Scene } from "../shared/index.js";
 import { CreateScene, RemoveScene } from "../shared/commands.js";
@@ -71,10 +66,7 @@ export const ScenesPageProvider = definePageProvider({
   },
 });
 
-function ScenePage(props: {
-  tabId: string;
-  entityId: string | null;
-}): JSX.Element {
+function ScenePage(props: { tabId: string; entityId: string | null }): JSX.Element {
   return (
     <Show
       when={props.entityId}
@@ -101,10 +93,7 @@ function SceneBody(props: { sceneId: string; tabId: string }): JSX.Element {
   return (
     <section class="flex h-full min-h-0 flex-col">
       <div class="relative min-h-0 flex-1 overflow-hidden">
-        <Surface
-          name={SceneCanvasSurface.name}
-          context={{ sceneId: props.sceneId }}
-        />
+        <Surface name={SceneCanvasSurface.name} context={{ sceneId: props.sceneId }} />
       </div>
       <SceneDock sceneId={props.sceneId} tabId={props.tabId} />
     </section>
@@ -147,11 +136,7 @@ function EmptyState(props: { tabId: string }): JSX.Element {
   };
 
   const remove = (sceneId: string, name: string) => {
-    if (
-      !window.confirm(
-        `Remove "${name}"? Every token on this scene will also be removed.`,
-      )
-    ) {
+    if (!window.confirm(`Remove "${name}"? Every token on this scene will also be removed.`)) {
       return;
     }
     client.dispatch(RemoveScene({ sceneId }) as CommandInstance);
@@ -175,9 +160,7 @@ function EmptyState(props: { tabId: string }): JSX.Element {
               <Show
                 when={isGm()}
                 fallback={
-                  <p class="text-xs text-fg-subtle">
-                    waiting for the GM to set up the scene…
-                  </p>
+                  <p class="text-xs text-fg-subtle">waiting for the GM to set up the scene…</p>
                 }
               >
                 <CreateSceneForm tabId={props.tabId} />
@@ -208,9 +191,7 @@ function EmptyState(props: { tabId: string }): JSX.Element {
                   >
                     {s.name}
                   </button>
-                  <span class="font-mono text-[0.6rem] text-fg-subtle">
-                    {s.id}
-                  </span>
+                  <span class="font-mono text-[0.6rem] text-fg-subtle">{s.id}</span>
                   <button
                     type="button"
                     onClick={() => open(s.id)}
@@ -270,15 +251,11 @@ function CreateSceneForm(props: { tabId: string }): JSX.Element {
     setError(null);
     setBusy(true);
 
-    const beforeIds = new Set(
-      client.world.query([Scene]).map((r) => r.id),
-    );
+    const beforeIds = new Set(client.world.query([Scene]).map((r) => r.id));
 
     const off = client.bus.on(SceneCreated.name, () => {
       off();
-      const fresh = client.world
-        .query([Scene])
-        .find((r) => !beforeIds.has(r.id));
+      const fresh = client.world.query([Scene]).find((r) => !beforeIds.has(r.id));
       if (fresh) {
         client.dispatch(
           RetargetTab({

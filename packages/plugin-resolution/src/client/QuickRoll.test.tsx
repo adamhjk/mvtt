@@ -18,10 +18,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { screen, cleanup, fireEvent } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
@@ -40,15 +37,7 @@ const ME_CLIENT = "client-me";
 
 function harness(opts?: { asGm?: boolean }) {
   return buildTestClient({
-    plugins: [
-      shellWorkbench,
-      notes,
-      identity,
-      permissions,
-      characters,
-      comms,
-      resolution,
-    ],
+    plugins: [shellWorkbench, notes, identity, permissions, characters, comms, resolution],
     clientId: ME_CLIENT,
     session: {
       userId: ME,
@@ -69,9 +58,7 @@ function harness(opts?: { asGm?: boolean }) {
 describe("resolution quick-roll composer", () => {
   it("renders a notation input and Roll button", () => {
     const h = harness();
-    mountWithClient(h, () =>
-      QuickRollComposerFill.render({ onClose: () => {} }) as never,
-    );
+    mountWithClient(h, () => QuickRollComposerFill.render({ onClose: () => {} }) as never);
     expect(screen.getByTestId("atelier-quick-roll-input")).toBeInTheDocument();
     expect(screen.getByTestId("atelier-quick-roll-submit")).toBeInTheDocument();
   });
@@ -79,12 +66,8 @@ describe("resolution quick-roll composer", () => {
   it("dispatches RequestRoll with the typed notation, then closes", () => {
     const h = harness();
     const onClose = vi.fn();
-    mountWithClient(h, () =>
-      QuickRollComposerFill.render({ onClose }) as never,
-    );
-    const input = screen.getByTestId(
-      "atelier-quick-roll-input",
-    ) as HTMLInputElement;
+    mountWithClient(h, () => QuickRollComposerFill.render({ onClose }) as never);
+    const input = screen.getByTestId("atelier-quick-roll-input") as HTMLInputElement;
     fireEvent.input(input, { target: { value: "2d6+1" } });
     fireEvent.click(screen.getByTestId("atelier-quick-roll-submit"));
     expect(h.dispatched).toHaveLength(1);
@@ -100,9 +83,7 @@ describe("resolution quick-roll composer", () => {
   it("does not dispatch on an empty notation", () => {
     const h = harness();
     const onClose = vi.fn();
-    mountWithClient(h, () =>
-      QuickRollComposerFill.render({ onClose }) as never,
-    );
+    mountWithClient(h, () => QuickRollComposerFill.render({ onClose }) as never);
     fireEvent.click(screen.getByTestId("atelier-quick-roll-submit"));
     expect(h.dispatched).toHaveLength(0);
     expect(onClose).not.toHaveBeenCalled();
@@ -111,9 +92,7 @@ describe("resolution quick-roll composer", () => {
   it("cancel closes without dispatching", () => {
     const h = harness();
     const onClose = vi.fn();
-    mountWithClient(h, () =>
-      QuickRollComposerFill.render({ onClose }) as never,
-    );
+    mountWithClient(h, () => QuickRollComposerFill.render({ onClose }) as never);
     fireEvent.click(screen.getByTestId("atelier-quick-roll-cancel"));
     expect(h.dispatched).toHaveLength(0);
     expect(onClose).toHaveBeenCalledTimes(1);

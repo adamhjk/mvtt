@@ -21,21 +21,9 @@ import { PagesSlot } from "@vtt/shell-workbench/shared";
 import { Asset } from "./shared/traits.js";
 import { assetLinkKind } from "./shared/asset-link-kind.js";
 import { AssetsPageProvider } from "./client/AssetsPage.jsx";
-import {
-  AssetDeleted,
-  AssetRegistered,
-  AssetRenamed,
-} from "./shared/events.js";
-import {
-  DeleteAsset,
-  RegisterAsset,
-  RenameAsset,
-} from "./shared/commands.js";
-import {
-  AssetDespawnSystem,
-  AssetRenameSystem,
-  AssetSpawningSystem,
-} from "./server/systems.js";
+import { AssetDeleted, AssetRegistered, AssetRenamed } from "./shared/events.js";
+import { DeleteAsset, RegisterAsset, RenameAsset } from "./shared/commands.js";
+import { AssetDespawnSystem, AssetRenameSystem, AssetSpawningSystem } from "./server/systems.js";
 
 /**
  * `@vtt/assets` is the world-scoped byte-blob plugin. Other plugins
@@ -59,21 +47,9 @@ export const assets = definePlugin({
     "@vtt/shell-workbench@^0",
   ],
   traits: [Asset],
-  events: [
-    AssetRegistered,
-    AssetRenamed,
-    AssetDeleted,
-  ],
-  commands: [
-    RegisterAsset,
-    RenameAsset,
-    DeleteAsset,
-  ],
-  systems: [
-    AssetSpawningSystem,
-    AssetRenameSystem,
-    AssetDespawnSystem,
-  ],
+  events: [AssetRegistered, AssetRenamed, AssetDeleted],
+  commands: [RegisterAsset, RenameAsset, DeleteAsset],
+  systems: [AssetSpawningSystem, AssetRenameSystem, AssetDespawnSystem],
   fills: {
     [LinkKindsSlot.name]: [assetLinkKind],
     [PagesSlot.name]: [AssetsPageProvider],

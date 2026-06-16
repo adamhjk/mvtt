@@ -16,13 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { describe, it, expect } from "vitest";
-import {
-  defineSlot,
-  defineSurface,
-  defineView,
-  definePlugin,
-  z,
-} from "./index.js";
+import { defineSlot, defineSurface, defineView, definePlugin, z } from "./index.js";
 import { Registry } from "./registry.js";
 
 const Sidebar = defineSurface({

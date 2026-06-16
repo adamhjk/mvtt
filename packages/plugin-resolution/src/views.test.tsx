@@ -18,10 +18,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
 import { screen, cleanup } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { For, type Accessor } from "solid-js";
 import { resolution } from "./manifest.js";
 import { Formula, RolledBy, RollResult } from "./shared/traits.js";
@@ -41,15 +38,7 @@ function harness() {
   // shell-workbench. Loading them all gives the contributor's useQuery
   // a complete world model to read from.
   return buildTestClient({
-    plugins: [
-      shellWorkbench,
-      notes,
-      identity,
-      permissions,
-      characters,
-      comms,
-      resolution,
-    ],
+    plugins: [shellWorkbench, notes, identity, permissions, characters, comms, resolution],
   });
 }
 
@@ -96,9 +85,9 @@ describe("plugin-resolution chat-timeline contributor", () => {
     ]);
 
     mountWithClient(h, () => {
-      const entries = (
-        RollTimelineContributor.useEntries() as unknown as Accessor<ChatTimelineEntry[]>
-      );
+      const entries = RollTimelineContributor.useEntries() as unknown as Accessor<
+        ChatTimelineEntry[]
+      >;
       return <For each={entries()}>{(e) => e.render() as never}</For>;
     });
 
@@ -117,9 +106,9 @@ describe("plugin-resolution chat-timeline contributor", () => {
     ]);
 
     mountWithClient(h, () => {
-      const entries = (
-        RollTimelineContributor.useEntries() as unknown as Accessor<ChatTimelineEntry[]>
-      );
+      const entries = RollTimelineContributor.useEntries() as unknown as Accessor<
+        ChatTimelineEntry[]
+      >;
       return <For each={entries()}>{(e) => e.render() as never}</For>;
     });
 

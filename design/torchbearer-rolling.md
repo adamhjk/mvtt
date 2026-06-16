@@ -14,20 +14,20 @@ convention. `DH` = Dungeoneer's Handbook.
 DH p.20–24 ("Dice and Terms") and p.250–251 (the Adventure Phase
 Procedures reference) define the modifier surface:
 
-  * Pool starts at the relevant rating (ability, skill, or town
-    ability). For a skill with rating 0, fall through to half the
-    skill's BL ability rounded up (DH p.78).
-  * **Bonus dice before the test** (DH p.251): Fresh, traits L1/L2,
-    persona spend, channel Nature, help, aid from a wise, gear,
-    supplies, level benefit, enchanted item, invocation, spell.
-  * **Disadvantages before the test**: trait against yourself,
-    Injured, Sick, etc.
-  * **Post-roll bonus successes**: weapon, L3 trait, Might/Precedence
-    differential.
-  * **After-roll penalties**: backpack, dim light, penalty modifiers
-    & factors, Exhausted/Hungry/Thirsty disposition penalties.
-  * **Rerolls**: Luck (fate point on 6s), Wise (fate or persona),
-    Faith on Will tests.
+- Pool starts at the relevant rating (ability, skill, or town
+  ability). For a skill with rating 0, fall through to half the
+  skill's BL ability rounded up (DH p.78).
+- **Bonus dice before the test** (DH p.251): Fresh, traits L1/L2,
+  persona spend, channel Nature, help, aid from a wise, gear,
+  supplies, level benefit, enchanted item, invocation, spell.
+- **Disadvantages before the test**: trait against yourself,
+  Injured, Sick, etc.
+- **Post-roll bonus successes**: weapon, L3 trait, Might/Precedence
+  differential.
+- **After-roll penalties**: backpack, dim light, penalty modifiers
+  & factors, Exhausted/Hungry/Thirsty disposition penalties.
+- **Rerolls**: Luck (fate point on 6s), Wise (fate or persona),
+  Faith on Will tests.
 
 The subsystem is shaped to express all of these, but only the
 auto-derived condition modifiers (Fresh, Injured, Sick) and player-
@@ -163,12 +163,12 @@ the player couldn't make the test.
 Per-roll **heroic** flag drops the success target from 4+ to 3+.
 Sourced from three places, in priority order:
 
-  1. `opts.heroic` — explicit per-roll override (`true`/`false`).
-  2. `tb-heroic` panel contribution — last-wins toggle posted to
-     the pending-roll panel.
-  3. The character's `Heroic` trait — lists abilities, town
-     abilities, and skill ids the character has elevated to
-     heroic. Matched against the roll's `sourceId`.
+1. `opts.heroic` — explicit per-roll override (`true`/`false`).
+2. `tb-heroic` panel contribution — last-wins toggle posted to
+   the pending-roll panel.
+3. The character's `Heroic` trait — lists abilities, town
+   abilities, and skill ids the character has elevated to
+   heroic. Matched against the roll's `sourceId`.
 
 `opts.heroic === false` is a meaningful "force standard" — it
 overrides a heroic-tagged trait. `undefined` defers to the panel
@@ -194,13 +194,13 @@ auto-modifiers ahead of player contributions.
 
 Two paths:
 
-  * **Inside the TB contributor** — add a quick button or form to
-    `TbPendingRollContributor`. Use `props.contribute({...})` with a
-    `TbRollModifier` payload.
+- **Inside the TB contributor** — add a quick button or form to
+  `TbPendingRollContributor`. Use `props.contribute({...})` with a
+  `TbRollModifier` payload.
 
-  * **As a standalone contributor** — register a new fill into
-    `PendingRollContributorsSlot` with its own `rollablePrefix`. The
-    pending-roll panel stacks contributors vertically.
+- **As a standalone contributor** — register a new fill into
+  `PendingRollContributorsSlot` with its own `rollablePrefix`. The
+  pending-roll panel stacks contributors vertically.
 
 ### Adding a thing-in-the-game that provides a modifier
 
@@ -214,34 +214,34 @@ worthwhile so the schema doesn't drift.
 
 These don't fit the additive modifier shape. Two options:
 
-  1. Pre-roll: the panel offers a "spend Faith" button that, on
-     click, sets a flag in the spec (`rerollOnes: true`). The
-     rollable's compute reads the flag; the chat row knows to
-     render the rerolled outcome.
+1. Pre-roll: the panel offers a "spend Faith" button that, on
+   click, sets a flag in the spec (`rerollOnes: true`). The
+   rollable's compute reads the flag; the chat row knows to
+   render the rerolled outcome.
 
-  2. Post-roll: emit a follow-up event that mutates the existing
-     Roll entity (re-rolling specific dice). This keeps the original
-     dice visible alongside the re-rolled ones.
+2. Post-roll: emit a follow-up event that mutates the existing
+   Roll entity (re-rolling specific dice). This keeps the original
+   dice visible alongside the re-rolled ones.
 
-Either way, the modifier list still narrates *why* the reroll
+Either way, the modifier list still narrates _why_ the reroll
 happened — add a `kind: "reroll"` modifier with `apply: "on-fail"`
 or similar so the chat card can show "Faith reroll fired".
 
 ## Open questions / next steps
 
-  * **Help with another character** — needs a peer-list UI like
-    system-simple's `HelpWithCharacterContributor`. Different
-    contributor, same panel, same modifier shape.
-  * **Versus tests** — kind already in the schema; computing the
-    pass/fail comparison against an opposed pool is on the chat
-    card, not the spec.
-  * **Tax untaxed Nature on a failed Beginner's Luck** — needs a
-    follow-up command emitted by a system reacting to the right
-    `RollResolved` (BL-skill, failed). Modifier shape unchanged.
-  * **Conflict disposition penalties** (Exhausted, Hungry/Thirsty)
-    — those are conflict-rules-only and don't apply to test pools;
-    they'll surface in a conflict subsystem with its own modifier
-    flow.
+- **Help with another character** — needs a peer-list UI like
+  system-simple's `HelpWithCharacterContributor`. Different
+  contributor, same panel, same modifier shape.
+- **Versus tests** — kind already in the schema; computing the
+  pass/fail comparison against an opposed pool is on the chat
+  card, not the spec.
+- **Tax untaxed Nature on a failed Beginner's Luck** — needs a
+  follow-up command emitted by a system reacting to the right
+  `RollResolved` (BL-skill, failed). Modifier shape unchanged.
+- **Conflict disposition penalties** (Exhausted, Hungry/Thirsty)
+  — those are conflict-rules-only and don't apply to test pools;
+  they'll surface in a conflict subsystem with its own modifier
+  flow.
 
 ## File map
 

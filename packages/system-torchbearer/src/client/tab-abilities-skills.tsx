@@ -55,17 +55,25 @@ import {
  */
 function AbilitiesSkillsTab(props: { characterId: string }): JSX.Element {
   const sortedSkills = createMemo<ReadonlyArray<SkillEntry>>(() =>
-    ALL_SKILLS.filter((s) => s.category !== "npc").sort((a, b) =>
-      a.name.localeCompare(b.name),
-    ),
+    ALL_SKILLS.filter((s) => s.category !== "npc").sort((a, b) => a.name.localeCompare(b.name)),
   );
 
   return (
     <div style={{ display: "flex", "flex-direction": "column", gap: "1rem" }}>
       <kit.SheetSection title="Abilities">
         <kit.SheetGroup layout="grid" cols={2}>
-          <AbilityRow characterId={props.characterId} kind="will" label="Will" rollable={WillCheck.name} />
-          <AbilityRow characterId={props.characterId} kind="health" label="Health" rollable={HealthCheck.name} />
+          <AbilityRow
+            characterId={props.characterId}
+            kind="will"
+            label="Will"
+            rollable={WillCheck.name}
+          />
+          <AbilityRow
+            characterId={props.characterId}
+            kind="health"
+            label="Health"
+            rollable={HealthCheck.name}
+          />
         </kit.SheetGroup>
         <NatureRow characterId={props.characterId} />
         <NatureDescriptorsRow characterId={props.characterId} />
@@ -73,13 +81,35 @@ function AbilitiesSkillsTab(props: { characterId: string }): JSX.Element {
 
       <kit.SheetSection title="Town">
         <kit.SheetGroup layout="grid" cols={2}>
-          <TownRatedRow characterId={props.characterId} kind="resources" label="Resources" rollable={ResourcesCheck.name} />
-          <TownRatedRow characterId={props.characterId} kind="circles" label="Circles" rollable={CirclesCheck.name} />
+          <TownRatedRow
+            characterId={props.characterId}
+            kind="resources"
+            label="Resources"
+            rollable={ResourcesCheck.name}
+          />
+          <TownRatedRow
+            characterId={props.characterId}
+            kind="circles"
+            label="Circles"
+            rollable={CirclesCheck.name}
+          />
           <kit.FieldRow label="Precedence">
-            <kit.NumberField characterId={props.characterId} trait={TownAbilities} path={["precedence"]} min={0} max={10} />
+            <kit.NumberField
+              characterId={props.characterId}
+              trait={TownAbilities}
+              path={["precedence"]}
+              min={0}
+              max={10}
+            />
           </kit.FieldRow>
           <kit.FieldRow label="Might">
-            <kit.NumberField characterId={props.characterId} trait={TownAbilities} path={["might"]} min={0} max={6} />
+            <kit.NumberField
+              characterId={props.characterId}
+              trait={TownAbilities}
+              path={["might"]}
+              min={0}
+              max={6}
+            />
           </kit.FieldRow>
         </kit.SheetGroup>
       </kit.SheetSection>
@@ -87,9 +117,7 @@ function AbilitiesSkillsTab(props: { characterId: string }): JSX.Element {
       <kit.SheetSection title="Skills">
         <kit.SheetGroup layout="grid" cols={2}>
           <For each={sortedSkills()}>
-            {(skill) => (
-              <SkillRow characterId={props.characterId} skill={skill} />
-            )}
+            {(skill) => <SkillRow characterId={props.characterId} skill={skill} />}
           </For>
         </kit.SheetGroup>
       </kit.SheetSection>
@@ -132,10 +160,7 @@ function AbilityRow(props: {
         characterId={props.characterId}
         entry={{ kind: "ability", ability: props.kind }}
       />
-      <kit.RollableLabel
-        characterId={props.characterId}
-        rollable={props.rollable}
-      >
+      <kit.RollableLabel characterId={props.characterId} rollable={props.rollable}>
         <span
           style={{
             display: "inline-flex",
@@ -209,7 +234,13 @@ function NatureRow(props: { characterId: string }): JSX.Element {
         max={7}
       />
       <Hint text="maximum" />
-      <kit.NumberField characterId={props.characterId} trait={RawAbilities} path={["nature", "maximum"]} min={0} max={7} />
+      <kit.NumberField
+        characterId={props.characterId}
+        trait={RawAbilities}
+        path={["nature", "maximum"]}
+        min={0}
+        max={7}
+      />
       <kit.AdvancementTrack
         characterId={props.characterId}
         trait={RawAbilities}
@@ -266,10 +297,7 @@ function TownRatedRow(props: {
         characterId={props.characterId}
         entry={{ kind: "ability", ability: props.kind }}
       />
-      <kit.RollableLabel
-        characterId={props.characterId}
-        rollable={props.rollable}
-      >
+      <kit.RollableLabel characterId={props.characterId} rollable={props.rollable}>
         <span
           style={{
             display: "inline-flex",
@@ -305,9 +333,7 @@ function TownRatedRow(props: {
 
 function Hint(props: { text: string }): JSX.Element {
   return (
-    <span style={{ "font-size": "0.75rem", color: "var(--color-fg-muted)" }}>
-      {props.text}
-    </span>
+    <span style={{ "font-size": "0.75rem", color: "var(--color-fg-muted)" }}>{props.text}</span>
   );
 }
 
@@ -325,35 +351,29 @@ function SkillRow(props: { characterId: string; skill: SkillEntry }): JSX.Elemen
   // count crosses max Nature, the system auto-promotes the skill to
   // rating 2 (rules-as-written).
   const client = useClient();
-  const rating = useTraitPath(
-    props.characterId,
-    Skills,
-    ["entries", props.skill.id, "rating"],
-  );
-  const passCount = useTraitPath(
-    props.characterId,
-    Skills,
-    ["entries", props.skill.id, "advancement", "pass"],
-  );
-  const failCount = useTraitPath(
-    props.characterId,
-    Skills,
-    ["entries", props.skill.id, "advancement", "fail"],
-  );
-  const learningTests = useTraitPath(
-    props.characterId,
-    Skills,
-    ["entries", props.skill.id, "learningTests"],
-  );
+  const rating = useTraitPath(props.characterId, Skills, ["entries", props.skill.id, "rating"]);
+  const passCount = useTraitPath(props.characterId, Skills, [
+    "entries",
+    props.skill.id,
+    "advancement",
+    "pass",
+  ]);
+  const failCount = useTraitPath(props.characterId, Skills, [
+    "entries",
+    props.skill.id,
+    "advancement",
+    "fail",
+  ]);
+  const learningTests = useTraitPath(props.characterId, Skills, [
+    "entries",
+    props.skill.id,
+    "learningTests",
+  ]);
   // Max Nature drives the learning threshold (DH p.75). We read
   // `nature.maximum` since taxing Nature doesn't change the maximum
   // rating used for advancement / learning math (DH p.69
   // "Advancing Nature").
-  const maxNature = useTraitPath(
-    props.characterId,
-    RawAbilities,
-    ["nature", "maximum"],
-  );
+  const maxNature = useTraitPath(props.characterId, RawAbilities, ["nature", "maximum"]);
   const isLearning = createMemo<boolean>(() => {
     const r = typeof rating() === "number" ? (rating() as number) : 0;
     const l = typeof learningTests() === "number" ? (learningTests() as number) : 0;
@@ -517,10 +537,7 @@ function LearningTrack(props: {
           <span class="vk-advance__legend" aria-hidden="true">
             L
           </span>
-          <Show
-            when={props.max > 0}
-            fallback={<span class="vk-advance__empty">—</span>}
-          >
+          <Show when={props.max > 0} fallback={<span class="vk-advance__empty">—</span>}>
             <kit.DotsField
               characterId={props.characterId}
               trait={Skills}
@@ -552,10 +569,7 @@ function LearningTrack(props: {
  * dispatches `TogglePinnedRoll` on click. Hidden for non-editors so
  * non-owners don't think they can rearrange another player's bar.
  */
-function PinToggleButton(props: {
-  characterId: string;
-  entry: PinnedRollEntryT;
-}): JSX.Element {
+function PinToggleButton(props: { characterId: string; entry: PinnedRollEntryT }): JSX.Element {
   const client = useClient();
   const canEdit = kit.useCanEdit(props.characterId);
   const pinned = useTrait(props.characterId, PinnedRolls);
@@ -583,7 +597,11 @@ function PinToggleButton(props: {
     <Show when={canEdit()}>
       <button
         type="button"
-        title={isPinned() ? `Unpin ${labelFor(props.entry)} from actions bar` : `Pin ${labelFor(props.entry)} to actions bar`}
+        title={
+          isPinned()
+            ? `Unpin ${labelFor(props.entry)} from actions bar`
+            : `Pin ${labelFor(props.entry)} to actions bar`
+        }
         aria-label={isPinned() ? `Unpin ${labelFor(props.entry)}` : `Pin ${labelFor(props.entry)}`}
         aria-pressed={isPinned()}
         data-testid={`tb-pin-toggle-${props.entry.kind}-${labelFor(props.entry)}`}
@@ -640,8 +658,14 @@ function SpecialtyToggleButton(props: {
     <Show when={canEdit()}>
       <button
         type="button"
-        title={isSpecialty() ? `Clear ${props.skillName} as specialty` : `Mark ${props.skillName} as specialty`}
-        aria-label={isSpecialty() ? `Clear ${props.skillName} specialty` : `Mark ${props.skillName} specialty`}
+        title={
+          isSpecialty()
+            ? `Clear ${props.skillName} as specialty`
+            : `Mark ${props.skillName} as specialty`
+        }
+        aria-label={
+          isSpecialty() ? `Clear ${props.skillName} specialty` : `Mark ${props.skillName} specialty`
+        }
         aria-pressed={isSpecialty()}
         data-testid={`tb-specialty-toggle-${props.skillId}`}
         onClick={toggle}

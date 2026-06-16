@@ -27,10 +27,7 @@ import {
 import { createMemo, For, Show, type JSX } from "solid-js";
 import { LinkedCharacter, Position, Scene } from "../shared/traits.js";
 import { PlaceCharacterToken } from "../shared/commands.js";
-import {
-  type SceneOverlayTab,
-  type SceneOverlayTabRenderArgs,
-} from "../shared/slot.js";
+import { type SceneOverlayTab, type SceneOverlayTabRenderArgs } from "../shared/slot.js";
 import { CHARACTER_DND_MIME, encodeCharacterDnd } from "./dnd.js";
 import { useMe } from "./use-me.js";
 
@@ -115,9 +112,7 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
         return {
           id: row.id,
           name: (row.values.Character as { name: string }).name,
-          permissions: row.values.Permissions as
-            | Parameters<typeof canWrite>[1]
-            | undefined,
+          permissions: row.values.Permissions as Parameters<typeof canWrite>[1] | undefined,
           // assetId / imageUrl forwarded verbatim into the dnd payload
           // and the place-dispatch path. `displayUrl` is the resolved
           // thumbnail URL — used only for rendering, never passed to
@@ -188,8 +183,8 @@ function CharactersTabBody(props: { sceneId: string }): JSX.Element {
   return (
     <div class="flex h-full min-h-0 flex-col gap-3">
       <p class="hidden text-[0.7rem] text-fg-subtle md:block">
-        drag to the canvas, or click to drop into the next free cell —
-        each character can only be placed once per scene.
+        drag to the canvas, or click to drop into the next free cell — each character can only be
+        placed once per scene.
       </p>
       <Show
         when={sortedCharacters().length > 0}

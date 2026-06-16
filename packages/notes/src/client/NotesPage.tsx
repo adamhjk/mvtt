@@ -18,19 +18,8 @@
 import { type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useQuery } from "@vtt/substrate/client";
 import { canWrite, Permissions } from "@vtt/permissions/shared";
-import {
-  definePageProvider,
-  RetargetTab,
-} from "@vtt/shell-workbench/shared";
-import {
-  createMemo,
-  createSignal,
-  createResource,
-  For,
-  onMount,
-  Show,
-  type JSX,
-} from "solid-js";
+import { definePageProvider, RetargetTab } from "@vtt/shell-workbench/shared";
+import { createMemo, createSignal, createResource, For, onMount, Show, type JSX } from "solid-js";
 import { Note, Page } from "../shared/traits.js";
 import { NotesUiState } from "../shared/ui-state.js";
 import { CreateNote, DeleteNote } from "../shared/commands.js";
@@ -81,10 +70,7 @@ export const NotesPageProvider = definePageProvider({
   },
 });
 
-function NotesPage(props: {
-  tabId: string;
-  entityId: string | null;
-}): JSX.Element {
+function NotesPage(props: { tabId: string; entityId: string | null }): JSX.Element {
   return (
     <Show
       when={props.entityId}
@@ -94,9 +80,7 @@ function NotesPage(props: {
         </section>
       }
     >
-      {(idAcc) => (
-        <NoteView noteId={idAcc() as EntityId} tabId={props.tabId} />
-      )}
+      {(idAcc) => <NoteView noteId={idAcc() as EntityId} tabId={props.tabId} />}
     </Show>
   );
 }
@@ -114,9 +98,7 @@ function NotesHub(props: { tabId: string }): JSX.Element {
       .map((row) => ({
         id: row.id,
         title: (row.values.Note as { title: string }).title,
-        permissions: row.values.Permissions as
-          | Parameters<typeof canWrite>[1]
-          | undefined,
+        permissions: row.values.Permissions as Parameters<typeof canWrite>[1] | undefined,
       }))
       .sort((a, b) => a.title.localeCompare(b.title)),
   );
@@ -132,9 +114,7 @@ function NotesHub(props: { tabId: string }): JSX.Element {
     },
     async (key) => {
       if (!key) return null;
-      const url = `/api/worlds/${key.wid}/notes/search?q=${encodeURIComponent(
-        key.q,
-      )}`;
+      const url = `/api/worlds/${key.wid}/notes/search?q=${encodeURIComponent(key.q)}`;
       try {
         const res = await fetch(url, { credentials: "same-origin" });
         if (!res.ok) return null;
@@ -187,11 +167,7 @@ function NotesHub(props: { tabId: string }): JSX.Element {
               </p>
               <Show
                 when={me()}
-                fallback={
-                  <p class="text-xs text-fg-subtle">
-                    sign in to create a note…
-                  </p>
-                }
+                fallback={<p class="text-xs text-fg-subtle">sign in to create a note…</p>}
               >
                 <CreateNoteForm tabId={props.tabId} />
                 <Show when={me()?.role === "gm"}>
@@ -276,20 +252,14 @@ function NotesHub(props: { tabId: string }): JSX.Element {
                         <span class="font-display">{hit.noteTitle}</span>
                         <span class="text-fg-subtle"> › {hit.pageTitle}</span>
                       </button>
-                      <p
-                        class="text-xs text-fg-muted"
-                        innerHTML={hit.snippet}
-                      />
+                      <p class="text-xs text-fg-muted" innerHTML={hit.snippet} />
                     </li>
                   )}
                 </For>
               </ul>
             </Show>
           </Show>
-          <ul
-            class="flex flex-col gap-1"
-            classList={{ hidden: searchQuery().trim().length > 0 }}
-          >
+          <ul class="flex flex-col gap-1" classList={{ hidden: searchQuery().trim().length > 0 }}>
             <For each={notes()}>
               {(n) => (
                 <li class="group flex items-center gap-3 rounded-(--radius-control) border border-border-muted bg-surface-elevated px-3 py-2">
@@ -301,9 +271,7 @@ function NotesHub(props: { tabId: string }): JSX.Element {
                   >
                     {n.title}
                   </button>
-                  <span class="font-mono text-[0.6rem] text-fg-subtle">
-                    {n.id}
-                  </span>
+                  <span class="font-mono text-[0.6rem] text-fg-subtle">{n.id}</span>
                   <button
                     type="button"
                     onClick={() => open(n.id)}
@@ -367,10 +335,7 @@ function NotesHub(props: { tabId: string }): JSX.Element {
  * `AdventureProvenance` for the bundleId already exists in the world
  * and opens the existing `update-dialog.tsx` for confirmation.
  */
-function ImportAdventureModal(props: {
-  worldId: string;
-  onClose: () => void;
-}): JSX.Element {
+function ImportAdventureModal(props: { worldId: string; onClose: () => void }): JSX.Element {
   const [file, setFile] = createSignal<File | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -439,15 +404,11 @@ function ImportAdventureModal(props: {
         onClick={(e) => e.stopPropagation()}
       >
         <header>
-          <h2 class="text-base font-semibold tracking-tight text-fg">
-            Import adventure
-          </h2>
+          <h2 class="text-base font-semibold tracking-tight text-fg">Import adventure</h2>
           <p class="mt-1 text-xs text-fg-muted">
-            Pick a `.advt.zip` bundle. The notes + pages it carries are
-            added to this world; any bundled assets (portraits,
-            backgrounds, PDFs) are uploaded as fresh `Asset` entities.
-            Re-importing the same bundle creates a new copy alongside
-            the existing one.
+            Pick a `.advt.zip` bundle. The notes + pages it carries are added to this world; any
+            bundled assets (portraits, backgrounds, PDFs) are uploaded as fresh `Asset` entities.
+            Re-importing the same bundle creates a new copy alongside the existing one.
           </p>
         </header>
         <form
@@ -493,12 +454,10 @@ function ImportAdventureModal(props: {
               <div class="flex flex-col gap-1 rounded-(--radius-control) border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-fg">
                 <span class="font-medium">Imported successfully.</span>
                 <span class="text-fg-muted">
-                  {r().notesCreated} notes · {r().pagesCreated} pages ·{" "}
-                  {r().assetsUploaded} assets
+                  {r().notesCreated} notes · {r().pagesCreated} pages · {r().assetsUploaded} assets
                 </span>
                 <span class="text-fg-subtle">
-                  bundle <code class="font-mono">{r().bundleId}</code> v
-                  {r().version}
+                  bundle <code class="font-mono">{r().bundleId}</code> v{r().version}
                 </span>
               </div>
             )}
@@ -559,9 +518,7 @@ function ExportAdventureModal(props: {
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
-  const allSelected = createMemo(
-    () => selectedIds().size === props.notes.length,
-  );
+  const allSelected = createMemo(() => selectedIds().size === props.notes.length);
   const noneSelected = createMemo(() => selectedIds().size === 0);
 
   const toggle = (id: EntityId): void => {
@@ -643,13 +600,10 @@ function ExportAdventureModal(props: {
         onClick={(e) => e.stopPropagation()}
       >
         <header>
-          <h2 class="text-base font-semibold tracking-tight text-fg">
-            Pack adventure
-          </h2>
+          <h2 class="text-base font-semibold tracking-tight text-fg">Pack adventure</h2>
           <p class="mt-1 text-xs text-fg-muted">
-            Bundle notes + every `[[asset:…]]` they reference into a
-            single `.advt.zip` file. Import it on another mvtt instance
-            (or your own backup world) to recreate the cast and content.
+            Bundle notes + every `[[asset:…]]` they reference into a single `.advt.zip` file. Import
+            it on another mvtt instance (or your own backup world) to recreate the cast and content.
           </p>
         </header>
         <form
@@ -734,10 +688,7 @@ function ExportAdventureModal(props: {
                 </button>
               </div>
             </div>
-            <ul
-              class="flex max-h-60 flex-col gap-1 overflow-y-auto"
-              data-testid="pack-notes-list"
-            >
+            <ul class="flex max-h-60 flex-col gap-1 overflow-y-auto" data-testid="pack-notes-list">
               <For each={props.notes}>
                 {(n) => (
                   <li>
@@ -748,18 +699,15 @@ function ExportAdventureModal(props: {
                         onChange={() => toggle(n.id)}
                       />
                       <span class="flex-1 truncate">{n.title}</span>
-                      <span class="font-mono text-[0.6rem] text-fg-subtle">
-                        {n.id}
-                      </span>
+                      <span class="font-mono text-[0.6rem] text-fg-subtle">{n.id}</span>
                     </label>
                   </li>
                 )}
               </For>
             </ul>
             <p class="text-[0.65rem] text-fg-subtle italic">
-              Assets referenced as `[[asset:…]]` in the selected note
-              bodies are packed automatically — uploaded images, sound
-              files, etc.
+              Assets referenced as `[[asset:…]]` in the selected note bodies are packed
+              automatically — uploaded images, sound files, etc.
             </p>
           </div>
 
@@ -799,11 +747,13 @@ function ExportAdventureModal(props: {
  * it so a refused-by-OS download doesn't leave the user wondering.
  */
 function sanitiseFilename(s: string): string {
-  return s
-    .replace(/[\\/:*?"<>|]+/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 120) || "adventure";
+  return (
+    s
+      .replace(/[\\/:*?"<>|]+/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 120) || "adventure"
+  );
 }
 
 /**
@@ -832,9 +782,7 @@ function CreateNoteForm(props: { tabId: string }): JSX.Element {
     const beforeIds = new Set(client.world.query([Note]).map((r) => r.id));
     const off = client.bus.on(NoteCreated.name, () => {
       off();
-      const fresh = client.world
-        .query([Note])
-        .find((r) => !beforeIds.has(r.id));
+      const fresh = client.world.query([Note]).find((r) => !beforeIds.has(r.id));
       if (fresh) {
         client.dispatch(
           RetargetTab({

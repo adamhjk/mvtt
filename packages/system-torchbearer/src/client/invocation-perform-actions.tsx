@@ -71,11 +71,7 @@ export function InvocationPerformActions(props: { rollId: string }): JSX.Element
             type="button"
             class="rounded-(--radius-control) border border-accent bg-transparent px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-[0.12em] text-accent transition hover:bg-accent hover:text-accent-fg disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="tb-roll-row-apply-burden"
-            onClick={() =>
-              client.dispatch(
-                ApplyImmortalBurden({ rollId: props.rollId as never }),
-              )
-            }
+            onClick={() => client.dispatch(ApplyImmortalBurden({ rollId: props.rollId as never }))}
           >
             Apply +{perform()!.burdenAdded} Immortal burden
             <Show when={perform()!.withRelic}> (with relic)</Show>

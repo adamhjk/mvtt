@@ -59,14 +59,10 @@ export interface NpcCandidate {
  * role. Empty query returns the full catalog (so callers don't need
  * to special-case it).
  */
-export function filterNpcCatalogByQuery(
-  query: string,
-): ReadonlyArray<NpcCandidate> {
+export function filterNpcCatalogByQuery(query: string): ReadonlyArray<NpcCandidate> {
   const q = query.trim();
   if (q.length === 0) return TB_NPC_TEMPLATES;
-  return TB_NPC_TEMPLATES.filter(
-    (t) => fuzzyMatch(t.name, q) || fuzzyMatch(t.role, q),
-  );
+  return TB_NPC_TEMPLATES.filter((t) => fuzzyMatch(t.name, q) || fuzzyMatch(t.role, q));
 }
 
 /**
@@ -143,8 +139,7 @@ export function NpcRack(props: {
         "max-height": "26rem",
         border: "1px solid var(--color-border-muted)",
         "border-radius": "var(--radius-control)",
-        "background-color":
-          "var(--color-surface-sunken, var(--color-surface))",
+        "background-color": "var(--color-surface-sunken, var(--color-surface))",
       }}
     >
       <Show
@@ -243,34 +238,24 @@ function NpcRow(props: {
         "align-items": "center",
         "column-gap": "0.85rem",
         padding: "0.7rem 0.85rem 0.7rem 0",
-        "border-bottom": props.isLast
-          ? "0"
-          : "1px solid var(--color-border-muted)",
-        "background-color": props.selected()
-          ? "var(--color-accent)"
-          : "transparent",
-        color: props.selected()
-          ? "var(--color-accent-fg)"
-          : "var(--color-fg)",
+        "border-bottom": props.isLast ? "0" : "1px solid var(--color-border-muted)",
+        "background-color": props.selected() ? "var(--color-accent)" : "transparent",
+        color: props.selected() ? "var(--color-accent-fg)" : "var(--color-fg)",
       }}
       onMouseEnter={(e) => {
         if (props.selected()) return;
-        (e.currentTarget as HTMLLIElement).style.backgroundColor =
-          "var(--color-surface-elevated)";
+        (e.currentTarget as HTMLLIElement).style.backgroundColor = "var(--color-surface-elevated)";
       }}
       onMouseLeave={(e) => {
         if (props.selected()) return;
-        (e.currentTarget as HTMLLIElement).style.backgroundColor =
-          "transparent";
+        (e.currentTarget as HTMLLIElement).style.backgroundColor = "transparent";
       }}
     >
       <span
         aria-hidden="true"
         style={{
           "align-self": "stretch",
-          "background-color": props.selected()
-            ? "var(--color-accent-fg)"
-            : "transparent",
+          "background-color": props.selected() ? "var(--color-accent-fg)" : "transparent",
           width: "0.25rem",
           "margin-left": "0.25rem",
         }}
@@ -307,9 +292,7 @@ function NpcRow(props: {
             "font-size": "0.72rem",
             "letter-spacing": "0.06em",
             "text-transform": "uppercase",
-            color: props.selected()
-              ? "var(--color-accent-fg)"
-              : "var(--color-fg-muted)",
+            color: props.selected() ? "var(--color-accent-fg)" : "var(--color-fg-muted)",
             opacity: props.selected() ? 0.85 : 1,
           }}
         >
@@ -325,10 +308,7 @@ function NpcRow(props: {
         <BookCitation
           canonicalId={props.candidate.pageRef.canonicalId}
           page={props.candidate.pageRef.page}
-          label={citationLabel(
-            props.candidate.pageRef.canonicalId,
-            props.candidate.pageRef.page,
-          )}
+          label={citationLabel(props.candidate.pageRef.canonicalId, props.candidate.pageRef.page)}
           ariaLabel={`open ${props.candidate.name} entry in ${props.candidate.pageRef.canonicalId} at page ${props.candidate.pageRef.page}`}
         />
       </span>
@@ -406,20 +386,17 @@ export function NpcSearchInput(props: {
           "padding-right": props.query().length > 0 ? "1.8rem" : "0.55rem",
           "padding-top": "0.4rem",
           "padding-bottom": "0.4rem",
-          "background-color":
-            "var(--color-surface-sunken, var(--color-surface))",
+          "background-color": "var(--color-surface-sunken, var(--color-surface))",
           border: "1px solid var(--color-border-muted)",
           "font-family": "var(--font-display)",
           "font-size": "0.85rem",
           color: "var(--color-fg)",
         }}
         onFocus={(e) => {
-          (e.currentTarget as HTMLInputElement).style.borderColor =
-            "var(--color-accent)";
+          (e.currentTarget as HTMLInputElement).style.borderColor = "var(--color-accent)";
         }}
         onBlur={(e) => {
-          (e.currentTarget as HTMLInputElement).style.borderColor =
-            "var(--color-border-muted)";
+          (e.currentTarget as HTMLInputElement).style.borderColor = "var(--color-border-muted)";
         }}
         data-testid={props.testid ?? "npc-search"}
         autocomplete="off"

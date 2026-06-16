@@ -27,17 +27,8 @@ import {
 import type { AuthSession } from "@vtt/auth";
 import { Permissions } from "@vtt/permissions/shared";
 import { Character } from "@vtt/characters/shared";
-import {
-  Formula,
-  RequestRoll,
-  RolledBy,
-  RollResolved,
-  RollResult,
-} from "./shared/index.js";
-import {
-  RollChatHandler,
-  RollChatHandlerLong,
-} from "./shared/chat-handler.js";
+import { Formula, RequestRoll, RolledBy, RollResolved, RollResult } from "./shared/index.js";
+import { RollChatHandler, RollChatHandlerLong } from "./shared/chat-handler.js";
 import { RollRecordingSystem } from "./server/systems.js";
 
 const serverPlugin = definePlugin({
@@ -151,44 +142,28 @@ describe("@vtt/resolution", () => {
   });
 
   it("gm-only roll restricts Permissions.read to the GM role", async () => {
-    await dispatch(
-      pipeline,
-      "r1",
-      RequestRoll({ notation: "1d20", visibility: "gm-only" }),
-    );
+    await dispatch(pipeline, "r1", RequestRoll({ notation: "1d20", visibility: "gm-only" }));
     const row = world.query([Permissions])[0]!;
     const v = row.values.Permissions as { read: unknown };
     expect(v.read).toEqual({ kind: "role", role: "gm" });
   });
 
   it("private roll restricts Permissions.read to the rolling user", async () => {
-    await dispatch(
-      pipeline,
-      "r1",
-      RequestRoll({ notation: "1d20", visibility: "private" }),
-    );
+    await dispatch(pipeline, "r1", RequestRoll({ notation: "1d20", visibility: "private" }));
     const row = world.query([Permissions])[0]!;
     const v = row.values.Permissions as { read: unknown };
     expect(v.read).toEqual({ kind: "users", userIds: [SESSION.userId] });
   });
 
   it("respects modifiers in the notation", async () => {
-    await dispatch(
-      pipeline,
-      "r1",
-      RequestRoll({ notation: "1d1+5", visibility: "public" }),
-    );
+    await dispatch(pipeline, "r1", RequestRoll({ notation: "1d1+5", visibility: "public" }));
     const row = world.query([RollResult])[0]!;
     expect((row.values.RollResult as { total: number }).total).toBe(6);
   });
 
   it("each roll spawns a distinct entity", async () => {
     for (let i = 0; i < 4; i++) {
-      await dispatch(
-        pipeline,
-        `r-${i}`,
-        RequestRoll({ notation: "1d6", visibility: "public" }),
-      );
+      await dispatch(pipeline, `r-${i}`, RequestRoll({ notation: "1d6", visibility: "public" }));
     }
     const rows = world.query([Formula, RollResult]);
     expect(rows).toHaveLength(4);
@@ -206,11 +181,7 @@ describe("@vtt/resolution", () => {
     bus.on(RollResolved.name, (e) => {
       captured = e.payload as typeof captured;
     });
-    await dispatch(
-      pipeline,
-      "r1",
-      RequestRoll({ notation: "1d1", visibility: "public" }),
-    );
+    await dispatch(pipeline, "r1", RequestRoll({ notation: "1d1", visibility: "public" }));
     expect(captured).toBeTruthy();
     expect(captured!.total).toBe(1);
     expect(captured!.notation).toBe("1d1");
@@ -227,11 +198,7 @@ describe("@vtt/resolution", () => {
     bus.on(RollResolved.name, (e) => {
       captured = e.payload as typeof captured;
     });
-    await dispatch(
-      pipeline,
-      "r-dice",
-      RequestRoll({ notation: "3d6+2d20", visibility: "public" }),
-    );
+    await dispatch(pipeline, "r-dice", RequestRoll({ notation: "3d6+2d20", visibility: "public" }));
     expect(captured).toBeTruthy();
     expect(captured!.dice).toHaveLength(5);
     const d6s = captured!.dice.filter((d) => d.sides === 6);
@@ -253,16 +220,11 @@ describe("@vtt/resolution", () => {
   });
 
   it("RollResolved.dice supports Fudge dice (sides: 'F')", async () => {
-    let captured: { dice: { sides: number | "F"; value: number }[] } | null =
-      null;
+    let captured: { dice: { sides: number | "F"; value: number }[] } | null = null;
     bus.on(RollResolved.name, (e) => {
       captured = e.payload as typeof captured;
     });
-    await dispatch(
-      pipeline,
-      "r-fudge",
-      RequestRoll({ notation: "4dF", visibility: "public" }),
-    );
+    await dispatch(pipeline, "r-fudge", RequestRoll({ notation: "4dF", visibility: "public" }));
     expect(captured).toBeTruthy();
     expect(captured!.dice).toHaveLength(4);
     for (const d of captured!.dice) {
@@ -272,10 +234,7 @@ describe("@vtt/resolution", () => {
   });
 
   describe("speakingAsCharacterId", () => {
-    function spawnCharacter(
-      world: World,
-      args: { name: string; writers: string[] },
-    ): EntityId {
+    function spawnCharacter(world: World, args: { name: string; writers: string[] }): EntityId {
       return world.spawn([
         Character({ name: args.name }),
         Permissions({
@@ -351,17 +310,12 @@ describe("@vtt/resolution", () => {
   });
 
   it("RollResolved.dice is empty for a notation with no dice", async () => {
-    let captured: { dice: { sides: number | "F"; value: number }[] } | null =
-      null;
+    let captured: { dice: { sides: number | "F"; value: number }[] } | null = null;
     bus.on(RollResolved.name, (e) => {
       captured = e.payload as typeof captured;
     });
     // A bare modifier — degenerate but accepted by the parser.
-    await dispatch(
-      pipeline,
-      "r-bare",
-      RequestRoll({ notation: "5", visibility: "public" }),
-    );
+    await dispatch(pipeline, "r-bare", RequestRoll({ notation: "5", visibility: "public" }));
     expect(captured).toBeTruthy();
     expect(captured!.dice).toEqual([]);
   });
@@ -402,9 +356,7 @@ describe("@vtt/resolution", () => {
         ...baseCtx,
         gmOnly: true,
       });
-      expect((cmd?.payload as { visibility: string }).visibility).toBe(
-        "gm-only",
-      );
+      expect((cmd?.payload as { visibility: string }).visibility).toBe("gm-only");
     });
 
     it("forwards speakingAsCharacterId when set", () => {
@@ -412,10 +364,9 @@ describe("@vtt/resolution", () => {
         ...baseCtx,
         speakingAsCharacterId: "char-1",
       });
-      expect(
-        (cmd?.payload as { speakingAsCharacterId?: string })
-          .speakingAsCharacterId,
-      ).toBe("char-1");
+      expect((cmd?.payload as { speakingAsCharacterId?: string }).speakingAsCharacterId).toBe(
+        "char-1",
+      );
     });
 
     it("returns null on an empty notation", () => {

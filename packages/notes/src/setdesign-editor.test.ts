@@ -19,7 +19,10 @@ import { describe, it, expect } from "vitest";
 import { EditorState } from "@codemirror/state";
 import { isInsideSetdesignFence } from "./client/CodeMirrorEditor.jsx";
 
-function stateAt(body: string, caretChar: string = "|"): {
+function stateAt(
+  body: string,
+  caretChar: string = "|",
+): {
   state: EditorState;
   pos: number;
 } {
@@ -36,28 +39,19 @@ describe("isInsideSetdesignFence", () => {
   });
 
   it("returns true when cursor is on a content line inside a ```setdesign block", () => {
-    const { state, pos } = stateAt(
-      ["```setdesign", "**Door** -> locked|", "```"].join("\n"),
-    );
+    const { state, pos } = stateAt(["```setdesign", "**Door** -> locked|", "```"].join("\n"));
     expect(isInsideSetdesignFence(state, pos)).toBe(true);
   });
 
   it("returns false when the closing fence has been crossed", () => {
     const { state, pos } = stateAt(
-      [
-        "```setdesign",
-        "**Door** -> locked",
-        "```",
-        "after the block|",
-      ].join("\n"),
+      ["```setdesign", "**Door** -> locked", "```", "after the block|"].join("\n"),
     );
     expect(isInsideSetdesignFence(state, pos)).toBe(false);
   });
 
   it("returns false inside a different-language fence", () => {
-    const { state, pos } = stateAt(
-      ["```ts", "const x = 1|;", "```"].join("\n"),
-    );
+    const { state, pos } = stateAt(["```ts", "const x = 1|;", "```"].join("\n"));
     expect(isInsideSetdesignFence(state, pos)).toBe(false);
   });
 
@@ -67,23 +61,13 @@ describe("isInsideSetdesignFence", () => {
   });
 
   it("matches setdesign with surrounding whitespace in the info string", () => {
-    const { state, pos } = stateAt(
-      ["```setdesign  ", "**Door**|", "```"].join("\n"),
-    );
+    const { state, pos } = stateAt(["```setdesign  ", "**Door**|", "```"].join("\n"));
     expect(isInsideSetdesignFence(state, pos)).toBe(true);
   });
 
   it("handles multiple sequential blocks correctly", () => {
     const { state, pos } = stateAt(
-      [
-        "```setdesign",
-        "first block",
-        "```",
-        "",
-        "```ts",
-        "code|",
-        "```",
-      ].join("\n"),
+      ["```setdesign", "first block", "```", "", "```ts", "code|", "```"].join("\n"),
     );
     expect(isInsideSetdesignFence(state, pos)).toBe(false);
   });

@@ -41,12 +41,7 @@ const serverPlugin = definePlugin({
   version: "0.1.0",
   traits: [Identity, Name, Online],
   events: [PlayerJoined, PlayerLeft],
-  systems: [
-    PlayerSpawningSystem,
-    PlayerMirrorSystem,
-    PlayerDespawnSystem,
-    PlayerLeftMirrorSystem,
-  ],
+  systems: [PlayerSpawningSystem, PlayerMirrorSystem, PlayerDespawnSystem, PlayerLeftMirrorSystem],
 });
 
 const SESSION: AuthSession = {
@@ -90,10 +85,7 @@ describe("@vtt/identity", () => {
       bus,
       ConnectionOpened({ clientId: "client-1", session: SESSION }),
     );
-    expect(all.map((e) => e.type)).toEqual([
-      ConnectionOpened.name,
-      PlayerJoined.name,
-    ]);
+    expect(all.map((e) => e.type)).toEqual([ConnectionOpened.name, PlayerJoined.name]);
     const playerId = findPlayerByUserId(world, SESSION.userId);
     expect(playerId).not.toBeNull();
     const row = world.query([Identity, Name, Online])[0]!;
@@ -129,9 +121,7 @@ describe("@vtt/identity", () => {
     fire(registry, world, bus, ConnectionOpened({ clientId: "c2", session: SESSION }));
     const rows = world.query([Identity, Online]);
     expect(rows).toHaveLength(2);
-    const clientIds = rows
-      .map((r) => (r.values.Online as { clientId: string }).clientId)
-      .sort();
+    const clientIds = rows.map((r) => (r.values.Online as { clientId: string }).clientId).sort();
     expect(clientIds).toEqual(["c1", "c2"]);
     // Both entities carry the same userId — display layer dedupes for the
     // player list; useMe() picks the one matching this tab's clientId.
@@ -216,12 +206,7 @@ describe("@vtt/identity", () => {
   });
 
   it("rejects a malformed session payload (missing fields) without spawning", () => {
-    fire(
-      registry,
-      world,
-      bus,
-      ConnectionOpened({ clientId: "c1", session: { not: "a session" } }),
-    );
+    fire(registry, world, bus, ConnectionOpened({ clientId: "c1", session: { not: "a session" } }));
     expect(world.query([Identity])).toHaveLength(0);
   });
 

@@ -40,10 +40,7 @@ import {
   NotesReferenceSlot,
 } from "@vtt/notes/shared";
 import { adventures } from "./manifest.js";
-import {
-  BlockKindsSlot,
-  defineBlockKind,
-} from "./shared/index.js";
+import { BlockKindsSlot, defineBlockKind } from "./shared/index.js";
 import { bundleToZip, zipToBundle } from "./server/index.js";
 import {
   handleAdventureExport,
@@ -194,10 +191,7 @@ describe("adventure HTTP routes", () => {
 
   it("export → import round-trip via the routes", async () => {
     // Seed a note in the world.
-    runtime.world.spawn([
-      Note({ title: "Bywater", createdAt: 0 }),
-      NoteOrdering({ ordinal: 0 }),
-    ]);
+    runtime.world.spawn([Note({ title: "Bywater", createdAt: 0 }), NoteOrdering({ ordinal: 0 })]);
     const noteId = runtime.world.query([Note])[0]!.id;
     runtime.world.spawn([
       Page({
@@ -265,10 +259,7 @@ describe("adventure HTTP routes", () => {
         uploadedAt: 0,
       }),
     ]);
-    runtime.world.spawn([
-      Note({ title: "WithArt", createdAt: 0 }),
-      NoteOrdering({ ordinal: 0 }),
-    ]);
+    runtime.world.spawn([Note({ title: "WithArt", createdAt: 0 }), NoteOrdering({ ordinal: 0 })]);
     const noteId = runtime.world.query([Note])[0]!.id;
     runtime.world.spawn([
       Page({
@@ -282,8 +273,7 @@ describe("adventure HTTP routes", () => {
     const fakeBytes = new Uint8Array([1, 2, 3, 4, 5]);
     const sourceDeps = {
       ...deps,
-      loadAssetBytes: async (_w: string, aid: string) =>
-        aid === sourceAssetId ? fakeBytes : null,
+      loadAssetBytes: async (_w: string, aid: string) => (aid === sourceAssetId ? fakeBytes : null),
     };
 
     const exReq = fakeReq(
@@ -309,11 +299,7 @@ describe("adventure HTTP routes", () => {
     const targetDeps = {
       registry: buildRegistry(targetRuntime),
       authenticate: async () => gmSession,
-      saveAssetBytes: async (
-        _w: string,
-        bytes: Uint8Array,
-        descriptor: { sha256: string },
-      ) => {
+      saveAssetBytes: async (_w: string, bytes: Uint8Array, descriptor: { sha256: string }) => {
         // Verify bytes survived the round-trip
         expect(bytes).toEqual(fakeBytes);
         expect(descriptor.sha256).toBe("c".repeat(64));
@@ -338,10 +324,7 @@ describe("adventure HTTP routes", () => {
   });
 
   it("check-update: returns a UpdateDiff JSON for a re-uploaded bundle", async () => {
-    runtime.world.spawn([
-      Note({ title: "Bywater", createdAt: 0 }),
-      NoteOrdering({ ordinal: 0 }),
-    ]);
+    runtime.world.spawn([Note({ title: "Bywater", createdAt: 0 }), NoteOrdering({ ordinal: 0 })]);
     const noteId = runtime.world.query([Note])[0]!.id;
     runtime.world.spawn([
       Page({
@@ -405,12 +388,7 @@ describe("adventure HTTP routes", () => {
     // Check-update against the target world.
     const cuReq = fakeReq("POST", v2Zip);
     const cuOut = fakeRes();
-    await handleAdventureCheckUpdate(
-      cuReq,
-      cuOut.res,
-      "test-world" as never,
-      targetDeps as never,
-    );
+    await handleAdventureCheckUpdate(cuReq, cuOut.res, "test-world" as never, targetDeps as never);
     expect(cuOut.status()).toBe(200);
     const diff = JSON.parse(cuOut.body().toString()) as {
       bundleId: string;

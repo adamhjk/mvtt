@@ -16,22 +16,12 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { EntityId, World } from "@vtt/substrate";
-import {
-  Note,
-  NoteOrdering,
-  Page,
-  PageOrdering,
-  BelongsToNote,
-} from "@vtt/notes/shared";
+import { Note, NoteOrdering, Page, PageOrdering, BelongsToNote } from "@vtt/notes/shared";
 import { AdventureProvenance } from "../shared/traits.js";
 import { scanFencedBlocks } from "../shared/parse-blocks.js";
 import { runBlockParse } from "./block-parse-system.js";
 import type { BlockKindIndex } from "../shared/block-kinds.js";
-import {
-  type AdventureBundle,
-  type BundleManifest,
-  sha256Hex,
-} from "./bundle.js";
+import { type AdventureBundle, type BundleManifest, sha256Hex } from "./bundle.js";
 
 /**
  * Per-note diff classification (per design/adventures.md
@@ -49,12 +39,7 @@ import {
  * - `removed-upstream` — the world has a note from this bundleId
  *   that's no longer in the new bundle. Tombstone candidate.
  */
-export type NoteDiffKind =
-  | "new"
-  | "unchanged"
-  | "fast-forward"
-  | "conflict"
-  | "removed-upstream";
+export type NoteDiffKind = "new" | "unchanged" | "fast-forward" | "conflict" | "removed-upstream";
 
 export interface NoteDiff {
   readonly kind: NoteDiffKind;
@@ -70,11 +55,7 @@ export interface NoteDiff {
 }
 
 export interface BlockDiff {
-  readonly kind:
-    | "block-new"
-    | "block-removed"
-    | "block-unchanged"
-    | "block-changed";
+  readonly kind: "block-new" | "block-removed" | "block-unchanged" | "block-changed";
   readonly blockKey: string;
   /** Body of the block in the new bundle, if present. */
   readonly newBlockBody?: string;
@@ -192,10 +173,7 @@ interface ExistingNote {
   readonly body: string;
 }
 
-function collectExistingByPath(
-  world: World,
-  bundleId: string,
-): Map<string, ExistingNote> {
+function collectExistingByPath(world: World, bundleId: string): Map<string, ExistingNote> {
   const out = new Map<string, ExistingNote>();
   for (const row of world.query([Note, AdventureProvenance])) {
     const v = row.values as {
@@ -293,11 +271,7 @@ function mergeBlockBodies(
   return result;
 }
 
-function diffBlocks(
-  current: string,
-  next: string,
-  recognized: ReadonlySet<string>,
-): BlockDiff[] {
+function diffBlocks(current: string, next: string, recognized: ReadonlySet<string>): BlockDiff[] {
   const cur = blocksFromBody(current, recognized);
   const nxt = blocksFromBody(next, recognized);
   const curMap = new Map(cur.map((b) => [b.blockKey, b]));
@@ -421,9 +395,7 @@ export function applyUpdateResolution(
         bundleName: m.name,
         version: m.version,
         bundlePath: res.bundlePath,
-        originalSha256: sha256Hex(
-          newNote.pages.map((p) => p.body).join("\n\n"),
-        ),
+        originalSha256: sha256Hex(newNote.pages.map((p) => p.body).join("\n\n")),
       });
       applied += 1;
       continue;
@@ -438,9 +410,7 @@ export function applyUpdateResolution(
           bundleName: m.name,
           version: m.version,
           bundlePath: newNote.bundlePath,
-          originalSha256: sha256Hex(
-            newNote.pages.map((p) => p.body).join("\n\n"),
-          ),
+          originalSha256: sha256Hex(newNote.pages.map((p) => p.body).join("\n\n")),
         }),
       ]);
       for (let j = 0; j < newNote.pages.length; j += 1) {
@@ -501,9 +471,7 @@ export function applyUpdateResolution(
       bundleName: m.name,
       version: m.version,
       bundlePath: newNote.bundlePath,
-      originalSha256: sha256Hex(
-        newNote.pages.map((p) => p.body).join("\n\n"),
-      ),
+      originalSha256: sha256Hex(newNote.pages.map((p) => p.body).join("\n\n")),
     });
     applied += 1;
   }

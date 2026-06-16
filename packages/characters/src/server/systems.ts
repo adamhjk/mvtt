@@ -101,9 +101,7 @@ export const CharacterFieldSetSystem = defineSystem({
   writes: [],
   run: ({ event, world, registry }) => {
     if (!world.has(event.characterId)) return [];
-    const traitMeta = registry.traits.get(
-      event.trait as Parameters<typeof registry.traits.get>[0],
-    );
+    const traitMeta = registry.traits.get(event.trait as Parameters<typeof registry.traits.get>[0]);
     if (!traitMeta) return [];
     const current = readTraitWithDefault(world, event.characterId, traitMeta);
     if (current === undefined) return [];
@@ -170,9 +168,7 @@ export const PendingRollContributionSystem = defineSystem({
     // before appending the new one. Stackable contributions (modifiers,
     // help) leave `replaces` unset and accumulate normally.
     const filtered = incoming.replaces
-      ? got.PendingRoll.contributions.filter(
-          (c) => c.replaces !== incoming.replaces,
-        )
+      ? got.PendingRoll.contributions.filter((c) => c.replaces !== incoming.replaces)
       : got.PendingRoll.contributions;
     const next = {
       ...got.PendingRoll,

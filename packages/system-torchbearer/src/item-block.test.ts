@@ -20,14 +20,17 @@ import { definePlugin, EntityId, Registry, World } from "@vtt/substrate";
 import { items } from "@vtt/items";
 import { permissions } from "@vtt/permissions";
 import { adventures } from "@vtt/adventures";
-import {
-  BlockKindsSlot,
-  BLOCK_ENTITY_INDEX_ID,
-  BlockEntityIndex,
-} from "@vtt/adventures/shared";
+import { BlockKindsSlot, BLOCK_ENTITY_INDEX_ID, BlockEntityIndex } from "@vtt/adventures/shared";
 import { runBlockParse, blockEntityId } from "@vtt/adventures/server";
 import { buildBlockKindIndex } from "@vtt/adventures/shared";
-import { Page, BelongsToNote, PageBodySet, MarkdownPostRenderSlot, EditorCompletionSourcesSlot, NotesReferenceSlot } from "@vtt/notes/shared";
+import {
+  Page,
+  BelongsToNote,
+  PageBodySet,
+  MarkdownPostRenderSlot,
+  EditorCompletionSourcesSlot,
+  NotesReferenceSlot,
+} from "@vtt/notes/shared";
 import { ItemDerivedFrom, ItemEconomics, ItemIdentity } from "@vtt/items/shared";
 import {
   TbArmor,
@@ -91,10 +94,7 @@ describe("TB item block kind", () => {
     registry = s.registry;
     world = s.world;
     noteId = world.spawn([]);
-    pageId = world.spawn([
-      Page({ title: "p", body: "", bodyRev: 0 }),
-      BelongsToNote({ noteId }),
-    ]);
+    pageId = world.spawn([Page({ title: "p", body: "", bodyRev: 0 }), BelongsToNote({ noteId })]);
   });
 
   function parseBody(body: string) {
@@ -120,12 +120,7 @@ describe("TB item block kind", () => {
     parseBody(body);
     const eid = blockEntityId(pageId, "longsword");
     expect(world.has(eid)).toBe(true);
-    const traits = world.get(eid, [
-      ItemIdentity,
-      TbItemSlotOptions,
-      TbWeapon,
-      ItemDerivedFrom,
-    ]) as
+    const traits = world.get(eid, [ItemIdentity, TbItemSlotOptions, TbWeapon, ItemDerivedFrom]) as
       | {
           ItemIdentity: { name: string; description: string };
           TbItemSlotOptions: { options: Record<string, number> };
@@ -214,29 +209,23 @@ describe("TB item block kind", () => {
 
   it("editing the block updates the item entity in place (no new entity)", () => {
     parseBody(
-      [
-        "```item Longsword",
-        "type: weapon",
-        "slot: handR",
-        "description: original",
-        "```",
-      ].join("\n"),
+      ["```item Longsword", "type: weapon", "slot: handR", "description: original", "```"].join(
+        "\n",
+      ),
     );
     const eid = blockEntityId(pageId, "longsword");
-    const before = (world.get(eid, [ItemIdentity]) as { ItemIdentity: { description: string } }).ItemIdentity.description;
+    const before = (world.get(eid, [ItemIdentity]) as { ItemIdentity: { description: string } })
+      .ItemIdentity.description;
     expect(before).toBe("original");
 
     parseBody(
-      [
-        "```item Longsword",
-        "type: weapon",
-        "slot: handR",
-        "description: revised",
-        "```",
-      ].join("\n"),
+      ["```item Longsword", "type: weapon", "slot: handR", "description: revised", "```"].join(
+        "\n",
+      ),
     );
     expect(world.has(eid)).toBe(true);
-    const after = (world.get(eid, [ItemIdentity]) as { ItemIdentity: { description: string } }).ItemIdentity.description;
+    const after = (world.get(eid, [ItemIdentity]) as { ItemIdentity: { description: string } })
+      .ItemIdentity.description;
     expect(after).toBe("revised");
     // Same id (no new entity).
     const idx = world.get(BLOCK_ENTITY_INDEX_ID, [BlockEntityIndex]) as
@@ -276,19 +265,9 @@ describe("TB item block kind", () => {
   });
 
   it("ItemEconomics records cost when present", () => {
-    parseBody(
-      [
-        "```item Apple",
-        "type: gear",
-        "slot: pocket",
-        "cost: 3",
-        "```",
-      ].join("\n"),
-    );
+    parseBody(["```item Apple", "type: gear", "slot: pocket", "cost: 3", "```"].join("\n"));
     const eid = blockEntityId(pageId, "apple");
-    const got = world.get(eid, [ItemEconomics]) as
-      | { ItemEconomics: { cost?: number } }
-      | undefined;
+    const got = world.get(eid, [ItemEconomics]) as { ItemEconomics: { cost?: number } } | undefined;
     expect(got!.ItemEconomics.cost).toBe(3);
   });
 

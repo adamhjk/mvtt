@@ -18,24 +18,10 @@
 import { definePlugin } from "@vtt/substrate";
 import { PagesSlot } from "@vtt/shell-workbench/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
-import {
-  Book,
-  BookCanonical,
-  CanonicalBookCatalog,
-} from "./shared/traits.js";
+import { Book, BookCanonical, CanonicalBookCatalog } from "./shared/traits.js";
 import { bookLinkKind } from "./shared/book-link-kind.js";
-import {
-  BookCanonicalChanged,
-  BookCreated,
-  BookRemoved,
-  BookUpdated,
-} from "./shared/events.js";
-import {
-  CreateBook,
-  RemoveBook,
-  SetBookCanonical,
-  UpdateBook,
-} from "./shared/commands.js";
+import { BookCanonicalChanged, BookCreated, BookRemoved, BookUpdated } from "./shared/events.js";
+import { CreateBook, RemoveBook, SetBookCanonical, UpdateBook } from "./shared/commands.js";
 import {
   BooksUiState,
   BooksUiStateChanged,
@@ -68,20 +54,8 @@ export const books = definePlugin({
     "@vtt/notes@^0",
   ],
   traits: [Book, BookCanonical, CanonicalBookCatalog, BooksUiState],
-  events: [
-    BookCreated,
-    BookRemoved,
-    BookUpdated,
-    BookCanonicalChanged,
-    BooksUiStateChanged,
-  ],
-  commands: [
-    CreateBook,
-    RemoveBook,
-    UpdateBook,
-    SetBookCanonical,
-    SetBooksUiState,
-  ],
+  events: [BookCreated, BookRemoved, BookUpdated, BookCanonicalChanged, BooksUiStateChanged],
+  commands: [CreateBook, RemoveBook, UpdateBook, SetBookCanonical, SetBooksUiState],
   systems: [
     BookSpawningSystem,
     BookRemovalSystem,

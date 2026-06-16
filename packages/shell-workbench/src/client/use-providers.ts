@@ -15,13 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  onCleanup,
-  type Accessor,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, type Accessor } from "solid-js";
 import type { TraitName } from "@vtt/substrate";
 import { useClient } from "@vtt/substrate/client";
 import {
@@ -127,8 +121,7 @@ export function usePaletteCommands(): Accessor<PaletteCommand[]> {
 export function usePaletteActionProviders(): Accessor<PaletteActionProvider[]> {
   const client = useClient();
   return createMemo(
-    () =>
-      client.registry.fillsForSlot(PaletteActionsSlot) as PaletteActionProvider[],
+    () => client.registry.fillsForSlot(PaletteActionsSlot) as PaletteActionProvider[],
   );
 }
 

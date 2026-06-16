@@ -42,10 +42,7 @@ describe("resolveActivePlugins", () => {
     const identity = infra("@vtt/identity");
     const dice = sharedMech("@vtt/dice-tray");
     const characters = sharedMech("@vtt/characters", ["@vtt/identity@^0"]);
-    const simple = gameSys("@vtt/system-simple", [
-      "@vtt/dice-tray@^0",
-      "@vtt/characters@^0",
-    ]);
+    const simple = gameSys("@vtt/system-simple", ["@vtt/dice-tray@^0", "@vtt/characters@^0"]);
     // An optional plugin that has nothing to do with this game system —
     // must NOT be activated.
     const irrelevant = sharedMech("@vtt/some-other-mechanic");
@@ -83,9 +80,7 @@ describe("resolveActivePlugins", () => {
 
     const names: string[] = result.plugins.map((p) => p.name);
     expect(names.indexOf("@vtt/auth")).toBeLessThan(names.indexOf("@vtt/dice-tray"));
-    expect(names.indexOf("@vtt/dice-tray")).toBeLessThan(
-      names.indexOf("@vtt/system-simple"),
-    );
+    expect(names.indexOf("@vtt/dice-tray")).toBeLessThan(names.indexOf("@vtt/system-simple"));
   });
 
   it("ignores @vtt/substrate dependsOn (auto-loaded by Registry)", () => {
@@ -150,9 +145,6 @@ describe("listGameSystems", () => {
     const a = definePlugin({ name: "@vtt/a", version: "0" });
     const b = definePlugin({ name: "@vtt/b", version: "0", gameSystem: true });
     const c = definePlugin({ name: "@vtt/c", version: "0", gameSystem: true });
-    expect(listGameSystems([a, b, c]).map((p) => p.name)).toEqual([
-      "@vtt/b",
-      "@vtt/c",
-    ]);
+    expect(listGameSystems([a, b, c]).map((p) => p.name)).toEqual(["@vtt/b", "@vtt/c"]);
   });
 });

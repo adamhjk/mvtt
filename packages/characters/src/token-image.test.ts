@@ -67,8 +67,7 @@ describe("resolveCharacterTokenUrl", () => {
   });
 
   it("returns null when both fields are null/absent", () => {
-    expect(resolveCharacterTokenUrl({ assetId: null, imageUrl: null }, "w1"))
-      .toBeNull();
+    expect(resolveCharacterTokenUrl({ assetId: null, imageUrl: null }, "w1")).toBeNull();
     expect(resolveCharacterTokenUrl(null, "w1")).toBeNull();
     expect(resolveCharacterTokenUrl(undefined, "w1")).toBeNull();
   });
@@ -86,9 +85,7 @@ describe("resolveCharacterTokenUrl", () => {
       ),
     ).toBe("/legacy/path.png");
     // No worldId AND no legacy path → null.
-    expect(
-      resolveCharacterTokenUrl({ assetId: "e42", imageUrl: null }, null),
-    ).toBeNull();
+    expect(resolveCharacterTokenUrl({ assetId: "e42", imageUrl: null }, null)).toBeNull();
   });
 
   it("tolerates legacy values that have no assetId field at all (world.get returns them un-reparsed)", () => {

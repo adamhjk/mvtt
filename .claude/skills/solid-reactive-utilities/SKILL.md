@@ -10,13 +10,22 @@ These are the day-to-day helpers around Solid's three core primitives. Most apps
 
 ```ts
 import {
-  batch, untrack, on,
-  observable, from,
-  createRoot, getOwner, runWithOwner,
-  mapArray, indexArray,
-  startTransition, useTransition,
+  batch,
+  untrack,
+  on,
+  observable,
+  from,
+  createRoot,
+  getOwner,
+  runWithOwner,
+  mapArray,
+  indexArray,
+  startTransition,
+  useTransition,
   catchError,
-  mergeProps, splitProps, children,
+  mergeProps,
+  splitProps,
+  children,
 } from "solid-js";
 ```
 
@@ -32,15 +41,15 @@ Writes inside `batch(...)` notify subscribers exactly once after the function re
 const [a, setA] = createSignal(0);
 const [b, setB] = createSignal(0);
 const sum = createMemo(() => a() + b());
-createEffect(() => console.log(sum()));   // logs 0
+createEffect(() => console.log(sum())); // logs 0
 
-setA(1);   // logs 1
-setB(2);   // logs 3
+setA(1); // logs 1
+setB(2); // logs 3
 
 batch(() => {
   setA(10);
   setB(20);
-});      // logs 30 (one notification)
+}); // logs 30 (one notification)
 ```
 
 Effects already batch automatically — you only need `batch` from event handlers and async code that writes multiple signals.
@@ -50,7 +59,7 @@ If you read a stale memo inside a batch, Solid evaluates it on demand:
 ```ts
 batch(() => {
   setA(5);
-  console.log(sum());   // evaluates with a=5, b=2, even though b hasn't been set yet
+  console.log(sum()); // evaluates with a=5, b=2, even though b hasn't been set yet
   setB(50);
 });
 ```
@@ -66,7 +75,7 @@ function untrack<T>(fn: () => T): T;
 ```ts
 createEffect(() => {
   const a = trackedSignal();
-  const b = untrack(() => other());     // does NOT subscribe to `other`
+  const b = untrack(() => other()); // does NOT subscribe to `other`
   doSomething(a, b);
 });
 ```
@@ -107,7 +116,12 @@ createEffect(on(count, c => { ... }, { defer: true }));
 `on(state.x, ...)` evaluates `state.x` once and watches that value. Almost always wrong. Use an arrow:
 
 ```ts
-createEffect(on(() => state.x, v => console.log(v)));
+createEffect(
+  on(
+    () => state.x,
+    (v) => console.log(v),
+  ),
+);
 ```
 
 ## `observable` and `from` — RxJS interop
@@ -138,10 +152,10 @@ function createRoot<T>(fn: (dispose: () => void) => T, detachedOwner?: Owner): T
 Create a reactive computation that lives outside of any component. Effects/memos created inside live until `dispose()` is called.
 
 ```ts
-const dispose = createRoot(d => {
+const dispose = createRoot((d) => {
   const [count, setCount] = createSignal(0);
   createEffect(() => console.log(count()));
-  setInterval(() => setCount(c => c + 1), 1000);
+  setInterval(() => setCount((c) => c + 1), 1000);
   return d;
 });
 
@@ -150,6 +164,7 @@ dispose();
 ```
 
 Use cases:
+
 - Tests that need to set up reactive state outside of a `render()`.
 - Long-lived background work in modules.
 - Custom abstractions that own their own owner tree.
@@ -170,7 +185,7 @@ async function doStuff() {
   const owner = getOwner();
   const data = await fetchData();
   runWithOwner(owner, () => {
-    onCleanup(() => abortController.abort());   // now properly tied to the original component
+    onCleanup(() => abortController.abort()); // now properly tied to the original component
   });
 }
 ```
@@ -187,8 +202,14 @@ function indexArray<T, U>(list: () => T[], mapFn: (v: Accessor<T>, i: number) =>
 The non-component versions of `<For>` and `<Index>`. Use when you need a derived array (not for rendering):
 
 ```ts
-const sortedRows = mapArray(() => rows(), (row) => row);
-const cellSignals = indexArray(() => cells(), (cell) => cell);
+const sortedRows = mapArray(
+  () => rows(),
+  (row) => row,
+);
+const cellSignals = indexArray(
+  () => cells(),
+  (cell) => cell,
+);
 ```
 
 Most apps don't reach for these — `<For>`/`<Index>` cover rendering. But these primitives let you build custom keyed structures.
@@ -217,6 +238,7 @@ return (
 `startTransition` is the imperative equivalent (no `pending` accessor).
 
 Use cases:
+
 - Search-as-you-type: don't show a loading flash on every keystroke.
 - Tab/route switches that involve async fetches.
 - Keeping the previous list visible while filters update.
@@ -232,7 +254,10 @@ Like `<ErrorBoundary>`, but inline:
 ```ts
 const value = catchError(
   () => somethingThatMightThrow(),
-  (err) => { console.error(err); reportError(err); },
+  (err) => {
+    console.error(err);
+    reportError(err);
+  },
 );
 ```
 
@@ -272,7 +297,7 @@ const onSubmit = () => {
 ### Run an effect only on signal changes (skip initial)
 
 ```ts
-createEffect(on(query, q => fetchAnalytics(q), { defer: true }));
+createEffect(on(query, (q) => fetchAnalytics(q), { defer: true }));
 ```
 
 ### Subscribe to RxJS in a component
@@ -288,7 +313,7 @@ return <p>{message()}</p>;
 export function useFetcher<T>(fn: () => Promise<T>) {
   const owner = getOwner();
   const [value, setValue] = createSignal<T>();
-  fn().then(v => runWithOwner(owner, () => setValue(() => v)));
+  fn().then((v) => runWithOwner(owner, () => setValue(() => v)));
   return value;
 }
 ```
@@ -301,7 +326,7 @@ const [filter, setFilter] = createSignal("");
 
 return (
   <>
-    <input onInput={e => start(() => setFilter(e.currentTarget.value))} />
+    <input onInput={(e) => start(() => setFilter(e.currentTarget.value))} />
     <span>{pending() ? "..." : ""}</span>
     <FilteredList filter={filter()} />
   </>

@@ -15,11 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  qualifiedName,
-  type CommandInstance,
-  type EventInstance,
-} from "@vtt/substrate";
+import { qualifiedName, type CommandInstance, type EventInstance } from "@vtt/substrate";
 import { useClient } from "@vtt/substrate/client";
 import {
   SetDrawerKeepOpen,
@@ -137,9 +133,7 @@ function DiceTrayBody(props: { close: () => void }): JSX.Element {
 
   // Keep-open lives in WorkspaceState; the header checkbox dispatches
   // SetDrawerKeepOpen rather than mutating local state.
-  const drawerState = createMemo(
-    () => ws.state()?.openDrawers[DICE_TRAY_DRAWER_ID],
-  );
+  const drawerState = createMemo(() => ws.state()?.openDrawers[DICE_TRAY_DRAWER_ID]);
   const keepOpen = createMemo(() => drawerState()?.keepOpen ?? false);
 
   function processRoll(payload: PendingRoll): void {
@@ -202,26 +196,23 @@ function DiceTrayBody(props: { close: () => void }): JSX.Element {
     // and ResizeObserver hasn't fired yet. Events that arrive
     // before the canvas is stable get queued and replayed once the
     // tray is ready.
-    unsubscribe = client.bus.on(
-      RollResolved.name,
-      (e: EventInstance<unknown>) => {
-        const payload = e.payload as {
-          dice?: DieOutcome[];
-          rolledByUserId?: string;
-        };
-        const dice = payload.dice ?? [];
-        if (dice.length === 0) return;
-        const roll: PendingRoll = {
-          dice,
-          rolledByUserId: payload.rolledByUserId ?? "anonymous",
-        };
-        if (canvasReady && tray) {
-          processRoll(roll);
-        } else {
-          pendingRolls.push(roll);
-        }
-      },
-    );
+    unsubscribe = client.bus.on(RollResolved.name, (e: EventInstance<unknown>) => {
+      const payload = e.payload as {
+        dice?: DieOutcome[];
+        rolledByUserId?: string;
+      };
+      const dice = payload.dice ?? [];
+      if (dice.length === 0) return;
+      const roll: PendingRoll = {
+        dice,
+        rolledByUserId: payload.rolledByUserId ?? "anonymous",
+      };
+      if (canvasReady && tray) {
+        processRoll(roll);
+      } else {
+        pendingRolls.push(roll);
+      }
+    });
 
     // Wait for the canvas to reach a non-degenerate size and stay
     // there for a beat (debounced ResizeObserver). Only then
@@ -311,11 +302,7 @@ function DiceTrayBody(props: { close: () => void }): JSX.Element {
         </div>
       </header>
       <div class="relative min-h-0 flex-1">
-        <canvas
-          ref={canvasEl}
-          class="absolute inset-0 h-full w-full"
-          aria-label="3D dice tray"
-        />
+        <canvas ref={canvasEl} class="absolute inset-0 h-full w-full" aria-label="3D dice tray" />
       </div>
     </div>
   );

@@ -29,10 +29,7 @@ import type { PluginDef, EventInstance } from "./define.js";
 import type { Registry } from "./registry.js";
 import { WireMsg } from "./protocol.js";
 import { type CommandName, type WorldId } from "./schema.js";
-import {
-  ConnectionOpened,
-  ConnectionClosed,
-} from "./core-plugin.js";
+import { ConnectionOpened, ConnectionClosed } from "./core-plugin.js";
 import { runSystemsToFixpoint } from "./systems-runner.js";
 import type { PersistenceAdapter } from "./persistence.js";
 import { matches as matchesVisibility, type Recipient } from "./visibility.js";
@@ -64,10 +61,7 @@ export type { WorldsServiceOptions } from "./worlds-service.js";
  * `entity-revealed.traits` field expect. Returns an empty object if
  * the entity has been despawned.
  */
-function collectAllTraits(
-  runtime: WorldRuntime,
-  entityId: string,
-): Record<string, unknown> {
+function collectAllTraits(runtime: WorldRuntime, entityId: string): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (!runtime.world.has(entityId)) return out;
   for (const [name, def] of runtime.registry.traits) {
@@ -99,16 +93,13 @@ function emitVisibilityDeltas(
 ): void {
   const exists = runtime.world.has(entityId);
   const traits = exists ? collectAllTraits(runtime, entityId) : {};
-  const vis = exists
-    ? runtime.registry.resolveEntityVisibility(traits)
-    : null;
+  const vis = exists ? runtime.registry.resolveEntityVisibility(traits) : null;
   for (const conn of conns) {
     if (conn.worldId !== runtime.worldId) continue;
     if (conn.sock.readyState !== conn.sock.OPEN) continue;
     const had = conn.visibleEntities.has(entityId);
     const isGm = conn.recipient?.role === "gm";
-    const should =
-      exists && (isGm || vis === null || matchesVisibility(vis, conn.recipient));
+    const should = exists && (isGm || vis === null || matchesVisibility(vis, conn.recipient));
     if (should && !had) {
       conn.sock.send(
         JSON.stringify({
@@ -266,11 +257,7 @@ const MIME: Record<string, string> = {
   ".ico": "image/x-icon",
 };
 
-function proxyHttp(
-  upstream: URL,
-  req: IncomingMessage,
-  res: ServerResponse,
-): void {
+function proxyHttp(upstream: URL, req: IncomingMessage, res: ServerResponse): void {
   const headers = { ...req.headers, host: upstream.host };
   const upReq = httpRequest(
     {
@@ -295,12 +282,7 @@ function proxyHttp(
   req.pipe(upReq);
 }
 
-function proxyUpgrade(
-  upstream: URL,
-  req: IncomingMessage,
-  socket: Socket,
-  head: Buffer,
-): void {
+function proxyUpgrade(upstream: URL, req: IncomingMessage, socket: Socket, head: Buffer): void {
   const headers = { ...req.headers, host: upstream.host };
   const upReq = httpRequest({
     hostname: upstream.hostname,
@@ -366,7 +348,10 @@ async function serveStatic(
     }
     const body = await readFile(absolute);
     res.statusCode = 200;
-    res.setHeader("content-type", MIME[extname(absolute).toLowerCase()] ?? "application/octet-stream");
+    res.setHeader(
+      "content-type",
+      MIME[extname(absolute).toLowerCase()] ?? "application/octet-stream",
+    );
     res.setHeader("content-length", String(body.byteLength));
     res.end(body);
   } catch {
@@ -508,12 +493,9 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
       for (const { prefix, root } of assetRoots) {
         if (!url.startsWith(prefix)) continue;
         const rel = url.slice(prefix.length);
-        await serveStatic(
-          root,
-          { ...req, url: "/" + rel } as IncomingMessage,
-          res,
-          { spaFallback: false },
-        );
+        await serveStatic(root, { ...req, url: "/" + rel } as IncomingMessage, res, {
+          spaFallback: false,
+        });
         return;
       }
       if (devProxyUrl) {
@@ -609,9 +591,7 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
     try {
       runtime = await worldsRegistry.acquire(worldId);
     } catch (err) {
-      socket.write(
-        `HTTP/1.1 500 Internal Server Error\r\n\r\n${(err as Error).message}`,
-      );
+      socket.write(`HTTP/1.1 500 Internal Server Error\r\n\r\n${(err as Error).message}`);
       socket.destroy();
       return;
     }
@@ -631,9 +611,7 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
       const runtime = ctx.runtime;
 
       const clientId = `client-${nextClient++}`;
-      const recipient = opts.extractRecipient
-        ? opts.extractRecipient(ctx.session)
-        : null;
+      const recipient = opts.extractRecipient ? opts.extractRecipient(ctx.session) : null;
       const conn: Conn = {
         sock,
         clientId,
@@ -721,11 +699,7 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
         }),
       );
 
-      const filteredState = dumpForRecipient(
-        runtime.world.dump(),
-        runtime.registry,
-        recipient,
-      );
+      const filteredState = dumpForRecipient(runtime.world.dump(), runtime.registry, recipient);
       // Seed the connection's visible-entities set from the snapshot
       // we're about to send. Subsequent visibility deltas (driven by
       // `PermissionsChanged`) are computed against this set, so what
@@ -771,9 +745,7 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
         worldsRegistry,
         port,
         takeSnapshots: async () => {
-          await Promise.allSettled(
-            worldsRegistry.all().map((rt) => rt.takeSnapshot()),
-          );
+          await Promise.allSettled(worldsRegistry.all().map((rt) => rt.takeSnapshot()));
         },
         close: async () => {
           try {

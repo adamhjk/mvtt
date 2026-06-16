@@ -16,11 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { zipSync, unzipSync } from "fflate";
-import {
-  BundleManifestSchema,
-  type AdventureBundle,
-  type BundleManifest,
-} from "./bundle.js";
+import { BundleManifestSchema, type AdventureBundle, type BundleManifest } from "./bundle.js";
 
 const TEXT_ENCODER = new TextEncoder();
 const TEXT_DECODER = new TextDecoder();
@@ -43,9 +39,7 @@ export function bundleToZip(bundle: AdventureBundle): Uint8Array {
   files["manifest.json"] = TEXT_ENCODER.encode(JSON.stringify(m, null, 2));
   for (const note of m.notes) {
     // Bodies join with double-newline so reverse parse is unambiguous.
-    const body = note.pages
-      .map((p) => `# ${p.title}\n\n${p.body}`)
-      .join("\n\n");
+    const body = note.pages.map((p) => `# ${p.title}\n\n${p.body}`).join("\n\n");
     files[note.bundlePath] = TEXT_ENCODER.encode(body);
   }
   for (const asset of m.assets) {

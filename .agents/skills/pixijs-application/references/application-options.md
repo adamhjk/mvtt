@@ -8,7 +8,6 @@ Every option accepted by `app.init(options)`. Options come from three type sourc
 
 Options with no default are unset unless you pass them. `Partial<ApplicationOptions>` means everything is optional.
 
-
 ## View / canvas
 
 Configures the main canvas and how it maps to CSS pixels.
@@ -87,7 +86,6 @@ await app.init({ preference: "webgpu" });
 
 Use the array when you need to guarantee a renderer is never picked (e.g. WebGPU is broken on a target device, or you want to forbid Canvas2D's feature subset).
 
-
 ## Shared rendering
 
 Apply to every renderer type.
@@ -162,8 +160,8 @@ await app.init({
 
 Opt-in plugin (must `extensions.add(CullerPlugin)` to activate).
 
-| Option                   | Type      | Default                                              | Description                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ------------------------ | --------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Option                   | Type      | Default               | Description                                                                                                                                                               |
+| ------------------------ | --------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `culler.updateTransform` | `boolean` | `false` (effectively) | Must be explicitly set to `true` to run transform updates before culling. Otherwise PixiJS skips transform updates, and cull bounds may lag one frame for moving objects. |
 
 ```ts

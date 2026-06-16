@@ -15,14 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  createMemo,
-  createSignal,
-  For,
-  Show,
-  type Accessor,
-  type JSX,
-} from "solid-js";
+import { createMemo, createSignal, For, Show, type Accessor, type JSX } from "solid-js";
 import { useClient, useQuery } from "@vtt/substrate/client";
 import type { CommandInstance } from "@vtt/substrate";
 import {
@@ -30,10 +23,7 @@ import {
   type NotificationEntry,
   type NotificationFeed,
 } from "../shared/slots.js";
-import {
-  DismissNotification,
-  NotificationDismissals,
-} from "../shared/notifications-dismiss.js";
+import { DismissNotification, NotificationDismissals } from "../shared/notifications-dismiss.js";
 
 /**
  * Floating notifications overlay — top-right, above the workspace. Hosts
@@ -57,9 +47,7 @@ export function NotificationsOverlay(): JSX.Element {
   // Snapshot the feeds once — slot fills are immutable after registry
   // validation, so the number of `useEntries` hook calls stays stable
   // across renders (Solid's hook-count constraint).
-  const feeds = client.registry.fillsForSlot(
-    NotificationsSlot,
-  ) as NotificationFeed[];
+  const feeds = client.registry.fillsForSlot(NotificationsSlot) as NotificationFeed[];
   const accessors: Accessor<NotificationEntry[]>[] = feeds.map(
     (f) => f.useEntries() as Accessor<NotificationEntry[]>,
   );
@@ -68,9 +56,7 @@ export function NotificationsOverlay(): JSX.Element {
   // visible to them (it's owner-scoped), so the query returns just theirs.
   const dismissalRows = useQuery([NotificationDismissals]);
   // Session-local hide for instant feedback while the dispatch round-trips.
-  const [justHidden, setJustHidden] = createSignal<ReadonlySet<string>>(
-    new Set(),
-  );
+  const [justHidden, setJustHidden] = createSignal<ReadonlySet<string>>(new Set());
   const dismiss = (entryId: string): void => {
     client.dispatch(DismissNotification({ entityId: entryId }) as CommandInstance);
     setJustHidden((prev) => {

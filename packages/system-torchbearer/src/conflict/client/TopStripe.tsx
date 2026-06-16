@@ -18,11 +18,7 @@
 import type { CommandInstance, EntityId } from "@vtt/substrate";
 import { useClient } from "@vtt/substrate/client";
 import { Show, type JSX } from "solid-js";
-import {
-  EndConflict,
-  TB_CONFLICT_TYPES,
-  type ConflictType,
-} from "../shared/index.js";
+import { EndConflict, TB_CONFLICT_TYPES, type ConflictType } from "../shared/index.js";
 import { useConflict } from "./hooks.js";
 import { useMe } from "./use-me.js";
 
@@ -43,9 +39,7 @@ export function TopStripe(props: { conflictId: EntityId }): JSX.Element {
   };
   const endConflict = (): void => {
     if (!window.confirm("End this conflict?")) return;
-    client.dispatch(
-      EndConflict({ conflictId: props.conflictId }) as CommandInstance,
-    );
+    client.dispatch(EndConflict({ conflictId: props.conflictId }) as CommandInstance);
   };
   return (
     <header
@@ -66,16 +60,11 @@ export function TopStripe(props: { conflictId: EntityId }): JSX.Element {
           </Show>
         </h1>
         <span class="flex items-center gap-3">
-          <span
-            class="font-mono text-xs text-fg-subtle"
-            data-testid="conflict-round-counter"
-          >
+          <span class="font-mono text-xs text-fg-subtle" data-testid="conflict-round-counter">
             round {conflict()?.round ?? 1} · {Math.min(conflict()?.revealIndex ?? 0, 3)}/3 revealed
             <Show when={conflict()?.winner}>
               {" · "}
-              <span class="text-accent uppercase tracking-wider">
-                {conflict()?.winner} won
-              </span>
+              <span class="text-accent uppercase tracking-wider">{conflict()?.winner} won</span>
             </Show>
           </span>
           <Show when={isGm() && conflict()?.endedAt === null}>

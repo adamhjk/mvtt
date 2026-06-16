@@ -59,24 +59,9 @@ export const rulesCorpus = definePlugin({
     "@vtt/shell-workbench@^0",
   ],
   traits: [RulesLibrary, RulesCorpus],
-  events: [
-    RulesIndexingStarted,
-    RulesIndexingCompleted,
-    RulesIndexingFailed,
-    RulesCorpusRemoved,
-  ],
-  commands: [
-    IndexRules,
-    RemoveRulesCorpus,
-    MarkRulesIndexingCompleted,
-    MarkRulesIndexingFailed,
-  ],
-  systems: [
-    CorpusSpawningSystem,
-    CorpusStatusMirror,
-    CorpusFailureMirror,
-    CorpusDespawnSystem,
-  ],
+  events: [RulesIndexingStarted, RulesIndexingCompleted, RulesIndexingFailed, RulesCorpusRemoved],
+  commands: [IndexRules, RemoveRulesCorpus, MarkRulesIndexingCompleted, MarkRulesIndexingFailed],
+  systems: [CorpusSpawningSystem, CorpusStatusMirror, CorpusFailureMirror, CorpusDespawnSystem],
   fills: {
     [PagesSlot.name]: [RulesPageProvider],
   },

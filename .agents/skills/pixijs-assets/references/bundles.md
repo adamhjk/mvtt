@@ -101,7 +101,6 @@ await Assets.unloadBundle("level1");
 
 Always destroy (or detach from the scene) any display objects that reference the bundle's textures before unloading. Otherwise the renderer hits freed GPU memory and errors.
 
-
 ### [MEDIUM] Confusing `addBundle` and `init` manifests
 
 Wrong:
@@ -113,7 +112,6 @@ await Assets.loadBundle('ui');
 ```
 
 Both work; this is not actually wrong; but a manifest passed to `Assets.init({ manifest: {...} })` registers all bundles at init time in one place. Prefer manifests when you know all bundles upfront; prefer `addBundle` when bundles are discovered dynamically at runtime.
-
 
 ## API Reference
 

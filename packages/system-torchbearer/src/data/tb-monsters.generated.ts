@@ -1340,9 +1340,7 @@ export const TB_MONSTER_TEMPLATES: ReadonlyArray<TbMonsterTemplate> = [
       { conflictType: "kill", value: 7 },
       { conflictType: "driveOff", value: 5 },
     ],
-    specialRules: [
-      { name: "Venomous", pageRef: { canonicalId: SG, page: 194 } },
-    ],
+    specialRules: [{ name: "Venomous", pageRef: { canonicalId: SG, page: 194 } }],
     weapons: [
       {
         name: "Camouflaged Carapace",
@@ -1712,9 +1710,7 @@ export const TB_MONSTER_TEMPLATES: ReadonlyArray<TbMonsterTemplate> = [
       { conflictType: "driveOff", value: 5 },
       { conflictType: "other", value: 3 },
     ],
-    specialRules: [
-      { name: "Eldritch sink", pageRef: { canonicalId: SG, page: 199 } },
-    ],
+    specialRules: [{ name: "Eldritch sink", pageRef: { canonicalId: SG, page: 199 } }],
     weapons: [
       {
         name: "Gnashing Teeth",
@@ -2095,9 +2091,7 @@ export const TB_MONSTER_TEMPLATES: ReadonlyArray<TbMonsterTemplate> = [
       { conflictType: "pursue", value: 12 },
       { conflictType: "trick", value: 3 },
     ],
-    specialRules: [
-      { name: "Death blow", pageRef: { canonicalId: LMM, page: 250 } },
-    ],
+    specialRules: [{ name: "Death blow", pageRef: { canonicalId: LMM, page: 250 } }],
     weapons: [
       {
         name: "Razor-sharp Tusks",
@@ -2404,9 +2398,7 @@ export const TB_MONSTER_TEMPLATES: ReadonlyArray<TbMonsterTemplate> = [
       { conflictType: "trick", value: 30 },
       { conflictType: "other", value: 9 },
     ],
-    specialRules: [
-      { name: "Helreginn", pageRef: { canonicalId: LMM, page: 254 } },
-    ],
+    specialRules: [{ name: "Helreginn", pageRef: { canonicalId: LMM, page: 254 } }],
     weapons: [
       {
         name: "Piercing Gaze",
@@ -2467,9 +2459,7 @@ export const TB_MONSTER_TEMPLATES: ReadonlyArray<TbMonsterTemplate> = [
       { conflictType: "kill", value: 15 },
       { conflictType: "driveOff", value: 6 },
     ],
-    specialRules: [
-      { name: "Tail-spikes", pageRef: { canonicalId: LMM, page: 255 } },
-    ],
+    specialRules: [{ name: "Tail-spikes", pageRef: { canonicalId: LMM, page: 255 } }],
     weapons: [
       {
         name: "Razor Sharp Teeth",
@@ -2634,9 +2624,7 @@ export const TB_MONSTER_TEMPLATES: ReadonlyArray<TbMonsterTemplate> = [
       { conflictType: "kill", value: 16 },
       { conflictType: "driveOff", value: 6 },
     ],
-    specialRules: [
-      { name: "Huggable", pageRef: { canonicalId: LMM, page: 257 } },
-    ],
+    specialRules: [{ name: "Huggable", pageRef: { canonicalId: LMM, page: 257 } }],
     weapons: [
       {
         name: "Rending Claws",

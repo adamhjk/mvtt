@@ -32,10 +32,7 @@ import {
   RemoveContribution,
 } from "../shared/commands.js";
 import { PendingRoll, type Contribution } from "../shared/pending.js";
-import {
-  PendingRollContributorsSlot,
-  type PendingRollContributor,
-} from "../shared/slot.js";
+import { PendingRollContributorsSlot, type PendingRollContributor } from "../shared/slot.js";
 import {
   ROLL_ATELIER_KIND,
   tagRollWithOrigin,
@@ -93,9 +90,7 @@ function GenericRollEditorBody(props: { rollId: EntityId }): JSX.Element {
     return got?.Character ?? null;
   });
 
-  const isInitiator = createMemo(
-    () => !!me() && me()!.userId === pr()?.initiatorUserId,
-  );
+  const isInitiator = createMemo(() => !!me() && me()!.userId === pr()?.initiatorUserId);
   const canCommit = createMemo(() => isInitiator() || me()?.role === "gm");
 
   const previewSpec = createMemo<Record<string, unknown> | null>(() => {
@@ -104,18 +99,11 @@ function GenericRollEditorBody(props: { rollId: EntityId }): JSX.Element {
     const rollable = client.registry.rollables.get(v.rollableName);
     if (!rollable) return null;
     try {
-      const raw = previewRollable(
-        rollable,
-        client.world,
-        v.initiatorCharacterId,
-        {
-          ...(v.opts as Record<string, unknown>),
-          contributions: v.contributions,
-        },
-      );
-      return raw && typeof raw === "object"
-        ? (raw as Record<string, unknown>)
-        : null;
+      const raw = previewRollable(rollable, client.world, v.initiatorCharacterId, {
+        ...(v.opts as Record<string, unknown>),
+        contributions: v.contributions,
+      });
+      return raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
     } catch {
       return null;
     }
@@ -152,27 +140,15 @@ function GenericRollEditorBody(props: { rollId: EntityId }): JSX.Element {
     if (!v) return;
     const rollable = client.registry.rollables.get(v.rollableName);
     if (!rollable) return;
-    const result = invokeRollable(
-      rollable,
-      client.world,
-      v.initiatorCharacterId,
-      {
-        ...(v.opts as Record<string, unknown>),
-        contributions: v.contributions,
-      },
-    );
-    if (result)
-      client.dispatch(
-        tagRollWithOrigin(result.command, props.rollId) as CommandInstance,
-      );
-    client.dispatch(
-      CommitPendingRoll({ pendingRollId: props.rollId }) as CommandInstance,
-    );
+    const result = invokeRollable(rollable, client.world, v.initiatorCharacterId, {
+      ...(v.opts as Record<string, unknown>),
+      contributions: v.contributions,
+    });
+    if (result) client.dispatch(tagRollWithOrigin(result.command, props.rollId) as CommandInstance);
+    client.dispatch(CommitPendingRoll({ pendingRollId: props.rollId }) as CommandInstance);
   };
   const cancel = () => {
-    client.dispatch(
-      CancelPendingRoll({ pendingRollId: props.rollId }) as CommandInstance,
-    );
+    client.dispatch(CancelPendingRoll({ pendingRollId: props.rollId }) as CommandInstance);
   };
 
   const contributors = createMemo<PendingRollContributor[]>(() => {
@@ -182,8 +158,7 @@ function GenericRollEditorBody(props: { rollId: EntityId }): JSX.Element {
       PendingRollContributorsSlot,
     ) as PendingRollContributor[];
     const matching = fills.filter(
-      (f) =>
-        !f.rollablePrefix || v.rollableName.startsWith(f.rollablePrefix),
+      (f) => !f.rollablePrefix || v.rollableName.startsWith(f.rollablePrefix),
     );
     return [...matching].sort((a, b) => {
       const pa = a.priority ?? 0;
@@ -195,10 +170,7 @@ function GenericRollEditorBody(props: { rollId: EntityId }): JSX.Element {
 
   return (
     <Show when={pr()}>
-      <article
-        class="flex flex-col gap-3"
-        data-testid="atelier-generic-editor"
-      >
+      <article class="flex flex-col gap-3" data-testid="atelier-generic-editor">
         <header class="flex items-baseline justify-between gap-2 border-b border-border-muted pb-2">
           <h3
             class="font-display text-sm tracking-tight text-fg"
@@ -209,28 +181,20 @@ function GenericRollEditorBody(props: { rollId: EntityId }): JSX.Element {
             <span>{sourceLabel()}</span>
           </h3>
           <Show when={previewNotation()}>
-            <code class="font-mono text-xs text-accent">
-              {previewNotation()}
-            </code>
+            <code class="font-mono text-xs text-accent">{previewNotation()}</code>
           </Show>
         </header>
 
         <Show when={previewMods().length > 0}>
-          <ul
-            class="flex flex-wrap gap-1 text-[0.7rem]"
-            data-testid="pending-roll-modifiers"
-          >
+          <ul class="flex flex-wrap gap-1 text-[0.7rem]" data-testid="pending-roll-modifiers">
             <For each={previewMods()}>
               {(m) => (
                 <li
                   class="inline-flex items-center gap-1 rounded-(--radius-control) bg-surface px-2 py-0.5"
                   classList={{
-                    "text-accent":
-                      typeof m.value === "number" && m.value > 0,
-                    "text-danger":
-                      typeof m.value === "number" && m.value < 0,
-                    "text-fg-muted":
-                      !(typeof m.value === "number") || m.value === 0,
+                    "text-accent": typeof m.value === "number" && m.value > 0,
+                    "text-danger": typeof m.value === "number" && m.value < 0,
+                    "text-fg-muted": !(typeof m.value === "number") || m.value === 0,
                   }}
                   title={m.providedBy ?? m.label ?? ""}
                 >

@@ -15,15 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  ok,
-  z,
-  type ClientId,
-  type Result,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, ok, z, type ClientId, type Result } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
 import { requireWrite } from "@vtt/permissions/shared";
 import {
@@ -40,14 +32,7 @@ import {
   PageRenamed,
   PagesReordered,
 } from "./events.js";
-import {
-  BelongsToNote,
-  EditorLock,
-  Note,
-  NoteOrdering,
-  Page,
-  PageOrdering,
-} from "./traits.js";
+import { BelongsToNote, EditorLock, Note, NoteOrdering, Page, PageOrdering } from "./traits.js";
 
 /** 30 second auto-expiry for an editor lock; the client refreshes via heartbeat. */
 export const EDITOR_LOCK_TTL_MS = 30_000;
@@ -72,10 +57,7 @@ function nextOrdinalFor(
   return max + 1;
 }
 
-function pageBelongsTo(
-  world: import("@vtt/substrate").World,
-  pageId: EntityId,
-): EntityId | null {
+function pageBelongsTo(world: import("@vtt/substrate").World, pageId: EntityId): EntityId | null {
   const got = world.get(pageId, [BelongsToNote]) as
     | { BelongsToNote: { noteId: EntityId } }
     | undefined;
@@ -240,9 +222,7 @@ export const ReorderPages = defineCommand({
     }
     return requireWrite(ctx, ctx.cmd.noteId);
   },
-  apply: ({ cmd }) => [
-    PagesReordered({ noteId: cmd.noteId, pageIds: [...cmd.pageIds] }),
-  ],
+  apply: ({ cmd }) => [PagesReordered({ noteId: cmd.noteId, pageIds: [...cmd.pageIds] })],
 });
 
 // Editor lock + body ----------------------------------------------------
@@ -266,8 +246,7 @@ export const BeginEdit = defineCommand({
     if (holder) {
       const auth = requireSession({ session: ctx.session })!;
       const sameClient =
-        holder.userId === auth.userId &&
-        holder.clientId === (ctx.actor as unknown as string);
+        holder.userId === auth.userId && holder.clientId === (ctx.actor as unknown as string);
       if (!sameClient) {
         return fail(`page is being edited by ${holder.userId}`);
       }
@@ -294,23 +273,18 @@ export const BeginEdit = defineCommand({
   },
 });
 
-function requireLockHeldBy(
-  ctx: {
-    world: import("@vtt/substrate").World;
-    session?: unknown;
-    actor: ClientId;
-    cmd: { pageId: EntityId };
-  },
-): Result {
+function requireLockHeldBy(ctx: {
+  world: import("@vtt/substrate").World;
+  session?: unknown;
+  actor: ClientId;
+  cmd: { pageId: EntityId };
+}): Result {
   const auth = requireSession({ session: ctx.session });
   if (!auth) return fail("not authenticated");
   const now = Date.now();
   const holder = lockHolder(ctx.world, ctx.cmd.pageId, now);
   if (!holder) return fail("no active edit lock on this page");
-  if (
-    holder.userId !== auth.userId ||
-    holder.clientId !== (ctx.actor as unknown as string)
-  ) {
+  if (holder.userId !== auth.userId || holder.clientId !== (ctx.actor as unknown as string)) {
     return fail("edit lock is held by another client");
   }
   return ok();
@@ -346,9 +320,7 @@ export const SetDraftBody = defineCommand({
     body: z.string(),
   }),
   validate: requireLockHeldBy,
-  apply: ({ cmd }) => [
-    PageBodyDraft({ pageId: cmd.pageId, body: cmd.body }),
-  ],
+  apply: ({ cmd }) => [PageBodyDraft({ pageId: cmd.pageId, body: cmd.body })],
 });
 
 interface SetPageBodyCausalState {
@@ -367,23 +339,17 @@ export const SetPageBody = defineCommand({
     // CAS belt: if the client supplied lastSeenRev, reject when stale.
     // Disconnect → lock auto-released → another client took over →
     // queued write would otherwise overwrite the new body.
-    const got = ctx.world.get(ctx.cmd.pageId, [Page]) as
-      | { Page: { bodyRev: number } }
-      | undefined;
+    const got = ctx.world.get(ctx.cmd.pageId, [Page]) as { Page: { bodyRev: number } } | undefined;
     if (!got) return fail("page no longer exists");
     const cs = ctx.causalState as SetPageBodyCausalState | undefined;
     if (typeof cs?.lastSeenRev === "number" && cs.lastSeenRev !== got.Page.bodyRev) {
-      return fail(
-        `bodyRev mismatch (saw ${cs.lastSeenRev}, current ${got.Page.bodyRev})`,
-      );
+      return fail(`bodyRev mismatch (saw ${cs.lastSeenRev}, current ${got.Page.bodyRev})`);
     }
     return ok();
   },
   apply: ({ cmd, session, world }) => {
     const auth = requireSession({ session })!;
-    const got = world.get(cmd.pageId, [Page]) as
-      | { Page: { bodyRev: number } }
-      | undefined;
+    const got = world.get(cmd.pageId, [Page]) as { Page: { bodyRev: number } } | undefined;
     const nextRev = got ? got.Page.bodyRev + 1 : 1;
     return [
       PageBodySet({

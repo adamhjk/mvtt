@@ -16,9 +16,4 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 export type { Role, AuthSession } from "./shared.js";
-export {
-  ROLES,
-  RoleSchema,
-  AuthSessionSchema,
-  parseAuthSession,
-} from "./shared.js";
+export { ROLES, RoleSchema, AuthSessionSchema, parseAuthSession } from "./shared.js";

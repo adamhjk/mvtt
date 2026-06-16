@@ -9,8 +9,17 @@ Solid ships components for the rendering control flow you'd otherwise write with
 ## Imports
 
 ```ts
-import { Show, Switch, Match, For, Index,
-         ErrorBoundary, Suspense, SuspenseList, lazy } from "solid-js";
+import {
+  Show,
+  Switch,
+  Match,
+  For,
+  Index,
+  ErrorBoundary,
+  Suspense,
+  SuspenseList,
+  lazy,
+} from "solid-js";
 
 import { Dynamic, Portal, NoHydration } from "solid-js/web";
 ```
@@ -42,7 +51,7 @@ By default, `<Show>` does NOT recreate children when `when` changes from one tru
 
 ```tsx
 <Show when={user()} keyed>
-  {(u) => <ProfileById id={u.id} />}    {/* u is the value directly, not an accessor */}
+  {(u) => <ProfileById id={u.id} />} {/* u is the value directly, not an accessor */}
 </Show>
 ```
 
@@ -52,9 +61,15 @@ By default, `<Show>` does NOT recreate children when `when` changes from one tru
 
 ```tsx
 <Switch fallback={<NotFound />}>
-  <Match when={state() === "loading"}><Loading /></Match>
-  <Match when={state() === "error"}><Error err={err()} /></Match>
-  <Match when={state() === "ready"}><Data data={data()} /></Match>
+  <Match when={state() === "loading"}>
+    <Loading />
+  </Match>
+  <Match when={state() === "error"}>
+    <Error err={err()} />
+  </Match>
+  <Match when={state() === "ready"}>
+    <Data data={data()} />
+  </Match>
 </Switch>
 ```
 
@@ -74,6 +89,7 @@ Evaluated top-to-bottom; first truthy `when` wins. `<Match>` also supports the f
 - Items that move keep their state (DOM, signals, refs) — Solid moves the existing nodes.
 
 Use `<For>` when:
+
 - You're rendering complex objects.
 - Order can change.
 - You want per-item state to persist across moves.
@@ -81,30 +97,29 @@ Use `<For>` when:
 ## `<Index>` — keyed-by-position list
 
 ```tsx
-<Index each={inputs()}>
-  {(input, index) => <Field value={input()} pos={index} />}
-</Index>
+<Index each={inputs()}>{(input, index) => <Field value={input()} pos={index} />}</Index>
 ```
 
 - `input` — a signal (call as `input()`).
 - `index` — a number (NOT a signal — fixed for a given element).
-- The component for each *position* is created when the array grows and disposed when it shrinks.
+- The component for each _position_ is created when the array grows and disposed when it shrinks.
 - Items that swap don't move; only their `value` accessor changes.
 
 Use `<Index>` when:
+
 - The array is mostly stable in length.
 - Order doesn't really matter (or items are interchangeable).
 - Items are primitives (no id to key on).
 
 ## For-vs-Index decision rule
 
-| You have | Use |
-|---|---|
-| Array of objects with stable identity (id), order changes | `<For>` |
-| Array of primitives (strings, numbers, booleans) | `<Index>` |
-| Form fields tied to position | `<Index>` |
-| Sortable/drag-droppable list | `<For>` |
-| Big array with mostly content updates | `<Index>` |
+| You have                                                  | Use       |
+| --------------------------------------------------------- | --------- |
+| Array of objects with stable identity (id), order changes | `<For>`   |
+| Array of primitives (strings, numbers, booleans)          | `<Index>` |
+| Form fields tied to position                              | `<Index>` |
+| Sortable/drag-droppable list                              | `<For>`   |
+| Big array with mostly content updates                     | `<Index>` |
 
 Default to `<For>`. Switch to `<Index>` for primitive arrays or when you find `<For>` is recreating items unnecessarily.
 
@@ -127,10 +142,12 @@ return <Dynamic component={map[selected()]} title="hi" />;
 import { Portal } from "solid-js/web";
 
 <Show when={modalOpen()}>
-  <Portal>           {/* defaults to document.body */}
+  <Portal>
+    {" "}
+    {/* defaults to document.body */}
     <div class="modal">...</div>
   </Portal>
-</Show>
+</Show>;
 ```
 
 ### Props
@@ -162,22 +179,26 @@ Portals don't render during SSR — they output nothing on the server and hydrat
 ## `<ErrorBoundary>` — catch render errors
 
 ```tsx
-<ErrorBoundary fallback={(err, reset) => (
-  <div>
-    <p>Something broke: {String(err)}</p>
-    <button onClick={reset}>Try again</button>
-  </div>
-)}>
+<ErrorBoundary
+  fallback={(err, reset) => (
+    <div>
+      <p>Something broke: {String(err)}</p>
+      <button onClick={reset}>Try again</button>
+    </div>
+  )}
+>
   <App />
 </ErrorBoundary>
 ```
 
 Catches errors thrown:
+
 - During rendering.
 - In reactive computations under the boundary (effects, memos).
 - That bubble up from resources (`createResource` rejection becomes a thrown error inside the suspense path).
 
 Does **not** catch:
+
 - Errors in event handlers (handle with try/catch).
 - Errors in callbacks scheduled outside Solid's flow (timeouts, custom event listeners). Use `catchError` for these.
 
@@ -187,7 +208,7 @@ Does **not** catch:
 
 ```tsx
 <Suspense fallback={<Loading />}>
-  <Profile />     {/* reads a createResource that's pending */}
+  <Profile /> {/* reads a createResource that's pending */}
 </Suspense>
 ```
 
@@ -208,18 +229,26 @@ A `<Suspense>` boundary delays rendering its children until all suspending resou
 
 ```tsx
 <SuspenseList revealOrder="forwards" tail="collapsed">
-  <Suspense fallback={<S />}><A /></Suspense>
-  <Suspense fallback={<S />}><B /></Suspense>
-  <Suspense fallback={<S />}><C /></Suspense>
+  <Suspense fallback={<S />}>
+    <A />
+  </Suspense>
+  <Suspense fallback={<S />}>
+    <B />
+  </Suspense>
+  <Suspense fallback={<S />}>
+    <C />
+  </Suspense>
 </SuspenseList>
 ```
 
 `revealOrder`:
+
 - `"forwards"` — show suspenses in order they appear, even if later ones resolve first.
 - `"backwards"` — reverse order.
 - `"together"` — wait for all to resolve, then show all at once.
 
 `tail`:
+
 - `"collapsed"` — only the first un-resolved suspense's fallback shows.
 - `"hidden"` — un-resolved suspenses don't render their fallback at all.
 
@@ -230,7 +259,7 @@ Useful for predictable loading sequences.
 ```tsx
 import { lazy } from "solid-js";
 
-const Editor = lazy(() => import("./Editor"));     // module must default-export the component
+const Editor = lazy(() => import("./Editor")); // module must default-export the component
 
 return (
   <Suspense fallback={<p>loading editor...</p>}>
@@ -244,10 +273,7 @@ The lazy component starts loading on first render. While loading, the nearest `<
 ### Preloading
 
 ```tsx
-<button
-  onMouseEnter={() => Editor.preload()}
-  onClick={() => setShowEditor(true)}
->
+<button onMouseEnter={() => Editor.preload()} onClick={() => setShowEditor(true)}>
   Open editor
 </button>
 ```
@@ -261,7 +287,7 @@ import { NoHydration } from "solid-js/web";
 
 <NoHydration>
   <ServerOnly />
-</NoHydration>
+</NoHydration>;
 ```
 
 The subtree is rendered on the server and **not hydrated** on the client — useful for static islands, server-rendered widgets, or content that doesn't need interactivity.
@@ -284,7 +310,9 @@ const [data] = createResource(fetchData);
 
 return (
   <Switch fallback={<Spinner />}>
-    <Match when={data.error}><Error err={data.error} /></Match>
+    <Match when={data.error}>
+      <Error err={data.error} />
+    </Match>
     <Match when={data()}>{(d) => <Result data={d()} />}</Match>
   </Switch>
 );
@@ -321,7 +349,7 @@ return <Dynamic component={widgets[type()]} data={data()} />;
 
 ```tsx
 const Settings = lazy(() => import("./Settings"));
-<Route path="/settings" component={Settings} />
+<Route path="/settings" component={Settings} />;
 ```
 
 ## Related

@@ -17,6 +17,11 @@
     "better-sqlite3": "^12.9.0",
     "zod": "^4.3.6"
   },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^25.6.0",
+    "solid-js": "^1.9.0"
+  },
   "peerDependencies": {
     "solid-js": "^1.9.0"
   },
@@ -24,10 +29,5 @@
     "solid-js": {
       "optional": true
     }
-  },
-  "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
-    "@types/node": "^25.6.0",
-    "solid-js": "^1.9.0"
   }
 }

@@ -116,15 +116,10 @@ export const TbRelicAcquiredSystem = defineSystem({
           }
         | undefined;
       const currentEntries = carriesGot?.TbCarries.entries ?? [];
-      const alreadyCarried = currentEntries.some(
-        (e) => e.itemId === relicItemId,
-      );
+      const alreadyCarried = currentEntries.some((e) => e.itemId === relicItemId);
       if (!alreadyCarried) {
         world.set(event.characterId, TbCarries, {
-          entries: [
-            ...currentEntries,
-            defaultRelicCarryEntry(relicItemId),
-          ],
+          entries: [...currentEntries, defaultRelicCarryEntry(relicItemId)],
         });
       }
     }
@@ -231,11 +226,7 @@ export const TbInvocationCreatedSystem = defineSystem({
   name: "TbInvocationCreated",
   on: InvocationCreated,
   reads: [],
-  writes: [
-    InvocationIdentity,
-    TbInvocationPerforming,
-    TbInvocationHomebrewProse,
-  ],
+  writes: [InvocationIdentity, TbInvocationPerforming, TbInvocationHomebrewProse],
   run: ({ event, world }) => {
     if (!world.has(event.invocationId)) {
       world.spawnAt(event.invocationId, [
@@ -283,16 +274,12 @@ const INVOCATION_TRAITS_BY_NAME = {
 } as const;
 type EditableInvocationTrait = keyof typeof INVOCATION_TRAITS_BY_NAME;
 
-function setAtPath(
-  root: unknown,
-  path: ReadonlyArray<string>,
-  value: unknown,
-): unknown {
+function setAtPath(root: unknown, path: ReadonlyArray<string>, value: unknown): unknown {
   if (path.length === 0) return value;
   const [head, ...rest] = path;
-  const obj = (root && typeof root === "object"
-    ? { ...(root as Record<string, unknown>) }
-    : {}) as Record<string, unknown>;
+  const obj = (
+    root && typeof root === "object" ? { ...(root as Record<string, unknown>) } : {}
+  ) as Record<string, unknown>;
   obj[head!] = setAtPath(obj[head!], rest, value);
   return obj;
 }
@@ -300,23 +287,13 @@ function setAtPath(
 export const TbInvocationFieldEditedSystem = defineSystem({
   name: "TbInvocationFieldEdited",
   on: InvocationFieldEdited,
-  reads: [
-    InvocationIdentity,
-    TbInvocationPerforming,
-    TbInvocationHomebrewProse,
-  ],
-  writes: [
-    InvocationIdentity,
-    TbInvocationPerforming,
-    TbInvocationHomebrewProse,
-  ],
+  reads: [InvocationIdentity, TbInvocationPerforming, TbInvocationHomebrewProse],
+  writes: [InvocationIdentity, TbInvocationPerforming, TbInvocationHomebrewProse],
   run: ({ event, world }) => {
     if (!world.has(event.invocationId)) return [];
     const traitName = event.trait as EditableInvocationTrait;
     const trait = INVOCATION_TRAITS_BY_NAME[traitName];
-    const got = world.get(event.invocationId, [trait]) as
-      | Record<string, unknown>
-      | undefined;
+    const got = world.get(event.invocationId, [trait]) as Record<string, unknown> | undefined;
     const shortName = trait.name.split("/").pop()!;
     const current = (got?.[shortName] ?? {}) as unknown;
     const next = setAtPath(current, event.path, event.value);

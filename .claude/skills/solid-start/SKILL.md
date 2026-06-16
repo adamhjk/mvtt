@@ -1,6 +1,6 @@
 ---
 name: solid-start
-description: "Use this skill for any SolidStart task — the official meta-framework for Solid (SolidJS) covering CSR/SSR/SSG, file-based routing, server functions, data fetching/mutation, middleware, sessions, websockets, API routes, and deployment. Covers `app.config.ts` (Vinxi config; presets, server middleware, ssr toggle), file routing under `src/routes` with `<FileRoutes>` (segments, layouts via `[group]`/`_layout` files, dynamic `[id].tsx`, catch-all `[...rest].tsx`, route groups `(group)`), the `\"use server\"` directive (top of file = whole file is server-only; top of function = that function only) for server functions usable as query/action fetchers, `createMiddleware` for request middleware, `useSession` (from `vinxi/http`) for cookie-based sessions, request/response helpers via `getRequestEvent`, websockets, API routes (`src/routes/api/...` exporting `GET`/`POST`/etc.), route prerendering via `route.preload` and config, head/metadata via `solid-meta`, CSS/styling, static assets in `public/`, single-flight mutations (action + preloaded query in one round-trip), deployment presets (`netlify`/`vercel`/`cloudflare`/`node`), and migrating from v1. Triggers on: SolidStart, solid-start, @solidjs/start, app.config, app.config.ts, FileRoutes, server function, \"use server\", createMiddleware, useSession, getRequestEvent, API route, deployment preset, single-flight mutation, prerendering, file-based routing, layout group, [id].tsx, vinxi."
+description: 'Use this skill for any SolidStart task — the official meta-framework for Solid (SolidJS) covering CSR/SSR/SSG, file-based routing, server functions, data fetching/mutation, middleware, sessions, websockets, API routes, and deployment. Covers `app.config.ts` (Vinxi config; presets, server middleware, ssr toggle), file routing under `src/routes` with `<FileRoutes>` (segments, layouts via `[group]`/`_layout` files, dynamic `[id].tsx`, catch-all `[...rest].tsx`, route groups `(group)`), the `"use server"` directive (top of file = whole file is server-only; top of function = that function only) for server functions usable as query/action fetchers, `createMiddleware` for request middleware, `useSession` (from `vinxi/http`) for cookie-based sessions, request/response helpers via `getRequestEvent`, websockets, API routes (`src/routes/api/...` exporting `GET`/`POST`/etc.), route prerendering via `route.preload` and config, head/metadata via `solid-meta`, CSS/styling, static assets in `public/`, single-flight mutations (action + preloaded query in one round-trip), deployment presets (`netlify`/`vercel`/`cloudflare`/`node`), and migrating from v1. Triggers on: SolidStart, solid-start, @solidjs/start, app.config, app.config.ts, FileRoutes, server function, "use server", createMiddleware, useSession, getRequestEvent, API route, deployment preset, single-flight mutation, prerendering, file-based routing, layout group, [id].tsx, vinxi.'
 license: MIT
 ---
 
@@ -47,14 +47,16 @@ npm create solid@latest
 import { defineConfig } from "@solidjs/start/config";
 
 export default defineConfig({
-  ssr: true,                          // false for SPA-only build
+  ssr: true, // false for SPA-only build
   server: {
-    preset: "vercel",                 // or "netlify", "cloudflare-pages", "node-server", ...
+    preset: "vercel", // or "netlify", "cloudflare-pages", "node-server", ...
   },
   vite: {
-    plugins: [/* additional vite plugins */],
+    plugins: [
+      /* additional vite plugins */
+    ],
   },
-  middleware: "src/middleware.ts",    // path to your createMiddleware export
+  middleware: "src/middleware.ts", // path to your createMiddleware export
 });
 ```
 
@@ -64,16 +66,16 @@ The `preset` is what tells Vinxi/Nitro which deployment target to build for. Ava
 
 Files under `src/routes` define routes. The path mirrors the file path, with these rules:
 
-| File | Route |
-|---|---|
-| `routes/index.tsx` | `/` |
-| `routes/about.tsx` | `/about` |
-| `routes/users/[id].tsx` | `/users/:id` |
-| `routes/users/[id]/edit.tsx` | `/users/:id/edit` |
-| `routes/files/[...rest].tsx` | `/files/*rest` |
+| File                           | Route                                       |
+| ------------------------------ | ------------------------------------------- |
+| `routes/index.tsx`             | `/`                                         |
+| `routes/about.tsx`             | `/about`                                    |
+| `routes/users/[id].tsx`        | `/users/:id`                                |
+| `routes/users/[id]/edit.tsx`   | `/users/:id/edit`                           |
+| `routes/files/[...rest].tsx`   | `/files/*rest`                              |
 | `routes/(marketing)/about.tsx` | `/about` (group `(marketing)` is path-less) |
-| `routes/users/(list).tsx` | `/users` (sibling of `[id].tsx`) |
-| `routes/_components/Foo.tsx` | NOT a route (underscore prefix) |
+| `routes/users/(list).tsx`      | `/users` (sibling of `[id].tsx`)            |
+| `routes/_components/Foo.tsx`   | NOT a route (underscore prefix)             |
 
 ### Layouts
 
@@ -109,12 +111,14 @@ import { Suspense } from "solid-js";
 
 export default function App() {
   return (
-    <Router root={(props) => (
-      <>
-        <Header />
-        <Suspense>{props.children}</Suspense>
-      </>
-    )}>
+    <Router
+      root={(props) => (
+        <>
+          <Header />
+          <Suspense>{props.children}</Suspense>
+        </>
+      )}
+    >
       <FileRoutes />
     </Router>
   );
@@ -185,13 +189,17 @@ The event exposes the `Request`, response helpers, and a `locals` object you can
 import { createMiddleware } from "@solidjs/start/middleware";
 
 export default createMiddleware({
-  onRequest: [(event) => {
-    // before each request
-    event.locals.requestId = crypto.randomUUID();
-  }],
-  onBeforeResponse: [(event) => {
-    // before sending response
-  }],
+  onRequest: [
+    (event) => {
+      // before each request
+      event.locals.requestId = crypto.randomUUID();
+    },
+  ],
+  onBeforeResponse: [
+    (event) => {
+      // before sending response
+    },
+  ],
 });
 ```
 
@@ -250,6 +258,7 @@ The `"use server"` makes them server-only; the client code becomes an RPC call.
 If a route preloads a query, and an action redirects to the same route, SolidStart can perform the mutation **and** revalidate the destination's query in a **single round-trip** — the new data streams back with the redirect.
 
 Conditions:
+
 1. Action runs server-side (`"use server"` inside the action).
 2. The destination's preload runs the same query.
 
@@ -306,8 +315,12 @@ import { eventHandler } from "vinxi/http";
 export default eventHandler({
   handler() {},
   websocket: {
-    open(peer) { peer.send("hello"); },
-    message(peer, message) { peer.send(`echo: ${message}`); },
+    open(peer) {
+      peer.send("hello");
+    },
+    message(peer, message) {
+      peer.send(`echo: ${message}`);
+    },
     close(peer) {},
   },
 });
@@ -325,7 +338,7 @@ import { MetaProvider } from "@solidjs/meta";
 
 <MetaProvider>
   <Router>...</Router>
-</MetaProvider>
+</MetaProvider>;
 ```
 
 ```tsx
@@ -374,6 +387,7 @@ Combined with SSR off (`ssr: false`) for static-site generation, or `ssr: true` 
 ## Auth
 
 Standard pattern:
+
 1. `useSession` to read/write session cookie.
 2. Middleware or query that throws `redirect("/login")` if missing.
 3. Login action that validates and writes the session.
@@ -437,11 +451,20 @@ export default function LoginPage() {
 ### Streaming dashboard with multiple queries
 
 ```tsx
-const getOverview = query(async () => { "use server"; return db.overview(); }, "overview");
-const getRecent = query(async () => { "use server"; return db.recent(); }, "recent");
+const getOverview = query(async () => {
+  "use server";
+  return db.overview();
+}, "overview");
+const getRecent = query(async () => {
+  "use server";
+  return db.recent();
+}, "recent");
 
 export const route = {
-  preload: () => { getOverview(); getRecent(); },
+  preload: () => {
+    getOverview();
+    getRecent();
+  },
 } satisfies RouteDefinition;
 
 export default function Dashboard() {
@@ -449,8 +472,12 @@ export default function Dashboard() {
   const recent = createAsync(() => getRecent());
   return (
     <>
-      <Suspense fallback={<OverviewSkeleton />}><Overview data={overview()!} /></Suspense>
-      <Suspense fallback={<RecentSkeleton />}><Recent data={recent()!} /></Suspense>
+      <Suspense fallback={<OverviewSkeleton />}>
+        <Overview data={overview()!} />
+      </Suspense>
+      <Suspense fallback={<RecentSkeleton />}>
+        <Recent data={recent()!} />
+      </Suspense>
     </>
   );
 }

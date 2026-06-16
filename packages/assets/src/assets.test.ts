@@ -40,11 +40,7 @@ import {
   RenameAsset,
 } from "./shared/index.js";
 import { assets as assetsPlugin } from "./manifest.js";
-import {
-  AssetDespawnSystem,
-  AssetRenameSystem,
-  AssetSpawningSystem,
-} from "./server/systems.js";
+import { AssetDespawnSystem, AssetRenameSystem, AssetSpawningSystem } from "./server/systems.js";
 
 const GM: AuthSession = {
   userId: "gm-1",
@@ -87,11 +83,7 @@ function setup() {
 }
 
 let cmdSeq = 0;
-async function dispatch(
-  pipeline: CommandPipeline,
-  cmd: CommandInstance,
-  session: unknown,
-) {
+async function dispatch(pipeline: CommandPipeline, cmd: CommandInstance, session: unknown) {
   return pipeline.dispatch({
     id: `cmd-${++cmdSeq}`,
     issuedBy: "tester",
@@ -156,7 +148,11 @@ describe("@vtt/assets", () => {
       const rows = world.query([Asset]);
       expect(rows).toHaveLength(1);
       const id = rows[0]!.id;
-      const asset = rows[0]!.values.Asset as { mime: string; sha256: string; filename: string | null };
+      const asset = rows[0]!.values.Asset as {
+        mime: string;
+        sha256: string;
+        filename: string | null;
+      };
       expect(asset.mime).toBe("image/webp");
       expect(asset.sha256).toBe(SHA.one);
       expect(asset.filename).toBe("cave.webp");
@@ -211,11 +207,7 @@ describe("@vtt/assets", () => {
     it("non-owner non-GM is rejected", async () => {
       await register(pipeline, ALICE);
       const id = world.query([Asset])[0]!.id;
-      const res = await dispatch(
-        pipeline,
-        RenameAsset({ assetId: id, filename: "hax.webp" }),
-        BOB,
-      );
+      const res = await dispatch(pipeline, RenameAsset({ assetId: id, filename: "hax.webp" }), BOB);
       expect(res.result.ok).toBe(false);
       const a = world.get(id, [Asset]) as { Asset: { filename: string | null } };
       expect(a.Asset.filename).toBe("cave.webp");
@@ -263,11 +255,7 @@ describe("@vtt/assets", () => {
     });
 
     it("ghost id is rejected", async () => {
-      const res = await dispatch(
-        pipeline,
-        DeleteAsset({ assetId: "ghost" as EntityId }),
-        GM,
-      );
+      const res = await dispatch(pipeline, DeleteAsset({ assetId: "ghost" as EntityId }), GM);
       expect(res.result.ok).toBe(false);
     });
   });
@@ -313,11 +301,8 @@ describe("@vtt/assets", () => {
     });
 
     it("rejects 0-length filename", () => {
-      expect(() =>
-        RenameAsset({ assetId: "x" as EntityId, filename: "" }),
-      ).toThrow();
+      expect(() => RenameAsset({ assetId: "x" as EntityId, filename: "" })).toThrow();
     });
-
   });
 
   describe("systems wiring", () => {

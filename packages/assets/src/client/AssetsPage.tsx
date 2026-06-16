@@ -15,22 +15,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  createMemo,
-  createSignal,
-  For,
-  Show,
-  type JSX,
-} from "solid-js";
-import {
-  type CommandInstance,
-  type EntityId,
-} from "@vtt/substrate";
+import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
+import { type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
-import {
-  definePageProvider,
-  RetargetTab,
-} from "@vtt/shell-workbench/shared";
+import { definePageProvider, RetargetTab } from "@vtt/shell-workbench/shared";
 import { Asset } from "../shared/traits.js";
 import { DeleteAsset } from "../shared/commands.js";
 
@@ -62,15 +50,9 @@ export const AssetsPageProvider = definePageProvider({
   },
 });
 
-function AssetsPage(props: {
-  tabId: string;
-  entityId: string | null;
-}): JSX.Element {
+function AssetsPage(props: { tabId: string; entityId: string | null }): JSX.Element {
   return (
-    <Show
-      when={props.entityId}
-      fallback={<AssetsHub tabId={props.tabId} />}
-    >
+    <Show when={props.entityId} fallback={<AssetsHub tabId={props.tabId} />}>
       {(idAcc) => <AssetPreview assetId={idAcc() as EntityId} />}
     </Show>
   );
@@ -195,18 +177,9 @@ function AssetCard(props: {
       >
         <Show
           when={props.mime.startsWith("image/")}
-          fallback={
-            <span class="text-2xl text-fg-subtle">
-              {iconForMime(props.mime)}
-            </span>
-          }
+          fallback={<span class="text-2xl text-fg-subtle">{iconForMime(props.mime)}</span>}
         >
-          <img
-            src={url()}
-            alt={props.filename}
-            class="h-full w-full object-cover"
-            loading="lazy"
-          />
+          <img src={url()} alt={props.filename} class="h-full w-full object-cover" loading="lazy" />
         </Show>
       </button>
       <div class="flex flex-col gap-0.5 px-2 py-1">
@@ -242,9 +215,7 @@ function AssetPreview(props: { assetId: EntityId }): JSX.Element {
   return (
     <Show
       when={asset()}
-      fallback={
-        <p class="text-fg-subtle italic p-5">Asset not found or no longer visible.</p>
-      }
+      fallback={<p class="text-fg-subtle italic p-5">Asset not found or no longer visible.</p>}
     >
       {(a) => (
         <div class="flex h-full flex-col gap-3 px-5 py-4 overflow-y-auto">
@@ -255,9 +226,7 @@ function AssetPreview(props: { assetId: EntityId }): JSX.Element {
             >
               {(a() as { filename: string | null }).filename ?? "Asset"}
             </h2>
-            <span class="font-mono text-[0.62rem] text-fg-subtle">
-              {props.assetId}
-            </span>
+            <span class="font-mono text-[0.62rem] text-fg-subtle">{props.assetId}</span>
           </header>
           <Show when={(a() as { mime: string }).mime.startsWith("image/")}>
             <img
@@ -280,11 +249,7 @@ function AssetPreview(props: { assetId: EntityId }): JSX.Element {
             <dt>SHA-256</dt>
             <dd class="font-mono truncate">{(a() as { sha256: string }).sha256}</dd>
             <dt>Uploaded</dt>
-            <dd>
-              {new Date(
-                (a() as { uploadedAt: number }).uploadedAt,
-              ).toLocaleString()}
-            </dd>
+            <dd>{new Date((a() as { uploadedAt: number }).uploadedAt).toLocaleString()}</dd>
           </dl>
         </div>
       )}

@@ -98,10 +98,20 @@ function InvocationsTab(props: { characterId: string }): JSX.Element {
   return (
     <div style={{ display: "flex", "flex-direction": "column", gap: "1rem" }}>
       <kit.SheetSection title="Immortal Burden">
-        <p style={{ "font-size": "0.85rem", color: "var(--color-fg-muted)", margin: 0, display: "flex", gap: "0.4rem", "align-items": "center", "flex-wrap": "wrap" }}>
+        <p
+          style={{
+            "font-size": "0.85rem",
+            color: "var(--color-fg-muted)",
+            margin: 0,
+            display: "flex",
+            gap: "0.4rem",
+            "align-items": "center",
+            "flex-wrap": "wrap",
+          }}
+        >
           <span>
-            Performing an invocation increases your burden by the listed
-            amount (less if you hold the relic). Purify in camp or town.
+            Performing an invocation increases your burden by the listed amount (less if you hold
+            the relic). Purify in camp or town.
           </span>
           <RuleRef book="DH" page={100} />
           <RuleRef book="DH" page={101} />
@@ -136,10 +146,20 @@ function InvocationsTab(props: { characterId: string }): JSX.Element {
       </kit.SheetSection>
 
       <kit.SheetSection title="Held Relics">
-        <p style={{ "font-size": "0.85rem", color: "var(--color-fg-muted)", margin: 0, display: "flex", gap: "0.4rem", "align-items": "center", "flex-wrap": "wrap" }}>
+        <p
+          style={{
+            "font-size": "0.85rem",
+            color: "var(--color-fg-muted)",
+            margin: 0,
+            display: "flex",
+            gap: "0.4rem",
+            "align-items": "center",
+            "flex-wrap": "wrap",
+          }}
+        >
           <span>
-            Sacred artifacts you carry. Each fuels an invocation — performing
-            with the relic shortens the ritual and lowers its burden cost.
+            Sacred artifacts you carry. Each fuels an invocation — performing with the relic
+            shortens the ritual and lowers its burden cost.
           </span>
           <RuleRef book="DH" page={103} />
         </p>
@@ -147,11 +167,20 @@ function InvocationsTab(props: { characterId: string }): JSX.Element {
       </kit.SheetSection>
 
       <kit.SheetSection title="Available Invocations">
-        <p style={{ "font-size": "0.85rem", color: "var(--color-fg-muted)", margin: 0, display: "flex", gap: "0.4rem", "align-items": "center", "flex-wrap": "wrap" }}>
+        <p
+          style={{
+            "font-size": "0.85rem",
+            color: "var(--color-fg-muted)",
+            margin: 0,
+            display: "flex",
+            gap: "0.4rem",
+            "align-items": "center",
+            "flex-wrap": "wrap",
+          }}
+        >
           <span>
-            All invocations from your class's tradition. You may perform any
-            of these, but holding the relic shortens the time and lowers the
-            Immortal burden cost.
+            All invocations from your class's tradition. You may perform any of these, but holding
+            the relic shortens the time and lowers the Immortal burden cost.
           </span>
           <RuleRef book="DH" page={209} />
           <RuleRef book="LMM" page={41} />
@@ -165,16 +194,12 @@ function InvocationsTab(props: { characterId: string }): JSX.Element {
               margin: 0,
             }}
           >
-            Class "{klass()}" has no associated invocation tradition. Set a
-            relic-bearing class (theurge, shaman, skald) on
-            the Who You Are tab.
+            Class "{klass()}" has no associated invocation tradition. Set a relic-bearing class
+            (theurge, shaman, skald) on the Who You Are tab.
           </p>
         </Show>
         <Show when={allowedTraditions().length > 0}>
-          <InvocationsList
-            characterId={props.characterId}
-            allowedTraditions={allowedTraditions}
-          />
+          <InvocationsList characterId={props.characterId} allowedTraditions={allowedTraditions} />
         </Show>
       </kit.SheetSection>
     </div>
@@ -193,9 +218,7 @@ function InvocationsList(props: {
   const catalog = useInvocationCatalog();
   const canEdit = kit.useCanEdit(props.characterId);
   const relics = useTrait(props.characterId, TbInvocationRelics);
-  const heldSet = createMemo(() =>
-    new Set(relics()?.invocationIds ?? []),
-  );
+  const heldSet = createMemo(() => new Set(relics()?.invocationIds ?? []));
 
   // Class-level filter — every invocation must match one of the
   // character's tradition entitlements before any user-driven filter
@@ -203,9 +226,7 @@ function InvocationsList(props: {
   // memo below doesn't have to re-walk the allowed set.
   const inAllowedTraditions = createMemo(() => {
     const allowed = new Set(props.allowedTraditions());
-    return catalog().filter((inv) =>
-      inv.traditions.some((t) => allowed.has(t)),
-    );
+    return catalog().filter((inv) => inv.traditions.some((t) => allowed.has(t)));
   });
 
   // User-driven filters: a tradition pill (null = "all") and a fuzzy
@@ -217,9 +238,9 @@ function InvocationsList(props: {
   // persist via localStorage rather than a world trait because this
   // is a UI preference, not game state, and shouldn't synchronise
   // across players or seats. Search query is intentionally transient.
-  const [traditionFilter, setTraditionFilterRaw] = createSignal<
-    InvocationTradition | null
-  >(readStickyTradition(props.characterId));
+  const [traditionFilter, setTraditionFilterRaw] = createSignal<InvocationTradition | null>(
+    readStickyTradition(props.characterId),
+  );
   const setTraditionFilter = (v: InvocationTradition | null): void => {
     writeStickyTradition(props.characterId, v);
     setTraditionFilterRaw(v);
@@ -358,106 +379,100 @@ function InvocationsList(props: {
             gap: "0.6rem",
           }}
         >
-        <For each={grouped()}>
-          {([circle, list]) => (
-            <li>
-              <div
-                style={{
-                  "font-size": "0.7rem",
-                  color: "var(--color-fg-muted)",
-                  "font-variant": "small-caps",
-                  "letter-spacing": "0.06em",
-                  "padding-bottom": "0.25rem",
-                }}
-              >
-                Circle {circle}
-              </div>
-              <ul
-                style={{
-                  "list-style": "none",
-                  padding: 0,
-                  margin: 0,
-                  display: "flex",
-                  "flex-direction": "column",
-                  gap: "0.35rem",
-                }}
-              >
-                <For each={list as ReadonlyArray<{ id: string; name: string }>}>
-                  {(inv) => {
-                    const has = createMemo(() => heldSet().has(inv.id));
-                    return (
-                      <li>
-                        <InvocationCard
-                          invocationId={inv.id}
-                          hasRelic={has}
-                          status={() =>
-                            has() ? (
-                              <span
-                                style={{
-                                  "font-size": "0.65rem",
-                                  color: "var(--color-accent)",
-                                  background: "var(--color-accent-soft)",
-                                  padding: "0 0.3rem",
-                                  "border-radius": "var(--radius-control)",
-                                }}
-                                title="You hold the relic for this invocation"
-                              >
-                                ✓ relic
-                              </span>
-                            ) : null
-                          }
-                          actions={() => (
-                            <>
-                              <button
-                                type="button"
-                                data-testid={`perform-invocation-${inv.id}`}
-                                disabled={!canEdit()}
-                                onClick={() =>
-                                  openInvocationPerform(
-                                    client,
-                                    props.characterId,
-                                    inv.id,
-                                  )
-                                }
-                                style={btnStyle(false)}
-                              >
-                                Perform
-                              </button>
-                              <button
-                                type="button"
-                                data-testid={`toggle-relic-${inv.id}`}
-                                disabled={!canEdit()}
-                                onClick={() =>
-                                  client.dispatch(
-                                    has()
-                                      ? LoseRelic({
-                                          characterId:
-                                            props.characterId as EntityId,
-                                          invocationId: inv.id as EntityId,
-                                        })
-                                      : AcquireRelic({
-                                          characterId:
-                                            props.characterId as EntityId,
-                                          invocationId: inv.id as EntityId,
-                                        }),
-                                  )
-                                }
-                                style={btnStyle(false)}
-                              >
-                                {has() ? "Drop relic" : "Acquire relic"}
-                              </button>
-                            </>
-                          )}
-                        />
-                      </li>
-                    );
+          <For each={grouped()}>
+            {([circle, list]) => (
+              <li>
+                <div
+                  style={{
+                    "font-size": "0.7rem",
+                    color: "var(--color-fg-muted)",
+                    "font-variant": "small-caps",
+                    "letter-spacing": "0.06em",
+                    "padding-bottom": "0.25rem",
                   }}
-                </For>
-              </ul>
-            </li>
-          )}
-        </For>
-      </ul>
+                >
+                  Circle {circle}
+                </div>
+                <ul
+                  style={{
+                    "list-style": "none",
+                    padding: 0,
+                    margin: 0,
+                    display: "flex",
+                    "flex-direction": "column",
+                    gap: "0.35rem",
+                  }}
+                >
+                  <For each={list as ReadonlyArray<{ id: string; name: string }>}>
+                    {(inv) => {
+                      const has = createMemo(() => heldSet().has(inv.id));
+                      return (
+                        <li>
+                          <InvocationCard
+                            invocationId={inv.id}
+                            hasRelic={has}
+                            status={() =>
+                              has() ? (
+                                <span
+                                  style={{
+                                    "font-size": "0.65rem",
+                                    color: "var(--color-accent)",
+                                    background: "var(--color-accent-soft)",
+                                    padding: "0 0.3rem",
+                                    "border-radius": "var(--radius-control)",
+                                  }}
+                                  title="You hold the relic for this invocation"
+                                >
+                                  ✓ relic
+                                </span>
+                              ) : null
+                            }
+                            actions={() => (
+                              <>
+                                <button
+                                  type="button"
+                                  data-testid={`perform-invocation-${inv.id}`}
+                                  disabled={!canEdit()}
+                                  onClick={() =>
+                                    openInvocationPerform(client, props.characterId, inv.id)
+                                  }
+                                  style={btnStyle(false)}
+                                >
+                                  Perform
+                                </button>
+                                <button
+                                  type="button"
+                                  data-testid={`toggle-relic-${inv.id}`}
+                                  disabled={!canEdit()}
+                                  onClick={() =>
+                                    client.dispatch(
+                                      has()
+                                        ? LoseRelic({
+                                            characterId: props.characterId as EntityId,
+                                            invocationId: inv.id as EntityId,
+                                          })
+                                        : AcquireRelic({
+                                            characterId: props.characterId as EntityId,
+                                            invocationId: inv.id as EntityId,
+                                          }),
+                                    )
+                                  }
+                                  style={btnStyle(false)}
+                                >
+                                  {has() ? "Drop relic" : "Acquire relic"}
+                                </button>
+                              </>
+                            )}
+                          />
+                        </li>
+                      );
+                    }}
+                  </For>
+                </ul>
+              </li>
+            )}
+          </For>
+        </ul>
       </Show>
     </div>
   );
@@ -474,9 +489,7 @@ function HeldRelicsList(props: { characterId: string }): JSX.Element {
   const client = useClient();
   const canEdit = kit.useCanEdit(props.characterId);
   const relics = useTrait(props.characterId, TbInvocationRelics);
-  const heldIds = createMemo<ReadonlyArray<string>>(() =>
-    relics()?.invocationIds ?? [],
-  );
+  const heldIds = createMemo<ReadonlyArray<string>>(() => relics()?.invocationIds ?? []);
   return (
     <Show
       when={heldIds().length > 0}
@@ -489,8 +502,8 @@ function HeldRelicsList(props: { characterId: string }): JSX.Element {
             margin: 0,
           }}
         >
-          No relics held — toggle "Acquire relic" on an invocation above to
-          mark a relic in your inventory.
+          No relics held — toggle "Acquire relic" on an invocation above to mark a relic in your
+          inventory.
         </p>
       }
     >
@@ -518,13 +531,7 @@ function HeldRelicsList(props: { characterId: string }): JSX.Element {
                       type="button"
                       data-testid={`held-perform-${invId}`}
                       disabled={!canEdit()}
-                      onClick={() =>
-                        openInvocationPerform(
-                          client,
-                          props.characterId,
-                          invId,
-                        )
-                      }
+                      onClick={() => openInvocationPerform(client, props.characterId, invId)}
                       style={btnStyle(false)}
                     >
                       Perform
@@ -583,9 +590,7 @@ function btnStyle(disabled: boolean): JSX.CSSProperties {
 
 const TRADITION_STICKY_PREFIX = "mvtt:tb-invocations-tradition:";
 
-function readStickyTradition(
-  characterId: string,
-): InvocationTradition | null {
+function readStickyTradition(characterId: string): InvocationTradition | null {
   try {
     if (typeof localStorage === "undefined") return null;
     const v = localStorage.getItem(TRADITION_STICKY_PREFIX + characterId);
@@ -598,16 +603,10 @@ function readStickyTradition(
   }
 }
 
-function writeStickyTradition(
-  characterId: string,
-  value: InvocationTradition | null,
-): void {
+function writeStickyTradition(characterId: string, value: InvocationTradition | null): void {
   try {
     if (typeof localStorage === "undefined") return;
-    localStorage.setItem(
-      TRADITION_STICKY_PREFIX + characterId,
-      value ?? "all",
-    );
+    localStorage.setItem(TRADITION_STICKY_PREFIX + characterId, value ?? "all");
   } catch {
     // Quota exceeded, disabled storage, etc. — drop silently.
   }
@@ -622,12 +621,8 @@ function pillStyle(active: boolean): JSX.CSSProperties {
   return {
     padding: "0.15rem 0.6rem",
     "border-radius": "var(--radius-control)",
-    border: active
-      ? "1px solid var(--color-accent)"
-      : "1px solid var(--color-border-muted)",
-    background: active
-      ? "var(--color-accent-soft)"
-      : "var(--color-surface)",
+    border: active ? "1px solid var(--color-accent)" : "1px solid var(--color-border-muted)",
+    background: active ? "var(--color-accent-soft)" : "var(--color-surface)",
     color: active ? "var(--color-accent)" : "var(--color-fg-muted)",
     cursor: "pointer",
     "font-size": "0.7rem",

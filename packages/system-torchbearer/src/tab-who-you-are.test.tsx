@@ -43,7 +43,12 @@ import {
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { BlockKindsSlot } from "@vtt/adventures/shared";
-import { NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot } from "@vtt/shell-workbench/shared";
+import {
+  NotificationsSlot,
+  PaletteActionsSlot,
+  PaletteCommandsSlot,
+  WorkbenchStatusSlot,
+} from "@vtt/shell-workbench/shared";
 import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
 import { systemTorchbearer } from "./manifest.js";
 import { Identity, LevelBenefits, Pools, WhoYouAreNotes } from "./shared/index.js";
@@ -61,7 +66,10 @@ const sheetSlotsTestInfra = definePlugin({
     ChatTimelineContributorSlot,
     RollActionsSlot,
     ItemDetailSectionsSlot,
-    NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
+    NotificationsSlot,
+    PaletteActionsSlot,
+    PaletteCommandsSlot,
+    WorkbenchStatusSlot,
     LinkKindsSlot,
     BlockKindsSlot,
   ],
@@ -107,8 +115,9 @@ function harness(
 }
 
 function mount(h: CharacterHarness): void {
-  mountWithClient(h, () =>
-    TbWhoYouAreTabFill.render({ characterId: h.characterId }) as JSX.Element,
+  mountWithClient(
+    h,
+    () => TbWhoYouAreTabFill.render({ characterId: h.characterId }) as JSX.Element,
   );
 }
 
@@ -152,21 +161,14 @@ describe("Who You Are tab", () => {
       const h = harness({ stock: "Halfling" });
       mount(h);
       // Halfling can only pair with Burglar.
-      expect(optionValues(selectFor("class-select"))).toEqual([
-        "",
-        "Burglar",
-      ]);
+      expect(optionValues(selectFor("class-select"))).toEqual(["", "Burglar"]);
     });
 
     it("stock dropdown is filtered to the chosen class", () => {
       const h = harness({ class: "Theurge" });
       mount(h);
       // Theurge pairs with Human or Troll Changeling.
-      expect(optionValues(selectFor("stock-select"))).toEqual([
-        "",
-        "Human",
-        "Troll Changeling",
-      ]);
+      expect(optionValues(selectFor("stock-select"))).toEqual(["", "Human", "Troll Changeling"]);
     });
 
     it("changing stock dispatches a SetField on Identity.stock", () => {
@@ -176,15 +178,13 @@ describe("Who You Are tab", () => {
       fireEvent.change(selectFor("stock-select"), {
         target: { value: "Troll Changeling" },
       });
-      const writes = h.dispatched.slice(before).filter(
-        (c) =>
-          c.type === SetField.name &&
-          (c.payload as { path: string[] }).path[0] === "stock",
-      );
+      const writes = h.dispatched
+        .slice(before)
+        .filter(
+          (c) => c.type === SetField.name && (c.payload as { path: string[] }).path[0] === "stock",
+        );
       expect(writes.length).toBe(1);
-      expect((writes[0]!.payload as { value: string }).value).toBe(
-        "Troll Changeling",
-      );
+      expect((writes[0]!.payload as { value: string }).value).toBe("Troll Changeling");
     });
 
     it("clearing one axis unlocks the other dropdown's full option list", async () => {
@@ -243,9 +243,7 @@ describe("Who You Are tab", () => {
       // Spot-check a few canonical totals from DH p.112.
       // L3 row: fate 7, persona 6, "Earn creed; +1D to Circles…"
       const cells = Array.from(table.querySelectorAll("td"));
-      expect(cells.some((c) => c.textContent?.includes("Earn creed"))).toBe(
-        true,
-      );
+      expect(cells.some((c) => c.textContent?.includes("Earn creed"))).toBe(true);
       // L10 row: fate 78, persona 98
       expect(cells.some((c) => c.textContent?.trim() === "78")).toBe(true);
       expect(cells.some((c) => c.textContent?.trim() === "98")).toBe(true);
@@ -323,8 +321,7 @@ describe("Who You Are tab", () => {
       fireEvent.blur(l4Input);
       const write = h.dispatched.find(
         (c) =>
-          c.type === SetField.name &&
-          (c.payload as { trait: string }).trait === LevelBenefits.name,
+          c.type === SetField.name && (c.payload as { trait: string }).trait === LevelBenefits.name,
       );
       expect(write).toBeDefined();
       const payload = write!.payload as {
@@ -346,9 +343,7 @@ describe("Who You Are tab", () => {
     it("renders a free-form textarea below the Allies & Enemies section", () => {
       const h = harness();
       mount(h);
-      const ta = screen.getByPlaceholderText(
-        /Backstory scraps, GM hooks/i,
-      ) as HTMLTextAreaElement;
+      const ta = screen.getByPlaceholderText(/Backstory scraps, GM hooks/i) as HTMLTextAreaElement;
       expect(ta).toBeInTheDocument();
       expect(ta.tagName).toBe("TEXTAREA");
     });
@@ -356,9 +351,7 @@ describe("Who You Are tab", () => {
     it("typing into the notes textarea dispatches a SetField on WhoYouAreNotes.notes", () => {
       const h = harness();
       mount(h);
-      const ta = screen.getByPlaceholderText(
-        /Backstory scraps, GM hooks/i,
-      ) as HTMLTextAreaElement;
+      const ta = screen.getByPlaceholderText(/Backstory scraps, GM hooks/i) as HTMLTextAreaElement;
       fireEvent.focus(ta);
       fireEvent.input(ta, {
         target: { value: "Met a strange tinker at the crossroads." },

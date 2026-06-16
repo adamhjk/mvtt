@@ -18,10 +18,7 @@
 import { type CommandInstance } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
 import { Active, Character, isActive } from "@vtt/characters/shared";
-import {
-  definePageProvider,
-  RetargetTab,
-} from "@vtt/shell-workbench/shared";
+import { definePageProvider, RetargetTab } from "@vtt/shell-workbench/shared";
 import { BookCitation } from "@vtt/books/client";
 import { ActiveToggle, kit } from "@vtt/characters/client";
 import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
@@ -34,11 +31,7 @@ import {
 import { NpcCreated } from "../shared/npc-events.js";
 import { TbNpc } from "../shared/npc-traits.js";
 import { NpcSheet } from "./npc-sheet.js";
-import {
-  NpcRack,
-  NpcSearchInput,
-  filterNpcCatalogByQuery,
-} from "./npc-picker.js";
+import { NpcRack, NpcSearchInput, filterNpcCatalogByQuery } from "./npc-picker.js";
 import { fuzzyMatch } from "./monsters-picker.js";
 import { tbCanonicalBookAbbreviation } from "../data/seed.js";
 
@@ -80,10 +73,7 @@ export const NpcsPageProvider = definePageProvider({
   },
 });
 
-function NpcsPage(props: {
-  tabId: string;
-  entityId: string | null;
-}): JSX.Element {
+function NpcsPage(props: { tabId: string; entityId: string | null }): JSX.Element {
   return (
     <Show when={props.entityId} fallback={<NpcsHub tabId={props.tabId} />}>
       {(idAcc) => <NpcSheet characterId={idAcc()} />}
@@ -175,11 +165,7 @@ function NpcsHub(props: { tabId: string }): JSX.Element {
               </p>
               <Show
                 when={isGm()}
-                fallback={
-                  <p class="text-xs text-fg-subtle">
-                    only the GM can spawn NPCs.
-                  </p>
-                }
+                fallback={<p class="text-xs text-fg-subtle">only the GM can spawn NPCs.</p>}
               >
                 <CatalogPicker tabId={props.tabId} />
               </Show>
@@ -203,10 +189,7 @@ function NpcsHub(props: { tabId: string }): JSX.Element {
           <Show
             when={filtered().length > 0}
             fallback={
-              <p
-                class="text-center text-xs text-fg-subtle italic"
-                data-testid="npcs-empty"
-              >
+              <p class="text-center text-xs text-fg-subtle italic" data-testid="npcs-empty">
                 No NPCs match "{query()}".
               </p>
             }
@@ -214,24 +197,15 @@ function NpcsHub(props: { tabId: string }): JSX.Element {
             <Show when={activeNpcs().length > 0}>
               <section class="flex flex-col gap-2">
                 <SectionHeader label="Active" count={activeNpcs().length} />
-                <ul
-                  class="flex flex-col gap-2"
-                  data-testid="npcs-active-list"
-                >
+                <ul class="flex flex-col gap-2" data-testid="npcs-active-list">
                   <For each={activeNpcs()}>{renderRow}</For>
                 </ul>
               </section>
             </Show>
             <Show when={inactiveNpcs().length > 0}>
               <section class="flex flex-col gap-2">
-                <SectionHeader
-                  label="Inactive"
-                  count={inactiveNpcs().length}
-                />
-                <ul
-                  class="flex flex-col gap-2"
-                  data-testid="npcs-inactive-list"
-                >
+                <SectionHeader label="Inactive" count={inactiveNpcs().length} />
+                <ul class="flex flex-col gap-2" data-testid="npcs-inactive-list">
                   <For each={inactiveNpcs()}>{renderRow}</For>
                 </ul>
               </section>
@@ -258,9 +232,7 @@ function SectionHeader(props: { label: string; count: number }): JSX.Element {
       <h3 class="font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle">
         {props.label}
       </h3>
-      <span class="font-mono text-[0.6rem] text-fg-subtle tabular-nums">
-        {props.count}
-      </span>
+      <span class="font-mono text-[0.6rem] text-fg-subtle tabular-nums">{props.count}</span>
     </header>
   );
 }
@@ -380,9 +352,7 @@ function citationLabel(canonicalId: string, page: number): string {
 function CatalogPicker(props: { tabId: string }): JSX.Element {
   const client = useClient();
   const [query, setQuery] = createSignal("");
-  const [selected, setSelected] = createSignal<string | null>(
-    TB_NPC_TEMPLATES[0]?.id ?? null,
-  );
+  const [selected, setSelected] = createSignal<string | null>(TB_NPC_TEMPLATES[0]?.id ?? null);
   const [blankName, setBlankName] = createSignal("New NPC");
   const [busy, setBusy] = createSignal(false);
 
@@ -403,14 +373,10 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
   );
 
   const subscribeAndRetarget = () => {
-    const beforeIds = new Set(
-      client.world.query([Character, TbNpc]).map((r) => r.id),
-    );
+    const beforeIds = new Set(client.world.query([Character, TbNpc]).map((r) => r.id));
     const off = client.bus.on(NpcCreated.name, () => {
       off();
-      const fresh = client.world
-        .query([Character, TbNpc])
-        .find((r) => !beforeIds.has(r.id));
+      const fresh = client.world.query([Character, TbNpc]).find((r) => !beforeIds.has(r.id));
       if (fresh) {
         client.dispatch(
           RetargetTab({
@@ -430,9 +396,7 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
     if (!tmplId) return;
     setBusy(true);
     subscribeAndRetarget();
-    client.dispatch(
-      CreateNpcFromCatalog({ templateId: tmplId }) as CommandInstance,
-    );
+    client.dispatch(CreateNpcFromCatalog({ templateId: tmplId }) as CommandInstance);
   };
 
   const spawnBlank = () => {
@@ -445,10 +409,7 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
   };
 
   return (
-    <div
-      class="flex w-full flex-col gap-3"
-      data-testid="npc-catalog-picker"
-    >
+    <div class="flex w-full flex-col gap-3" data-testid="npc-catalog-picker">
       <NpcSearchInput
         query={query}
         setQuery={setQuery}
@@ -467,8 +428,7 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
             style={{
               border: "1px dashed var(--color-border-muted)",
               "border-radius": "var(--radius-control)",
-              "background-color":
-                "var(--color-surface-sunken, var(--color-surface))",
+              "background-color": "var(--color-surface-sunken, var(--color-surface))",
             }}
             data-testid="npc-template-empty"
           >
@@ -514,10 +474,7 @@ function CatalogPicker(props: { tabId: string }): JSX.Element {
         <summary class="cursor-pointer font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle hover:text-fg transition">
           or spawn a blank NPC
         </summary>
-        <div
-          class="mt-2 flex flex-col gap-2"
-          data-testid="npc-blank-form"
-        >
+        <div class="mt-2 flex flex-col gap-2" data-testid="npc-blank-form">
           <input
             type="text"
             name="blank-npc-name"

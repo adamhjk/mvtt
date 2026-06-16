@@ -44,10 +44,7 @@ import { notes } from "@vtt/notes";
 import { books } from "@vtt/books";
 import { assets } from "@vtt/assets";
 import { pdfBook } from "@vtt/pdf-book";
-import {
-  PdfReaderState,
-  SetPdfReaderState,
-} from "@vtt/pdf-book/shared";
+import { PdfReaderState, SetPdfReaderState } from "@vtt/pdf-book/shared";
 import type { AuthSession } from "@vtt/auth";
 
 /**
@@ -126,7 +123,12 @@ const shareTabTestPlugin = definePlugin({
   gameSystem: true,
 });
 
-interface AckMsg { kind: "ack"; commandId: string; ok: boolean; reason?: string }
+interface AckMsg {
+  kind: "ack";
+  commandId: string;
+  ok: boolean;
+  reason?: string;
+}
 interface EventMsg {
   kind: "event";
   seq: number;
@@ -268,9 +270,7 @@ describe("ShareTab wire smoke", () => {
 
     // Snapshot landed on B's sentinel: page 11 travelled.
     const bSentinel = tabSentinelEntityId(bTabId);
-    const ui = rt.world.get(bSentinel, [TestUiState]) as
-      | { UiState: { page: number } }
-      | undefined;
+    const ui = rt.world.get(bSentinel, [TestUiState]) as { UiState: { page: number } } | undefined;
     expect(ui?.UiState.page).toBe(11);
 
     // Wire-side: B's connection received the TabShared event; A's didn't
@@ -326,14 +326,14 @@ describe("ShareTab wire smoke", () => {
     const aOwnerRow = rt.world
       .query([WorkspaceOwner, WorkspaceState])
       .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER_A.userId);
-    const aTabs = (aOwnerRow!.values.WorkspaceState as {
-      tabs: Record<string, { id: string; pageKind: string }>;
-    }).tabs;
+    const aTabs = (
+      aOwnerRow!.values.WorkspaceState as {
+        tabs: Record<string, { id: string; pageKind: string }>;
+      }
+    ).tabs;
     // Find the books tab (the previous test left an unrelated tab on
     // this same world / user).
-    const senderTabId = Object.values(aTabs).find(
-      (t) => t.pageKind === "@vtt/books/books",
-    )!.id;
+    const senderTabId = Object.values(aTabs).find((t) => t.pageKind === "@vtt/books/books")!.id;
 
     // Sender sets PdfReaderState directly on their sentinel — simulating
     // the mid-flight state PdfReader's persist() would write. scrollTop
@@ -388,9 +388,7 @@ describe("ShareTab wire smoke", () => {
     const bState = bOwnerRow!.values.WorkspaceState as {
       tabs: Record<string, { id: string; pageKind: string }>;
     };
-    const bBookTab = Object.values(bState.tabs).find(
-      (t) => t.pageKind === "@vtt/books/books",
-    );
+    const bBookTab = Object.values(bState.tabs).find((t) => t.pageKind === "@vtt/books/books");
     expect(bBookTab).toBeDefined();
     const bTabId = bBookTab!.id;
 

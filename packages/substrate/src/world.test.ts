@@ -33,7 +33,10 @@ describe("World", () => {
   it("spawns entities with traits and reads them back", () => {
     const w = new World();
     const id = w.spawn([Health({ current: 5, max: 10 }), Name({ value: "hero" })]);
-    const got = w.get(id, [Health, Name]) as { Health: { current: number; max: number }; Name: { value: string } };
+    const got = w.get(id, [Health, Name]) as {
+      Health: { current: number; max: number };
+      Name: { value: string };
+    };
     expect(got).toBeDefined();
     expect(got.Health.current).toBe(5);
     expect(got.Name.value).toBe("hero");
@@ -90,7 +93,10 @@ describe("World", () => {
     w.restore({
       nextId: 7,
       entities: {
-        e2: { "@test/world/Name": { value: "after" }, "@test/world/Health": { current: 9, max: 9 } },
+        e2: {
+          "@test/world/Name": { value: "after" },
+          "@test/world/Health": { current: 9, max: 9 },
+        },
       },
     });
 
@@ -188,8 +194,6 @@ describe("World", () => {
   it("spawnAt rejects a duplicate id rather than silently overwriting", () => {
     const w = new World();
     w.spawnAt("e7" as never, [Health({ current: 1, max: 1 })]);
-    expect(() =>
-      w.spawnAt("e7" as never, [Health({ current: 2, max: 2 })]),
-    ).toThrow();
+    expect(() => w.spawnAt("e7" as never, [Health({ current: 2, max: 2 })])).toThrow();
   });
 });

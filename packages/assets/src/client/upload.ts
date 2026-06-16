@@ -63,8 +63,7 @@ export async function uploadAssetForWorld(
   // `application/octet-stream` — which would be rejected. Set
   // explicitly when known.
   if (file.type) headers["content-type"] = file.type;
-  const filename =
-    opts.filename ?? (file instanceof File ? file.name : undefined);
+  const filename = opts.filename ?? (file instanceof File ? file.name : undefined);
   if (filename) headers["x-filename"] = filename;
   const res = await fetch(url, {
     method: "POST",

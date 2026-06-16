@@ -15,14 +15,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  type CommandInstance,
-} from "@vtt/substrate";
+import { type CommandInstance } from "@vtt/substrate";
 import { Surface, useClient, useQuery } from "@vtt/substrate/client";
-import {
-  definePageProvider,
-  RetargetTab,
-} from "@vtt/shell-workbench/shared";
+import { definePageProvider, RetargetTab } from "@vtt/shell-workbench/shared";
 import { createMemo, createSignal, For, onMount, Show, type JSX } from "solid-js";
 import { Book } from "../shared/index.js";
 import { CreateBook, RemoveBook } from "../shared/commands.js";
@@ -68,10 +63,7 @@ export const BooksPageProvider = definePageProvider({
   },
 });
 
-function BookPage(props: {
-  tabId: string;
-  entityId: string | null;
-}): JSX.Element {
+function BookPage(props: { tabId: string; entityId: string | null }): JSX.Element {
   return (
     <Show
       when={props.entityId}
@@ -131,9 +123,7 @@ function EmptyState(props: { tabId: string }): JSX.Element {
 
   const remove = (bookId: string, name: string) => {
     if (
-      !window.confirm(
-        `Remove "${name}"? Any uploaded content for this book will also be removed.`,
-      )
+      !window.confirm(`Remove "${name}"? Any uploaded content for this book will also be removed.`)
     ) {
       return;
     }
@@ -157,11 +147,7 @@ function EmptyState(props: { tabId: string }): JSX.Element {
               </p>
               <Show
                 when={isGm()}
-                fallback={
-                  <p class="text-xs text-fg-subtle">
-                    waiting for the GM to add a book…
-                  </p>
-                }
+                fallback={<p class="text-xs text-fg-subtle">waiting for the GM to add a book…</p>}
               >
                 <CreateBookForm tabId={props.tabId} />
               </Show>
@@ -191,9 +177,7 @@ function EmptyState(props: { tabId: string }): JSX.Element {
                   >
                     {b.name}
                   </button>
-                  <span class="font-mono text-[0.6rem] text-fg-subtle">
-                    {b.id}
-                  </span>
+                  <span class="font-mono text-[0.6rem] text-fg-subtle">{b.id}</span>
                   <button
                     type="button"
                     onClick={() => open(b.id)}
@@ -253,15 +237,11 @@ function CreateBookForm(props: { tabId: string }): JSX.Element {
     setError(null);
     setBusy(true);
 
-    const beforeIds = new Set(
-      client.world.query([Book]).map((r) => r.id),
-    );
+    const beforeIds = new Set(client.world.query([Book]).map((r) => r.id));
 
     const off = client.bus.on(BookCreated.name, () => {
       off();
-      const fresh = client.world
-        .query([Book])
-        .find((r) => !beforeIds.has(r.id));
+      const fresh = client.world.query([Book]).find((r) => !beforeIds.has(r.id));
       if (fresh) {
         client.dispatch(
           RetargetTab({

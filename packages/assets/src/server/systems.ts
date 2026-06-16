@@ -17,11 +17,7 @@
 
 import { defineSystem } from "@vtt/substrate";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
-import {
-  AssetDeleted,
-  AssetRegistered,
-  AssetRenamed,
-} from "../shared/events.js";
+import { AssetDeleted, AssetRegistered, AssetRenamed } from "../shared/events.js";
 import { Asset } from "../shared/traits.js";
 
 /**

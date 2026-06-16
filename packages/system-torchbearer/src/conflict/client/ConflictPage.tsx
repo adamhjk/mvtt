@@ -18,23 +18,8 @@
 import type { CommandInstance, EntityId } from "@vtt/substrate";
 import { definePageProvider, RetargetTab } from "@vtt/shell-workbench/shared";
 import { useClient, useQuery } from "@vtt/substrate/client";
-import {
-  createMemo,
-  createSignal,
-  For,
-  Match,
-  onMount,
-  Show,
-  Switch,
-  type JSX,
-} from "solid-js";
-import {
-  Active,
-  Character,
-  SetField,
-  Team,
-  isActive,
-} from "@vtt/characters/shared";
+import { createMemo, createSignal, For, Match, onMount, Show, Switch, type JSX } from "solid-js";
+import { Active, Character, SetField, Team, isActive } from "@vtt/characters/shared";
 import { EncounterTemplate } from "@vtt/adventures/shared";
 import { Note } from "@vtt/notes/shared";
 import { peelRef } from "../../shared/blocks/encounter.js";
@@ -49,10 +34,7 @@ import {
   TbNpc,
   mapConflictType,
 } from "../../shared/index.js";
-import {
-  NpcRack,
-  filterNpcCatalogByQuery,
-} from "../../client/npc-picker.js";
+import { NpcRack, filterNpcCatalogByQuery } from "../../client/npc-picker.js";
 import {
   ALL_CONFLICT_TYPES,
   CONFLICT_PAGE_KIND,
@@ -62,10 +44,7 @@ import {
   TbConflictParticipant,
   type ConflictType,
 } from "../shared/index.js";
-import {
-  MonstersRack,
-  filterCatalogByQuery,
-} from "../../client/monsters-picker.js";
+import { MonstersRack, filterCatalogByQuery } from "../../client/monsters-picker.js";
 import { useConflict, useScript } from "./hooks.js";
 import { TopStripe } from "./TopStripe.js";
 import { TeamColumn } from "./TeamColumn.js";
@@ -76,7 +55,6 @@ import { ArmorRulesLegend, ArmorSidePanel } from "./ArmorPanel.js";
 import { ConditionsPanel } from "./ConditionsPanel.js";
 import { CompromisePanel } from "./CompromisePanel.js";
 import { useMe } from "./use-me.js";
-
 
 /**
  * Workbench page provider for the Reference Board. Lists every
@@ -94,21 +72,16 @@ export const ConflictPageProvider = definePageProvider({
     const out: { id: EntityId; label: string }[] = [];
     for (const row of world.query([TbConflict])) {
       const c = row.values.TbConflict as ReturnType<typeof TbConflict>["value"];
-      const label =
-        c.locationLabel || `${TB_CONFLICT_TYPES[c.type].label} (round ${c.round})`;
+      const label = c.locationLabel || `${TB_CONFLICT_TYPES[c.type].label} (round ${c.round})`;
       out.push({ id: row.id, label });
     }
     return out;
   },
   defaultEntity: () => null,
-  render: ({ tabId, entityId }) =>
-    (<ConflictPage tabId={tabId} entityId={entityId} />) as unknown,
+  render: ({ tabId, entityId }) => (<ConflictPage tabId={tabId} entityId={entityId} />) as unknown,
 });
 
-function ConflictPage(props: {
-  tabId: string;
-  entityId: EntityId | null;
-}): JSX.Element {
+function ConflictPage(props: { tabId: string; entityId: EntityId | null }): JSX.Element {
   const client = useClient();
   // Reactively read the entity's traits to decide how to render:
   //   - TbConflict       → live board for the conflict
@@ -139,10 +112,7 @@ function ConflictPage(props: {
       </Match>
       <Match when={isEncounter()}>
         <section class="flex h-full flex-col gap-3">
-          <ConflictsHub
-            tabId={props.tabId}
-            fromEncounterId={props.entityId as EntityId}
-          />
+          <ConflictsHub tabId={props.tabId} fromEncounterId={props.entityId as EntityId} />
         </section>
       </Match>
     </Switch>
@@ -173,9 +143,7 @@ function ConflictsHub(props: {
         const c = row.values.TbConflict as ReturnType<typeof TbConflict>["value"];
         return {
           id: row.id as EntityId,
-          label:
-            c.locationLabel ||
-            `${TB_CONFLICT_TYPES[c.type].label} (round ${c.round})`,
+          label: c.locationLabel || `${TB_CONFLICT_TYPES[c.type].label} (round ${c.round})`,
           type: c.type,
           round: c.round,
           winner: c.winner,
@@ -212,18 +180,12 @@ function ConflictsHub(props: {
               </p>
               <Show
                 when={me()}
-                fallback={
-                  <p class="text-xs text-fg-subtle">
-                    sign in to declare a conflict…
-                  </p>
-                }
+                fallback={<p class="text-xs text-fg-subtle">sign in to declare a conflict…</p>}
               >
                 <Show
                   when={isGm()}
                   fallback={
-                    <p class="text-xs text-fg-subtle">
-                      only the GM can declare a conflict
-                    </p>
+                    <p class="text-xs text-fg-subtle">only the GM can declare a conflict</p>
                   }
                 >
                   <DeclareConflictForm
@@ -259,8 +221,7 @@ function ConflictsHub(props: {
                   >
                     <span class="font-display">{c.label}</span>
                     <span class="ml-2 text-fg-subtle">
-                      · {TB_CONFLICT_TYPES[c.type as ConflictType].label} ·
-                      round {c.round}
+                      · {TB_CONFLICT_TYPES[c.type as ConflictType].label} · round {c.round}
                       {c.winner ? ` · ${c.winner} won` : ""}
                       {c.ended ? " · ended" : ""}
                     </span>
@@ -274,10 +235,7 @@ function ConflictsHub(props: {
               <h3 class="font-display text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle">
                 Declare a new conflict
               </h3>
-              <DeclareConflictForm
-                tabId={props.tabId}
-                fromEncounterId={props.fromEncounterId}
-              />
+              <DeclareConflictForm tabId={props.tabId} fromEncounterId={props.fromEncounterId} />
             </div>
           </Show>
         </Show>
@@ -371,12 +329,8 @@ function DeclareConflictForm(props: {
   const [captainId, setCaptainId] = createSignal<EntityId | null>(null);
   const [partyIds, setPartyIds] = createSignal<Set<EntityId>>(new Set());
 
-  const partyChars = createMemo(() =>
-    characters().filter((c) => c.team === "party"),
-  );
-  const enemyChars = createMemo(() =>
-    characters().filter((c) => c.team === "enemy"),
-  );
+  const partyChars = createMemo(() => characters().filter((c) => c.team === "party"));
+  const enemyChars = createMemo(() => characters().filter((c) => c.team === "enemy"));
   // Monsters picker — pick a template + count, click Spawn, the
   // freshly-spawned character appears in the enemy list with the
   // requested count selected. Saves a roundtrip through the
@@ -397,15 +351,13 @@ function DeclareConflictForm(props: {
   // Filter the catalog by the typed query. Subsequence-style fuzzy
   // match — see `filterCatalogByQuery` for details. Pulled out into a
   // shared helper so the monsters home page uses the same matcher.
-  const monstersCandidates = createMemo(() =>
-    filterCatalogByQuery(monstersQuery()),
-  );
+  const monstersCandidates = createMemo(() => filterCatalogByQuery(monstersQuery()));
   // Resolve the selected template's display label for the input's
   // placeholder + the chip alongside it. Falls back to "—" if the
   // selection has been cleared (e.g. typed a query that doesn't
   // match anything yet — Spawn stays disabled).
-  const monstersSelectedTemplate = createMemo(() =>
-    TB_MONSTER_TEMPLATES.find((t) => t.id === monstersSelected()) ?? null,
+  const monstersSelectedTemplate = createMemo(
+    () => TB_MONSTER_TEMPLATES.find((t) => t.id === monstersSelected()) ?? null,
   );
 
   // NPC spawn-into-conflict state. Mirrors the monsters state shape so
@@ -423,9 +375,7 @@ function DeclareConflictForm(props: {
   // Enemy is a multimap — characterId → count. Selecting a chip adds
   // it with count=1; the +/- stepper next to the chip lets the GM
   // bump it to 4 goblins. Unselecting removes the entry entirely.
-  const [enemyCounts, setEnemyCounts] = createSignal<Map<EntityId, number>>(
-    new Map(),
-  );
+  const [enemyCounts, setEnemyCounts] = createSignal<Map<EntityId, number>>(new Map());
   const enemyIds = createMemo(() => new Set(enemyCounts().keys()));
   const enemyTotalCount = createMemo(() => {
     let n = 0;
@@ -615,9 +565,7 @@ function DeclareConflictForm(props: {
       }
       setMonstersBusy(false);
     });
-    client.dispatch(
-      CreateMonsterFromCatalog({ templateId: tmplId }) as CommandInstance,
-    );
+    client.dispatch(CreateMonsterFromCatalog({ templateId: tmplId }) as CommandInstance);
   };
 
   /**
@@ -631,9 +579,7 @@ function DeclareConflictForm(props: {
     const tmplId = npcSelected();
     if (!tmplId) return;
     setNpcBusy(true);
-    const beforeIds = new Set(
-      client.world.query([Character, TbNpc]).map((r) => r.id as string),
-    );
+    const beforeIds = new Set(client.world.query([Character, TbNpc]).map((r) => r.id as string));
     const requestedCount = Math.max(1, Math.min(20, npcCount()));
     const off = client.bus.on(NpcCreated.name, () => {
       off();
@@ -659,9 +605,7 @@ function DeclareConflictForm(props: {
       }
       setNpcBusy(false);
     });
-    client.dispatch(
-      CreateNpcFromCatalog({ templateId: tmplId }) as CommandInstance,
-    );
+    client.dispatch(CreateNpcFromCatalog({ templateId: tmplId }) as CommandInstance);
   };
 
   const canSubmit = createMemo(
@@ -681,12 +625,11 @@ function DeclareConflictForm(props: {
       characterId: id,
       count: 1,
     }));
-    const enemyParticipants = [...enemyCounts().entries()].map(
-      ([id, count]) => ({ characterId: id, count }),
-    );
-    const before = new Set(
-      client.world.query([TbConflict]).map((r) => r.id as string),
-    );
+    const enemyParticipants = [...enemyCounts().entries()].map(([id, count]) => ({
+      characterId: id,
+      count,
+    }));
+    const before = new Set(client.world.query([TbConflict]).map((r) => r.id as string));
     const handle = client.dispatch(
       DeclareConflict({
         type: type(),
@@ -727,9 +670,7 @@ function DeclareConflictForm(props: {
       data-form-type="other"
     >
       <label class="grid grid-cols-[6rem,1fr] gap-2 items-center text-sm">
-        <span class="text-xs uppercase tracking-wider text-fg-subtle">
-          Type
-        </span>
+        <span class="text-xs uppercase tracking-wider text-fg-subtle">Type</span>
         <select
           value={type()}
           onChange={(e) => setType(e.currentTarget.value as ConflictType)}
@@ -742,9 +683,7 @@ function DeclareConflictForm(props: {
         </select>
       </label>
       <label class="grid grid-cols-[6rem,1fr] gap-2 items-center text-sm">
-        <span class="text-xs uppercase tracking-wider text-fg-subtle">
-          Location
-        </span>
+        <span class="text-xs uppercase tracking-wider text-fg-subtle">Location</span>
         <input
           type="text"
           value={location()}
@@ -770,8 +709,7 @@ function DeclareConflictForm(props: {
           when={partyChars().length > 0}
           fallback={
             <p class="text-xs text-fg-subtle italic">
-              No party characters in this world. Create one in the
-              Characters tab first.
+              No party characters in this world. Create one in the Characters tab first.
             </p>
           }
         >
@@ -779,32 +717,32 @@ function DeclareConflictForm(props: {
             <For each={partyChars()}>
               {(c) => (
                 <li>
-                <CharChip
-                  c={c}
-                  selected={partyIds().has(c.id)}
-                  onToggle={() => togglePartyMember(c.id)}
-                  badge={
-                    captainId() === c.id ? (
-                      <span aria-label="captain">★</span>
-                    ) : partyIds().has(c.id) ? (
-                      // Renders inside a selected (bg-accent) chip,
-                      // so use accent-fg for legible white-on-green
-                      // contrast — fg-subtle was unreadable.
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCaptainId(c.id);
-                        }}
-                        class="text-[0.65rem] underline text-accent-fg/80 hover:text-accent-fg"
-                        data-testid={`make-captain-${c.id}`}
-                      >
-                        captain?
-                      </button>
-                    ) : null
-                  }
-                  testId={`party-chip-${c.id}`}
-                />
+                  <CharChip
+                    c={c}
+                    selected={partyIds().has(c.id)}
+                    onToggle={() => togglePartyMember(c.id)}
+                    badge={
+                      captainId() === c.id ? (
+                        <span aria-label="captain">★</span>
+                      ) : partyIds().has(c.id) ? (
+                        // Renders inside a selected (bg-accent) chip,
+                        // so use accent-fg for legible white-on-green
+                        // contrast — fg-subtle was unreadable.
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCaptainId(c.id);
+                          }}
+                          class="text-[0.65rem] underline text-accent-fg/80 hover:text-accent-fg"
+                          data-testid={`make-captain-${c.id}`}
+                        >
+                          captain?
+                        </button>
+                      ) : null
+                    }
+                    testId={`party-chip-${c.id}`}
+                  />
                 </li>
               )}
             </For>
@@ -814,15 +752,15 @@ function DeclareConflictForm(props: {
 
       <fieldset class="flex flex-col gap-2 border-0 p-0">
         <legend class="text-xs uppercase tracking-wider text-fg-subtle">
-          Enemy ({enemyIds().size}/{enemyTotalCount()}) · enemy-team
-          characters · count for groups (4 goblins, etc.)
+          Enemy ({enemyIds().size}/{enemyTotalCount()}) · enemy-team characters · count for groups
+          (4 goblins, etc.)
         </legend>
         <Show
           when={enemyChars().length > 0}
           fallback={
             <p class="text-xs text-fg-subtle italic">
-              No enemy-team characters yet. Use "Switch team" below to flip a
-              character to the enemy side.
+              No enemy-team characters yet. Use "Switch team" below to flip a character to the enemy
+              side.
             </p>
           }
         >
@@ -884,12 +822,9 @@ function DeclareConflictForm(props: {
       </fieldset>
 
       <fieldset class="flex flex-col gap-1 border-t border-border-muted pt-2">
-        <legend class="text-xs uppercase tracking-wider text-fg-subtle">
-          Switch team
-        </legend>
+        <legend class="text-xs uppercase tracking-wider text-fg-subtle">Switch team</legend>
         <p class="text-[0.7rem] text-fg-subtle">
-          Flip a character between the party and enemy teams (e.g. to make an
-          NPC monster an enemy).
+          Flip a character between the party and enemy teams (e.g. to make an NPC monster an enemy).
         </p>
         <Show
           when={characters().length > 0}
@@ -904,9 +839,7 @@ function DeclareConflictForm(props: {
               {(c) => (
                 <li class="flex items-center gap-2">
                   <span class="flex-1 text-fg">{c.name}</span>
-                  <span class="font-mono text-fg-subtle text-[0.7rem]">
-                    {c.team}
-                  </span>
+                  <span class="font-mono text-fg-subtle text-[0.7rem]">{c.team}</span>
                   <button
                     type="button"
                     onClick={() => toggleTeam(c)}
@@ -932,8 +865,7 @@ function DeclareConflictForm(props: {
         {busy() ? "Declaring…" : "Declare conflict"}
       </button>
       <p class="text-[0.7rem] text-fg-subtle">
-        Pick at least one party, designate a captain, and pick at least one
-        enemy.
+        Pick at least one party, designate a captain, and pick at least one enemy.
       </p>
     </form>
   );
@@ -969,9 +901,7 @@ function resolveLocationLabel(
   // Direct entity-id lookup first — the parser accepts both
   // `note:Bywater Bridge` and `note:e123` body forms.
   if (world.has(cleanBody as EntityId)) {
-    const got = world.get(cleanBody as EntityId, [Note]) as
-      | { Note: { title: string } }
-      | undefined;
+    const got = world.get(cleanBody as EntityId, [Note]) as { Note: { title: string } } | undefined;
     if (got) return got.Note.title;
   }
   // Title-match fallback. Case-insensitive so the GM doesn't have to
@@ -999,8 +929,7 @@ function CharChip(props: {
       class="rounded-(--radius-control) border px-2 py-1 text-xs flex items-center gap-1 transition"
       classList={{
         "border-accent bg-accent text-accent-fg": props.selected,
-        "border-border-muted bg-surface text-fg hover:border-accent":
-          !props.selected,
+        "border-border-muted bg-surface text-fg hover:border-accent": !props.selected,
       }}
     >
       <span>{props.c.name}</span>
@@ -1088,15 +1017,13 @@ function MonstersSpawnRow(props: {
   setQuery: (next: string) => void;
   selected: () => string | null;
   setSelected: (next: string | null) => void;
-  selectedTemplate: () =>
-    | {
-        id: string;
-        name: string;
-        nature: { rating: number };
-        might: number;
-        type: string;
-      }
-    | null;
+  selectedTemplate: () => {
+    id: string;
+    name: string;
+    nature: { rating: number };
+    might: number;
+    type: string;
+  } | null;
   candidates: () => ReadonlyArray<{
     id: string;
     name: string;
@@ -1234,18 +1161,16 @@ function MonstersSpawnRow(props: {
             "padding-top": "0.4rem",
             "padding-bottom": "0.4rem",
             "background-color": "var(--color-surface-sunken, var(--color-surface))",
-            "border": "1px solid var(--color-border-muted)",
+            border: "1px solid var(--color-border-muted)",
             "font-family": "var(--font-display)",
             "font-size": "0.85rem",
             color: "var(--color-fg)",
           }}
           onFocus={(e) => {
-            (e.currentTarget as HTMLInputElement).style.borderColor =
-              "var(--color-accent)";
+            (e.currentTarget as HTMLInputElement).style.borderColor = "var(--color-accent)";
           }}
           onBlur={(e) => {
-            (e.currentTarget as HTMLInputElement).style.borderColor =
-              "var(--color-border-muted)";
+            (e.currentTarget as HTMLInputElement).style.borderColor = "var(--color-border-muted)";
           }}
           data-testid="declare-monsters-input"
           autocomplete="off"
@@ -1284,10 +1209,9 @@ function MonstersSpawnRow(props: {
           <div
             class="flex items-center justify-center text-center py-4"
             style={{
-              "border": "1px dashed var(--color-border-muted)",
+              border: "1px dashed var(--color-border-muted)",
               "border-radius": "var(--radius-control)",
-              "background-color":
-                "var(--color-surface-sunken, var(--color-surface))",
+              "background-color": "var(--color-surface-sunken, var(--color-surface))",
             }}
             data-testid="declare-monsters-empty"
           >
@@ -1315,17 +1239,13 @@ function MonstersSpawnRow(props: {
       {/* Footer: count stepper + dynamic spawn button. The button
           label is the verb-on-target ("Conjure 4 × Goblin →") so
           the GM can see exactly what's queued before clicking. */}
-      <div
-        class="mt-2 flex items-stretch gap-1.5"
-        style={{ "min-height": "2.1rem" }}
-      >
+      <div class="mt-2 flex items-stretch gap-1.5" style={{ "min-height": "2.1rem" }}>
         <div
           class="flex items-stretch overflow-hidden"
           style={{
-            "border": "1px solid var(--color-border-muted)",
+            border: "1px solid var(--color-border-muted)",
             "border-radius": "var(--radius-control)",
-            "background-color":
-              "var(--color-surface-sunken, var(--color-surface))",
+            "background-color": "var(--color-surface-sunken, var(--color-surface))",
           }}
         >
           <button
@@ -1407,24 +1327,18 @@ function MonstersSpawnRow(props: {
           }}
           onMouseLeave={(e) => {
             if (props.busy() || !props.selected()) return;
-            (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-              "var(--color-accent)";
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--color-accent)";
           }}
         >
           <Show when={!props.busy()} fallback={<span>Conjuring…</span>}>
-            <Show
-              when={props.selectedTemplate()}
-              fallback={<span>Pick a creature</span>}
-            >
+            <Show when={props.selectedTemplate()} fallback={<span>Pick a creature</span>}>
               <span>
                 Conjure{" "}
                 <span class="tabular-nums" style={{ "font-family": "var(--font-mono)" }}>
                   {props.count()}
                 </span>{" "}
                 ×{" "}
-                <span style={{ "letter-spacing": "0.04em" }}>
-                  {props.selectedTemplate()!.name}
-                </span>
+                <span style={{ "letter-spacing": "0.04em" }}>{props.selectedTemplate()!.name}</span>
               </span>
               <span aria-hidden="true">→</span>
             </Show>
@@ -1445,7 +1359,10 @@ function MonstersSpawnRow(props: {
         }}
       >
         Materializes one character in the catalog; expanded into{" "}
-        <span class="tabular-nums" style={{ "font-family": "var(--font-mono)", "font-style": "normal" }}>
+        <span
+          class="tabular-nums"
+          style={{ "font-family": "var(--font-mono)", "font-style": "normal" }}
+        >
           {props.count()}
         </span>{" "}
         participant rows on declare.
@@ -1469,15 +1386,13 @@ function NpcSpawnRow(props: {
   setQuery: (next: string) => void;
   selected: () => string | null;
   setSelected: (next: string | null) => void;
-  selectedTemplate: () =>
-    | {
-        id: string;
-        name: string;
-        role: string;
-        sourceBook: string;
-        sourcePage: number | null;
-      }
-    | null;
+  selectedTemplate: () => {
+    id: string;
+    name: string;
+    role: string;
+    sourceBook: string;
+    sourcePage: number | null;
+  } | null;
   candidates: () => ReadonlyArray<{
     id: string;
     name: string;
@@ -1600,20 +1515,17 @@ function NpcSpawnRow(props: {
             "padding-right": props.query().length > 0 ? "1.8rem" : "0.55rem",
             "padding-top": "0.4rem",
             "padding-bottom": "0.4rem",
-            "background-color":
-              "var(--color-surface-sunken, var(--color-surface))",
+            "background-color": "var(--color-surface-sunken, var(--color-surface))",
             border: "1px solid var(--color-border-muted)",
             "font-family": "var(--font-display)",
             "font-size": "0.85rem",
             color: "var(--color-fg)",
           }}
           onFocus={(e) => {
-            (e.currentTarget as HTMLInputElement).style.borderColor =
-              "var(--color-accent)";
+            (e.currentTarget as HTMLInputElement).style.borderColor = "var(--color-accent)";
           }}
           onBlur={(e) => {
-            (e.currentTarget as HTMLInputElement).style.borderColor =
-              "var(--color-border-muted)";
+            (e.currentTarget as HTMLInputElement).style.borderColor = "var(--color-border-muted)";
           }}
           data-testid="declare-npc-input"
           autocomplete="off"
@@ -1651,8 +1563,7 @@ function NpcSpawnRow(props: {
             style={{
               border: "1px dashed var(--color-border-muted)",
               "border-radius": "var(--radius-control)",
-              "background-color":
-                "var(--color-surface-sunken, var(--color-surface))",
+              "background-color": "var(--color-surface-sunken, var(--color-surface))",
             }}
             data-testid="declare-npc-empty"
           >
@@ -1679,17 +1590,13 @@ function NpcSpawnRow(props: {
         />
       </Show>
 
-      <div
-        class="mt-2 flex items-stretch gap-1.5"
-        style={{ "min-height": "2.1rem" }}
-      >
+      <div class="mt-2 flex items-stretch gap-1.5" style={{ "min-height": "2.1rem" }}>
         <div
           class="flex items-stretch overflow-hidden"
           style={{
             border: "1px solid var(--color-border-muted)",
             "border-radius": "var(--radius-control)",
-            "background-color":
-              "var(--color-surface-sunken, var(--color-surface))",
+            "background-color": "var(--color-surface-sunken, var(--color-surface))",
           }}
         >
           <button
@@ -1771,27 +1678,18 @@ function NpcSpawnRow(props: {
           }}
           onMouseLeave={(e) => {
             if (props.busy() || !props.selected()) return;
-            (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-              "var(--color-accent)";
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--color-accent)";
           }}
         >
           <Show when={!props.busy()} fallback={<span>Conjuring…</span>}>
-            <Show
-              when={props.selectedTemplate()}
-              fallback={<span>Pick an NPC</span>}
-            >
+            <Show when={props.selectedTemplate()} fallback={<span>Pick an NPC</span>}>
               <span>
                 Conjure{" "}
-                <span
-                  class="tabular-nums"
-                  style={{ "font-family": "var(--font-mono)" }}
-                >
+                <span class="tabular-nums" style={{ "font-family": "var(--font-mono)" }}>
                   {props.count()}
                 </span>{" "}
                 ×{" "}
-                <span style={{ "letter-spacing": "0.04em" }}>
-                  {props.selectedTemplate()!.name}
-                </span>{" "}
+                <span style={{ "letter-spacing": "0.04em" }}>{props.selectedTemplate()!.name}</span>{" "}
                 →
               </span>
             </Show>
@@ -1820,7 +1718,6 @@ function NpcSpawnRow(props: {
     </div>
   );
 }
-
 
 /* -------------------------------------------------------------------------
  * Live board
@@ -1859,10 +1756,7 @@ function ConflictBoard(props: { conflictId: EntityId }): JSX.Element {
     const idx = Math.max(0, c.revealIndex - 1);
     const partySlot = partyS.slots[idx];
     const enemySlot = enemyS.slots[idx];
-    if (
-      partySlot?.status === "revealed" &&
-      enemySlot?.status === "revealed"
-    ) {
+    if (partySlot?.status === "revealed" && enemySlot?.status === "revealed") {
       return {
         partyAction: partySlot.action,
         enemyAction: enemySlot.action,
@@ -1875,9 +1769,7 @@ function ConflictBoard(props: { conflictId: EntityId }): JSX.Element {
     <Show
       when={conflict()}
       fallback={
-        <p class="text-fg-subtle italic px-5 py-4">
-          Conflict not found or no longer visible.
-        </p>
+        <p class="text-fg-subtle italic px-5 py-4">Conflict not found or no longer visible.</p>
       }
     >
       <div class="flex h-full flex-col overflow-y-auto bg-surface text-fg">
@@ -1897,45 +1789,21 @@ function ConflictBoard(props: { conflictId: EntityId }): JSX.Element {
           }}
           data-testid="team-columns"
         >
-          <TeamColumn
-            conflictId={props.conflictId}
-            side="party"
-            title="Party"
-          />
-          <TeamColumn
-            conflictId={props.conflictId}
-            side="enemy"
-            title="Enemy"
-          />
+          <TeamColumn conflictId={props.conflictId} side="party" title="Party" />
+          <TeamColumn conflictId={props.conflictId} side="enemy" title="Enemy" />
         </div>
         <ResolutionRow conflictId={props.conflictId} />
         <ActionMatrix highlight={matrixHighlight()} />
         <div data-testid="combat-aids">
-          <WeaponPanel
-            conflictId={props.conflictId}
-            side="party"
-            title="Party Weapons"
-          />
-          <ArmorSidePanel
-            conflictId={props.conflictId}
-            side="party"
-            title="Party Armor"
-          />
+          <WeaponPanel conflictId={props.conflictId} side="party" title="Party Weapons" />
+          <ArmorSidePanel conflictId={props.conflictId} side="party" title="Party Armor" />
           {/* Enemy weapon + armor possibilities are GM-only — players
               still see what the enemy *declared* via the dropdown
               binding on each row, but the full possibility tables are
               GM information. */}
           <Show when={isGm()}>
-            <WeaponPanel
-              conflictId={props.conflictId}
-              side="enemy"
-              title="Enemy Weapons"
-            />
-            <ArmorSidePanel
-              conflictId={props.conflictId}
-              side="enemy"
-              title="Enemy Armor"
-            />
+            <WeaponPanel conflictId={props.conflictId} side="enemy" title="Enemy Weapons" />
+            <ArmorSidePanel conflictId={props.conflictId} side="enemy" title="Enemy Armor" />
           </Show>
           {/* Shared catalog conflict-resource weapons (Blackmail,
               Hostage, True Name, Maps, …). Visible to everyone: the
@@ -1945,11 +1813,7 @@ function ConflictBoard(props: { conflictId: EntityId }): JSX.Element {
           <ArmorRulesLegend />
         </div>
         <ConditionsPanel conflictId={props.conflictId} />
-        <Show
-          when={
-            conflict()?.winner !== null && conflict()?.endedAt === null
-          }
-        >
+        <Show when={conflict()?.winner !== null && conflict()?.endedAt === null}>
           <CompromisePanel conflictId={props.conflictId} />
         </Show>
         <Show when={conflict()?.endedAt !== null}>
@@ -1957,9 +1821,7 @@ function ConflictBoard(props: { conflictId: EntityId }): JSX.Element {
             class="px-5 py-4 font-display text-lg uppercase tracking-wider text-fg"
             data-testid="conflict-ended-banner"
           >
-            {conflict()?.winner
-              ? `${conflict()?.winner} won.`
-              : "Conflict ended."}
+            {conflict()?.winner ? `${conflict()?.winner} won.` : "Conflict ended."}
           </p>
         </Show>
         <span class="px-5 py-2 text-[0.65rem] text-fg-subtle font-mono">

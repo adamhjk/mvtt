@@ -19,8 +19,9 @@ The pattern has three reinforcing problems, each of which would already be suffi
 `Pane.tsx:298–308` correctly hands the provider a reactive accessor (`uiState: () => tabAcc().uiState`), and the re-mount key in `paneKey()` correctly excludes `uiState`. Both are deliberate. But every existing provider then writes:
 
 ```tsx
-render: ({ tabId, entityId, uiState, setUiState }) =>
+render: ({ tabId, entityId, uiState, setUiState }) => (
   <BookPage uiState={uiState()} setUiState={setUiState} />
+);
 ```
 
 That `uiState()` call destructures the proxy. From that line down, `uiState` is a static prop, not a reactive read. Solid's fine-grained reactivity is now fully bypassed — the only way to deliver a new value is to re-render the parent, which re-runs the JSX containing `<Surface name={…} context={{ bookId }} />`. Sibling Surface contents go down with it.
@@ -31,13 +32,13 @@ That `uiState()` call destructures the proxy. From that line down, `uiState` is 
 
 > v0 doesn't implement optimistic prediction or rollback; this is just the seam.
 
-So every `setUiState` round-trips to the server before the local trait updates. UI state — the most latency-sensitive state we have — is the *least* optimistic state we have. Plugins respond by reaching for `sessionStorage` (`PdfReader.tsx:99–134`) or module-level signals (`pendingBookNav`, `pendingScroll`) to side-step the round-trip, which fragments the persistence story and re-introduces the prop-drill problem from a different angle.
+So every `setUiState` round-trips to the server before the local trait updates. UI state — the most latency-sensitive state we have — is the _least_ optimistic state we have. Plugins respond by reaching for `sessionStorage` (`PdfReader.tsx:99–134`) or module-level signals (`pendingBookNav`, `pendingScroll`) to side-step the round-trip, which fragments the persistence story and re-introduces the prop-drill problem from a different angle.
 
 ## Approach
 
 A small substrate primitive plus a structural rule for plugins. Three properties make the design defensible:
 
-1. **Per-plugin slices.** Each plugin owns a typed UI-state trait on a per-tab sentinel entity it controls. The workbench owns *layout* (tabs, panes, tree, active pane); it never sees plugin contents. A write to one plugin's slice cannot invalidate any other plugin's signal — by construction, they're different traits on different entities.
+1. **Per-plugin slices.** Each plugin owns a typed UI-state trait on a per-tab sentinel entity it controls. The workbench owns _layout_ (tabs, panes, tree, active pane); it never sees plugin contents. A write to one plugin's slice cannot invalidate any other plugin's signal — by construction, they're different traits on different entities.
 2. **Fine-grained reads through a Solid store.** The primitive returns a `createStore` projection of the trait. Path reads (`store.activePageId`) are path-granular; sibling fields can change without invalidating this read. No more accessor-unwrapping at provider boundaries: there's nothing to unwrap.
 3. **Optimistic local apply with server reconciliation.** Writes hit the local store immediately and dispatch in parallel. Incoming events from the server reconcile by `reconcile()` against the server value. If the server rejects the command, the local store rolls back to the last server-confirmed value. Latency is removed without abandoning the source-of-truth contract.
 
@@ -45,16 +46,16 @@ Three properties together collapse the original `uiState` bag:
 
 - The shared workbench `uiState` field disappears.
 - Plugin views read `store.foo` directly. No prop-drilling.
-- Persistence is uniform: the trait *is* the durable record, no per-plugin sessionStorage shim.
+- Persistence is uniform: the trait _is_ the durable record, no per-plugin sessionStorage shim.
 
 ## Considered alternatives
 
-| Option | Shape | Rejected because |
-|---|---|---|
-| **Stop destructuring `uiState`, keep the blob** | Pass the accessor through, never call it at the boundary. | Doesn't fix Problem 1 — one trait still backs every tab's state. Sibling tabs still invalidate one another. |
-| **Per-tab `createStore` in the workbench, indexed by tabId** | Workbench keeps owning UI state but stores it as a `createStore` keyed by tab. | Solves the granularity problem inside one process, but commits the workbench to knowing the schema of every plugin's UI state. Bounded contexts blur. |
-| **Module-level signals everywhere** | Each plugin keeps its own UI state in module-level `createSignal`s, doesn't persist it through the trait spine. | Loses durability; loses multi-device sync; fragments the persistence story; can't replay. We already did this for `pendingBookNav` and accept it for *transient hints* — but persistent UI state belongs in traits. |
-| **Generic optimistic apply in the substrate** | Pipeline runs `validate`+`apply` locally on dispatch, predicted-events get rolled back if the server diverges. | Right answer eventually; worth doing for game-mechanics commands where round-trip latency hurts. Out of scope for this proposal — the per-plugin store wrapper unblocks the UI-state problem without the substrate bookkeeping (predicted-event ledger, server-allocated id reconciliation, predicted/canonical merge). |
+| Option                                                       | Shape                                                                                                           | Rejected because                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Stop destructuring `uiState`, keep the blob**              | Pass the accessor through, never call it at the boundary.                                                       | Doesn't fix Problem 1 — one trait still backs every tab's state. Sibling tabs still invalidate one another.                                                                                                                                                                                                             |
+| **Per-tab `createStore` in the workbench, indexed by tabId** | Workbench keeps owning UI state but stores it as a `createStore` keyed by tab.                                  | Solves the granularity problem inside one process, but commits the workbench to knowing the schema of every plugin's UI state. Bounded contexts blur.                                                                                                                                                                   |
+| **Module-level signals everywhere**                          | Each plugin keeps its own UI state in module-level `createSignal`s, doesn't persist it through the trait spine. | Loses durability; loses multi-device sync; fragments the persistence story; can't replay. We already did this for `pendingBookNav` and accept it for _transient hints_ — but persistent UI state belongs in traits.                                                                                                     |
+| **Generic optimistic apply in the substrate**                | Pipeline runs `validate`+`apply` locally on dispatch, predicted-events get rolled back if the server diverges.  | Right answer eventually; worth doing for game-mechanics commands where round-trip latency hurts. Out of scope for this proposal — the per-plugin store wrapper unblocks the UI-state problem without the substrate bookkeeping (predicted-event ledger, server-allocated id reconciliation, predicted/canonical merge). |
 
 The chosen design is the minimum patternable thing: one primitive, a structural rule, and a mechanical migration.
 
@@ -89,7 +90,7 @@ export function createOptimisticTrait<T extends TraitMeta>(
      * setter call). Use for high-frequency writes like sliders.
      */
     debounceMs?: number;
-  }
+  },
 ): readonly [Store<TraitValue<T>>, SetStoreFunction<TraitValue<T>>];
 ```
 
@@ -112,16 +113,17 @@ export function createOptimisticTrait<T extends TraitMeta>(
 
 Single source of truth: `lastServerValue`, last value seen on `world.subscribe`. The local store is allowed to diverge optimistically; the server reconciles.
 
-| Event | Effect |
-|---|---|
-| Local `setStore(...)` | Local store updates immediately. Schedule (or fire, if `debounceMs === 0`) a dispatch of `options.write(unwrap(store))`. |
-| Dispatch flush | `handle = client.dispatch(cmd)`. Wire `handle.ack.then(ack => ack.ok ? noop : rollback())`. Don't await. |
-| Server event for our `(entityId, trait)` | `lastServerValue = newValue`. `rawSet(reconcile(lastServerValue))`. Idempotent if the new value matches the predicted state. |
-| `ack.ok === false` | `rawSet(reconcile(lastServerValue))`. The server rejected (or the connection dropped — `reason: "disconnected"` resolves the same way). |
-| `ack.ok === true` | No-op. The corresponding event has already (or will shortly) reconcile. |
-| `onCleanup` | Cancel the trait subscription. If a debounced dispatch is pending, fire it synchronously (losing the most recent edit on unmount is worse than the round-trip cost). |
+| Event                                    | Effect                                                                                                                                                               |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local `setStore(...)`                    | Local store updates immediately. Schedule (or fire, if `debounceMs === 0`) a dispatch of `options.write(unwrap(store))`.                                             |
+| Dispatch flush                           | `handle = client.dispatch(cmd)`. Wire `handle.ack.then(ack => ack.ok ? noop : rollback())`. Don't await.                                                             |
+| Server event for our `(entityId, trait)` | `lastServerValue = newValue`. `rawSet(reconcile(lastServerValue))`. Idempotent if the new value matches the predicted state.                                         |
+| `ack.ok === false`                       | `rawSet(reconcile(lastServerValue))`. The server rejected (or the connection dropped — `reason: "disconnected"` resolves the same way).                              |
+| `ack.ok === true`                        | No-op. The corresponding event has already (or will shortly) reconcile.                                                                                              |
+| `onCleanup`                              | Cancel the trait subscription. If a debounced dispatch is pending, fire it synchronously (losing the most recent edit on unmount is worse than the round-trip cost). |
 
 Race notes:
+
 - **Server event arrives before ack.** Normal. The event already reconciled the store. A subsequent `ack.ok === true` is a no-op; `ack.ok === false` rolls back to `lastServerValue` (which now equals the server's current value), so it's idempotent.
 - **Multiple in-flight writes (no debounce).** Each `setStore` fires its own dispatch. Server applies them in order; events arrive in order; `lastServerValue` advances monotonically. The store only diverges from `lastServerValue` while predictions are in flight.
 - **Multiple in-flight writes (with debounce).** Only the most recent value is dispatched on flush. Intermediate values exist locally only — that's the point of debouncing.
@@ -155,9 +157,7 @@ export function createOptimisticTrait<T extends TraitMeta>(
 
   const off = client.world.subscribe((id, name) => {
     if (id !== entityId || name !== trait.name) return;
-    const next = readTraitWithDefault(client.world, entityId, trait) as
-      | TraitValue<T>
-      | undefined;
+    const next = readTraitWithDefault(client.world, entityId, trait) as TraitValue<T> | undefined;
     if (next === undefined) return;
     lastServerValue = next;
     rawSet(reconcile(next));
@@ -165,7 +165,10 @@ export function createOptimisticTrait<T extends TraitMeta>(
 
   let pending: ReturnType<typeof setTimeout> | null = null;
   const flush = () => {
-    if (pending) { clearTimeout(pending); pending = null; }
+    if (pending) {
+      clearTimeout(pending);
+      pending = null;
+    }
     const handle = client.dispatch(options.write(unwrap(store) as TraitValue<T>));
     handle.ack.then((ack) => {
       if (!ack.ok) rawSet(reconcile(lastServerValue));
@@ -184,7 +187,7 @@ export function createOptimisticTrait<T extends TraitMeta>(
 
   onCleanup(() => {
     off();
-    if (pending) flush();   // synchronous flush; setTimeout already cleared inside flush
+    if (pending) flush(); // synchronous flush; setTimeout already cleared inside flush
   });
 
   return [store, set] as const;
@@ -192,6 +195,7 @@ export function createOptimisticTrait<T extends TraitMeta>(
 ```
 
 Notes:
+
 - `handle.ack` never rejects (per `client.ts:34`); disconnect resolves to `{ ok: false, reason: "disconnected" }` which goes through the rollback path. No `.catch` needed.
 - `reconcile` preserves identity for unchanged subtrees, which keeps `<For>` keys stable across server reconciliation.
 - `unwrap` returns a plain JS value for the dispatched payload — the proxy never escapes the store.
@@ -240,9 +244,7 @@ function BooksDock(props: { tabSentinelId: EntityId }) {
   return (
     <DockShell open={ui.bookDockOpen}>
       {/* path-granular read: bookDockActive can change without re-firing the open computation */}
-      <Show when={ui.bookDockActive}>
-        {(activeAcc) => <BookView bookId={activeAcc()} />}
-      </Show>
+      <Show when={ui.bookDockActive}>{(activeAcc) => <BookView bookId={activeAcc()} />}</Show>
       <button onClick={() => setUi("bookDockOpen", (v) => !v)}>toggle</button>
     </DockShell>
   );
@@ -325,7 +327,7 @@ Per CLAUDE.md, every change ships with tests. For this proposal specifically:
   - Server rejection rollback: a rejected command snaps the store back.
 - **Smoke tests** stay roughly the same — wire format hasn't changed for any plugin, just the trait names.
 
-The cross-plugin isolation test is the *defining* test for this proposal. If it can fail, we've reverted.
+The cross-plugin isolation test is the _defining_ test for this proposal. If it can fail, we've reverted.
 
 ## Anti-patterns this proposal makes loud
 
@@ -346,6 +348,7 @@ In addition to the existing list in CLAUDE.md:
 ## When in doubt
 
 Find the closest existing exemplar:
+
 - For the primitive: `useTrait` in `packages/substrate/src/reactivity.tsx`.
 - For a per-plugin trait: `WorkspaceState` in `packages/shell-workbench/src/shared/traits.ts`.
 - For a sentinel pattern: `WorkspaceOwner` in the same file.

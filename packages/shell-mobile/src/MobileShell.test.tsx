@@ -18,10 +18,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { screen, cleanup, fireEvent } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { shellMobile } from "./manifest.js";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { MobileShellView } from "./client/MobileShell.js";
@@ -36,11 +33,7 @@ import { comms } from "@vtt/comms";
 import { Identity, Online, Name } from "@vtt/identity/shared";
 import { PendingRoll, Character, ROLL_ATELIER_KIND } from "@vtt/characters/shared";
 import { RollResolved } from "@vtt/resolution/shared";
-import {
-  WorkspaceOwner,
-  WorkspaceState,
-  OpenPage,
-} from "@vtt/shell-workbench/shared";
+import { WorkspaceOwner, WorkspaceState, OpenPage } from "@vtt/shell-workbench/shared";
 import { Permissions, actors } from "@vtt/permissions/shared";
 
 // jsdom doesn't provide window.matchMedia — polyfill it so
@@ -99,9 +92,7 @@ describe("MobileShellView", () => {
     // jsdom reports pointer:fine/hover:hover by default, and no localStorage
     // pref is set, so shouldUseMobileShell() returns false.
     const h = buildTestClient({ plugins: [shellWorkbench, shellMobile] });
-    const { container } = mountWithClient(h, () =>
-      MobileShellView.render({}) as never,
-    );
+    const { container } = mountWithClient(h, () => MobileShellView.render({}) as never);
     // The view should render nothing (null return from clientOnly gate).
     expect(container.querySelector("[data-testid='mobile-shell']")).toBeNull();
   });
@@ -117,16 +108,10 @@ describe("MobileShellView", () => {
         role: "player",
       },
     });
-    const { container } = mountWithClient(h, () =>
-      MobileShellView.render({}) as never,
-    );
-    expect(
-      container.querySelector("[data-testid='mobile-shell']"),
-    ).not.toBeNull();
+    const { container } = mountWithClient(h, () => MobileShellView.render({}) as never);
+    expect(container.querySelector("[data-testid='mobile-shell']")).not.toBeNull();
     // Heading should show mvtt
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      "mvtt",
-    );
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("mvtt");
   });
 
   it("shows the page panel by default and can switch to Chat", () => {
@@ -171,24 +156,16 @@ describe("MobileShellView", () => {
     fireEvent.click(menuBtn);
 
     // The menu should now show "Switch to desktop layout"
-    expect(
-      screen.getByRole("button", { name: /switch to desktop/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /switch to desktop/i })).toBeInTheDocument();
   });
 });
 
 describe("SwitchToMobileButtonView (workbench header)", () => {
   it("renders a labelled button", () => {
     const h = buildTestClient({ plugins: [shellWorkbench, shellMobile] });
-    const { container } = mountWithClient(h, () =>
-      SwitchToMobileButtonView.render({}) as never,
-    );
-    expect(
-      container.querySelector("[data-testid='switch-to-mobile']"),
-    ).not.toBeNull();
-    expect(
-      screen.getByRole("button", { name: /switch to mobile/i }),
-    ).toBeInTheDocument();
+    const { container } = mountWithClient(h, () => SwitchToMobileButtonView.render({}) as never);
+    expect(container.querySelector("[data-testid='switch-to-mobile']")).not.toBeNull();
+    expect(screen.getByRole("button", { name: /switch to mobile/i })).toBeInTheDocument();
   });
 
   it("sets the mobile preference when clicked", () => {
@@ -261,9 +238,7 @@ describe("MobileMenu pages navigation", () => {
     expect(
       screen.getByRole("button", { name: /characters/i, expanded: false }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /notes/i, expanded: false }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /notes/i, expanded: false })).toBeInTheDocument();
   });
 
   it("expanding a provider lists its entities and tapping one dispatches OpenPage", () => {
@@ -285,9 +260,7 @@ describe("MobileMenu pages navigation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /open menu/i }));
     // Expand the Characters provider.
-    fireEvent.click(
-      screen.getByRole("button", { name: /characters/i, expanded: false }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /characters/i, expanded: false }));
 
     // Tarn should now be a navigable item.
     const tarn = screen.getByRole("button", { name: "Tarn" });
@@ -318,10 +291,7 @@ describe("MobileMenu pages navigation", () => {
     // default-character fallback the panel actually renders.
     const pageBtn = screen.getByTestId("nav-page");
     expect(pageBtn.textContent).toContain("Characters");
-    expect(pageBtn).toHaveAttribute(
-      "aria-label",
-      "Characters (current page)",
-    );
+    expect(pageBtn).toHaveAttribute("aria-label", "Characters (current page)");
   });
 
   it("the 'All …' entry opens the provider hub with a null entity", () => {
@@ -335,9 +305,7 @@ describe("MobileMenu pages navigation", () => {
     mountWithClient(h, () => MobileShellView.render({}) as never);
 
     fireEvent.click(screen.getByRole("button", { name: /open menu/i }));
-    fireEvent.click(
-      screen.getByRole("button", { name: /notes/i, expanded: false }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /notes/i, expanded: false }));
     fireEvent.click(screen.getByRole("button", { name: /all notes/i }));
 
     const open = h.dispatched.find((c) => c.type === OpenPage.name);
@@ -349,20 +317,9 @@ describe("MobileMenu pages navigation", () => {
 });
 
 describe("MobileShell navigates to the Atelier on roll", () => {
-  const pluginSet = [
-    identity,
-    notes,
-    characters,
-    resolution,
-    comms,
-    shellWorkbench,
-    shellMobile,
-  ];
+  const pluginSet = [identity, notes, characters, resolution, comms, shellWorkbench, shellMobile];
 
-  function spawnMeAndWorkspace(
-    world: import("@vtt/substrate").World,
-    clientId: string,
-  ) {
+  function spawnMeAndWorkspace(world: import("@vtt/substrate").World, clientId: string) {
     world.spawn([
       Identity({ userId: "me", role: "player" }),
       Name({ value: "Me" }),
@@ -411,22 +368,13 @@ describe("MobileShell navigates to the Atelier on roll", () => {
     // Tap over to chat first so we can prove the roll pulls us back to
     // the page panel (where the Atelier renders), not to chat.
     fireEvent.click(screen.getByTestId("nav-chat"));
-    expect(screen.getByTestId("nav-chat")).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(screen.getByTestId("nav-chat")).toHaveAttribute("aria-pressed", "true");
 
     h.bus.emit(rollResolvedBy("me"));
 
     // Landed back on the page panel…
-    expect(screen.getByTestId("nav-page")).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(screen.getByTestId("nav-chat")).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    expect(screen.getByTestId("nav-page")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("nav-chat")).toHaveAttribute("aria-pressed", "false");
     // …and navigated to the Roll Atelier so the result is on screen.
     const open = h.dispatched.find((c) => c.type === OpenPage.name);
     expect(open?.payload).toEqual({
@@ -447,13 +395,8 @@ describe("MobileShell navigates to the Atelier on roll", () => {
 
     h.bus.emit(rollResolvedBy("someone-else"));
 
-    expect(screen.getByTestId("nav-page")).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(
-      h.dispatched.find((c) => c.type === OpenPage.name),
-    ).toBeUndefined();
+    expect(screen.getByTestId("nav-page")).toHaveAttribute("aria-pressed", "true");
+    expect(h.dispatched.find((c) => c.type === OpenPage.name)).toBeUndefined();
   });
 
   it("scrolls the chat viewport to the bottom whenever chat mode activates", async () => {
@@ -464,16 +407,12 @@ describe("MobileShell navigates to the Atelier on roll", () => {
       clientId,
       setupWorld: ({ world }) => spawnMeAndWorkspace(world, clientId),
     });
-    const { container } = mountWithClient(h, () =>
-      MobileShellView.render({}) as never,
-    );
+    const { container } = mountWithClient(h, () => MobileShellView.render({}) as never);
 
     // Force a non-zero scrollHeight on the chat viewport so we can
     // detect "did we snap to bottom?" Stuff a tall sentinel into the
     // viewport and pre-set scrollTop to 0.
-    const viewport = container.querySelector(
-      "[data-testid='chat-stream-viewport']",
-    ) as HTMLElement;
+    const viewport = container.querySelector("[data-testid='chat-stream-viewport']") as HTMLElement;
     expect(viewport).not.toBeNull();
     Object.defineProperty(viewport, "scrollHeight", {
       value: 1000,
@@ -496,9 +435,7 @@ describe("PendingRollSheet", () => {
       plugins: [notes, characters, shellWorkbench, shellMobile],
     });
     const { container } = mountWithClient(h, () => <PendingRollSheet />);
-    expect(
-      container.querySelector("[data-testid='pending-roll-sheet']"),
-    ).toBeNull();
+    expect(container.querySelector("[data-testid='pending-roll-sheet']")).toBeNull();
   });
 
   it("auto-presents at full height when a pending roll appears", () => {
@@ -541,21 +478,12 @@ describe("PendingRollSheet", () => {
     mountWithClient(h, () => <PendingRollSheet />);
 
     // Starts full → collapse to peek.
-    expect(screen.getByTestId("pending-roll-sheet")).toHaveAttribute(
-      "data-state",
-      "full",
-    );
+    expect(screen.getByTestId("pending-roll-sheet")).toHaveAttribute("data-state", "full");
     fireEvent.click(screen.getByRole("button", { name: /collapse pending roll/i }));
-    expect(screen.getByTestId("pending-roll-sheet")).toHaveAttribute(
-      "data-state",
-      "peek",
-    );
+    expect(screen.getByTestId("pending-roll-sheet")).toHaveAttribute("data-state", "peek");
     // Tap the handle in peek state to expand back to full.
     fireEvent.click(screen.getByRole("button", { name: /expand pending roll/i }));
-    expect(screen.getByTestId("pending-roll-sheet")).toHaveAttribute(
-      "data-state",
-      "full",
-    );
+    expect(screen.getByTestId("pending-roll-sheet")).toHaveAttribute("data-state", "full");
   });
 
   it("content area is scrollable so the Roll button at the bottom is reachable", () => {
@@ -574,9 +502,7 @@ describe("PendingRollSheet", () => {
         ]),
     });
     const { container } = mountWithClient(h, () => <PendingRollSheet />);
-    const sheet = container.querySelector(
-      "[data-testid='pending-roll-sheet']",
-    ) as HTMLElement;
+    const sheet = container.querySelector("[data-testid='pending-roll-sheet']") as HTMLElement;
     // The flex child wrapping PendingRollPanels — second child after the
     // header button — must scroll vertically when content overflows.
     const scrollable = sheet.children[1] as HTMLElement;

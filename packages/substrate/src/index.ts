@@ -64,22 +64,9 @@ export {
   runDerivationPass,
   deepEqual,
 } from "./derivation.js";
-export type {
-  DerivationDef,
-  AnyDerivationDef,
-  DerivationContext,
-} from "./derivation.js";
-export {
-  defineRollable,
-  invokeRollable,
-  previewRollable,
-  validateRollables,
-} from "./rollable.js";
-export type {
-  RollableDef,
-  AnyRollableDef,
-  RollableContext,
-} from "./rollable.js";
+export type { DerivationDef, AnyDerivationDef, DerivationContext } from "./derivation.js";
+export { defineRollable, invokeRollable, previewRollable, validateRollables } from "./rollable.js";
+export type { RollableDef, AnyRollableDef, RollableContext } from "./rollable.js";
 export {
   RootSurface,
   ConnectionOpened,
@@ -119,11 +106,7 @@ export type { CommandEnvelope, DispatchResult } from "./command-pipeline.js";
 export { runSystemsToFixpoint } from "./systems-runner.js";
 export { WireMsg } from "./protocol.js";
 export { toPersistedEvent } from "./persistence.js";
-export type {
-  PersistenceAdapter,
-  PersistedEvent,
-  PersistedSnapshot,
-} from "./persistence.js";
+export type { PersistenceAdapter, PersistedEvent, PersistedSnapshot } from "./persistence.js";
 export type {
   WorldsRepository,
   WorldRecord,

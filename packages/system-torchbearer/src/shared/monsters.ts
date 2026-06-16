@@ -15,22 +15,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  ok,
-  z,
-  type EventInstance,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, ok, z, type EventInstance } from "@vtt/substrate";
 import { ItemCatalogIndex } from "@vtt/items/shared";
 import { requireSession } from "@vtt/identity/shared";
 import { requireWrite } from "@vtt/permissions/shared";
 import { TB_MONSTER_TEMPLATES } from "../data/tb-monsters.generated.js";
-import type {
-  TbMonsterTemplate,
-  TbMonsterWeaponTemplate,
-} from "../data/monster-catalog-types.js";
+import type { TbMonsterTemplate, TbMonsterWeaponTemplate } from "../data/monster-catalog-types.js";
 import { MonsterCreated, MonsterRemoved } from "./monster-events.js";
 
 const TB_PLUGIN_NAME = "@vtt/system-torchbearer";
@@ -40,9 +30,7 @@ const TB_PLUGIN_NAME = "@vtt/system-torchbearer";
  * few dozen monsters and the catalog is built once at module load.
  * If runtime cost ever matters this becomes a Map.
  */
-export function monsterTemplateById(
-  templateId: string,
-): TbMonsterTemplate | undefined {
+export function monsterTemplateById(templateId: string): TbMonsterTemplate | undefined {
   return TB_MONSTER_TEMPLATES.find((t) => t.id === templateId);
 }
 

@@ -15,22 +15,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  qualifiedName,
-  type CommandInstance,
-  type EntityId,
-} from "@vtt/substrate";
+import { qualifiedName, type CommandInstance, type EntityId } from "@vtt/substrate";
 import { kit } from "@vtt/characters/client";
 import type { CharacterSheetTab } from "@vtt/characters/shared";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
-import {
-  createMemo,
-  createSignal,
-  For,
-  onCleanup,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 import {
   CustomizeItem,
   DestroyItem,
@@ -54,10 +43,7 @@ void ItemDerivedFrom;
  * never be destroyed by inventory operations — only forks of them
  * are per-character-specific and safe to delete on Remove.
  */
-function isCatalogTemplate(
-  world: import("@vtt/substrate").World,
-  itemId: EntityId,
-): boolean {
+function isCatalogTemplate(world: import("@vtt/substrate").World, itemId: EntityId): boolean {
   for (const row of world.query([ItemCatalogIndex])) {
     const v = row.values.ItemCatalogIndex as {
       entries: Record<string, string>;
@@ -124,9 +110,7 @@ function InventoryTab(props: { characterId: string }): JSX.Element {
   const carries = useTrait(props.characterId, TbCarries) as () =>
     | { entries: ReadonlyArray<CarryEntry> }
     | undefined;
-  const entries = createMemo<ReadonlyArray<CarryEntry>>(
-    () => carries()?.entries ?? [],
-  );
+  const entries = createMemo<ReadonlyArray<CarryEntry>>(() => carries()?.entries ?? []);
 
   const liveEntries = createMemo(() =>
     entries().filter((e) => !e.state?.dropped && !e.state?.lost),
@@ -145,10 +129,7 @@ function InventoryTab(props: { characterId: string }): JSX.Element {
         | undefined;
       if (!got) return;
       for (const e of got.TbCarries.entries) {
-        if (
-          client.world.get(e.itemId as never, [TbContainer]) &&
-          !out.has(e.itemId)
-        ) {
+        if (client.world.get(e.itemId as never, [TbContainer]) && !out.has(e.itemId)) {
           out.add(e.itemId);
           visit(e.itemId);
         }
@@ -164,9 +145,11 @@ function InventoryTab(props: { characterId: string }): JSX.Element {
     const out: Array<{ holderId: string; entry: CarryEntry; index: number }> = [];
     for (const row of allCarries()) {
       if (!r.has(row.id)) continue;
-      const entries = (row.values.TbCarries as {
-        entries: ReadonlyArray<CarryEntry>;
-      }).entries;
+      const entries = (
+        row.values.TbCarries as {
+          entries: ReadonlyArray<CarryEntry>;
+        }
+      ).entries;
       entries.forEach((entry, index) => {
         if (entry.state?.lost) {
           out.push({ holderId: row.id, entry, index });
@@ -190,28 +173,15 @@ function InventoryTab(props: { characterId: string }): JSX.Element {
 
       <For each={BODY_SLOT_PANELS}>
         {(panel) => (
-          <SlotPanel
-            characterId={props.characterId}
-            panel={panel}
-            entries={liveEntries}
-          />
+          <SlotPanel characterId={props.characterId} panel={panel} entries={liveEntries} />
         )}
       </For>
 
-      <PackPanel
-        characterId={props.characterId}
-        entries={liveEntries}
-      />
+      <PackPanel characterId={props.characterId} entries={liveEntries} />
 
-      <LoosePanel
-        characterId={props.characterId}
-        entries={liveEntries}
-      />
+      <LoosePanel characterId={props.characterId} entries={liveEntries} />
 
-      <GroundPanel
-        characterId={props.characterId}
-        items={groundEntries}
-      />
+      <GroundPanel characterId={props.characterId} items={groundEntries} />
 
       <ZonePanel
         title="Missing"
@@ -246,12 +216,13 @@ function CatalogQuickAdd(props: { characterId: string }): JSX.Element {
 
   const matches = createMemo(() => {
     const q = query().trim().toLowerCase();
-    if (q.length < 2) return [] as Array<{
-      id: EntityId;
-      name: string;
-      img: string;
-      slotOptions: Record<string, number>;
-    }>;
+    if (q.length < 2)
+      return [] as Array<{
+        id: EntityId;
+        name: string;
+        img: string;
+        slotOptions: Record<string, number>;
+      }>;
     const idxd = indexed();
     const out = catalog()
       .filter((row) => idxd.has(row.id))
@@ -356,12 +327,7 @@ function CatalogQuickAdd(props: { characterId: string }): JSX.Element {
             }}
           >
             <For each={matches()}>
-              {(m) => (
-                <CatalogRow
-                  characterId={props.characterId}
-                  item={m}
-                />
-              )}
+              {(m) => <CatalogRow characterId={props.characterId} item={m} />}
             </For>
           </ul>
         </Show>
@@ -422,9 +388,7 @@ function CatalogRow(props: {
               slotKey={slotKey}
               slotsConsumed={cost}
               isOpen={openPicker() === slotKey}
-              onToggleOpen={() =>
-                setOpenPicker(openPicker() === slotKey ? null : slotKey)
-              }
+              onToggleOpen={() => setOpenPicker(openPicker() === slotKey ? null : slotKey)}
               onClose={() => setOpenPicker(null)}
             />
           )}
@@ -547,8 +511,7 @@ function CatalogPill(props: {
           background: "var(--color-surface)",
           color: "var(--color-fg)",
           "border-radius": "0.25rem",
-          cursor:
-            canEdit() && destinations().length > 0 ? "pointer" : "default",
+          cursor: canEdit() && destinations().length > 0 ? "pointer" : "default",
         }}
         title={
           destinations().length === 0
@@ -657,10 +620,7 @@ function SlotPanel(props: {
         // Two-handed entries (slot="hands") appear in BOTH hand
         // panels of the matching channel — that's the whole point
         // of a "both hands" placement: each hand is occupied.
-        if (
-          e.entry.slot === "hands" &&
-          (want.slot === "handR" || want.slot === "handL")
-        ) {
+        if (e.entry.slot === "hands" && (want.slot === "handR" || want.slot === "handL")) {
           return true;
         }
         return false;
@@ -684,11 +644,7 @@ function SlotPanel(props: {
       class="vk-slot-panel"
       data-overfull={isOverfull() ? "true" : "false"}
       style={{
-        border: `1px solid ${
-          isOverfull()
-            ? "var(--color-danger)"
-            : "var(--color-border-muted)"
-        }`,
+        border: `1px solid ${isOverfull() ? "var(--color-danger)" : "var(--color-border-muted)"}`,
         "border-radius": "0.4rem",
         padding: "0.5rem 0.75rem",
         background: isOverfull()
@@ -708,9 +664,7 @@ function SlotPanel(props: {
         <span
           style={{
             "font-size": "0.75rem",
-            color: isOverfull()
-              ? "var(--color-danger)"
-              : "var(--color-fg-subtle)",
+            color: isOverfull() ? "var(--color-danger)" : "var(--color-fg-subtle)",
           }}
         >
           {cap().used}
@@ -744,11 +698,7 @@ function SlotPanel(props: {
         >
           <For each={occupants()}>
             {(o) => (
-              <ItemRow
-                characterId={props.characterId}
-                entry={o.entry}
-                entryIndex={o.index}
-              />
+              <ItemRow characterId={props.characterId} entry={o.entry} entryIndex={o.index} />
             )}
           </For>
         </ul>
@@ -767,19 +717,15 @@ function PackPanel(props: {
 }): JSX.Element {
   const client = useClient();
   const containers = createMemo(() =>
-    props.entries()
+    props
+      .entries()
       .filter((e) => Boolean(client.world.get(e.itemId, [TbContainer])))
       .map((e) => e.itemId),
   );
   return (
     <Show when={containers().length > 0}>
       <For each={containers()}>
-        {(cid) => (
-          <ContainerPanel
-            containerId={cid}
-            permissionEntityId={props.characterId}
-          />
-        )}
+        {(cid) => <ContainerPanel containerId={cid} permissionEntityId={props.characterId} />}
       </For>
     </Show>
   );
@@ -800,9 +746,7 @@ function ContainerPanel(props: {
     | { containerType: string; containerSlots: number }
     | undefined;
   const entries = createMemo(() => carries()?.entries ?? []);
-  const live = createMemo(() =>
-    entries().filter((e) => !e.state?.dropped && !e.state?.lost),
-  );
+  const live = createMemo(() => entries().filter((e) => !e.state?.dropped && !e.state?.lost));
   const cap = createMemo(() => {
     carries(); // observe the trait so this recomputes on every change
     return summarizeCapacity({
@@ -812,17 +756,11 @@ function ContainerPanel(props: {
       channel: "default",
     });
   });
-  const isOverfull = createMemo(
-    () => cap().limit !== null && cap().used > (cap().limit ?? 0),
-  );
+  const isOverfull = createMemo(() => cap().limit !== null && cap().used > (cap().limit ?? 0));
   return (
     <section
       style={{
-        border: `1px solid ${
-          isOverfull()
-            ? "var(--color-danger)"
-            : "var(--color-border-muted)"
-        }`,
+        border: `1px solid ${isOverfull() ? "var(--color-danger)" : "var(--color-border-muted)"}`,
         "border-radius": "0.4rem",
         padding: "0.5rem 0.75rem",
         background: isOverfull()
@@ -861,9 +799,7 @@ function ContainerPanel(props: {
         <span
           style={{
             "font-size": "0.75rem",
-            color: isOverfull()
-              ? "var(--color-danger)"
-              : "var(--color-fg-subtle)",
+            color: isOverfull() ? "var(--color-danger)" : "var(--color-fg-subtle)",
           }}
         >
           {cap().used}
@@ -974,11 +910,7 @@ function LoosePanel(props: {
         >
           <For each={loose(props.entries())}>
             {(o) => (
-              <ItemRow
-                characterId={props.characterId}
-                entry={o.entry}
-                entryIndex={o.index}
-              />
+              <ItemRow characterId={props.characterId} entry={o.entry} entryIndex={o.index} />
             )}
           </For>
         </ul>
@@ -987,9 +919,7 @@ function LoosePanel(props: {
   );
 }
 
-function loose(
-  all: ReadonlyArray<CarryEntry>,
-): Array<{ entry: CarryEntry; index: number }> {
+function loose(all: ReadonlyArray<CarryEntry>): Array<{ entry: CarryEntry; index: number }> {
   return all
     .map((entry, index) => ({ entry, index }))
     .filter(({ entry }) => entry.slot.startsWith("loose:"));
@@ -1013,9 +943,7 @@ function containerHasLiveContents(
     | { TbCarries: { entries: ReadonlyArray<{ state?: { dropped?: boolean; lost?: boolean } }> } }
     | undefined;
   if (!got) return false;
-  return got.TbCarries.entries.some(
-    (e) => !e.state?.dropped && !e.state?.lost,
-  );
+  return got.TbCarries.entries.some((e) => !e.state?.dropped && !e.state?.lost);
 }
 
 function ContainerPeek(props: { containerId: EntityId }): JSX.Element {
@@ -1043,14 +971,10 @@ function ContainerPeek(props: { containerId: EntityId }): JSX.Element {
       <Show
         when={visible().length > 0}
         fallback={
-          <li style={{ color: "var(--color-fg-subtle)", "font-style": "italic" }}>
-            empty
-          </li>
+          <li style={{ color: "var(--color-fg-subtle)", "font-style": "italic" }}>empty</li>
         }
       >
-        <For each={visible()}>
-          {(entry) => <PeekRow entry={entry} />}
-        </For>
+        <For each={visible()}>{(entry) => <PeekRow entry={entry} />}</For>
       </Show>
     </ul>
   );
@@ -1064,9 +988,7 @@ function PeekRow(props: { entry: CarryEntry }): JSX.Element {
   const bundle = useTrait(props.entry.itemId, ItemBundle) as () =>
     | { count: number; capacity: number }
     | undefined;
-  const isContainer = createMemo(() =>
-    !!client.world.get(props.entry.itemId, [TbContainer]),
-  );
+  const isContainer = createMemo(() => !!client.world.get(props.entry.itemId, [TbContainer]));
   const hasContents = createMemo(() =>
     containerHasLiveContents(client.world, props.entry.itemId as EntityId),
   );
@@ -1110,9 +1032,7 @@ function PeekRow(props: { entry: CarryEntry }): JSX.Element {
           </small>
         </Show>
         <Show when={isContainer() && !hasContents()}>
-          <small style={{ color: "var(--color-fg-subtle)", "font-style": "italic" }}>
-            empty
-          </small>
+          <small style={{ color: "var(--color-fg-subtle)", "font-style": "italic" }}>empty</small>
         </Show>
       </span>
       <Show when={open() && isContainer() && hasContents()}>
@@ -1177,10 +1097,7 @@ function GroundPanel(props: {
         >
           <For each={props.items()}>
             {(itemId) => (
-              <GroundItemRow
-                characterId={props.characterId as EntityId}
-                itemId={itemId}
-              />
+              <GroundItemRow characterId={props.characterId as EntityId} itemId={itemId} />
             )}
           </For>
         </ul>
@@ -1189,10 +1106,7 @@ function GroundPanel(props: {
   );
 }
 
-function GroundItemRow(props: {
-  characterId: EntityId;
-  itemId: EntityId;
-}): JSX.Element {
+function GroundItemRow(props: { characterId: EntityId; itemId: EntityId }): JSX.Element {
   const client = useClient();
   const canEdit = kit.useCanEdit(props.characterId);
   const ident = useTrait(props.itemId, ItemIdentity) as () =>
@@ -1216,23 +1130,17 @@ function GroundItemRow(props: {
   const removeFromGround = (): void => {
     if (
       typeof window !== "undefined" &&
-      !window.confirm(
-        `Remove "${ident()?.name ?? "item"}" from the ground?`,
-      )
+      !window.confirm(`Remove "${ident()?.name ?? "item"}" from the ground?`)
     ) {
       return;
     }
-    void client.dispatch(
-      RemoveFromGround({ itemId: props.itemId }) as CommandInstance,
-    );
+    void client.dispatch(RemoveFromGround({ itemId: props.itemId }) as CommandInstance);
     // Same rule as inventory Remove: destroy the entity unless it's
     // a shared catalog template. Drop-from-catalog auto-forks
     // containers but plain `gear`-shaped catalog items reach the
     // ground as the catalog entity itself; leave those alone.
     if (!isCatalogTemplate(client.world, props.itemId)) {
-      void client.dispatch(
-        DestroyItem({ itemId: props.itemId }) as CommandInstance,
-      );
+      void client.dispatch(DestroyItem({ itemId: props.itemId }) as CommandInstance);
     }
   };
 
@@ -1313,9 +1221,7 @@ function GroundItemRow(props: {
               slotKey={slotKey}
               slotsConsumed={cost}
               isOpen={openPicker() === slotKey}
-              onToggleOpen={() =>
-                setOpenPicker(openPicker() === slotKey ? null : slotKey)
-              }
+              onToggleOpen={() => setOpenPicker(openPicker() === slotKey ? null : slotKey)}
               onClose={() => setOpenPicker(null)}
             />
           )}
@@ -1426,8 +1332,7 @@ function GroundSlotPill(props: {
           background: "var(--color-surface)",
           color: "var(--color-fg)",
           "border-radius": "0.25rem",
-          cursor:
-            canEdit() && destinations().length > 0 ? "pointer" : "default",
+          cursor: canEdit() && destinations().length > 0 ? "pointer" : "default",
         }}
       >
         {slotShortLabel(props.slotKey)}·{props.slotsConsumed}
@@ -1555,9 +1460,7 @@ function ItemRow(props: {
   clearOnPlace?: "dropped" | "missing";
 }): JSX.Element {
   const client = useClient();
-  const characterEntityId = (props.permissionEntityId ?? props.characterId) as
-    | EntityId
-    | string;
+  const characterEntityId = (props.permissionEntityId ?? props.characterId) as EntityId | string;
   const canEdit = kit.useCanEdit(characterEntityId);
   const ident = useTrait(props.entry.itemId, ItemIdentity) as () =>
     | { name: string; img: string }
@@ -1584,9 +1487,8 @@ function ItemRow(props: {
   // SetEntryState validator enforces. UI disables the button so
   // there's no failed-dispatch round-trip; the validator is the
   // authority.
-  const isStowed = createMemo(() =>
-    typeof props.entry.slot === "string" &&
-    props.entry.slot.startsWith("container:"),
+  const isStowed = createMemo(
+    () => typeof props.entry.slot === "string" && props.entry.slot.startsWith("container:"),
   );
   const carries = useTrait(props.characterId, TbCarries) as () =>
     | { entries: ReadonlyArray<CarryEntry> }
@@ -1597,13 +1499,10 @@ function ItemRow(props: {
   const itemCarries = useTrait(props.entry.itemId, TbCarries) as () =>
     | { entries: ReadonlyArray<CarryEntry> }
     | undefined;
-  const isContainer = createMemo(() =>
-    !!client.world.get(props.entry.itemId, [TbContainer]),
-  );
+  const isContainer = createMemo(() => !!client.world.get(props.entry.itemId, [TbContainer]));
   const peekable = createMemo(() => {
     void itemCarries();
-    return isContainer() &&
-      containerHasLiveContents(client.world, props.entry.itemId);
+    return isContainer() && containerHasLiveContents(client.world, props.entry.itemId);
   });
   const liquidVessel = useTrait(props.entry.itemId, TbLiquidVessel) as () =>
     | { contents: "water" | "wine" | "other" | "empty" }
@@ -1726,7 +1625,7 @@ function ItemRow(props: {
       | { TbCarries: { entries: ReadonlyArray<{ itemId: string }> } }
       | undefined;
     const reboundId = got?.TbCarries.entries[props.entryIndex]?.itemId;
-    return ((reboundId as EntityId | undefined) ?? sourceId);
+    return (reboundId as EntityId | undefined) ?? sourceId;
   };
   const setBundleCount = async (next: number): Promise<void> => {
     const got = bundle();
@@ -1742,9 +1641,7 @@ function ItemRow(props: {
       }) as CommandInstance,
     );
   };
-  const setVesselContents = async (
-    next: "water" | "wine" | "other" | "empty",
-  ): Promise<void> => {
+  const setVesselContents = async (next: "water" | "wine" | "other" | "empty"): Promise<void> => {
     const current = liquidVessel()?.contents;
     if (current === next) return;
     const targetId = await ensureForkedItemId();
@@ -1797,55 +1694,52 @@ function ItemRow(props: {
   // bundle-compatible peer of this row's item: same catalog
   // templateId (if both are catalog-derived), else same identity
   // name. The destination must have headroom (`count < capacity`).
-  const mergeTargets = createMemo<
-    Array<{ entryIndex: number; itemId: EntityId; ordinal: number }>
-  >(() => {
-    const got = bundle();
-    if (!got) return [];
-    const all = carries()?.entries ?? [];
-    const myDerived = client.world.get(props.entry.itemId, [
-      ItemDerivedFrom,
-    ]) as { ItemDerivedFrom: { templateId: string } } | undefined;
-    const myIdent = ident();
-    const sameByItemId = new Map<string, number[]>();
-    all.forEach((e, idx) => {
-      const arr = sameByItemId.get(e.itemId) ?? [];
-      arr.push(idx);
-      sameByItemId.set(e.itemId, arr);
-    });
-    const out: Array<{ entryIndex: number; itemId: EntityId; ordinal: number }> = [];
-    for (let i = 0; i < all.length; i++) {
-      if (i === props.entryIndex) continue;
-      const e = all[i]!;
-      if (e.itemId === props.entry.itemId) continue;
-      const peerBundle = client.world.get(e.itemId as EntityId, [ItemBundle]) as
-        | { ItemBundle: { count: number; capacity: number } }
+  const mergeTargets = createMemo<Array<{ entryIndex: number; itemId: EntityId; ordinal: number }>>(
+    () => {
+      const got = bundle();
+      if (!got) return [];
+      const all = carries()?.entries ?? [];
+      const myDerived = client.world.get(props.entry.itemId, [ItemDerivedFrom]) as
+        | { ItemDerivedFrom: { templateId: string } }
         | undefined;
-      if (!peerBundle) continue;
-      if (peerBundle.ItemBundle.count >= peerBundle.ItemBundle.capacity) continue;
-      const peerDerived = client.world.get(e.itemId as EntityId, [
-        ItemDerivedFrom,
-      ]) as { ItemDerivedFrom: { templateId: string } } | undefined;
-      let compatible = false;
-      if (myDerived && peerDerived) {
-        compatible =
-          myDerived.ItemDerivedFrom.templateId ===
-          peerDerived.ItemDerivedFrom.templateId;
-      } else if (!myDerived && !peerDerived) {
-        const peerIdent = client.world.get(e.itemId as EntityId, [ItemIdentity]) as
-          | { ItemIdentity: { name: string } }
+      const myIdent = ident();
+      const sameByItemId = new Map<string, number[]>();
+      all.forEach((e, idx) => {
+        const arr = sameByItemId.get(e.itemId) ?? [];
+        arr.push(idx);
+        sameByItemId.set(e.itemId, arr);
+      });
+      const out: Array<{ entryIndex: number; itemId: EntityId; ordinal: number }> = [];
+      for (let i = 0; i < all.length; i++) {
+        if (i === props.entryIndex) continue;
+        const e = all[i]!;
+        if (e.itemId === props.entry.itemId) continue;
+        const peerBundle = client.world.get(e.itemId as EntityId, [ItemBundle]) as
+          | { ItemBundle: { count: number; capacity: number } }
           | undefined;
-        compatible = !!myIdent && !!peerIdent &&
-          myIdent.name === peerIdent.ItemIdentity.name;
+        if (!peerBundle) continue;
+        if (peerBundle.ItemBundle.count >= peerBundle.ItemBundle.capacity) continue;
+        const peerDerived = client.world.get(e.itemId as EntityId, [ItemDerivedFrom]) as
+          | { ItemDerivedFrom: { templateId: string } }
+          | undefined;
+        let compatible = false;
+        if (myDerived && peerDerived) {
+          compatible =
+            myDerived.ItemDerivedFrom.templateId === peerDerived.ItemDerivedFrom.templateId;
+        } else if (!myDerived && !peerDerived) {
+          const peerIdent = client.world.get(e.itemId as EntityId, [ItemIdentity]) as
+            | { ItemIdentity: { name: string } }
+            | undefined;
+          compatible = !!myIdent && !!peerIdent && myIdent.name === peerIdent.ItemIdentity.name;
+        }
+        if (!compatible) continue;
+        const sameAll = sameByItemId.get(e.itemId) ?? [];
+        const ordinal = sameAll.length > 1 ? sameAll.indexOf(i) + 1 : 0;
+        out.push({ entryIndex: i, itemId: e.itemId as EntityId, ordinal });
       }
-      if (!compatible) continue;
-      const sameAll = sameByItemId.get(e.itemId) ?? [];
-      const ordinal =
-        sameAll.length > 1 ? sameAll.indexOf(i) + 1 : 0;
-      out.push({ entryIndex: i, itemId: e.itemId as EntityId, ordinal });
-    }
-    return out;
-  });
+      return out;
+    },
+  );
 
   const combineInto = (destItemId: EntityId): void => {
     void client.dispatch(
@@ -1879,9 +1773,7 @@ function ItemRow(props: {
     // Catalog templates are world-shared and must survive the
     // remove so other characters keep their copies.
     if (!isCatalogTemplate(client.world, props.entry.itemId)) {
-      void client.dispatch(
-        DestroyItem({ itemId: props.entry.itemId }) as CommandInstance,
-      );
+      void client.dispatch(DestroyItem({ itemId: props.entry.itemId }) as CommandInstance);
     }
   };
 
@@ -1923,7 +1815,11 @@ function ItemRow(props: {
           "flex-wrap": "wrap",
         }}
       >
-        <Show when={peekable() && (props.clearOnPlace === "dropped" || props.clearOnPlace === "missing")}>
+        <Show
+          when={
+            peekable() && (props.clearOnPlace === "dropped" || props.clearOnPlace === "missing")
+          }
+        >
           <button
             type="button"
             onClick={() => setPeekOpen(!peekOpen())}
@@ -1968,9 +1864,7 @@ function ItemRow(props: {
           )}
         </Show>
         <Show when={props.entry.quantity > 1}>
-          <small style={{ color: "var(--color-fg-subtle)" }}>
-            ×{props.entry.quantity}
-          </small>
+          <small style={{ color: "var(--color-fg-subtle)" }}>×{props.entry.quantity}</small>
         </Show>
         <Show when={bundle()}>
           {(bAcc) => (
@@ -1996,8 +1890,7 @@ function ItemRow(props: {
                 <For each={Array.from({ length: bAcc().capacity })}>
                   {(_, i) => {
                     const filled = (): boolean => i() < bAcc().count;
-                    const targetCount = (): number =>
-                      filled() ? i() : i() + 1;
+                    const targetCount = (): number => (filled() ? i() : i() + 1);
                     return (
                       <button
                         type="button"
@@ -2016,9 +1909,7 @@ function ItemRow(props: {
                           height: "0.7rem",
                           "border-radius": "50%",
                           border: "1px solid var(--color-fg-subtle)",
-                          background: filled()
-                            ? "var(--color-fg)"
-                            : "transparent",
+                          background: filled() ? "var(--color-fg)" : "transparent",
                           opacity: filled() ? 1 : 0.45,
                         }}
                       />
@@ -2043,11 +1934,7 @@ function ItemRow(props: {
               data-testid={`liquid-${props.entry.itemId}-${props.entryIndex}`}
               title="What this vessel currently holds"
               onChange={(e) => {
-                const v = e.currentTarget.value as
-                  | "water"
-                  | "wine"
-                  | "other"
-                  | "empty";
+                const v = e.currentTarget.value as "water" | "wine" | "other" | "empty";
                 void setVesselContents(v);
               }}
               style={{
@@ -2131,10 +2018,7 @@ function ItemRow(props: {
                 style={{
                   ...tinyButton(),
                   opacity: props.entry.state?.spent || isStowed() ? 0.5 : 1,
-                  cursor:
-                    props.entry.state?.spent || isStowed()
-                      ? "default"
-                      : "pointer",
+                  cursor: props.entry.state?.spent || isStowed() ? "default" : "pointer",
                 }}
                 title={
                   isStowed()
@@ -2234,15 +2118,13 @@ function ItemRow(props: {
                   <For each={mergeTargets()}>
                     {(t) => {
                       const peerName = (() => {
-                        const id = client.world.get(t.itemId, [
-                          ItemIdentity,
-                        ]) as { ItemIdentity: { name: string } } | undefined;
+                        const id = client.world.get(t.itemId, [ItemIdentity]) as
+                          | { ItemIdentity: { name: string } }
+                          | undefined;
                         const base = id?.ItemIdentity.name ?? "stack";
                         return t.ordinal > 0 ? `${base} #${t.ordinal}` : base;
                       })();
-                      const peerB = client.world.get(t.itemId, [
-                        ItemBundle,
-                      ]) as
+                      const peerB = client.world.get(t.itemId, [ItemBundle]) as
                         | { ItemBundle: { count: number; capacity: number } }
                         | undefined;
                       const room = peerB
@@ -2268,9 +2150,7 @@ function ItemRow(props: {
                             }}
                           >
                             <span>{peerName}</span>
-                            <span style={{ color: "var(--color-fg-subtle)" }}>
-                              {room}
-                            </span>
+                            <span style={{ color: "var(--color-fg-subtle)" }}>{room}</span>
                           </button>
                         </li>
                       );
@@ -2321,9 +2201,7 @@ function ItemRow(props: {
               slotKey={slotKey}
               slotsConsumed={cost}
               isOpen={openPicker() === slotKey}
-              onToggleOpen={() =>
-                setOpenPicker(openPicker() === slotKey ? null : slotKey)
-              }
+              onToggleOpen={() => setOpenPicker(openPicker() === slotKey ? null : slotKey)}
               onClose={() => setOpenPicker(null)}
               onAfterPlace={onPlaced}
             />
@@ -2431,8 +2309,7 @@ function SlotPill(props: {
     onCleanup(() => document.removeEventListener("click", onDocClick));
   }
 
-  const label = (): string =>
-    `${slotShortLabel(props.slotKey)}·${props.slotsConsumed}`;
+  const label = (): string => `${slotShortLabel(props.slotKey)}·${props.slotsConsumed}`;
 
   return (
     <span style={{ position: "relative" }}>
@@ -2446,12 +2323,8 @@ function SlotPill(props: {
         style={{
           "font-size": "0.75rem",
           padding: "0.15rem 0.5rem",
-          border: `1px solid ${
-            isCurrent() ? "var(--color-accent)" : "var(--color-border)"
-          }`,
-          background: isCurrent()
-            ? "var(--color-accent)"
-            : "var(--color-surface)",
+          border: `1px solid ${isCurrent() ? "var(--color-accent)" : "var(--color-border)"}`,
+          background: isCurrent() ? "var(--color-accent)" : "var(--color-surface)",
           color: isCurrent() ? "var(--color-accent-fg)" : "var(--color-fg)",
           "border-radius": "0.25rem",
           cursor: canEdit() && !isCurrent() ? "pointer" : "default",
@@ -2528,8 +2401,7 @@ function SlotPicker(props: {
       <For each={props.destinations}>
         {(d) => {
           const overfill =
-            d.capacity.limit !== null &&
-            d.capacity.used + props.slotsConsumed > d.capacity.limit;
+            d.capacity.limit !== null && d.capacity.used + props.slotsConsumed > d.capacity.limit;
           return (
             <button
               type="button"
@@ -2559,9 +2431,7 @@ function SlotPicker(props: {
               <span
                 style={{
                   "font-size": "0.7rem",
-                  color: overfill
-                    ? "var(--color-danger)"
-                    : "var(--color-fg-subtle)",
+                  color: overfill ? "var(--color-danger)" : "var(--color-fg-subtle)",
                 }}
               >
                 {d.capacity.limit === null
@@ -2624,9 +2494,7 @@ export function resolveDestinations(args: ResolveArgs): Destination[] {
     case "feet":
     case "pocket":
     case "belt":
-      return [
-        directBodyDestination(world, characterId, slotKey, "default", slotsConsumed),
-      ];
+      return [directBodyDestination(world, characterId, slotKey, "default", slotsConsumed)];
     case "hands":
       // Catalog "hands:N" — gloves and similar worn-on-both-hands
       // items. Stored at slot="hands", channel="worn" so each hand
@@ -2740,8 +2608,8 @@ export function resolveDestinations(args: ResolveArgs): Destination[] {
             },
           ];
     case "pack":
-      return collectContainers(world, characterId, args.entry.itemId, () => true).map(
-        (c) => containerDestination(world, c.id, c.label, c.depth),
+      return collectContainers(world, characterId, args.entry.itemId, () => true).map((c) =>
+        containerDestination(world, c.id, c.label, c.depth),
       );
     case "pouch":
       return collectContainers(
@@ -2870,14 +2738,12 @@ function isCurrentSlot(entry: CarryEntry, slotKey: string): boolean {
   switch (slotKey) {
     case "carried":
       return (
-        ((entry.slot === "handR" || entry.slot === "handL") &&
-          entry.channel === "carried") ||
+        ((entry.slot === "handR" || entry.slot === "handL") && entry.channel === "carried") ||
         (entry.slot === "hands" && entry.channel === "carried")
       );
     case "wornHand":
       return (
-        ((entry.slot === "handR" || entry.slot === "handL") &&
-          entry.channel === "worn") ||
+        ((entry.slot === "handR" || entry.slot === "handL") && entry.channel === "worn") ||
         (entry.slot === "hands" && entry.channel === "worn")
       );
     case "pack":
@@ -2929,9 +2795,7 @@ function moveEntryToDestination(args: MoveArgs): void {
     | { ItemBundle: { count: number; capacity: number } }
     | undefined;
   const shouldAutoSplit =
-    !!bundle &&
-    bundle.ItemBundle.count > 1 &&
-    destination.channel === "carried";
+    !!bundle && bundle.ItemBundle.count > 1 && destination.channel === "carried";
 
   if (shouldAutoSplit) {
     void splitOneThenPlace(args);
@@ -2951,9 +2815,7 @@ function moveEntryToDestination(args: MoveArgs): void {
         // Pass through whenever it's known different so the entry
         // updates atomically and the new validate sees the right
         // cost.
-        ...(slotsConsumed !== entry.slotsConsumed
-          ? { toSlotsConsumed: slotsConsumed }
-          : {}),
+        ...(slotsConsumed !== entry.slotsConsumed ? { toSlotsConsumed: slotsConsumed } : {}),
       }) as CommandInstance,
     );
     return;
@@ -3022,9 +2884,7 @@ async function splitOneThenPlace(args: MoveArgs): Promise<void> {
     | { TbCarries: { entries: Array<{ itemId: string; slotsConsumed: number; quantity: number }> } }
     | undefined;
   if (!carries) return;
-  const newIndex = carries.TbCarries.entries.findIndex(
-    (e) => !beforeIds.has(e.itemId),
-  );
+  const newIndex = carries.TbCarries.entries.findIndex((e) => !beforeIds.has(e.itemId));
   if (newIndex < 0) return;
   const newEntry = carries.TbCarries.entries[newIndex]!;
 
@@ -3036,9 +2896,7 @@ async function splitOneThenPlace(args: MoveArgs): Promise<void> {
         toSlot: destination.slot,
         toSlotIndex: 0,
         toChannel: destination.channel,
-        ...(slotsConsumed !== newEntry.slotsConsumed
-          ? { toSlotsConsumed: slotsConsumed }
-          : {}),
+        ...(slotsConsumed !== newEntry.slotsConsumed ? { toSlotsConsumed: slotsConsumed } : {}),
       }) as CommandInstance,
     );
     return;
@@ -3063,7 +2921,6 @@ async function splitOneThenPlace(args: MoveArgs): Promise<void> {
     }) as CommandInstance,
   );
 }
-
 
 function tinyButton(): JSX.CSSProperties {
   return {

@@ -187,7 +187,15 @@ describe("registry validation", () => {
     // duplicate-detection requires both to come through validateRollables.
     // Force the situation by loading two plugins with the same name on
     // their rollable.
-    reg.load(definePlugin({ name: "@test/r-dupe", version: "0.0.0", traits: [T], commands: [RDice], rollables: [a] }));
+    reg.load(
+      definePlugin({
+        name: "@test/r-dupe",
+        version: "0.0.0",
+        traits: [T],
+        commands: [RDice],
+        rollables: [a],
+      }),
+    );
     reg.load(definePlugin({ name: "@test/r-dupe-b", version: "0.0.0", rollables: [b] }));
     // Map.set overwrites, so the duplicate name is visible only via the
     // Plugin accumulation order — registry.rollables only has one entry.
@@ -205,10 +213,7 @@ describe("registry validation", () => {
 describe("invokeRollable / previewRollable", () => {
   it("computes a roll spec and builds a dispatchable command", () => {
     const { world, registry } = makeWorldWithRegistry();
-    const id = world.spawn([
-      Abilities({ str: 10, dex: 16 }),
-      Proficiency({ bonus: 3 }),
-    ]);
+    const id = world.spawn([Abilities({ str: 10, dex: 16 }), Proficiency({ bonus: 3 })]);
     const reg = registry.rollables.get(DexCheck.name);
     expect(reg).toBeDefined();
     const result = invokeRollable(reg!, world, id, { proficient: true });
@@ -285,8 +290,9 @@ describe("invokeRollable / previewRollable", () => {
     const { world, registry } = makeWorldWithRegistry();
     const id = world.spawn([Abilities({ str: 10, dex: 14 })]);
     const reg = registry.rollables.get(DexCheck.name)!;
-    expect(() => invokeRollable(reg, world, id, { proficient: "yes-please" }))
-      .toThrow(/opts failed schema/);
+    expect(() => invokeRollable(reg, world, id, { proficient: "yes-please" })).toThrow(
+      /opts failed schema/,
+    );
   });
 
   it("preview returns spec without building a command", () => {

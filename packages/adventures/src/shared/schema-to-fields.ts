@@ -69,9 +69,7 @@ export function schemaToFields(
           // slot, quantity }>`) — expand each variant so the GM sees the
           // concrete shapes available. Object variants recurse into
           // their keys under `<field>.[] (object form)`.
-          out.push(
-            ...expandUnionVariants(element, [...basePath, key, "[]"]),
-          );
+          out.push(...expandUnionVariants(element, [...basePath, key, "[]"]));
         }
       } else if (childInner instanceof z.ZodRecord) {
         const value = unwrap(recordValue(childInner));
@@ -181,11 +179,7 @@ function unwrap(s: z.ZodTypeAny): z.ZodTypeAny {
 }
 
 function isOptional(s: z.ZodTypeAny): boolean {
-  return (
-    s instanceof z.ZodOptional ||
-    s instanceof z.ZodDefault ||
-    s instanceof z.ZodNullable
-  );
+  return s instanceof z.ZodOptional || s instanceof z.ZodDefault || s instanceof z.ZodNullable;
 }
 
 function defaultValue(s: z.ZodTypeAny): string | undefined {

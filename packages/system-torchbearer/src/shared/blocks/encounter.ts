@@ -16,11 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { z } from "@vtt/substrate";
-import {
-  defineBlockKind,
-  EncounterTemplate,
-  type EntityProjection,
-} from "@vtt/adventures/shared";
+import { defineBlockKind, EncounterTemplate, type EntityProjection } from "@vtt/adventures/shared";
 import { OpenPage } from "@vtt/shell-workbench/shared";
 import { ConflictActionEnum } from "../../conflict/shared/actions.js";
 import { CONFLICT_PAGE_KIND } from "../../conflict/shared/page-kind.js";
@@ -104,25 +100,17 @@ const ParticipantStringSchema = z
   .min(1)
   .max(240)
   .describe(
-    'String form: `<kind>:<id-or-name>`, e.g. `character:Skarra` or the wiki-link wrapping `[[npc:e123|Alchemist]]`. Prefix with `N×` or `Nx` to spawn N copies, e.g. `4× [[monster:e627|Black Dragon]]`. With no kind prefix, the ref defaults to `character`.',
+    "String form: `<kind>:<id-or-name>`, e.g. `character:Skarra` or the wiki-link wrapping `[[npc:e123|Alchemist]]`. Prefix with `N×` or `Nx` to spawn N copies, e.g. `4× [[monster:e627|Black Dragon]]`. With no kind prefix, the ref defaults to `character`.",
   );
 
 const ParticipantObjectSchema = z
   .object({
-    qty: z
-      .number()
-      .int()
-      .min(1)
-      .max(99)
-      .default(1)
-      .describe("Spawn this many copies of `ref`."),
+    qty: z.number().int().min(1).max(99).default(1).describe("Spawn this many copies of `ref`."),
     ref: z
       .string()
       .min(1)
       .max(240)
-      .describe(
-        'The participant reference: `<kind>:<id-or-name>` or `[[kind:id|Display]]`.',
-      ),
+      .describe("The participant reference: `<kind>:<id-or-name>` or `[[kind:id|Display]]`."),
   })
   .describe(
     "Object form: explicit `{ qty, ref }`. Useful when the count comes from a variable or you'd rather not eyeball the `N×` prefix in the YAML.",
@@ -176,9 +164,7 @@ const OpeningActionSchema = z.object({
     .describe(
       "Who takes this action — typically a wiki-link to a character / NPC / monster, but free text works.",
     ),
-  action: ConflictActionEnum.describe(
-    "Which of the four conflict actions this is.",
-  ),
+  action: ConflictActionEnum.describe("Which of the four conflict actions this is."),
   note: z
     .string()
     .max(2000)
@@ -220,7 +206,7 @@ export const EncounterBlockSchema = z.object({
     .max(240)
     .optional()
     .describe(
-      'Where the fight happens. Accepts `note:Bywater Bridge`, the wiki-link `[[note:e720|Goblin Cave]]`, or bare text (defaults the kind to `note`). When the ref resolves to a Note entity, the conflict-declare label shows the note\'s current title.',
+      "Where the fight happens. Accepts `note:Bywater Bridge`, the wiki-link `[[note:e720|Goblin Cave]]`, or bare text (defaults the kind to `note`). When the ref resolves to a Note entity, the conflict-declare label shows the note's current title.",
     ),
   sides: z
     .array(SideSchema)
@@ -246,9 +232,7 @@ export const EncounterBlockSchema = z.object({
     .string()
     .max(4000)
     .default("")
-    .describe(
-      "Boxed-text the GM reads to the table when the encounter begins.",
-    ),
+    .describe("Boxed-text the GM reads to the table when the encounter begins."),
   trigger: z
     .string()
     .max(2000)
@@ -260,10 +244,7 @@ export const EncounterBlockSchema = z.object({
 
 export type EncounterBlockParsed = z.infer<typeof EncounterBlockSchema>;
 
-function projectEncounter(
-  parsed: EncounterBlockParsed,
-  info: string,
-): EntityProjection {
+function projectEncounter(parsed: EncounterBlockParsed, info: string): EntityProjection {
   // Convert the parsed location into the EncounterTemplate trait's
   // locationRef. Authors may write any of:
   //   location: note:Bywater Bridge
@@ -272,9 +253,7 @@ function projectEncounter(
   //
   // We peel the wiki-link wrapping first so the stored `body` is the
   // clean entity id (or name) the resolver can look up later.
-  let locationRef:
-    | { kind: string; body: string }
-    | null = null;
+  let locationRef: { kind: string; body: string } | null = null;
   if (parsed.location) {
     const peeled = peelRef(parsed.location);
     const colon = peeled.indexOf(":");
@@ -337,8 +316,7 @@ export const encounterBlockKind = defineBlockKind<EncounterBlockParsed>({
   name: "encounter",
   description: "TB encounter — Start dispatches DeclareConflict + spawns mob copies",
   schema: EncounterBlockSchema,
-  project: (parsed, ctx) =>
-    projectEncounter(parsed, ctx.info ?? "Unnamed Encounter"),
+  project: (parsed, ctx) => projectEncounter(parsed, ctx.info ?? "Unnamed Encounter"),
   // Dynamic completer surfaces the author-facing conflict-type
   // vocabulary so the editor and the reference panel both expose the
   // full list. Schema stays permissive because `mapConflictType`
@@ -372,7 +350,13 @@ export const encounterBlockKind = defineBlockKind<EncounterBlockParsed>({
   ],
   display: (entityId, world) => {
     const got = world.get(entityId, [EncounterTemplate]) as
-      | { EncounterTemplate: { name: string; type: string; sides: ReadonlyArray<{ participants: ReadonlyArray<unknown> }> } }
+      | {
+          EncounterTemplate: {
+            name: string;
+            type: string;
+            sides: ReadonlyArray<{ participants: ReadonlyArray<unknown> }>;
+          };
+        }
       | undefined;
     if (!got) return "(unknown encounter)";
     const partyCount = got.EncounterTemplate.sides.reduce(

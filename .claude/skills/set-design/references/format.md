@@ -42,19 +42,19 @@ When one thing leads to multiple independent paths, you can either:
 
 1. **Indent** each child as its own line:
 
-   ````
+   ```
    **Portcullis** -> wooden
      -> blocks tunnel
      -> can pass under
-   ````
+   ```
 
 2. **Mark visually** with a `|->` prefix:
 
-   ````
+   ```
    **Portcullis** -> wooden -> blocks tunnel
      |-> can pass under
      |-> 2 Toad-Man Sentries approach
-   ````
+   ```
 
 Both are equivalent — the parser strips the `|->`/`->` leading prefix and uses indentation alone to attach children. Choose whichever reads more clearly for the situation.
 
@@ -63,6 +63,7 @@ Both are equivalent — the parser strips the `|->`/`->` leading prefix and uses
 Bold marks what players perceive the moment they enter. These are the top-level entries the GM describes first. Everything else is discovered through interaction.
 
 Bold items are short noun phrases — the thing itself, plus one or two immediate qualities:
+
 - `**Ornate Columns** -> Damaged`
 - `**5 Bodies** -> Human -> Male`
 - `**Tiled Floor** -> Elaborate coloured mosaic, Broken Tiles`
@@ -74,10 +75,10 @@ If something requires a check to notice, it is NOT bold.
 
 Stats and reaction modifiers go in italic parens on their own indented line, or inline:
 
-````
+```
 **Wooden Cask** -> Giant Tick!
   (_AC 16, HD 3, HP 19, Bite +5/1-4/1-6 auto, ML 9, XP 141_)
-````
+```
 
 Torchbearer: `(_Nature 6, Might 4, Disposition 10_)`. Free-form: anything in italic.
 
@@ -96,7 +97,7 @@ The editor's `[[` autocomplete fires inside the fence just like in prose.
 
 Name in bold at the top. Behavior/attitude in parens. Then what they offer, want, know — as arrow chains, not labeled categories:
 
-````
+```
 **Gundren Rockseeker** (Excited/Secretive/Friendly)
   -> **Job** -> haul provisions, immediate
   -> **Brothers** -> Tharden and Nundro
@@ -104,7 +105,7 @@ Name in bold at the top. Behavior/attitude in parens. Then what they offer, want
   -> **10gp/day** -> persuade DC 15 -> 30gp/day
   -> **Leaving early** -> horseback
     -> **Sildar Hallwinter** -> warrior escort
-````
+```
 
 Reaction modifiers go right after the name/attitude line if applicable.
 
@@ -154,14 +155,14 @@ S alcoves (4) -> [[scene:Area 6]] / [[scene:Area 7]] / [[scene:Area 8]] / [[scen
 
 Blank lines separate sibling subtrees. The next sibling renders with extra vertical spacing — useful for the visual gap between major elements of a room:
 
-````
+```
 **Bookshelves** N+E walls -> sagging, collapsed
 **Rotting Paper** -> floor, mold smell
 
 Giant Rats (3) -> behind collapsed N shelves
   (_HP 7, 6, 5_)
   -> attack if shelves disturbed
-````
+```
 
 Blank lines have no effect on tree structure — they're purely visual.
 

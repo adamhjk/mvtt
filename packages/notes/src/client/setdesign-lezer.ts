@@ -57,14 +57,7 @@
  * of the markdown parse.
  */
 
-import {
-  Parser,
-  Tree,
-  NodeType,
-  NodeSet,
-  type PartialParse,
-  type Input,
-} from "@lezer/common";
+import { Parser, Tree, NodeType, NodeSet, type PartialParse, type Input } from "@lezer/common";
 import { styleTags, tags as t } from "@lezer/highlight";
 import {
   defineLanguageFacet,
@@ -248,10 +241,7 @@ class SetdesignParse implements PartialParse {
   stoppedAt: number | null = null;
   private readonly tree: Tree;
 
-  constructor(
-    input: Input,
-    ranges: readonly { from: number; to: number }[],
-  ) {
+  constructor(input: Input, ranges: readonly { from: number; to: number }[]) {
     // We treat the fence body as a single contiguous run for
     // parsing — multi-range nested fences would need stitching.
     const from = ranges[0]?.from ?? 0;
@@ -364,11 +354,7 @@ function emitDoc(b: BufferBuilder, text: string): void {
   {
     let i = 0;
     while (i < lines.length && lines[i]!.blank) i++;
-    if (
-      i + 1 < lines.length &&
-      !lines[i]!.blank &&
-      /^-{3,}\s*$/.test(lines[i + 1]!.text.trim())
-    ) {
+    if (i + 1 < lines.length && !lines[i]!.blank && /^-{3,}\s*$/.test(lines[i + 1]!.text.trim())) {
       headerSize = emitHeader(b, lines[i]!, lines[i + 1]!);
       bodyStart = i + 2;
     }
@@ -383,11 +369,7 @@ function emitDoc(b: BufferBuilder, text: string): void {
   b.push(SD.Doc, docFrom, docTo, headerSize + branchesSize);
 }
 
-function emitHeader(
-  b: BufferBuilder,
-  titleLine: LineToken,
-  ruleLine: LineToken,
-): number {
+function emitHeader(b: BufferBuilder, titleLine: LineToken, ruleLine: LineToken): number {
   // The header inner doesn't carry further structure (it's just a
   // text run + a rule). Position the rule node within the header
   // span so its node prop hits work cleanly.
@@ -408,12 +390,7 @@ function emitHeader(
  * Returns the total buffer-size of emitted nodes (in number-array
  * entries — i.e., 4 per node, including descendants).
  */
-function emitBranches(
-  b: BufferBuilder,
-  lines: LineToken[],
-  start: number,
-  end: number,
-): number {
+function emitBranches(b: BufferBuilder, lines: LineToken[], start: number, end: number): number {
   let pos = start;
   let totalSize = 0;
   while (pos < end) {
@@ -427,10 +404,7 @@ function emitBranches(
     // Branch span: from this line's start to the end of the deepest
     // child line.
     const branchFrom = head.lineStart;
-    const branchTo =
-      childEnd > pos + 1
-        ? lines[childEnd - 1]!.lineEnd
-        : head.lineEnd;
+    const branchTo = childEnd > pos + 1 ? lines[childEnd - 1]!.lineEnd : head.lineEnd;
 
     let innerSize = 0;
     // Emit the head line first (children come before parent).
@@ -474,19 +448,11 @@ function emitLine(b: BufferBuilder, line: LineToken): number {
   if (prefixMatch && prefixMatch[2]) {
     const prefixOffset = pos + (prefixMatch[1]?.length ?? 0);
     const prefixLen = prefixMatch[2].length;
-    b.push(
-      SD.LinePrefix,
-      lineFrom + prefixOffset,
-      lineFrom + prefixOffset + prefixLen,
-      0,
-    );
+    b.push(SD.LinePrefix, lineFrom + prefixOffset, lineFrom + prefixOffset + prefixLen, 0);
     inner += 4;
     segmentStart = pos + prefixMatch[0].length;
     // Skip whitespace after the prefix.
-    while (
-      segmentStart < line.text.length &&
-      line.text[segmentStart] === " "
-    ) {
+    while (segmentStart < line.text.length && line.text[segmentStart] === " ") {
       segmentStart++;
     }
   }
@@ -499,11 +465,7 @@ function emitLine(b: BufferBuilder, line: LineToken): number {
   return 4 + inner;
 }
 
-function emitSegments(
-  b: BufferBuilder,
-  segText: string,
-  baseOffset: number,
-): number {
+function emitSegments(b: BufferBuilder, segText: string, baseOffset: number): number {
   if (segText.length === 0) return 0;
   let inner = 0;
   let cursor = 0;
@@ -529,12 +491,7 @@ function emitSegments(
     }
     if (i < arrowRanges.length) {
       const arrow = arrowRanges[i]!;
-      b.push(
-        SD.Arrow,
-        baseOffset + arrow.start,
-        baseOffset + arrow.end,
-        0,
-      );
+      b.push(SD.Arrow, baseOffset + arrow.start, baseOffset + arrow.end, 0);
       inner += 4;
     }
     cursor = segEnd;
@@ -559,11 +516,7 @@ function emitSegments(
  *
  * Returns the total size (in 4-tuples) of emitted nodes.
  */
-function emitInline(
-  b: BufferBuilder,
-  text: string,
-  baseOffset: number,
-): number {
+function emitInline(b: BufferBuilder, text: string, baseOffset: number): number {
   let inner = 0;
   let i = 0;
   let runStart = 0;
@@ -590,30 +543,15 @@ function emitInline(
           const linkTo = baseOffset + close + 2;
           let linkInner = 0;
           // Open mark — `[[` (and optional preceding `!`).
-          b.push(
-            SD.WikiLinkMark,
-            baseOffset + i,
-            baseOffset + openAt + 2,
-            0,
-          );
+          b.push(SD.WikiLinkMark, baseOffset + i, baseOffset + openAt + 2, 0);
           linkInner += 4;
           // Body.
           if (close > openAt + 2) {
-            b.push(
-              SD.WikiLinkBody,
-              baseOffset + openAt + 2,
-              baseOffset + close,
-              0,
-            );
+            b.push(SD.WikiLinkBody, baseOffset + openAt + 2, baseOffset + close, 0);
             linkInner += 4;
           }
           // Close mark — `]]`.
-          b.push(
-            SD.WikiLinkMark,
-            baseOffset + close,
-            baseOffset + close + 2,
-            0,
-          );
+          b.push(SD.WikiLinkMark, baseOffset + close, baseOffset + close + 2, 0);
           linkInner += 4;
           b.push(SD.WikiLink, linkFrom, linkTo, linkInner);
           inner += 4 + linkInner;

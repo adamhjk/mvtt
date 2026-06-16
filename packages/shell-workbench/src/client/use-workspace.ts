@@ -46,14 +46,13 @@ export function useWorkspace(): WorkspaceHandle {
     if (!m) return null;
     return (
       owners().find(
-        (row) =>
-          (row.values.WorkspaceOwner as { userId: string }).userId === m.userId,
+        (row) => (row.values.WorkspaceOwner as { userId: string }).userId === m.userId,
       ) ?? null
     );
   });
   const ownerEntityId = createMemo(() => found()?.id ?? null);
-  const state = createMemo(() =>
-    (found()?.values.WorkspaceState as WorkspaceStateValue | undefined) ?? null,
+  const state = createMemo(
+    () => (found()?.values.WorkspaceState as WorkspaceStateValue | undefined) ?? null,
   );
   const isGm = createMemo(() => me()?.role === "gm");
   return { ownerEntityId, state, isGm };

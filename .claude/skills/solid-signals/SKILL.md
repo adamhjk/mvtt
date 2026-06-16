@@ -35,10 +35,10 @@ The getter is a function. Calling it returns the current value **and** subscribe
 ```tsx
 const [count, setCount] = createSignal(0);
 
-count();           // 0 — and subscribes if inside a tracking scope.
-count;             // ← the function reference (almost never what you want).
+count(); // 0 — and subscribes if inside a tracking scope.
+count; // ← the function reference (almost never what you want).
 
-return <p>{count()}</p>;  // text node updates when count changes.
+return <p>{count()}</p>; // text node updates when count changes.
 ```
 
 ## Writing
@@ -46,11 +46,12 @@ return <p>{count()}</p>;  // text node updates when count changes.
 Two forms of the setter:
 
 ```ts
-setCount(5);                    // direct value.
-setCount(prev => prev + 1);     // function form — receives the previous value.
+setCount(5); // direct value.
+setCount((prev) => prev + 1); // function form — receives the previous value.
 ```
 
 Use the function form when:
+
 - The new value depends on the previous one (avoids stale closures).
 - You're storing a function in the signal (see "Functions as values" below).
 
@@ -60,8 +61,8 @@ By default, the setter only notifies subscribers if the new value is **not** str
 
 ```ts
 const [name, setName] = createSignal("Ada");
-setName("Ada");   // no notification — same reference.
-setName("Lin");   // notifies.
+setName("Ada"); // no notification — same reference.
+setName("Lin"); // notifies.
 ```
 
 Override with `equals`:
@@ -91,9 +92,9 @@ Setters distinguish between "a new value" and "a function to compute a new value
 ```ts
 const [handler, setHandler] = createSignal<() => void>(() => console.log("a"));
 
-setHandler(() => console.log("b"));     // ❌ This treats your function as the prev=>next callback,
-                                         //    immediately invokes it with the previous value, and stores
-                                         //    `undefined` (the return) as the new signal value.
+setHandler(() => console.log("b")); // ❌ This treats your function as the prev=>next callback,
+//    immediately invokes it with the previous value, and stores
+//    `undefined` (the return) as the new signal value.
 
 setHandler(() => () => console.log("b")); // ✓ The outer arrow returns the function you actually want to store.
 ```
@@ -103,20 +104,20 @@ setHandler(() => () => console.log("b")); // ✓ The outer arrow returns the fun
 ### Default value → type inferred
 
 ```ts
-const [count, setCount] = createSignal(0);     // Signal<number>
-const [name, setName] = createSignal("");      // Signal<string>
+const [count, setCount] = createSignal(0); // Signal<number>
+const [name, setName] = createSignal(""); // Signal<string>
 ```
 
 ### No default value → `T | undefined`
 
 ```ts
-const [user, setUser] = createSignal<User>();  // Signal<User | undefined>
+const [user, setUser] = createSignal<User>(); // Signal<User | undefined>
 ```
 
 To avoid the `| undefined`, supply a default value or a different type:
 
 ```ts
-const [user, setUser] = createSignal<User | null>(null);  // Signal<User | null>
+const [user, setUser] = createSignal<User | null>(null); // Signal<User | null>
 ```
 
 ### Reset to `undefined`
@@ -125,7 +126,7 @@ Calling the setter with no args resets to `undefined` (only valid when the type 
 
 ```ts
 const [user, setUser] = createSignal<User>();
-setUser();   // user() === undefined
+setUser(); // user() === undefined
 ```
 
 ## Reading without subscribing
@@ -136,8 +137,8 @@ Sometimes you want to read the latest value without becoming dependent on change
 import { untrack } from "solid-js";
 
 createEffect(() => {
-  const a = trackedSignal();         // subscribes
-  const b = untrack(() => other());  // does NOT subscribe to `other`
+  const a = trackedSignal(); // subscribes
+  const b = untrack(() => other()); // does NOT subscribe to `other`
   doSomething(a, b);
 });
 ```
@@ -147,10 +148,12 @@ See `solid-reactive-utilities` for `untrack`, `batch`, `on`.
 ## When NOT to use a signal — reach for a store
 
 Use a **store** when:
+
 - You have a nested object or array and want fine-grained updates per leaf.
 - You want to update a single property without replacing the whole object.
 
 Use a signal when:
+
 - The value is a primitive, or
 - The value is an object/array but you replace it whole on each update, or
 - You want the simplest reactive handle (signal is lighter than a store).
@@ -158,18 +161,18 @@ Use a signal when:
 ```ts
 // Signal — fine for replace-whole.
 const [user, setUser] = createSignal({ name: "Ada", age: 36 });
-setUser(u => ({ ...u, age: 37 }));
+setUser((u) => ({ ...u, age: 37 }));
 
 // Store — fine for nested fine-grained updates.
 const [state, setState] = createStore({ user: { name: "Ada", age: 36 } });
-setState("user", "age", 37);   // only subscribers of `state.user.age` re-run.
+setState("user", "age", 37); // only subscribers of `state.user.age` re-run.
 ```
 
 See `solid-stores` for the full store API.
 
 ## Common pitfalls
 
-- **Forgot the parens.** `<p>{count}</p>` renders the function, not the value, *and* breaks reactivity. Always `count()` in a tracking scope.
+- **Forgot the parens.** `<p>{count}</p>` renders the function, not the value, _and_ breaks reactivity. Always `count()` in a tracking scope.
 - **Read outside a tracking scope.** `console.log(count())` at the top of a component logs the initial value once and never updates. Wrap in `createEffect` to log on every change.
 - **Stale closure in event handler.** `onClick={() => setCount(count() + 1)}` works but is fragile under rapid clicks; `setCount(c => c + 1)` is always correct.
 - **Mutating an object signal in place.** `user().age = 37; setUser(user())` doesn't notify because the reference didn't change (default `equals` is `===`). Use a new object, or use a store, or set `equals: false`.
@@ -181,11 +184,7 @@ See `solid-stores` for the full store API.
 ```tsx
 function Counter() {
   const [count, setCount] = createSignal(0);
-  return (
-    <button onClick={() => setCount(c => c + 1)}>
-      Count: {count()}
-    </button>
-  );
+  return <button onClick={() => setCount((c) => c + 1)}>Count: {count()}</button>;
 }
 ```
 
@@ -193,7 +192,7 @@ function Counter() {
 
 ```tsx
 const [open, setOpen] = createSignal(false);
-const toggle = () => setOpen(o => !o);
+const toggle = () => setOpen((o) => !o);
 ```
 
 ### Storing a function
@@ -201,16 +200,19 @@ const toggle = () => setOpen(o => !o);
 ```tsx
 const [onSave, setOnSave] = createSignal<() => void>(() => {});
 setOnSave(() => () => console.log("saving"));
-onSave()();   // logs "saving"
+onSave()(); // logs "saving"
 ```
 
 ### Custom equality on objects you replace whole
 
 ```tsx
-const [profile, setProfile] = createSignal({ name: "Ada", age: 36 }, {
-  equals: (a, b) => a.name === b.name && a.age === b.age,
-});
-setProfile({ name: "Ada", age: 36 });  // does NOT notify — values are deep-equal.
+const [profile, setProfile] = createSignal(
+  { name: "Ada", age: 36 },
+  {
+    equals: (a, b) => a.name === b.name && a.age === b.age,
+  },
+);
+setProfile({ name: "Ada", age: 36 }); // does NOT notify — values are deep-equal.
 ```
 
 ## Related

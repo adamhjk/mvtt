@@ -66,9 +66,7 @@ const IncrementSystem = defineSystem({
     if (!cur) return [];
     const next = cur.Counter.n + event.by;
     world.set(event.entityId, Counter, { n: next });
-    return next > 0 && next % 2 === 0
-      ? [Doubled({ entityId: event.entityId, to: next })]
-      : [];
+    return next > 0 && next % 2 === 0 ? [Doubled({ entityId: event.entityId, to: next })] : [];
   },
 });
 

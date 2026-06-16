@@ -15,14 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  ok,
-  z,
-  type EventInstance,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, ok, z, type EventInstance } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
 import { requireWrite } from "@vtt/permissions/shared";
 import { Formula } from "@vtt/resolution/shared";
@@ -138,12 +131,7 @@ export const EditSpellField = defineCommand({
   schema: z.object({
     spellId: EntityId,
     /** Trait short-name: "SpellIdentity", "TbSpellCasting", "TbSpellLearning", "TbSpellHomebrewProse". */
-    trait: z.enum([
-      "SpellIdentity",
-      "TbSpellCasting",
-      "TbSpellLearning",
-      "TbSpellHomebrewProse",
-    ]),
+    trait: z.enum(["SpellIdentity", "TbSpellCasting", "TbSpellLearning", "TbSpellHomebrewProse"]),
     /** Path inside the trait — array of string keys. Empty for whole-trait set. */
     path: z.array(z.string().min(1).max(60)).default([]),
     value: z.unknown(),
@@ -269,9 +257,7 @@ export const AddSpellToBook = defineCommand({
     }
     return ok();
   },
-  apply: ({ cmd }) => [
-    SpellAddedToBook({ bookId: cmd.bookId, spellId: cmd.spellId }),
-  ],
+  apply: ({ cmd }) => [SpellAddedToBook({ bookId: cmd.bookId, spellId: cmd.spellId })],
 });
 
 export const RemoveSpellFromBook = defineCommand({
@@ -287,9 +273,7 @@ export const RemoveSpellFromBook = defineCommand({
     }
     return ok();
   },
-  apply: ({ cmd }) => [
-    SpellRemovedFromBook({ bookId: cmd.bookId, spellId: cmd.spellId }),
-  ],
+  apply: ({ cmd }) => [SpellRemovedFromBook({ bookId: cmd.bookId, spellId: cmd.spellId })],
 });
 
 /* -------------------------------------------------------------------------
@@ -337,9 +321,7 @@ export const FillMemoryPalace = defineCommand({
       return fail("character has no memory palace");
     }
     if (palace.TbMemoryPalace.memorized.length > 0) {
-      return fail(
-        "memory palace must be empty before refilling — discharge first",
-      );
+      return fail("memory palace must be empty before refilling — discharge first");
     }
     let used = 0;
     for (const p of ctx.cmd.picks) {
@@ -391,9 +373,7 @@ export const ClearMemoryPalace = defineCommand({
     }
     return requireWrite(ctx, ctx.cmd.characterId);
   },
-  apply: ({ cmd }) => [
-    MemoryPalaceCleared({ characterId: cmd.characterId }),
-  ],
+  apply: ({ cmd }) => [MemoryPalaceCleared({ characterId: cmd.characterId })],
 });
 
 export const SetMemoryPalaceCapacity = defineCommand({
@@ -419,7 +399,6 @@ export const SetMemoryPalaceCapacity = defineCommand({
   ],
 });
 
-
 /* -------------------------------------------------------------------------
  * Post-roll commit commands
  * ----------------------------------------------------------------------- */
@@ -427,18 +406,14 @@ export const SetMemoryPalaceCapacity = defineCommand({
 function readRollSpellCast(
   world: import("@vtt/substrate").World,
   rollId: string,
-):
-  | {
-      characterId: string;
-      spellId: string;
-      sourceKind: "palace" | "spellbook" | "scroll";
-      bookId?: string;
-      scrollId?: string;
-    }
-  | null {
-  const got = world.get(rollId, [Formula]) as
-    | { Formula: { meta?: unknown } }
-    | undefined;
+): {
+  characterId: string;
+  spellId: string;
+  sourceKind: "palace" | "spellbook" | "scroll";
+  bookId?: string;
+  scrollId?: string;
+} | null {
+  const got = world.get(rollId, [Formula]) as { Formula: { meta?: unknown } } | undefined;
   // The spell-cast context lives on `spec.spellCast` (the rollable
   // builds it there). Read through `meta.spec.spellCast`, not the
   // legacy `meta.spellCast` sibling.
@@ -672,9 +647,7 @@ export const ScribeSpellToScroll = defineCommand({
             };
           }
         | undefined;
-      const slot = palace?.TbMemoryPalace.memorized.find(
-        (m) => m.spellId === ctx.cmd.spellId,
-      );
+      const slot = palace?.TbMemoryPalace.memorized.find((m) => m.spellId === ctx.cmd.spellId);
       if (!slot) return fail("spell is not memorized in your palace");
       if (slot.cast) return fail("spell has already been cast — re-memorize first");
     }

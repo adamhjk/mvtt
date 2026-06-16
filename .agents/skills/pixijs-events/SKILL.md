@@ -315,7 +315,6 @@ sprite.on("pointerdown", () => {
 
 The default `eventMode` is `'passive'`, which means the object itself receives no events. You must explicitly set `eventMode` to `'static'` or `'dynamic'` before any listener will fire.
 
-
 ### [HIGH] buttonMode removed; use cursor
 
 Wrong:
@@ -333,7 +332,6 @@ sprite.cursor = "pointer";
 ```
 
 `buttonMode` was removed in v8. Use `cursor = 'pointer'` to show a hand cursor on hover. `interactive = true` still works as an alias for `eventMode = 'static'`, but `eventMode` is preferred.
-
 
 ### [HIGH] Move events only fire over the object in v8
 
@@ -359,7 +357,6 @@ sprite.on("globalpointermove", (event) => {
 
 In v8, `pointermove`, `mousemove`, and `touchmove` only fire when the pointer is over the display object. In v7 they fired on any canvas move. For drag operations or global tracking, use `globalpointermove`, `globalmousemove`, or `globaltouchmove`.
 
-
 ### [MEDIUM] Cursor does not inherit from parent
 
 Setting `cursor` on a parent container has no effect on its children. Only the direct hit target's `cursor` value is applied.
@@ -374,7 +371,6 @@ child.cursor = "pointer";
 ```
 
 If you want a uniform cursor for all children, set `cursor` on each interactive child individually, or set `hitArea` on the parent and make children non-interactive.
-
 
 ## API Reference
 

@@ -142,9 +142,38 @@ function loadChunks(corpusDir) {
 // ---- BM25-flavoured search ------------------------------------------
 
 const STOPWORDS = new Set([
-  "a", "an", "the", "and", "or", "of", "in", "on", "to", "for", "is", "be",
-  "with", "as", "by", "at", "it", "this", "that", "you", "your", "are",
-  "from", "but", "not", "if", "do", "can", "may", "will", "have", "has",
+  "a",
+  "an",
+  "the",
+  "and",
+  "or",
+  "of",
+  "in",
+  "on",
+  "to",
+  "for",
+  "is",
+  "be",
+  "with",
+  "as",
+  "by",
+  "at",
+  "it",
+  "this",
+  "that",
+  "you",
+  "your",
+  "are",
+  "from",
+  "but",
+  "not",
+  "if",
+  "do",
+  "can",
+  "may",
+  "will",
+  "have",
+  "has",
 ]);
 
 function tokenize(s) {
@@ -344,7 +373,11 @@ function main() {
         allHits.push({
           score: scores[i],
           chunk: indexed[i].chunk,
-          corpus: { worldId: corpus.worldId, assetId: corpus.assetId, title: corpus.manifest.title },
+          corpus: {
+            worldId: corpus.worldId,
+            assetId: corpus.assetId,
+            title: corpus.manifest.title,
+          },
         });
       }
     }

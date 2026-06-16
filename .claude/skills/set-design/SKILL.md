@@ -37,6 +37,7 @@ Giant Rats (3) -> behind collapsed N shelves
 ````
 
 Rules:
+
 - **Header**: the first non-blank line followed by a `---` separator becomes the title. Omit both to start straight into the tree.
 - **Indentation**: spaces nest. Each child is more indented than its parent. Tabs count as two spaces.
 - **Internal arrows**: `->` (rendered as `→`) inside a line chains nouns: `Bookshelves -> sagging -> collapsed` becomes three segments joined by arrows.
@@ -93,7 +94,7 @@ Every number, stat, treasure value, and mechanical detail from your source must 
 
 Preserve whatever stat conventions the source uses. Don't convert between systems.
 
-- D&D 5e: `(_AC 16, HP 19, Bite +5/1-4_)` 
+- D&D 5e: `(_AC 16, HP 19, Bite +5/1-4_)`
 - Torchbearer: `(_Nature 6, Might 4, Disposition 10_)`
 - OSE / B/X: `(_AC 16, HD 3, HP 19, Bite +5/1-4/1-6 auto, ML 9, XP 141_)`
 

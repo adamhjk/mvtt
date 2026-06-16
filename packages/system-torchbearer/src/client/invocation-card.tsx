@@ -61,9 +61,7 @@ export function InvocationCard(props: {
         gap: "0.3rem",
         padding: "0.4rem 0.55rem",
         "border-radius": "var(--radius-control)",
-        background: props.highlight
-          ? "var(--color-accent-soft)"
-          : "var(--color-surface-elevated)",
+        background: props.highlight ? "var(--color-accent-soft)" : "var(--color-surface-elevated)",
         border: props.highlight
           ? "1px solid var(--color-accent)"
           : "1px solid var(--color-border-muted)",
@@ -131,10 +129,7 @@ export function InvocationCard(props: {
  * burden, relic, sacramental. Picks the with-relic vs no-relic values
  * from `TbInvocationPerforming` per the holder's relic state.
  */
-function PerformingSummary(props: {
-  invocationId: string;
-  hasRelic: () => boolean;
-}): JSX.Element {
+function PerformingSummary(props: { invocationId: string; hasRelic: () => boolean }): JSX.Element {
   const performing = useTrait(props.invocationId, TbInvocationPerforming);
   return (
     <Show when={performing()}>
@@ -150,12 +145,8 @@ function PerformingSummary(props: {
               : v.ritualKind === "versus"
                 ? `Versus ${v.versusAgainst ?? ""}`.trim()
                 : "Skill swap";
-        const time = props.hasRelic()
-          ? v.invocationTime.withRelic
-          : v.invocationTime.noRelic;
-        const burden = props.hasRelic()
-          ? v.immortalBurden.withRelic
-          : v.immortalBurden.noRelic;
+        const time = props.hasRelic() ? v.invocationTime.withRelic : v.invocationTime.noRelic;
+        const burden = props.hasRelic() ? v.immortalBurden.withRelic : v.immortalBurden.noRelic;
         const timeLabel = time === 0 ? "0 turns" : time === 1 ? "1 turn" : `${time} turns`;
         return (
           <div

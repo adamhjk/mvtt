@@ -16,11 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { onMount, onCleanup, type JSX } from "solid-js";
-import {
-  EditorState,
-  Compartment,
-  RangeSetBuilder,
-} from "@codemirror/state";
+import { EditorState, Compartment, RangeSetBuilder } from "@codemirror/state";
 import {
   EditorView,
   keymap,
@@ -36,7 +32,13 @@ import {
   type DecorationSet,
   type Command,
 } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap, indentMore, indentLess } from "@codemirror/commands";
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentMore,
+  indentLess,
+} from "@codemirror/commands";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { yamlLanguage } from "@codemirror/lang-yaml";
 import { parseCode } from "@lezer/markdown";
@@ -63,12 +65,7 @@ import {
 import { type Registry, type World } from "@vtt/substrate";
 import { EditorCompletionSourcesSlot } from "../shared/editor-completions.js";
 import { buildLinkKindIndex } from "../shared/index.js";
-import {
-  Note,
-  Page,
-  BelongsToNote,
-  Headings,
-} from "../shared/traits.js";
+import { Note, Page, BelongsToNote, Headings } from "../shared/traits.js";
 import type { EntityId } from "@vtt/substrate";
 import { setdesignParser } from "./setdesign-lezer.js";
 
@@ -121,9 +118,7 @@ export function CodeMirrorEditor(props: {
   let view: EditorView | null = null;
 
   onMount(() => {
-    const wikiCompletions = (
-      ctx: CompletionContext,
-    ): CompletionResult | null => {
+    const wikiCompletions = (ctx: CompletionContext): CompletionResult | null => {
       // Find the `[[…` trigger ending at the cursor.
       const trigger = ctx.matchBefore(/\[\[[^\]\n]{0,160}/);
       if (!trigger) return null;
@@ -157,18 +152,10 @@ export function CodeMirrorEditor(props: {
       // we'd leave behind a stray pair, producing `…]]]]`.
       const buildApply =
         (replacement: string) =>
-        (
-          view: EditorView,
-          _completion: { label: string },
-          from: number,
-          to: number,
-        ) => {
+        (view: EditorView, _completion: { label: string }, from: number, to: number) => {
           const back = view.state.sliceDoc(Math.max(0, from - 200), from);
           const lastBracketsRel = back.lastIndexOf("[[");
-          const start =
-            lastBracketsRel >= 0
-              ? from - (back.length - lastBracketsRel)
-              : from;
+          const start = lastBracketsRel >= 0 ? from - (back.length - lastBracketsRel) : from;
           // Eat a trailing `]]` (left behind by auto-pair) so the
           // completion's own closing brackets aren't doubled up.
           const after = view.state.sliceDoc(to, to + 2);
@@ -212,7 +199,7 @@ export function CodeMirrorEditor(props: {
         //   `<sigil>body` — first char is a registered sigil; strip
         //                   the sigil and search the matching kind.
         //   bare        — no prefix; query every kind, plus Notes.
-        let kindFilter: typeof idx.all[number] | null = null;
+        let kindFilter: (typeof idx.all)[number] | null = null;
         let bodyQuery = segText;
         let bodyFilterFrom = filterFrom;
         const colonIdx = segText.indexOf(":");
@@ -265,8 +252,7 @@ export function CodeMirrorEditor(props: {
               continue;
             }
             for (const s of suggestions) {
-              const display =
-                s.display.length > 0 ? s.display : `${s.kind}:${s.body}`;
+              const display = s.display.length > 0 ? s.display : `${s.kind}:${s.body}`;
               const replacement = `[[${s.kind}:${s.body}]]`;
               options.push({
                 label: display,
@@ -304,17 +290,12 @@ export function CodeMirrorEditor(props: {
           } else {
             let suggestions: ReturnType<typeof kindFilter.autocomplete>;
             try {
-              suggestions = kindFilter.autocomplete(
-                bodyQuery,
-                world,
-                props.registry,
-              );
+              suggestions = kindFilter.autocomplete(bodyQuery, world, props.registry);
             } catch {
               suggestions = [];
             }
             for (const s of suggestions) {
-              const display =
-                s.display.length > 0 ? s.display : `${s.kind}:${s.body}`;
+              const display = s.display.length > 0 ? s.display : `${s.kind}:${s.body}`;
               const replacement = `[[${s.kind}:${s.body}]]`;
               options.push({
                 label: display,
@@ -340,8 +321,8 @@ export function CodeMirrorEditor(props: {
         const noteId = resolveNoteByName(world, noteText);
         if (noteId === null) return ctx.explicit ? emptyResult : null;
         const noteTitle =
-          (world.get(noteId, [Note]) as { Note: { title: string } } | undefined)
-            ?.Note.title ?? noteText;
+          (world.get(noteId, [Note]) as { Note: { title: string } } | undefined)?.Note.title ??
+          noteText;
         for (const row of world.query([Page, BelongsToNote])) {
           const back = row.values.BelongsToNote as { noteId: EntityId };
           if (back.noteId !== noteId) continue;
@@ -362,15 +343,17 @@ export function CodeMirrorEditor(props: {
         const pageId = resolvePageOfNote(world, noteId, pageText);
         if (pageId === null) return ctx.explicit ? emptyResult : null;
         const noteTitle =
-          (world.get(noteId, [Note]) as { Note: { title: string } } | undefined)
-            ?.Note.title ?? noteText;
+          (world.get(noteId, [Note]) as { Note: { title: string } } | undefined)?.Note.title ??
+          noteText;
         const pageTitle =
-          (world.get(pageId, [Page]) as { Page: { title: string } } | undefined)
-            ?.Page.title ?? pageText;
+          (world.get(pageId, [Page]) as { Page: { title: string } } | undefined)?.Page.title ??
+          pageText;
         const headings =
-          (world.get(pageId, [Headings]) as
-            | { Headings: { items: Array<{ id: string; text: string }> } }
-            | undefined)?.Headings.items ?? [];
+          (
+            world.get(pageId, [Headings]) as
+              | { Headings: { items: Array<{ id: string; text: string }> } }
+              | undefined
+          )?.Headings.items ?? [];
         for (const h of headings) {
           const replacement = `[[note:${noteTitle}>${pageTitle}>${h.text}]]`;
           options.push({
@@ -472,10 +455,7 @@ export function CodeMirrorEditor(props: {
                     "loot",
                     "npc",
                   ]);
-                  if (
-                    STATIC_YAML.has(lang) ||
-                    yamlBlockKinds(props.registry).has(lang)
-                  ) {
+                  if (STATIC_YAML.has(lang) || yamlBlockKinds(props.registry).has(lang)) {
                     return yamlLanguage.parser;
                   }
                   return null;
@@ -618,8 +598,7 @@ const editorTheme = EditorView.theme({
     outline: "none",
   },
   ".cm-content": {
-    fontFamily:
-      "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace)",
+    fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace)",
     padding: "10px 12px",
     caretColor: "var(--color-accent)",
     lineHeight: "1.55",
@@ -762,10 +741,7 @@ const FENCE_RE = /^[ ]{0,3}(`{3,}|~{3,})\s*([^\s`~]*)/;
  * This heuristic skips the (rare) authoring pattern of unlabeled
  * `` ``` `` open + content + close, which is acceptable here.
  */
-export function isInsideSetdesignFence(
-  state: EditorState,
-  pos: number,
-): boolean {
+export function isInsideSetdesignFence(state: EditorState, pos: number): boolean {
   const doc = state.doc;
   let line = doc.lineAt(pos);
   // If the cursor IS on a fence line itself, treat it as not inside —
@@ -813,7 +789,9 @@ function buildExternalCompletionSources(props: {
   const fills = (props.registry.fills.get(EditorCompletionSourcesSlot.name) ?? []) as ReadonlyArray<
     import("../shared/index.js").EditorCompletionSourceFactory
   >;
-  const out: Array<(ctx: CompletionContext) => CompletionResult | null | Promise<CompletionResult | null>> = [];
+  const out: Array<
+    (ctx: CompletionContext) => CompletionResult | null | Promise<CompletionResult | null>
+  > = [];
   for (const f of fills) {
     try {
       const built = f.build({
@@ -826,7 +804,10 @@ function buildExternalCompletionSources(props: {
       }
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.warn(`[notes] editor completion source ${f.name} failed to build:`, (err as Error).message);
+      console.warn(
+        `[notes] editor completion source ${f.name} failed to build:`,
+        (err as Error).message,
+      );
     }
   }
   return out;
@@ -841,22 +822,16 @@ function buildExternalCompletionSources(props: {
  * Cached on the Registry instance so we don't rebuild every parse
  * pass; invalidated implicitly by registry replacement (rare).
  */
-const YAML_KIND_CACHE = new WeakMap<
-  import("@vtt/substrate").Registry,
-  Set<string>
->();
-function yamlBlockKinds(
-  registry: import("@vtt/substrate").Registry,
-): Set<string> {
+const YAML_KIND_CACHE = new WeakMap<import("@vtt/substrate").Registry, Set<string>>();
+function yamlBlockKinds(registry: import("@vtt/substrate").Registry): Set<string> {
   const cached = YAML_KIND_CACHE.get(registry);
   if (cached) return cached;
   const out = new Set<string>();
   // Read the slot fills directly by name to avoid a hard dependency
   // on @vtt/adventures here. Each fill is a BlockKindDef carrying a
   // `name` string (the fence kind).
-  const fills = (registry.fills.get(
-    "@vtt/adventures/block-kinds" as never,
-  ) ?? []) as ReadonlyArray<{
+  const fills = (registry.fills.get("@vtt/adventures/block-kinds" as never) ??
+    []) as ReadonlyArray<{
     name?: string;
   }>;
   for (const fill of fills) {
@@ -866,9 +841,7 @@ function yamlBlockKinds(
   return out;
 }
 
-function setdesignCompletions(
-  ctx: CompletionContext,
-): CompletionResult | null {
+function setdesignCompletions(ctx: CompletionContext): CompletionResult | null {
   if (!isInsideSetdesignFence(ctx.state, ctx.pos)) return null;
   if (ctx.matchBefore(/\[\[[^\]\n]{0,160}/)) return null;
 
@@ -943,7 +916,10 @@ function setdesignCompletions(
  * tree might be slightly stale, while this one is precise for
  * commands that already need to walk the tree anyway.
  */
-function setdesignDocAt(state: EditorState, pos: number): {
+function setdesignDocAt(
+  state: EditorState,
+  pos: number,
+): {
   from: number;
   to: number;
 } | null {
@@ -1144,12 +1120,7 @@ const setdesignWrapItalic: Command = (view) => wrapWithDelimiter(view, "_");
  *  - Anything else (no relevant `*` context): fall through (returns
  *    false) so the default text-insert runs.
  */
-function setdesignStarHandler(
-  view: EditorView,
-  from: number,
-  to: number,
-  text: string,
-): boolean {
+function setdesignStarHandler(view: EditorView, from: number, to: number, text: string): boolean {
   if (text !== "*") return false;
   if (from !== to) return false;
   const state = view.state;
@@ -1288,10 +1259,7 @@ const setdesignLiveChips = ViewPlugin.fromClass(
   },
 );
 
-function resolveNoteByName(
-  world: World,
-  raw: string,
-): EntityId | null {
+function resolveNoteByName(world: World, raw: string): EntityId | null {
   const trimmed = raw.trim();
   if (trimmed.length === 0) return null;
   if (/^e\d+$/.test(trimmed) && world.has(trimmed as EntityId)) {
@@ -1306,20 +1274,14 @@ function resolveNoteByName(
   return null;
 }
 
-function resolvePageOfNote(
-  world: World,
-  noteId: EntityId,
-  raw: string,
-): EntityId | null {
+function resolvePageOfNote(world: World, noteId: EntityId, raw: string): EntityId | null {
   const trimmed = raw.trim();
   if (trimmed.length === 0) return null;
   if (/^e\d+$/.test(trimmed) && world.has(trimmed as EntityId)) {
     const got = world.get(trimmed as EntityId, [BelongsToNote]) as
       | { BelongsToNote: { noteId: EntityId } }
       | undefined;
-    return got && got.BelongsToNote.noteId === noteId
-      ? (trimmed as EntityId)
-      : null;
+    return got && got.BelongsToNote.noteId === noteId ? (trimmed as EntityId) : null;
   }
   const needle = trimmed.toLowerCase();
   for (const row of world.query([Page, BelongsToNote])) {
@@ -1331,11 +1293,7 @@ function resolvePageOfNote(
   return null;
 }
 
-async function uploadAndInsert(
-  file: File,
-  view: EditorView,
-  worldId: string,
-): Promise<void> {
+async function uploadAndInsert(file: File, view: EditorView, worldId: string): Promise<void> {
   const url = `/api/worlds/${worldId}/assets/upload`;
   try {
     const res = await fetch(url, {

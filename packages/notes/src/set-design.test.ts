@@ -26,9 +26,7 @@ describe("parseSetDesign", () => {
   });
 
   it("detects a header line followed by `---`", () => {
-    const block = parseSetDesign(
-      "Old Library 7)\n---\n**Bookshelves** -> sagging\n",
-    );
+    const block = parseSetDesign("Old Library 7)\n---\n**Bookshelves** -> sagging\n");
     expect(block.header).toBe("Old Library 7)");
     expect(block.root).toHaveLength(1);
     expect(block.root[0]!.text).toBe("**Bookshelves** -> sagging");
@@ -80,11 +78,7 @@ describe("parseSetDesign", () => {
 
   it("marks the next sibling as blankBefore after a blank line", () => {
     const block = parseSetDesign(
-      [
-        "**Bookshelves** -> sagging",
-        "",
-        "Giant Rats (3) -> behind shelves",
-      ].join("\n"),
+      ["**Bookshelves** -> sagging", "", "Giant Rats (3) -> behind shelves"].join("\n"),
     );
     expect(block.root).toHaveLength(2);
     expect(block.root[0]!.blankBefore).toBe(false);
@@ -92,19 +86,13 @@ describe("parseSetDesign", () => {
   });
 
   it("supports both unicode → and ASCII -> arrows interchangeably in line prefixes", () => {
-    const block = parseSetDesign(
-      ["**Foo** -> a", "  → b", "  -> c"].join("\n"),
-    );
+    const block = parseSetDesign(["**Foo** -> a", "  → b", "  -> c"].join("\n"));
     expect(block.root[0]!.children.map((c) => c.text)).toEqual(["b", "c"]);
   });
 
   it("preserves wiki-link literals in the line text", () => {
-    const block = parseSetDesign(
-      "**Innkeeper** [[character:Marta]] -> 5sp/night\n",
-    );
-    expect(block.root[0]!.text).toBe(
-      "**Innkeeper** [[character:Marta]] -> 5sp/night",
-    );
+    const block = parseSetDesign("**Innkeeper** [[character:Marta]] -> 5sp/night\n");
+    expect(block.root[0]!.text).toBe("**Innkeeper** [[character:Marta]] -> 5sp/night");
   });
 
   it("treats tabs as two spaces for indent counting", () => {

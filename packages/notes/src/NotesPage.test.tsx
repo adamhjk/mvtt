@@ -17,47 +17,25 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  screen,
-  cleanup,
-  fireEvent,
-  waitFor,
-} from "@solidjs/testing-library";
+import { screen, cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
-import {
-  Identity,
-  Online,
-  Name,
-} from "@vtt/identity/shared";
-import {
-  ownedBy, Permissions,
-} from "@vtt/permissions/shared";
+import { Identity, Online, Name } from "@vtt/identity/shared";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { everyone } from "@vtt/permissions/shared";
 import { notes } from "./manifest.js";
-import {
-  Note,
-  NotesUiState,
-  Page,
-  BelongsToNote,
-  PageOrdering,
-} from "./shared/index.js";
+import { Note, NotesUiState, Page, BelongsToNote, PageOrdering } from "./shared/index.js";
 import { TabSentinel, tabSentinelEntityId } from "@vtt/shell-workbench/shared";
-import {
-  NotesPageProvider,
-} from "./client/NotesPage.js";
+import { NotesPageProvider } from "./client/NotesPage.js";
 
 /**
  * Spawn the tab sentinel a NoteView's `createOptimisticTrait` looks up.
  * In production the workbench's WorkspaceStateApplySystem spawns this on
  * tab open; tests skip workbench commands and seed the sentinel directly.
  */
-function seedTabSentinel(
-  world: import("@vtt/substrate").World,
-  tabId: string,
-): void {
+function seedTabSentinel(world: import("@vtt/substrate").World, tabId: string): void {
   world.spawnAt(tabSentinelEntityId(tabId), [
     TabSentinel({ tabId }),
     Permissions(ownedBy(ME_USER_ID)),
@@ -106,63 +84,57 @@ function harness({ withNote = false }: { withNote?: boolean } = {}) {
 describe("NotesPage hub (no entityId)", () => {
   it("renders the empty-state and a create form", () => {
     const h = harness();
-    mountWithClient(h, () =>
-      NotesPageProvider.render({
-        tabId: "tab-1",
-        entityId: null,
-      }) as never,
+    mountWithClient(
+      h,
+      () =>
+        NotesPageProvider.render({
+          tabId: "tab-1",
+          entityId: null,
+        }) as never,
     );
     expect(
       screen.getByText(/No notes yet — write the first one, or import an adventure\./i),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("textbox", { name: /Title/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /Title/i })).toBeInTheDocument();
   });
 
   it("create form dispatches CreateNote and retargets the tab", async () => {
     const h = harness();
-    mountWithClient(h, () =>
-      NotesPageProvider.render({
-        tabId: "tab-1",
-        entityId: null,
-      }) as never,
+    mountWithClient(
+      h,
+      () =>
+        NotesPageProvider.render({
+          tabId: "tab-1",
+          entityId: null,
+        }) as never,
     );
     const input = screen.getByRole("textbox", { name: /Title/i });
     fireEvent.input(input, { target: { value: "Mossfen" } });
     fireEvent.click(screen.getByRole("button", { name: /Create note/i }));
     await waitFor(() => {
-      expect(
-        h.dispatched.some((c) => c.type === "@vtt/notes/CreateNote"),
-      ).toBe(true);
+      expect(h.dispatched.some((c) => c.type === "@vtt/notes/CreateNote")).toBe(true);
     });
     // After NoteCreated arrives, the form dispatches RetargetTab.
     await waitFor(() => {
-      expect(
-        h.dispatched.some(
-          (c) => c.type === "@vtt/shell-workbench/RetargetTab",
-        ),
-      ).toBe(true);
+      expect(h.dispatched.some((c) => c.type === "@vtt/shell-workbench/RetargetTab")).toBe(true);
     });
   });
 
   it("with one note, the list shows it and Open dispatches RetargetTab", async () => {
     const h = harness({ withNote: true });
-    mountWithClient(h, () =>
-      NotesPageProvider.render({
-        tabId: "tab-1",
-        entityId: null,
-      }) as never,
+    mountWithClient(
+      h,
+      () =>
+        NotesPageProvider.render({
+          tabId: "tab-1",
+          entityId: null,
+        }) as never,
     );
     const titleEl = await screen.findByText("Goblin Cave");
     expect(titleEl).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: /Open/i })[0]!);
     await waitFor(() => {
-      expect(
-        h.dispatched.some(
-          (c) => c.type === "@vtt/shell-workbench/RetargetTab",
-        ),
-      ).toBe(true);
+      expect(h.dispatched.some((c) => c.type === "@vtt/shell-workbench/RetargetTab")).toBe(true);
     });
   });
 });
@@ -172,11 +144,13 @@ describe("NotesPage view (with entityId)", () => {
     const h = harness({ withNote: true });
     const noteId = h.world.query([Note])[0]!.id;
     seedTabSentinel(h.world, "tab-1");
-    mountWithClient(h, () =>
-      NotesPageProvider.render({
-        tabId: "tab-1",
-        entityId: noteId,
-      }) as never,
+    mountWithClient(
+      h,
+      () =>
+        NotesPageProvider.render({
+          tabId: "tab-1",
+          entityId: noteId,
+        }) as never,
     );
     expect(await screen.findByText("Goblin Cave")).toBeInTheDocument();
     // Page rail entry
@@ -191,17 +165,17 @@ describe("NotesPage view (with entityId)", () => {
     const h = harness({ withNote: true });
     const noteId = h.world.query([Note])[0]!.id;
     seedTabSentinel(h.world, "tab-1");
-    mountWithClient(h, () =>
-      NotesPageProvider.render({
-        tabId: "tab-1",
-        entityId: noteId,
-      }) as never,
+    mountWithClient(
+      h,
+      () =>
+        NotesPageProvider.render({
+          tabId: "tab-1",
+          entityId: noteId,
+        }) as never,
     );
     fireEvent.click(await screen.findByRole("button", { name: /^Edit$/ }));
     await waitFor(() => {
-      expect(
-        h.dispatched.some((c) => c.type === "@vtt/notes/BeginEdit"),
-      ).toBe(true);
+      expect(h.dispatched.some((c) => c.type === "@vtt/notes/BeginEdit")).toBe(true);
     });
   });
 });

@@ -27,11 +27,7 @@ import {
   type ConflictSide,
   type ConflictType,
 } from "../shared/index.js";
-import {
-  useCharacterName,
-  useEquippedArmor,
-  useParticipants,
-} from "./hooks.js";
+import { useCharacterName, useEquippedArmor, useParticipants } from "./hooks.js";
 
 /**
  * Armor at a glance — read-only play aid. Each row shows the
@@ -48,16 +44,8 @@ import {
 export function ArmorPanel(props: { conflictId: EntityId }): JSX.Element {
   return (
     <section data-testid="armor-panel">
-      <ArmorSidePanel
-        conflictId={props.conflictId}
-        side="party"
-        title="Party Armor"
-      />
-      <ArmorSidePanel
-        conflictId={props.conflictId}
-        side="enemy"
-        title="Enemy Armor"
-      />
+      <ArmorSidePanel conflictId={props.conflictId} side="party" title="Party Armor" />
+      <ArmorSidePanel conflictId={props.conflictId} side="enemy" title="Enemy Armor" />
       <ConflictArmorReference />
       <ArmorRulesLegend />
     </section>
@@ -78,12 +66,7 @@ function ConflictArmorReference(): JSX.Element {
   // Restrict to catalog-derived armor — monster-owned items (and any
   // future ad-hoc one-offs that lack `ItemDerivedFrom`) stay out of
   // the shared menu by construction.
-  const armorRows = useQuery([
-    TbArmor,
-    TbConflictResource,
-    ItemDerivedFrom,
-    ItemIdentity,
-  ]);
+  const armorRows = useQuery([TbArmor, TbConflictResource, ItemDerivedFrom, ItemIdentity]);
 
   const grouped = createMemo<
     ReadonlyArray<{
@@ -106,12 +89,9 @@ function ConflictArmorReference(): JSX.Element {
       // Skip per-monster armor (none today, but future-proof).
       if (cr.ownerCharacterId) continue;
       const ident = row.values.ItemIdentity as { name: string };
-      const note =
-        (row.values.TbConflictResource as { note?: string }).note ?? "";
+      const note = (row.values.TbConflictResource as { note?: string }).note ?? "";
       const buckets =
-        cr.applicableConflicts.length > 0
-          ? cr.applicableConflicts
-          : (["any"] as const);
+        cr.applicableConflicts.length > 0 ? cr.applicableConflicts : (["any"] as const);
       for (const ct of buckets) {
         const list = byType.get(ct as ConflictType | "any") ?? [];
         list.push({ id: row.id as EntityId, name: ident.name, note });
@@ -124,8 +104,7 @@ function ConflictArmorReference(): JSX.Element {
       rows: ReadonlyArray<{ id: EntityId; name: string; note: string }>;
     }> = [];
     for (const [ct, rows] of byType) {
-      const label =
-        ct === "any" ? "Any" : (TB_CONFLICT_TYPES[ct]?.label ?? ct);
+      const label = ct === "any" ? "Any" : (TB_CONFLICT_TYPES[ct]?.label ?? ct);
       out.push({ conflictType: ct, label, rows });
     }
     out.sort((a, b) => a.label.localeCompare(b.label));
@@ -134,10 +113,7 @@ function ConflictArmorReference(): JSX.Element {
 
   return (
     <Show when={grouped().length > 0}>
-      <div
-        class="px-3 py-3 border-t border-border-muted"
-        data-testid="armor-panel-reference"
-      >
+      <div class="px-3 py-3 border-t border-border-muted" data-testid="armor-panel-reference">
         <h2 class="font-display text-[0.7rem] uppercase tracking-[0.16em] mb-2">
           Conflict Armor — Quick Reference
         </h2>
@@ -177,10 +153,7 @@ export function ArmorSidePanel(props: {
 }): JSX.Element {
   const participants = useParticipants(props.conflictId, props.side);
   return (
-    <div
-      class="px-3 py-3 border-t border-border-muted"
-      data-testid={`armor-panel-${props.side}`}
-    >
+    <div class="px-3 py-3 border-t border-border-muted" data-testid={`armor-panel-${props.side}`}>
       <h2 class="font-display text-[0.7rem] uppercase tracking-[0.16em] mb-2">
         {props.title} — Equipped
       </h2>
@@ -238,25 +211,16 @@ function ArmorRow(props: {
 
 function ArmorCell(props: { itemId: EntityId | null }): JSX.Element {
   return (
-    <Show
-      when={props.itemId}
-      fallback={<span class="text-fg-subtle">—</span>}
-    >
+    <Show when={props.itemId} fallback={<span class="text-fg-subtle">—</span>}>
       {(idAcc) => <ArmorCellLabel itemId={idAcc() as EntityId} />}
     </Show>
   );
 }
 
 function ArmorCellLabel(props: { itemId: EntityId }): JSX.Element {
-  const ident = useTrait(props.itemId, ItemIdentity) as () =>
-    | { name: string }
-    | undefined;
-  const armor = useTrait(props.itemId, TbArmor) as () =>
-    | { armorType: string }
-    | undefined;
-  return (
-    <span>{ident()?.name ?? armor()?.armorType ?? "(armor)"}</span>
-  );
+  const ident = useTrait(props.itemId, ItemIdentity) as () => { name: string } | undefined;
+  const armor = useTrait(props.itemId, TbArmor) as () => { armorType: string } | undefined;
+  return <span>{ident()?.name ?? armor()?.armorType ?? "(armor)"}</span>;
 }
 
 export function ArmorRulesLegend(): JSX.Element {

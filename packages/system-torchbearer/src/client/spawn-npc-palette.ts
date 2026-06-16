@@ -24,20 +24,10 @@
 // Mirrors `spawn-monster-palette.ts` exactly so the two surfaces stay
 // patternable. GM-only via `visibleTo`.
 
-import {
-  qualifiedName,
-  type CommandInstance,
-  type EntityId,
-} from "@vtt/substrate";
+import { qualifiedName, type CommandInstance, type EntityId } from "@vtt/substrate";
 import { Character } from "@vtt/characters/shared";
-import {
-  OpenPageInNewTab,
-  type PaletteCommand,
-} from "@vtt/shell-workbench/shared";
-import {
-  CreateNpcFromCatalog,
-  TB_NPC_TEMPLATES,
-} from "../shared/npcs.js";
+import { OpenPageInNewTab, type PaletteCommand } from "@vtt/shell-workbench/shared";
+import { CreateNpcFromCatalog, TB_NPC_TEMPLATES } from "../shared/npcs.js";
 import { NpcCreated } from "../shared/npc-events.js";
 import { TbNpc } from "../shared/npc-traits.js";
 
@@ -55,21 +45,17 @@ function lastSegment(templateId: string): string {
   return idx === -1 ? templateId : templateId.slice(idx + 1);
 }
 
-export const TB_SPAWN_NPC_PALETTE_COMMANDS: ReadonlyArray<PaletteCommand> =
-  TB_NPC_TEMPLATES.map((tmpl) => ({
+export const TB_SPAWN_NPC_PALETTE_COMMANDS: ReadonlyArray<PaletteCommand> = TB_NPC_TEMPLATES.map(
+  (tmpl) => ({
     id: qualifiedName(
       `@vtt/system-torchbearer/spawn-npc-${lastSegment(tmpl.id)}`,
     ) as PaletteCommand["id"],
     label: `Spawn ${tmpl.name}`,
-    hint: `NPC · ${tmpl.sourceBook}${
-      tmpl.sourcePage !== null ? ` p.${tmpl.sourcePage}` : ""
-    }`,
+    hint: `NPC · ${tmpl.sourceBook}${tmpl.sourcePage !== null ? ` p.${tmpl.sourcePage}` : ""}`,
     visibleTo: (ctx) => ctx.role === "gm",
     run: (ctx) => {
       const { client } = ctx;
-      const beforeIds = new Set(
-        client.world.query([Character, TbNpc]).map((r) => r.id as string),
-      );
+      const beforeIds = new Set(client.world.query([Character, TbNpc]).map((r) => r.id as string));
       const off = client.bus.on(NpcCreated.name, () => {
         off();
         const fresh = client.world
@@ -83,9 +69,8 @@ export const TB_SPAWN_NPC_PALETTE_COMMANDS: ReadonlyArray<PaletteCommand> =
           }) as CommandInstance,
         );
       });
-      client.dispatch(
-        CreateNpcFromCatalog({ templateId: tmpl.id }) as CommandInstance,
-      );
+      client.dispatch(CreateNpcFromCatalog({ templateId: tmpl.id }) as CommandInstance);
       return null;
     },
-  }));
+  }),
+);

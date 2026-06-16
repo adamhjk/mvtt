@@ -78,9 +78,7 @@ export function setAtPath(root: unknown, path: Path, value: unknown): unknown {
       );
     }
     if (head < 0 || head >= root.length) {
-      throw new Error(
-        `setAtPath: numeric segment ${head} is out of range (0..${root.length - 1})`,
-      );
+      throw new Error(`setAtPath: numeric segment ${head} is out of range (0..${root.length - 1})`);
     }
     const next = root.slice();
     next[head] = setAtPath(root[head], rest, value);

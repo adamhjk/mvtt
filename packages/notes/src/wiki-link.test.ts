@@ -38,9 +38,7 @@ describe("parseInner", () => {
   });
 
   it("ignores unknown kind: when knownKinds is provided", () => {
-    expect(
-      parseInner("foo:bar", { knownKinds: new Set(["note", "character"]) }),
-    ).toEqual({
+    expect(parseInner("foo:bar", { knownKinds: new Set(["note", "character"]) })).toEqual({
       kind: "note",
       body: "foo:bar",
       anchor: null,
@@ -71,9 +69,7 @@ describe("parseInner", () => {
   });
 
   it("sigil takes precedence over kind: when both could match", () => {
-    expect(
-      parseInner("@character:foo", { sigils: { "@": "character" } }),
-    ).toEqual({
+    expect(parseInner("@character:foo", { sigils: { "@": "character" } })).toEqual({
       kind: "character",
       body: "character:foo",
       anchor: null,
@@ -154,8 +150,7 @@ describe("parseInner", () => {
 
 describe("parseLinks", () => {
   it("finds every link in source order with ranges", () => {
-    const text =
-      "See [[Goblin Cave]] and [[character:Krell|the chief]] for context.";
+    const text = "See [[Goblin Cave]] and [[character:Krell|the chief]] for context.";
     const links = parseLinks(text);
     expect(links).toHaveLength(2);
     expect(links[0]).toMatchObject({
@@ -191,8 +186,7 @@ describe("parseLinks", () => {
   });
 
   it("preserves [[…]] inside ```setdesign fences so backlinks see them", () => {
-    const text =
-      "intro\n```setdesign\n**Innkeeper** [[character:Marta]] -> 5sp/night\n```\n";
+    const text = "intro\n```setdesign\n**Innkeeper** [[character:Marta]] -> 5sp/night\n```\n";
     const links = parseLinks(text);
     expect(links).toHaveLength(1);
     expect(links[0]!.kind).toBe("character");
@@ -231,9 +225,9 @@ describe("parseLinks", () => {
 
 describe("formatLink", () => {
   it("emits canonical normalised form", () => {
-    expect(
-      formatLink({ kind: "note", body: "e42", alias: "Goblin Cave" }),
-    ).toBe("[[note:e42|Goblin Cave]]");
+    expect(formatLink({ kind: "note", body: "e42", alias: "Goblin Cave" })).toBe(
+      "[[note:e42|Goblin Cave]]",
+    );
   });
 
   it("includes anchor when present", () => {
@@ -248,9 +242,7 @@ describe("formatLink", () => {
   });
 
   it("emits embed prefix when embed: true", () => {
-    expect(formatLink({ kind: "asset", body: "e7", embed: true })).toBe(
-      "![[asset:e7]]",
-    );
+    expect(formatLink({ kind: "asset", body: "e7", embed: true })).toBe("![[asset:e7]]");
   });
 
   it("round-trips with parseLinks", () => {

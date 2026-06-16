@@ -20,9 +20,7 @@ import { assetUrl, uploadAssetForWorld } from "./client/upload.js";
 
 describe("assetUrl", () => {
   it("builds the canonical fetch URL", () => {
-    expect(assetUrl("my-table", "e123")).toBe(
-      "/plugin-data/my-table/assets/e123",
-    );
+    expect(assetUrl("my-table", "e123")).toBe("/plugin-data/my-table/assets/e123");
   });
 
   it("percent-encodes the worldId and assetId", () => {
@@ -100,11 +98,7 @@ describe("uploadAssetForWorld", () => {
 
   it("flags deduped uploads so callers can surface 'already uploaded'", async () => {
     globalThis.fetch = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({ assetId: "e7", deduped: true }),
-          { status: 200 },
-        ),
+      async () => new Response(JSON.stringify({ assetId: "e7", deduped: true }), { status: 200 }),
     ) as unknown as typeof fetch;
     const result = await uploadAssetForWorld(
       "my-table",
@@ -116,8 +110,7 @@ describe("uploadAssetForWorld", () => {
 
   it("respects an explicit filename override", async () => {
     const fetchMock = vi.fn(
-      async () =>
-        new Response(JSON.stringify({ assetId: "e1" }), { status: 200 }),
+      async () => new Response(JSON.stringify({ assetId: "e1" }), { status: 200 }),
     );
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     const blob = new Blob([new Uint8Array([1])], { type: "image/png" });

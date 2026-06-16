@@ -93,9 +93,7 @@ const TbRollModifierProviderSchema = z.object({
   modifier: TbRollModifierSchema,
 });
 
-export type TbRollModifierProvider = z.infer<
-  typeof TbRollModifierProviderSchema
->;
+export type TbRollModifierProvider = z.infer<typeof TbRollModifierProviderSchema>;
 
 export const TbRollModifierProvidersSlot = defineSlot({
   name: "@vtt/system-torchbearer/roll-modifier-providers",

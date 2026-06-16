@@ -55,8 +55,6 @@ export const RollAtelierPageProvider = definePageProvider({
       };
     }),
   defaultEntity: () => null,
-  render: ({ tabId, entityId }) => (
-    <RollAtelier tabId={tabId} initialSelection={entityId} />
-  ),
+  render: ({ tabId, entityId }) => <RollAtelier tabId={tabId} initialSelection={entityId} />,
   priority: 50,
 });

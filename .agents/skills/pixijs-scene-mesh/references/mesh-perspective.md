@@ -135,7 +135,6 @@ Changing the texture rebuilds the geometry to match the new dimensions while kee
 
 `PerspectiveMesh` is a 2D mesh with UV correction to simulate perspective. There is no Z axis, no depth buffer, and no camera. For real 3D, use a full WebGL/WebGPU library on top of PixiJS, or drive vertex positions through a manual transform.
 
-
 ### [MEDIUM] Too few vertices for a noticeable tilt
 
 Wrong:
@@ -176,11 +175,9 @@ const mesh = new PerspectiveMesh({
 
 A 2×2 grid has only two triangles; the texture stretches linearly with no perspective correction. Bump density above 10×10 for any visible tilt.
 
-
 ### [MEDIUM] Non-convex corners
 
 If your four corners form a non-convex (self-intersecting or bow-tie) quadrilateral, the UV interpolation produces visual artifacts. Keep the corners in consistent clockwise order and check that the quad is convex.
-
 
 ## API Reference
 

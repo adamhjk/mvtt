@@ -128,9 +128,7 @@ describe("shell-workbench WorkbenchView", () => {
   it("renders the header with the mvtt brand and search trigger", () => {
     const h = harness();
     render(() => (
-      <ClientProvider value={h.client}>
-        {WorkbenchView.render({}) as never}
-      </ClientProvider>
+      <ClientProvider value={h.client}>{WorkbenchView.render({}) as never}</ClientProvider>
     ));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("mvtt");
     expect(screen.getByRole("button", { name: /search/i })).toBeInTheDocument();
@@ -139,9 +137,7 @@ describe("shell-workbench WorkbenchView", () => {
   it("shows the bootstrap fallback when no WorkspaceState exists yet", () => {
     const h = harness({ withWorkspaceState: false });
     render(() => (
-      <ClientProvider value={h.client}>
-        {WorkbenchView.render({}) as never}
-      </ClientProvider>
+      <ClientProvider value={h.client}>{WorkbenchView.render({}) as never}</ClientProvider>
     ));
     expect(screen.getByText(/Setting your workspace…/i)).toBeInTheDocument();
   });
@@ -149,9 +145,7 @@ describe("shell-workbench WorkbenchView", () => {
   it("mounts the WorkspaceTreeView when WorkspaceState is present", () => {
     const h = harness();
     const { container } = render(() => (
-      <ClientProvider value={h.client}>
-        {WorkbenchView.render({}) as never}
-      </ClientProvider>
+      <ClientProvider value={h.client}>{WorkbenchView.render({}) as never}</ClientProvider>
     ));
     // Bootstrap fallback should NOT be visible — workspace renders.
     expect(screen.queryByText(/Setting your workspace…/i)).toBeNull();
@@ -159,8 +153,6 @@ describe("shell-workbench WorkbenchView", () => {
     // (chat is its own page now), so the workbench no longer mounts an
     // <aside>; the side-effect widget host stands in for it.
     expect(container.querySelector("main")).not.toBeNull();
-    expect(
-      container.querySelector("[data-testid='workbench-side-effects']"),
-    ).not.toBeNull();
+    expect(container.querySelector("[data-testid='workbench-side-effects']")).not.toBeNull();
   });
 });

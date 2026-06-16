@@ -27,23 +27,16 @@ export function ConditionsPanel(props: { conflictId: EntityId }): JSX.Element {
   const enemy = useParticipants(props.conflictId, "enemy");
   const all = createMemo(() => [...party(), ...enemy()]);
   return (
-    <section
-      class="px-3 py-3 border-t border-border-muted"
-      data-testid="conditions-panel"
-    >
+    <section class="px-3 py-3 border-t border-border-muted" data-testid="conditions-panel">
       <h2 class="font-display text-[0.7rem] uppercase tracking-[0.16em] mb-2">
         Conditions In Play
       </h2>
-      <For each={all()}>
-        {(p) => <ParticipantConditions characterId={p.characterId} />}
-      </For>
+      <For each={all()}>{(p) => <ParticipantConditions characterId={p.characterId} />}</For>
     </section>
   );
 }
 
-function ParticipantConditions(props: {
-  characterId: EntityId;
-}): JSX.Element {
+function ParticipantConditions(props: { characterId: EntityId }): JSX.Element {
   const name = useCharacterName(props.characterId);
   const conds = useTrait(props.characterId, Conditions) as () =>
     | ReturnType<typeof Conditions>["value"]
@@ -66,13 +59,8 @@ function ParticipantConditions(props: {
   });
   return (
     <Show when={active().length > 0}>
-      <div
-        class="text-sm mb-1"
-        data-testid={`conditions-row-${props.characterId}`}
-      >
-        <span class="font-display text-xs uppercase tracking-wide w-20 inline-block">
-          {name()}
-        </span>
+      <div class="text-sm mb-1" data-testid={`conditions-row-${props.characterId}`}>
+        <span class="font-display text-xs uppercase tracking-wide w-20 inline-block">{name()}</span>
         <For each={active()}>
           {(c) => (
             <span class="inline-block mr-2 text-xs">

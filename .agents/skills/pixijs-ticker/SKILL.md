@@ -229,7 +229,6 @@ app.ticker.add((ticker) => {
 
 v8 passes the Ticker instance as the callback argument, not a delta number. The v7 pattern `(dt) => ...` compiles but `dt` is the entire Ticker object, so arithmetic on it produces `NaN`.
 
-
 ### [HIGH] Using updateTransform for per-frame logic
 
 Wrong:
@@ -259,7 +258,6 @@ class MySprite extends Sprite {
 
 `updateTransform` was removed in v8. Use the `onRender` callback for per-object per-frame logic.
 
-
 ### [MEDIUM] Treating deltaTime as milliseconds
 
 Wrong:
@@ -283,7 +281,6 @@ app.ticker.add((ticker) => {
 ```
 
 `deltaTime` is a dimensionless scalar (~1.0 at 60fps), not milliseconds. Use `deltaMS` for real time calculations. Use `deltaTime` as a simple multiplier when you want "per frame at 60fps" behavior.
-
 
 ## API Reference
 

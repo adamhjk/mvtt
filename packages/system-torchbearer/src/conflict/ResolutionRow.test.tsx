@@ -25,10 +25,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, screen } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { definePlugin, type EntityId } from "@vtt/substrate";
 import { permissions } from "@vtt/permissions";
 import { Permissions, actors } from "@vtt/permissions/shared";
@@ -59,11 +56,7 @@ const charsLite = definePlugin({
 const conflictTestPlugin = definePlugin({
   name: "@vtt/conflict-test-resrow",
   version: "0.0.0",
-  dependsOn: [
-    "@vtt/substrate@^0",
-    "@vtt/permissions@^0",
-    "@vtt/conflict-resrow-chars-lite@^0",
-  ],
+  dependsOn: ["@vtt/substrate@^0", "@vtt/permissions@^0", "@vtt/conflict-resrow-chars-lite@^0"],
   traits: [...ALL_CONFLICT_TRAITS],
   events: [...ALL_CONFLICT_EVENTS],
   commands: [...ALL_CONFLICT_COMMANDS],
@@ -113,13 +106,11 @@ function mountReveal(opts: {
               // back via TbConflictParticipant in this test — only the
               // chat row's PerformerName lookup, which falls through to
               // the live character name.
-              partyPerformerParticipantEntityId: ("e:" +
-                partyChar) as typeof partyChar,
+              partyPerformerParticipantEntityId: ("e:" + partyChar) as typeof partyChar,
               partyPerformerCharacterId: partyChar,
               partyWeaponItemId: null,
               enemyAction: opts.enemyAction,
-              enemyPerformerParticipantEntityId: ("e:" +
-                enemyChar) as typeof enemyChar,
+              enemyPerformerParticipantEntityId: ("e:" + enemyChar) as typeof enemyChar,
               enemyPerformerCharacterId: enemyChar,
               enemyWeaponItemId: null,
             },
@@ -159,11 +150,7 @@ function mountReveal(opts: {
           conflictId: conflictId!,
           side: "party",
           locked: true,
-          slots: [
-            { status: "empty" },
-            { status: "empty" },
-            { status: "empty" },
-          ],
+          slots: [{ status: "empty" }, { status: "empty" }, { status: "empty" }],
         }),
         Permissions({
           read: actors(["p1", "gm"]),
@@ -175,11 +162,7 @@ function mountReveal(opts: {
           conflictId: conflictId!,
           side: "enemy",
           locked: true,
-          slots: [
-            { status: "empty" },
-            { status: "empty" },
-            { status: "empty" },
-          ],
+          slots: [{ status: "empty" }, { status: "empty" }, { status: "empty" }],
         }),
         Permissions({ read: actors(["gm"]), write: actors(["gm"]) }),
       ]);

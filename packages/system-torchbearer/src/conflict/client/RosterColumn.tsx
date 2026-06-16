@@ -51,9 +51,7 @@ export function RosterColumn(props: {
       </h2>
       <Show
         when={participants().length > 0}
-        fallback={
-          <p class="text-fg-subtle italic text-xs">No participants.</p>
-        }
+        fallback={<p class="text-fg-subtle italic text-xs">No participants.</p>}
       >
         <ul class="space-y-3">
           <For each={participants()}>
@@ -84,9 +82,7 @@ function ParticipantCard(props: {
       classList={{ "opacity-50": props.participant.knockedOut }}
     >
       <div class="flex items-baseline justify-between gap-2">
-        <span class="font-display text-sm uppercase tracking-wide text-fg">
-          {name()}
-        </span>
+        <span class="font-display text-sm uppercase tracking-wide text-fg">{name()}</span>
         <Show when={props.participant.knockedOut}>
           <span
             class="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-danger"
@@ -106,11 +102,7 @@ function ParticipantCard(props: {
   );
 }
 
-function HpPips(props: {
-  hp: number;
-  hpMax: number;
-  testId: string;
-}): JSX.Element {
+function HpPips(props: { hp: number; hpMax: number; testId: string }): JSX.Element {
   const items = (): { full: boolean; idx: number }[] => {
     const out: { full: boolean; idx: number }[] = [];
     for (let i = 0; i < props.hpMax; i++) {
@@ -124,9 +116,7 @@ function HpPips(props: {
       data-testid={props.testId}
       aria-label={`HP ${props.hp} / ${props.hpMax}`}
     >
-      <For each={items()}>
-        {(p) => <span class="mr-px">{p.full ? "●" : "○"}</span>}
-      </For>
+      <For each={items()}>{(p) => <span class="mr-px">{p.full ? "●" : "○"}</span>}</For>
     </div>
   );
 }
@@ -140,12 +130,6 @@ function WeaponLine(props: { binding: WeaponView | undefined }): JSX.Element {
 }
 
 function WeaponName(props: { itemId: EntityId }): JSX.Element {
-  const ident = useTrait(props.itemId, ItemIdentity) as () =>
-    | { name: string }
-    | undefined;
-  return (
-    <p class="text-xs text-fg-subtle font-mono mt-0.5">
-      {ident()?.name ?? "(unknown)"}
-    </p>
-  );
+  const ident = useTrait(props.itemId, ItemIdentity) as () => { name: string } | undefined;
+  return <p class="text-xs text-fg-subtle font-mono mt-0.5">{ident()?.name ?? "(unknown)"}</p>;
 }

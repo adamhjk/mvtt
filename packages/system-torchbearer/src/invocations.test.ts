@@ -227,15 +227,11 @@ describe("@vtt/system-torchbearer invocations", () => {
       expect(entry.itemId).toBe(setup.relicItemId);
       // Sanity: the catalog item carries the invocation back-link
       // and slot options derived from the rulebook annotation.
-      const link = setup.world.get(setup.relicItemId, [
-        TbInvocationRelicLink,
-      ]) as
+      const link = setup.world.get(setup.relicItemId, [TbInvocationRelicLink]) as
         | { TbInvocationRelicLink: { invocationId: string } }
         | undefined;
       expect(link?.TbInvocationRelicLink.invocationId).toBe(setup.invocationId);
-      const slotOpts = setup.world.get(setup.relicItemId, [
-        TbItemSlotOptions,
-      ]) as
+      const slotOpts = setup.world.get(setup.relicItemId, [TbItemSlotOptions]) as
         | { TbItemSlotOptions: { options: Record<string, number> } }
         | undefined;
       expect(slotOpts?.TbItemSlotOptions.options).toEqual({
@@ -301,9 +297,7 @@ describe("@vtt/system-torchbearer invocations", () => {
         }),
       );
       expect(r.result.ok).toBe(true);
-      const flagAfter = setup.world.get(setup.characterId, [
-        TbInvocationRelics,
-      ]) as
+      const flagAfter = setup.world.get(setup.characterId, [TbInvocationRelics]) as
         | { TbInvocationRelics: { invocationIds: EntityId[] } }
         | undefined;
       expect(flagAfter?.TbInvocationRelics.invocationIds).toEqual([]);
@@ -362,12 +356,7 @@ describe("@vtt/system-torchbearer invocations", () => {
     }
 
     it("increments Relics.burden and stamps the marker", async () => {
-      const rollId = makeRoll(
-        setup.world,
-        setup.characterId,
-        setup.invocationId,
-        2,
-      );
+      const rollId = makeRoll(setup.world, setup.characterId, setup.invocationId, 2);
       const r = await dispatch(setup, ApplyImmortalBurden({ rollId }));
       expect(r.result.ok).toBe(true);
       const relics = setup.world.get(setup.characterId, [Relics]) as
@@ -381,21 +370,14 @@ describe("@vtt/system-torchbearer invocations", () => {
     });
 
     it("rejects a second click — marker is one-shot", async () => {
-      const rollId = makeRoll(
-        setup.world,
-        setup.characterId,
-        setup.invocationId,
-        2,
-      );
+      const rollId = makeRoll(setup.world, setup.characterId, setup.invocationId, 2);
       await dispatch(setup, ApplyImmortalBurden({ rollId }));
       const r = await dispatch(setup, ApplyImmortalBurden({ rollId }));
       expect(r.result.ok).toBe(false);
     });
 
     it("rejects when the roll isn't an invocation perform", async () => {
-      const rollId = setup.world.spawn([
-        Formula({ notation: "4d6", meta: { spec: {} } }),
-      ]);
+      const rollId = setup.world.spawn([Formula({ notation: "4d6", meta: { spec: {} } })]);
       const r = await dispatch(setup, ApplyImmortalBurden({ rollId }));
       expect(r.result.ok).toBe(false);
     });
@@ -403,24 +385,17 @@ describe("@vtt/system-torchbearer invocations", () => {
 
   describe("Catalog management", () => {
     it("CreateBlankInvocation is GM-only and spawns defaults", async () => {
-      const playerR = await dispatch(
-        setup,
-        CreateBlankInvocation({ name: "Custom Rite" }),
-      );
+      const playerR = await dispatch(setup, CreateBlankInvocation({ name: "Custom Rite" }));
       expect(playerR.result.ok).toBe(false);
-      const r = await dispatch(
-        setup,
-        CreateBlankInvocation({ name: "Custom Rite" }),
-        true,
-      );
+      const r = await dispatch(setup, CreateBlankInvocation({ name: "Custom Rite" }), true);
       expect(r.result.ok).toBe(true);
       const created = (
         r.events as ReadonlyArray<{ type: string; payload: { invocationId: EntityId } }>
       ).find((e) => e.type === InvocationCreated.name);
       expect(created).toBeDefined();
-      const ident = setup.world.get(created!.payload.invocationId, [
-        InvocationIdentity,
-      ]) as { InvocationIdentity: { name: string; circle: number } } | undefined;
+      const ident = setup.world.get(created!.payload.invocationId, [InvocationIdentity]) as
+        | { InvocationIdentity: { name: string; circle: number } }
+        | undefined;
       expect(ident?.InvocationIdentity.name).toBe("Custom Rite");
       expect(ident?.InvocationIdentity.circle).toBe(1);
     });
@@ -437,18 +412,14 @@ describe("@vtt/system-torchbearer invocations", () => {
         true,
       );
       expect(r.result.ok).toBe(true);
-      const got = setup.world.get(setup.invocationId, [
-        TbInvocationPerforming,
-      ]) as { TbInvocationPerforming: { fixedOb: number } } | undefined;
+      const got = setup.world.get(setup.invocationId, [TbInvocationPerforming]) as
+        | { TbInvocationPerforming: { fixedOb: number } }
+        | undefined;
       expect(got?.TbInvocationPerforming.fixedOb).toBe(4);
     });
 
     it("RemoveInvocation despawns the entity", async () => {
-      const r = await dispatch(
-        setup,
-        RemoveInvocation({ invocationId: setup.invocationId }),
-        true,
-      );
+      const r = await dispatch(setup, RemoveInvocation({ invocationId: setup.invocationId }), true);
       expect(r.result.ok).toBe(true);
       expect(setup.world.has(setup.invocationId)).toBe(false);
     });
@@ -474,14 +445,14 @@ describe("parseRelicSlotOptions", () => {
     });
   });
   it("parses a comma+'or' compound (pocket form)", () => {
-    expect(
-      parseRelicSlotOptions("pocket, worn/neck or worn/hands 1"),
-    ).toEqual({ pocket: 1, neck: 1, hands: 1 });
+    expect(parseRelicSlotOptions("pocket, worn/neck or worn/hands 1")).toEqual({
+      pocket: 1,
+      neck: 1,
+      hands: 1,
+    });
   });
   it("collapses 'wielded' onto 'carried'", () => {
-    expect(
-      parseRelicSlotOptions("carried 1, belt 1; wielded 1"),
-    ).toEqual({ carried: 1, belt: 1 });
+    expect(parseRelicSlotOptions("carried 1, belt 1; wielded 1")).toEqual({ carried: 1, belt: 1 });
   });
   it("maps 'raiment' onto torso", () => {
     expect(parseRelicSlotOptions("raiment")).toEqual({ torso: 1 });
@@ -519,9 +490,7 @@ describe("TB_INVOCATION_TEMPLATES catalog", () => {
   });
 
   it("includes the canonical Bone Knitter (theurge p.209)", () => {
-    const bk = TB_INVOCATION_TEMPLATES.find(
-      (t) => t.id === "tb/invocation/theurge/bone-knitter",
-    );
+    const bk = TB_INVOCATION_TEMPLATES.find((t) => t.id === "tb/invocation/theurge/bone-knitter");
     expect(bk).toBeDefined();
     expect(bk!.circle).toBe(1);
     expect(bk!.performing.ritualKind).toBe("fixed");

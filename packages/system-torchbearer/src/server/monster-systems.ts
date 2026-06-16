@@ -27,17 +27,8 @@ import {
   TbMonsterSpecialRules,
   TbMonsterWeapons,
 } from "../shared/monster-traits.js";
-import {
-  Conditions,
-  Heroic,
-  RawAbilities,
-  TownAbilities,
-} from "../shared/traits.js";
-import {
-  TbCarries,
-  TbItemSlotOptions,
-  TbWeapon,
-} from "../shared/items/item-traits.js";
+import { Conditions, Heroic, RawAbilities, TownAbilities } from "../shared/traits.js";
+import { TbCarries, TbItemSlotOptions, TbWeapon } from "../shared/items/item-traits.js";
 
 /**
  * Universal-mirror spawn system for monster entities. Spawns at the
@@ -162,9 +153,7 @@ export const MonsterSpawningSystem = defineSystem({
         entries: event.specialRules.map((r) => ({
           name: r.name,
           text: r.text,
-          pageRef: r.pageRef
-            ? { canonicalId: r.pageRef.canonicalId, page: r.pageRef.page }
-            : null,
+          pageRef: r.pageRef ? { canonicalId: r.pageRef.canonicalId, page: r.pageRef.page } : null,
         })),
       }),
     ];

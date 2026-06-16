@@ -17,10 +17,7 @@
 
 import { z } from "@vtt/substrate";
 import { readBrand } from "../shared/brands.js";
-import type {
-  AnyBlockKindDef,
-  BlockKindContext,
-} from "../shared/block-kinds.js";
+import type { AnyBlockKindDef, BlockKindContext } from "../shared/block-kinds.js";
 
 export interface BlockCompletion {
   /** Insertion text. */
@@ -91,12 +88,9 @@ export function schemaAtPath(
     } else if (cur instanceof z.ZodRecord) {
       cur = (def.valueType ?? def.value) as z.ZodTypeAny;
       if (!cur) return null;
-    } else if (
-      cur instanceof z.ZodUnion ||
-      cur instanceof z.ZodDiscriminatedUnion
-    ) {
+    } else if (cur instanceof z.ZodUnion || cur instanceof z.ZodDiscriminatedUnion) {
       // Try each option; return the first that has the segment.
-      const options = ((def.options as z.ZodTypeAny[] | undefined) ?? []);
+      const options = (def.options as z.ZodTypeAny[] | undefined) ?? [];
       let found: z.ZodTypeAny | null = null;
       for (const opt of options) {
         const r = schemaAtPath(opt, [segment]);
@@ -157,17 +151,12 @@ function unwrap(s: z.ZodTypeAny): z.ZodTypeAny {
  * dice get 50; snippets get 10 (top of list); kind names get 50.
  * Lower number sorts first.
  */
-export function computeBlockCompletions(
-  context: CompletionContext,
-): BlockCompletion[] {
+export function computeBlockCompletions(context: CompletionContext): BlockCompletion[] {
   const out: BlockCompletion[] = [];
 
   if (context.slot === "info") {
     for (const k of context.allKinds) {
-      if (
-        context.query.length > 0 &&
-        !k.name.toLowerCase().includes(context.query.toLowerCase())
-      ) {
+      if (context.query.length > 0 && !k.name.toLowerCase().includes(context.query.toLowerCase())) {
         continue;
       }
       out.push({
@@ -197,9 +186,7 @@ export function computeBlockCompletions(
         ) {
           continue;
         }
-        const isOptional =
-          keySchema instanceof z.ZodOptional ||
-          keySchema instanceof z.ZodDefault;
+        const isOptional = keySchema instanceof z.ZodOptional || keySchema instanceof z.ZodDefault;
         out.push({
           value: keyName,
           label: keyName,
@@ -255,10 +242,7 @@ export function computeBlockCompletions(
   }
   if (brand?.dice) {
     for (const v of ["1d6", "2d6", "3d6", "1d6+1", "2d6+1", "1d20"]) {
-      if (
-        context.query.length > 0 &&
-        !v.toLowerCase().startsWith(context.query.toLowerCase())
-      ) {
+      if (context.query.length > 0 && !v.toLowerCase().startsWith(context.query.toLowerCase())) {
         continue;
       }
       out.push({ value: v, label: v, priority: 50, source: "dice" });
@@ -268,10 +252,7 @@ export function computeBlockCompletions(
   if (inner instanceof z.ZodEnum) {
     const enumValues = inner.options as ReadonlyArray<string>;
     for (const v of enumValues) {
-      if (
-        context.query.length > 0 &&
-        !v.toLowerCase().startsWith(context.query.toLowerCase())
-      ) {
+      if (context.query.length > 0 && !v.toLowerCase().startsWith(context.query.toLowerCase())) {
         continue;
       }
       out.push({ value: v, label: v, priority: 100, source: "schema" });
@@ -305,8 +286,7 @@ export function computeBlockCompletions(
           value?: unknown;
           values?: unknown[];
         };
-        const litValues =
-          ldef.values ?? (ldef.value !== undefined ? [ldef.value] : []);
+        const litValues = ldef.values ?? (ldef.value !== undefined ? [ldef.value] : []);
         for (const v of litValues) {
           out.push({
             value: String(v),

@@ -11,7 +11,7 @@ This skill covers the **string DSL** consumed by `@dice-roller/rpg-dice-roller`'
 
 ## Mental model
 
-A notation is an arithmetic expression whose atoms are **dice expressions**, **roll groups**, and **numbers**. A dice expression is `<qty>d<sides><modifiers...><description?>`. Modifiers attach to the die or to the group. Math operators (+ − * / % ^ **) and math functions (`abs`, `floor`, `pow(...)`, `max(...)`, `min(...)`, etc.) compose the atoms.
+A notation is an arithmetic expression whose atoms are **dice expressions**, **roll groups**, and **numbers**. A dice expression is `<qty>d<sides><modifiers...><description?>`. Modifiers attach to the die or to the group. Math operators (+ − \* / % ^ \*\*) and math functions (`abs`, `floor`, `pow(...)`, `max(...)`, `min(...)`, etc.) compose the atoms.
 
 ```
 notation     ::= expression
@@ -29,18 +29,19 @@ The core thing to internalise: **modifier execution order is fixed by modifier t
 
 ## Dice (the atoms)
 
-| Notation | Meaning |
-|---|---|
-| `d6`, `1d6` | one six-sided die (qty defaults to 1) |
-| `4d10` | four ten-sided dice, summed |
-| `2d%` | two percentile dice (= `2d100`) |
-| `dF`, `dF.2` | one Fudge/Fate die: equal thirds of −1, 0, +1 |
-| `4dF.1` | four "rare" Fudge dice: 4 blanks, 1 plus, 1 minus on each |
-| `(4*6)d6` | qty is an arithmetic expression (parsed as integer) |
-| `3d(2*6)` | sides is an arithmetic expression |
-| `(5^2*4)d(7%4)` | both qty and sides as expressions |
+| Notation        | Meaning                                                   |
+| --------------- | --------------------------------------------------------- |
+| `d6`, `1d6`     | one six-sided die (qty defaults to 1)                     |
+| `4d10`          | four ten-sided dice, summed                               |
+| `2d%`           | two percentile dice (= `2d100`)                           |
+| `dF`, `dF.2`    | one Fudge/Fate die: equal thirds of −1, 0, +1             |
+| `4dF.1`         | four "rare" Fudge dice: 4 blanks, 1 plus, 1 minus on each |
+| `(4*6)d6`       | qty is an arithmetic expression (parsed as integer)       |
+| `3d(2*6)`       | sides is an arithmetic expression                         |
+| `(5^2*4)d(7%4)` | both qty and sides as expressions                         |
 
 Constraints:
+
 - `qty` is 1..999. `0d10`, `1000d6`, `-1d20` all error.
 - `qty` and `sides` inside `(...)` accept only numbers and arithmetic, **not** nested dice (e.g. `(2d6)d10` is invalid — use a roll group or precompute).
 - `dF` defaults to `dF.2`. Use `dF.1` only when the system specifies it.
@@ -53,40 +54,40 @@ Every modifier attaches to the die expression (or to a `{...}` group) and runs a
 
 ### Compare points
 
-A *compare point* is `<op><number>`. Most modifiers take an optional one; if omitted, each modifier has a sensible default (see table).
+A _compare point_ is `<op><number>`. Most modifiers take an optional one; if omitted, each modifier has a sensible default (see table).
 
-| Operator | Meaning |
-|---|---|
-| `=` | equal to |
-| `!=` | not equal to (avoid with `!` — see pitfalls) |
-| `<>` | not equal to (preferred when next to `!`) |
-| `<` | less than |
-| `>` | greater than |
-| `<=` | less than or equal |
-| `>=` | greater than or equal |
+| Operator | Meaning                                      |
+| -------- | -------------------------------------------- |
+| `=`      | equal to                                     |
+| `!=`     | not equal to (avoid with `!` — see pitfalls) |
+| `<>`     | not equal to (preferred when next to `!`)    |
+| `<`      | less than                                    |
+| `>`      | greater than                                 |
+| `<=`     | less than or equal                           |
+| `>=`     | greater than or equal                        |
 
 ### Modifier table
 
 Listed in execution order. The "Default cp" column is what's used when you omit the compare point. The "Notation order" doesn't matter — you can write them in any sequence after the die.
 
-| # | Modifier | Notation | Default cp | What it does |
-|---|---|---|---|---|
-| 1 | Min clamp | `min<n>` | (required) | Any roll < n becomes n |
-| 2 | Max clamp | `max<n>` | (required) | Any roll > n becomes n |
-| 3 | Explode | `!`, `!<cp>` | `=max` | On match, roll again and **add**; can chain (capped at 1000) |
-| 3 | Compound | `!!`, `!!<cp>` | `=max` | Same as explode but the chained results collapse into one number |
-| 3 | Penetrate | `!p`, `!!p`, with cp | `=max` | Like explode/compound, but each subsequent roll is reduced by 1 |
-| 4 | Reroll | `r`, `r<cp>` | `=min` | On match, **replace** the value (chain up to 1000) |
-| 4 | Reroll once | `ro`, `ro<cp>` | `=min` | Reroll at most once even if it matches again |
-| 5 | Unique | `u`, `u<cp>` | none (all dupes) | Reroll any duplicates in the pool until distinct (cp narrows which dupes get rerolled) |
-| 5 | Unique once | `uo`, `uo<cp>` | none | Reroll each duplicate at most once |
-| 6 | Keep | `k<n>`, `kh<n>`, `kl<n>` | high | Mark all but the kept dice as dropped (`k` = `kh`) |
-| 7 | Drop | `d<n>`, `dl<n>`, `dh<n>` | low | Drop the matching dice (`d` = `dl`) |
-| 8 | Target success | `<cp>` | (cp required) | Each die becomes 1 (success) / 0 (neither) and total = success count |
-| 8 | Target failure | `f<cp>` | (cp required, **must follow** target success) | Failures count as −1; net = successes − failures |
-| 9 | Critical success | `cs`, `cs<cp>` | `=max` | Cosmetic flag (`**` in output); does not change the total |
-| 10 | Critical failure | `cf`, `cf<cp>` | `=min` | Cosmetic flag (`__` in output); does not change the total |
-| 11 | Sort | `s`, `sa`, `sd` | — | Sort displayed rolls ascending (`s`/`sa`) or descending (`sd`) |
+| #   | Modifier         | Notation                 | Default cp                                    | What it does                                                                           |
+| --- | ---------------- | ------------------------ | --------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 1   | Min clamp        | `min<n>`                 | (required)                                    | Any roll < n becomes n                                                                 |
+| 2   | Max clamp        | `max<n>`                 | (required)                                    | Any roll > n becomes n                                                                 |
+| 3   | Explode          | `!`, `!<cp>`             | `=max`                                        | On match, roll again and **add**; can chain (capped at 1000)                           |
+| 3   | Compound         | `!!`, `!!<cp>`           | `=max`                                        | Same as explode but the chained results collapse into one number                       |
+| 3   | Penetrate        | `!p`, `!!p`, with cp     | `=max`                                        | Like explode/compound, but each subsequent roll is reduced by 1                        |
+| 4   | Reroll           | `r`, `r<cp>`             | `=min`                                        | On match, **replace** the value (chain up to 1000)                                     |
+| 4   | Reroll once      | `ro`, `ro<cp>`           | `=min`                                        | Reroll at most once even if it matches again                                           |
+| 5   | Unique           | `u`, `u<cp>`             | none (all dupes)                              | Reroll any duplicates in the pool until distinct (cp narrows which dupes get rerolled) |
+| 5   | Unique once      | `uo`, `uo<cp>`           | none                                          | Reroll each duplicate at most once                                                     |
+| 6   | Keep             | `k<n>`, `kh<n>`, `kl<n>` | high                                          | Mark all but the kept dice as dropped (`k` = `kh`)                                     |
+| 7   | Drop             | `d<n>`, `dl<n>`, `dh<n>` | low                                           | Drop the matching dice (`d` = `dl`)                                                    |
+| 8   | Target success   | `<cp>`                   | (cp required)                                 | Each die becomes 1 (success) / 0 (neither) and total = success count                   |
+| 8   | Target failure   | `f<cp>`                  | (cp required, **must follow** target success) | Failures count as −1; net = successes − failures                                       |
+| 9   | Critical success | `cs`, `cs<cp>`           | `=max`                                        | Cosmetic flag (`**` in output); does not change the total                              |
+| 10  | Critical failure | `cf`, `cf<cp>`           | `=min`                                        | Cosmetic flag (`__` in output); does not change the total                              |
+| 11  | Sort             | `s`, `sa`, `sd`          | —                                             | Sort displayed rolls ascending (`s`/`sa`) or descending (`sd`)                         |
 
 Quick examples:
 
@@ -120,10 +121,10 @@ A roll group is one or more sub-expressions in braces, optionally followed by gr
 
 ### Group modifiers
 
-| Group shape | `k<n>` / `d<n>` keeps/drops… | `>=N` / `<N` etc. counts… | `s` sorts… |
-|---|---|---|---|
-| Single sub-roll `{4d10}k2` | individual dice within the sub-roll | each die against the cp (acts on dice) | dice ascending |
-| Multi sub-roll `{a, b, c}k2` | whole sub-rolls by total | each sub-roll's total against the cp | sub-rolls by total (and dice within each) |
+| Group shape                  | `k<n>` / `d<n>` keeps/drops…        | `>=N` / `<N` etc. counts…              | `s` sorts…                                |
+| ---------------------------- | ----------------------------------- | -------------------------------------- | ----------------------------------------- |
+| Single sub-roll `{4d10}k2`   | individual dice within the sub-roll | each die against the cp (acts on dice) | dice ascending                            |
+| Multi sub-roll `{a, b, c}k2` | whole sub-rolls by total            | each sub-roll's total against the cp   | sub-rolls by total (and dice within each) |
 
 Useful examples:
 
@@ -146,13 +147,13 @@ Failure target on a group still must immediately follow success target:
 
 ### Operators
 
-| Op | Meaning | Notes |
-|---|---|---|
-| `+` `-` | add / subtract | unary `-` allowed: `1d20+-5`, `1d20--6` (yes, double minus parses) |
-| `*` `/` | multiply / divide | |
-| `%` | modulo | `5d6%2d20` is "5d6 mod 2d20-total" |
-| `^`, `**` | exponent | `**` is normalised to `^` |
-| `(...)` | grouping | precedence override |
+| Op        | Meaning           | Notes                                                              |
+| --------- | ----------------- | ------------------------------------------------------------------ |
+| `+` `-`   | add / subtract    | unary `-` allowed: `1d20+-5`, `1d20--6` (yes, double minus parses) |
+| `*` `/`   | multiply / divide |                                                                    |
+| `%`       | modulo            | `5d6%2d20` is "5d6 mod 2d20-total"                                 |
+| `^`, `**` | exponent          | `**` is normalised to `^`                                          |
+| `(...)`   | grouping          | precedence override                                                |
 
 Standard precedence: `^` > `* / %` > `+ -`. Use parens when in doubt: `(1d6+2)*3` differs from `1d6+2*3`.
 
@@ -200,7 +201,7 @@ Modifiers run in this fixed order regardless of how you wrote them:
 5. `u` / `uo`
 6. `k`
 7. `d`
-8. target success `<cp>`, then optional `f<cp>` (failure must follow success in *notation* too)
+8. target success `<cp>`, then optional `f<cp>` (failure must follow success in _notation_ too)
 9. `cs`
 10. `cf`
 11. `s` / `sa` / `sd`
@@ -365,22 +366,22 @@ Whitespace is mostly free between tokens. Modifier execution order is fixed by t
 
 ## Output annotations (FYI)
 
-When a result is rendered (with `output` / `toString`), individual rolls are decorated with these flags. Knowing them helps you *read* example outputs in docs and tests:
+When a result is rendered (with `output` / `toString`), individual rolls are decorated with these flags. Knowing them helps you _read_ example outputs in docs and tests:
 
-| Flag | Meaning |
-|---|---|
-| `!` | exploded (this die triggered an explode) |
-| `!!` | compounded (one of the chain compressed into one number) |
-| `!p` | penetrated |
-| `r` | rerolled |
-| `ro` | rerolled-once |
-| `u` / `uo` | re-rolled for uniqueness |
-| `d` | dropped (not counted in total) |
-| `^` | clamped up by `min` |
-| `v` | clamped down by `max` |
-| `*` | matched success target |
-| `_` | matched failure target |
-| `**` | matched critical success (`cs`) |
-| `__` | matched critical failure (`cf`) |
+| Flag       | Meaning                                                  |
+| ---------- | -------------------------------------------------------- |
+| `!`        | exploded (this die triggered an explode)                 |
+| `!!`       | compounded (one of the chain compressed into one number) |
+| `!p`       | penetrated                                               |
+| `r`        | rerolled                                                 |
+| `ro`       | rerolled-once                                            |
+| `u` / `uo` | re-rolled for uniqueness                                 |
+| `d`        | dropped (not counted in total)                           |
+| `^`        | clamped up by `min`                                      |
+| `v`        | clamped down by `max`                                    |
+| `*`        | matched success target                                   |
+| `_`        | matched failure target                                   |
+| `**`       | matched critical success (`cs`)                          |
+| `__`       | matched critical failure (`cf`)                          |
 
 E.g. `4d6dl1: [3d, 5, 4, 6] = 15` means a 3 was dropped, total 15.

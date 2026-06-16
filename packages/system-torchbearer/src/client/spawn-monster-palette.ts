@@ -26,20 +26,10 @@
 //
 // GM-only: the verbs are hidden from non-GM sessions via `visibleTo`.
 
-import {
-  qualifiedName,
-  type CommandInstance,
-  type EntityId,
-} from "@vtt/substrate";
+import { qualifiedName, type CommandInstance, type EntityId } from "@vtt/substrate";
 import { Character } from "@vtt/characters/shared";
-import {
-  OpenPageInNewTab,
-  type PaletteCommand,
-} from "@vtt/shell-workbench/shared";
-import {
-  CreateMonsterFromCatalog,
-  TB_MONSTER_TEMPLATES,
-} from "../shared/monsters.js";
+import { OpenPageInNewTab, type PaletteCommand } from "@vtt/shell-workbench/shared";
+import { CreateMonsterFromCatalog, TB_MONSTER_TEMPLATES } from "../shared/monsters.js";
 import { MonsterCreated } from "../shared/monster-events.js";
 import { TbMonster } from "../shared/monster-traits.js";
 
@@ -73,9 +63,7 @@ export const TB_SPAWN_MONSTER_PALETTE_COMMANDS: ReadonlyArray<PaletteCommand> =
       `@vtt/system-torchbearer/spawn-${lastSegment(tmpl.id)}`,
     ) as PaletteCommand["id"],
     label: `Spawn ${tmpl.name}`,
-    hint: `Monsters · ${tmpl.sourceBook}${
-      tmpl.sourcePage !== null ? ` p.${tmpl.sourcePage}` : ""
-    }`,
+    hint: `Monsters · ${tmpl.sourceBook}${tmpl.sourcePage !== null ? ` p.${tmpl.sourcePage}` : ""}`,
     visibleTo: (ctx) => ctx.role === "gm",
     run: (ctx) => {
       const { client } = ctx;
@@ -106,9 +94,7 @@ export const TB_SPAWN_MONSTER_PALETTE_COMMANDS: ReadonlyArray<PaletteCommand> =
       });
       // Returning null tells the palette we've handled the dispatch
       // ourselves — it must not also dispatch a CommandInstance.
-      client.dispatch(
-        CreateMonsterFromCatalog({ templateId: tmpl.id }) as CommandInstance,
-      );
+      client.dispatch(CreateMonsterFromCatalog({ templateId: tmpl.id }) as CommandInstance);
       return null;
     },
   }));

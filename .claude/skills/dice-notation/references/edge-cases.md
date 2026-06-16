@@ -26,7 +26,7 @@ Affected: `!`, `!!`, `!p`, `!!p`, `r`, `ro`, `u`, `uo`. For target success/failu
 
 ### `f<cp>` (failure target) syntax positions
 
-Failure targets are *only* valid as a suffix after a success target. Both of these throw `SyntaxError`:
+Failure targets are _only_ valid as a suffix after a success target. Both of these throw `SyntaxError`:
 
 ```
 4d7f!=2          # no preceding success target
@@ -59,7 +59,7 @@ For arbitrary disjunctions ("reroll 1 or 6") the DSL has no `or`. Workarounds: r
 
 ### Order in notation does not match order in evaluation
 
-`6d10>=8!>=9` and `6d10!>=9>=8` produce identical results because modifiers run in **fixed order by type**, not by notation. If you need a different order (e.g. drop low first, *then* reroll), the DSL can't do it in one expression — split into a roll group or two operations.
+`6d10>=8!>=9` and `6d10!>=9>=8` produce identical results because modifiers run in **fixed order by type**, not by notation. If you need a different order (e.g. drop low first, _then_ reroll), the DSL can't do it in one expression — split into a roll group or two operations.
 
 ### Keep + Drop together
 
@@ -80,7 +80,7 @@ If you mean "drop highest 1, then keep highest of the rest", you can't express i
 
 ### `cs` and `cf` don't change totals
 
-They are *cosmetic flags only* (`**` and `__` in rendered output). They do not double damage, add successes, or alter the sum. To actually crit a damage roll, write a separate notation that rolls extra dice and trigger it in code based on the `cs` flag (or a `>=` check on the d20).
+They are _cosmetic flags only_ (`**` and `__` in rendered output). They do not double damage, add successes, or alter the sum. To actually crit a damage roll, write a separate notation that rolls extra dice and trigger it in code based on the `cs` flag (or a `>=` check on the d20).
 
 ### Sorting is display-only
 
@@ -88,7 +88,7 @@ They are *cosmetic flags only* (`**` and `__` in rendered output). They do not d
 
 ### Iteration cap is 1000
 
-Explode, compound, penetrate, reroll, and unique each cap at 1000 iterations *per starting die*. A `d2!` will stop after 1000 chained 2s (vanishingly unlikely). Unique on `5d3u` is mathematically impossible (only 3 unique values across 5 dice) and will burn the iteration budget without producing distinct values.
+Explode, compound, penetrate, reroll, and unique each cap at 1000 iterations _per starting die_. A `d2!` will stop after 1000 chained 2s (vanishingly unlikely). Unique on `5d3u` is mathematically impossible (only 3 unique values across 5 dice) and will burn the iteration budget without producing distinct values.
 
 ### `min === max` dice can't explode/reroll
 
@@ -142,11 +142,11 @@ The DSL has no conditionals. "If the d20 is a 20, roll an extra d8" is two rolls
 
 ### Symbol dice (Genesys, narrative dice)
 
-The dice values must be numeric. Genesys-style proficiency/ability/setback dice with success/advantage/triumph/despair *symbols* aren't representable. Use a separate dedicated roller for those.
+The dice values must be numeric. Genesys-style proficiency/ability/setback dice with success/advantage/triumph/despair _symbols_ aren't representable. Use a separate dedicated roller for those.
 
 ### Distinct re-roll values per die
 
-`r=1` rerolls *every* die that shows 1. There's no way to say "reroll only the second die in the pool". The DSL is pool-uniform.
+`r=1` rerolls _every_ die that shows 1. There's no way to say "reroll only the second die in the pool". The DSL is pool-uniform.
 
 ### Disjunctive compare points ("X or Y" but not contiguous)
 
@@ -211,7 +211,7 @@ max(4d6, 3)
 
 If you can't express a mechanic in one notation, the cleanest pattern is:
 
-1. Compose a *minimal* notation per atomic step.
+1. Compose a _minimal_ notation per atomic step.
 2. Roll each.
 3. Combine the totals/values in code.
 

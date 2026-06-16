@@ -170,7 +170,6 @@ await app.init({ width: 800, height: 600 });
 
 `DOMAdapter.set()` must be called before `app.init()` in non-browser environments. PixiJS reads the adapter during `app.init()` when the renderer is created. `new Application()` itself only creates the stage Container and does not read the adapter.
 
-
 ### [HIGH] Using document or Image directly
 
 Wrong:
@@ -190,7 +189,6 @@ img.src = "texture.png";
 ```
 
 All DOM access in PixiJS goes through DOMAdapter. Direct use of `document`, `Image`, or other browser globals breaks Web Worker and SSR compatibility.
-
 
 ### [HIGH] CSP unsafe-eval import name confusion
 
@@ -214,7 +212,6 @@ The `pixi.js/unsafe-eval` import removes the need for `eval()` / `new Function()
 
 PixiJS detects CSP blocking at renderer init and throws the error above. The browser may also log its own CSP violation before PixiJS reports; both point to the same fix.
 
-
 ### [HIGH] Using old settings.ADAPTER pattern
 
 Wrong:
@@ -232,7 +229,6 @@ DOMAdapter.set(WebWorkerAdapter);
 ```
 
 The `settings` object was removed in v8. All adapter configuration uses `DOMAdapter.set()`.
-
 
 ## API Reference
 

@@ -75,9 +75,7 @@ export function ResultCard(props: { atelier: AtelierState }): JSX.Element {
       >
         <span class="text-center">
           <span class="block text-lg text-fg">{dispoBase() ?? "?"}</span>
-          <span class="block text-[0.55rem] text-fg-subtle uppercase tracking-[0.14em]">
-            base
-          </span>
+          <span class="block text-[0.55rem] text-fg-subtle uppercase tracking-[0.14em]">base</span>
         </span>
         <span class="text-fg-subtle">+</span>
         <span class="text-center">
@@ -98,10 +96,7 @@ export function ResultCard(props: { atelier: AtelierState }): JSX.Element {
       </div>
 
       <Show when={estimatedHp() !== null}>
-        <p
-          class="text-center text-[0.65rem] text-fg-subtle"
-          data-testid="atelier-result-estimated"
-        >
+        <p class="text-center text-[0.65rem] text-fg-subtle" data-testid="atelier-result-estimated">
           estimated {estimatedHp()} HP
         </p>
       </Show>
@@ -109,13 +104,8 @@ export function ResultCard(props: { atelier: AtelierState }): JSX.Element {
       <Show
         when={props.atelier.initiatorIsMonster()}
         fallback={
-          <div
-            class="flex items-center gap-1"
-            data-testid="atelier-result-addto"
-          >
-            <span class="text-[0.6rem] text-fg-subtle uppercase tracking-[0.14em]">
-              add to
-            </span>
+          <div class="flex items-center gap-1" data-testid="atelier-result-addto">
+            <span class="text-[0.6rem] text-fg-subtle uppercase tracking-[0.14em]">add to</span>
             <button
               type="button"
               class="rounded-(--radius-control) border px-1.5 py-0.5 text-[0.65rem] transition"
@@ -156,13 +146,8 @@ export function ResultCard(props: { atelier: AtelierState }): JSX.Element {
           </div>
         }
       >
-        <div
-          class="flex items-center gap-1"
-          data-testid="atelier-result-monster-pool"
-        >
-          <span class="text-[0.6rem] text-fg-subtle uppercase tracking-[0.14em]">
-            Nature
-          </span>
+        <div class="flex items-center gap-1" data-testid="atelier-result-monster-pool">
+          <span class="text-[0.6rem] text-fg-subtle uppercase tracking-[0.14em]">Nature</span>
           <button
             type="button"
             class="rounded-(--radius-control) border px-1.5 py-0.5 text-[0.65rem] transition"

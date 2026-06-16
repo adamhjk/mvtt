@@ -36,12 +36,12 @@ Solid has two event-handler systems: **delegated** (the default, attached at the
 
 ## When to use which
 
-| Use delegated (`onClick`...) when | Use native (`on:click`...) when |
-|---|---|
-| Standard event from the delegated list. | Event isn't delegated (`scroll`, `wheel`, `submit`, `change`). |
-| Default UI interaction. | Custom-element events. |
-| You don't need listener options. | You need `once`/`passive`/`capture`/`signal`. |
-| You don't need `stopPropagation` to prevent ancestors. | You do need `stopPropagation` to actually stop. |
+| Use delegated (`onClick`...) when                      | Use native (`on:click`...) when                                |
+| ------------------------------------------------------ | -------------------------------------------------------------- |
+| Standard event from the delegated list.                | Event isn't delegated (`scroll`, `wheel`, `submit`, `change`). |
+| Default UI interaction.                                | Custom-element events.                                         |
+| You don't need listener options.                       | You need `once`/`passive`/`capture`/`signal`.                  |
+| You don't need `stopPropagation` to prevent ancestors. | You do need `stopPropagation` to actually stop.                |
 
 ## The delegated event list
 
@@ -57,9 +57,7 @@ You can pass `[handler, data]` instead of a function. The `data` becomes the **f
 
 ```tsx
 const handle = (id: string, e: MouseEvent) => removeUser(id);
-<For each={users()}>
-  {(u) => <button onClick={[handle, u.id]}>delete</button>}
-</For>
+<For each={users()}>{(u) => <button onClick={[handle, u.id]}>delete</button>}</For>;
 ```
 
 This avoids creating a new closure per row, which can matter inside large lists. Mostly a micro-optimization; readability often wins.
@@ -86,10 +84,12 @@ This replaces the deprecated `oncapture:*` syntax.
 - **`target`** — the element that originated the event. Could be a child element with looser typing.
 
 ```tsx
-<input onInput={(e) => {
-  e.currentTarget.value;   // string — typed
-  e.target;                // EventTarget | null — needs narrowing
-}} />
+<input
+  onInput={(e) => {
+    e.currentTarget.value; // string — typed
+    e.target; // EventTarget | null — needs narrowing
+  }}
+/>
 ```
 
 Prefer `currentTarget` for accessing properties of the element you bound to.
@@ -107,7 +107,14 @@ Prefer `currentTarget` for accessing properties of the element you bound to.
 
 ```tsx
 <div onMouseMove={() => console.log("div")}>
-  <button onClick={(e) => { e.stopPropagation(); console.log("btn"); }}>x</button>
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      console.log("btn");
+    }}
+  >
+    x
+  </button>
 </div>
 ```
 
@@ -143,7 +150,7 @@ const ref = (el: HTMLElement) => {
     rename
   </button>
   <div ref={ref} on:rename={(e: CustomEvent) => console.log(e.detail.id)} />
-</>
+</>;
 ```
 
 `on:` is required because the event name is custom (not in the delegated list).
@@ -190,13 +197,21 @@ This is what most parent-passed-prop handlers look like.
 For checkboxes:
 
 ```tsx
-<input type="checkbox" checked={isChecked()} onChange={(e) => setChecked(e.currentTarget.checked)} />
+<input
+  type="checkbox"
+  checked={isChecked()}
+  onChange={(e) => setChecked(e.currentTarget.checked)}
+/>
 ```
 
 For form submit:
 
 ```tsx
-<form onSubmit={(e) => { e.preventDefault(); /* ... */ }}>
+<form
+  onSubmit={(e) => {
+    e.preventDefault(); /* ... */
+  }}
+>
   ...
 </form>
 ```
@@ -215,7 +230,11 @@ type KeyHandler = JSX.EventHandler<HTMLInputElement, KeyboardEvent>;
 Inline handlers in JSX get inferred for free:
 
 ```tsx
-<input onInput={(e) => { /* e is InputEvent, e.currentTarget is HTMLInputElement */ }} />
+<input
+  onInput={(e) => {
+    /* e is InputEvent, e.currentTarget is HTMLInputElement */
+  }}
+/>
 ```
 
 For listener-options form, use `JSX.EventHandlerWithOptions`:

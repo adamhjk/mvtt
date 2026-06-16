@@ -93,9 +93,7 @@ function runPdfImages(pdfPath: string, prefix: string): Promise<boolean> {
     });
     proc.on("close", (code) => {
       if (code !== 0) {
-        console.error(
-          `[rules-extract] pdfimages exited with code ${code}: ${stderr.trim()}`,
-        );
+        console.error(`[rules-extract] pdfimages exited with code ${code}: ${stderr.trim()}`);
         res(false);
         return;
       }

@@ -266,7 +266,6 @@ const texture = await Assets.load("https://example.com/image.png");
 
 In v8, `Texture.from()` only reads the cache. It does not fetch from a URL. Use `Assets.load()` first; the return value is the texture itself.
 
-
 ### [HIGH] Using positional `Assets.add` signature
 
 Wrong:
@@ -283,11 +282,9 @@ Assets.add({ alias: "bunny", src: "bunny.png" });
 
 The positional `Assets.add(key, url)` form was removed in v8. Use the options object with `alias` and `src` properties.
 
-
 ### [HIGH] Not unloading textures between levels
 
 `Assets.load()` caches textures indefinitely. For level-based games or screens with distinct asset sets, call `Assets.unloadBundle()` when transitioning to release GPU memory.
-
 
 ## API Reference
 

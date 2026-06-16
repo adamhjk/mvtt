@@ -44,13 +44,21 @@ const pingPlugin = definePlugin({
   gameSystem: true,
 });
 
-interface HelloMsg { kind: "hello"; clientId: string }
+interface HelloMsg {
+  kind: "hello";
+  clientId: string;
+}
 interface EventMsg {
   kind: "event";
   seq: number;
   event: { type: string; payload: { message: string; pingedAt: number; pongedAt: number } };
 }
-interface AckMsg { kind: "ack"; commandId: string; ok: boolean; reason?: string }
+interface AckMsg {
+  kind: "ack";
+  commandId: string;
+  ok: boolean;
+  reason?: string;
+}
 type Msg = HelloMsg | EventMsg | AckMsg;
 
 describe("ping wire smoke", () => {
@@ -103,9 +111,7 @@ describe("ping wire smoke", () => {
     expect(hello).toBeDefined();
     expect(hello!.clientId).toBeTruthy();
 
-    const ack = messages.find(
-      (m): m is AckMsg => m.kind === "ack" && m.commandId === "smoke-1",
-    );
+    const ack = messages.find((m): m is AckMsg => m.kind === "ack" && m.commandId === "smoke-1");
     expect(ack).toBeDefined();
     expect(ack!.ok).toBe(true);
 

@@ -17,13 +17,7 @@
 
 import { createMemo, type Accessor } from "solid-js";
 import { useQuery } from "@vtt/substrate/client";
-import {
-  Page,
-  BelongsToNote,
-  Note,
-  parseLinks,
-  type WikiLinkRef,
-} from "../shared/index.js";
+import { Page, BelongsToNote, Note, parseLinks, type WikiLinkRef } from "../shared/index.js";
 import type { EntityId } from "@vtt/substrate";
 
 export interface BacklinkEntry {

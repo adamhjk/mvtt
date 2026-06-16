@@ -20,10 +20,7 @@ export {
   type BlockCompletion,
   type CompletionContext,
 } from "./block-autocomplete.js";
-export {
-  blockWidgetPostRender,
-  mountBlockWidgets,
-} from "./block-widget.js";
+export { blockWidgetPostRender, mountBlockWidgets } from "./block-widget.js";
 export {
   buildBlockYamlCompletionSource,
   yamlBlockCompletionFactory,

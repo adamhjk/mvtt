@@ -124,13 +124,13 @@ Links elsewhere in the app:
 
 ### How each requirement is met
 
-| Requirement | Mechanism |
-|---|---|
-| Hover preload | `route.preload({ params })` is called by the router on `<A>` hover/focus and on navigation. |
-| Deduped fetch | `query(fn, "user")` caches by `(key, args)`. Hover-preload and in-route `createAsync` hit the same entry. |
-| Loading state | `<Suspense fallback={...}>` — `createAsync` participates in Suspense automatically. |
-| Error boundary + retry | `<ErrorBoundary fallback={(err, reset) => …}>`; the `reset` callback clears the boundary so `createAsync` re-runs. |
-| Server fetch | `"use server"` directive on `fetchUser` (SolidStart). Without SolidStart, swap for a `fetch()` to your API — the rest is unchanged. |
+| Requirement            | Mechanism                                                                                                                           |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Hover preload          | `route.preload({ params })` is called by the router on `<A>` hover/focus and on navigation.                                         |
+| Deduped fetch          | `query(fn, "user")` caches by `(key, args)`. Hover-preload and in-route `createAsync` hit the same entry.                           |
+| Loading state          | `<Suspense fallback={...}>` — `createAsync` participates in Suspense automatically.                                                 |
+| Error boundary + retry | `<ErrorBoundary fallback={(err, reset) => …}>`; the `reset` callback clears the boundary so `createAsync` re-runs.                  |
+| Server fetch           | `"use server"` directive on `fetchUser` (SolidStart). Without SolidStart, swap for a `fetch()` to your API — the rest is unchanged. |
 
 ### Notes
 

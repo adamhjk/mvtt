@@ -23,15 +23,17 @@
     "pdfjs-dist": "^5.4.149",
     "zod": "^4.3.6"
   },
-  "peerDependencies": {
-    "solid-js": "^1.9.0"
-  },
-  "peerDependenciesMeta": {
-    "solid-js": { "optional": true }
-  },
   "devDependencies": {
     "@types/node": "^25.6.0",
     "@vtt/notes": "workspace:*",
     "solid-js": "^1.9.0"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.9.0"
+  },
+  "peerDependenciesMeta": {
+    "solid-js": {
+      "optional": true
+    }
   }
 }

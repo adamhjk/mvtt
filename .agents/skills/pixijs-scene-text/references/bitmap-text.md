@@ -202,7 +202,6 @@ await Assets.load("font.fnt");
 
 Without the side-effect import, `.fnt` and `.xml` files aren't recognized by the asset loader; the call silently succeeds but returns raw data instead of a `BitmapFont`.
 
-
 ### [MEDIUM] Setting `resolution` on BitmapText
 
 Wrong:
@@ -213,16 +212,13 @@ text.resolution = 2;
 
 `BitmapText` ignores `resolution` and logs a warning. The effective resolution is baked into the `BitmapFont` at install time. To get higher resolution, install the font with a larger `fontSize` and scale the text down.
 
-
 ### [MEDIUM] Missing characters silently dropped
 
 If the font atlas doesn't contain a glyph (e.g., a rare Unicode character), the glyph is silently skipped with no visible error. Text may appear incomplete. For unknown or user-generated content, fall back to canvas `Text` or `HTMLText`.
 
-
 ### [HIGH] Using BitmapText for CJK or emoji-heavy content
 
 CJK (Chinese/Japanese/Korean), Arabic, and emoji-heavy strings need thousands of glyphs. A bitmap atlas containing all of them exceeds GPU texture-size limits. Use `Text` or `HTMLText` for text with unpredictable or very large character sets.
-
 
 ## API Reference
 

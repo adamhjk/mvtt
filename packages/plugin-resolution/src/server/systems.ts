@@ -61,15 +61,9 @@ export const RollRecordingSystem = defineSystem({
     // local read for backwards compatibility, then to the user's
     // own name when no character is in play.
     let displayName = event.rolledByName;
-    if (
-      event.speakingAsCharacterName &&
-      event.speakingAsCharacterName.length > 0
-    ) {
+    if (event.speakingAsCharacterName && event.speakingAsCharacterName.length > 0) {
       displayName = event.speakingAsCharacterName;
-    } else if (
-      event.speakingAsCharacterId &&
-      world.has(event.speakingAsCharacterId)
-    ) {
+    } else if (event.speakingAsCharacterId && world.has(event.speakingAsCharacterId)) {
       const got = world.get(event.speakingAsCharacterId, [Character]) as
         | { Character: { name: string } }
         | undefined;

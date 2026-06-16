@@ -52,13 +52,11 @@ export interface ActivePluginSet {
  * silently get the substrate's own auto-loaded core — those entries in
  * dependsOn are ignored here since the Registry already includes it.
  */
-export function resolveActivePlugins(
-  args: {
-    infrastructure: ReadonlyArray<PluginDef>;
-    optional: ReadonlyArray<PluginDef>;
-    gameSystemPlugin: string;
-  },
-): ActivePluginSet {
+export function resolveActivePlugins(args: {
+  infrastructure: ReadonlyArray<PluginDef>;
+  optional: ReadonlyArray<PluginDef>;
+  gameSystemPlugin: string;
+}): ActivePluginSet {
   const { infrastructure, optional, gameSystemPlugin } = args;
   const all = new Map<string, PluginDef>();
   for (const p of infrastructure) all.set(p.name, p);
@@ -72,9 +70,7 @@ export function resolveActivePlugins(
     );
   }
   if (!game.gameSystem) {
-    throw new Error(
-      `plugin ${JSON.stringify(gameSystemPlugin)} is not marked gameSystem: true`,
-    );
+    throw new Error(`plugin ${JSON.stringify(gameSystemPlugin)} is not marked gameSystem: true`);
   }
 
   const visited = new Set<string>();
@@ -120,8 +116,6 @@ export function resolveActivePlugins(
  * `gameSystem: true`. Used by the HTTP API to expose
  * `GET /api/game-systems` for the world-creation UI.
  */
-export function listGameSystems(
-  optional: ReadonlyArray<PluginDef>,
-): ReadonlyArray<PluginDef> {
+export function listGameSystems(optional: ReadonlyArray<PluginDef>): ReadonlyArray<PluginDef> {
   return optional.filter((p) => p.gameSystem === true);
 }

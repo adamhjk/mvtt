@@ -72,10 +72,7 @@ export interface ItemDetailSection {
     readonly traitsOnItem: ReadonlySet<string>;
   }) => boolean;
   readonly priority?: number;
-  readonly render: (args: {
-    readonly itemId: EntityId;
-    readonly canEdit: boolean;
-  }) => unknown;
+  readonly render: (args: { readonly itemId: EntityId; readonly canEdit: boolean }) => unknown;
 }
 
 export const ItemDetailSectionsSlot = defineSlot({

@@ -138,7 +138,6 @@ const converted = SplitText.from(plain);
 
 Each character is a full `Text` instance with its own canvas rasterization and GPU texture. A 40-character `SplitText` creates 40 text renders at construction time. For long strings, use `SplitBitmapText`; it wraps `BitmapText` instead, so each character reuses the glyph atlas.
 
-
 ### [MEDIUM] Modifying `chars` array directly
 
 Wrong:
@@ -155,11 +154,9 @@ split.text = split.text + "extra";
 
 `chars`, `words`, and `lines` are managed arrays. Pushing to them is ignored and will be overwritten on the next auto-split. Always update via the `text` property and let the class rebuild segments.
 
-
 ### [MEDIUM] Expecting segments before the first render
 
 When `autoSplit` is true, splitting happens lazily on first property read or render. If you need segments immediately after construction, access `chars` (or call `split.split()` manually) once before iterating.
-
 
 ## API Reference
 

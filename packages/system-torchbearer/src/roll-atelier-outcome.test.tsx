@@ -71,12 +71,14 @@ describe("tbOutcome — Recent-pill outcome", () => {
   });
 
   it("with no obstacle, any success passes and only the count shows", () => {
-    expect(tbOutcome("self", spec({ obstacle: null }), d6(5, 1, 1, 1), [])).toEqual(
-      { tone: "success", text: "Pass · 1s" },
-    );
-    expect(tbOutcome("self", spec({ obstacle: null }), d6(1, 1, 1, 1), [])).toEqual(
-      { tone: "fail", text: "Fail · 0s" },
-    );
+    expect(tbOutcome("self", spec({ obstacle: null }), d6(5, 1, 1, 1), [])).toEqual({
+      tone: "success",
+      text: "Pass · 1s",
+    });
+    expect(tbOutcome("self", spec({ obstacle: null }), d6(1, 1, 1, 1), [])).toEqual({
+      tone: "fail",
+      text: "Fail · 0s",
+    });
   });
 
   it("versus win shows win, both counts, and the margin", () => {

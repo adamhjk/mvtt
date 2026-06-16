@@ -17,11 +17,7 @@
 
 import { render } from "solid-js/web";
 import { createSignal, Show, onMount } from "solid-js";
-import {
-  startClient,
-  ClientProvider,
-  type PluginDef,
-} from "@vtt/substrate/client";
+import { startClient, ClientProvider, type PluginDef } from "@vtt/substrate/client";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { shellMobile } from "@vtt/shell-mobile";
 import { identity } from "@vtt/identity";
@@ -96,18 +92,15 @@ function Root() {
   return (
     <Show
       when={authed() !== null}
-      fallback={<div class="grid min-h-screen place-items-center text-fg-muted text-sm">loading…</div>}
+      fallback={
+        <div class="grid min-h-screen place-items-center text-fg-muted text-sm">loading…</div>
+      }
     >
       <Show when={authed()} fallback={<AuthGate onAuthenticated={onAuthenticated} />}>
         <WorldGate>
           {(ctx) => {
             const world = ctx.worlds.find((w) => w.id === ctx.worldId);
-            return (
-              <Authenticated
-                worldId={ctx.worldId}
-                activePlugins={world?.plugins ?? []}
-              />
-            );
+            return <Authenticated worldId={ctx.worldId} activePlugins={world?.plugins ?? []} />;
           }}
         </WorldGate>
       </Show>
@@ -115,10 +108,7 @@ function Root() {
   );
 }
 
-function Authenticated(props: {
-  worldId: string;
-  activePlugins: ReadonlyArray<string>;
-}) {
+function Authenticated(props: { worldId: string; activePlugins: ReadonlyArray<string> }) {
   const wsURL = `${wsProto}://${location.host}/ws?worldId=${encodeURIComponent(props.worldId)}`;
   // Filter the static plugin catalog against the world's resolved
   // active set. Plugins compiled into the binary but not active for

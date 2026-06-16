@@ -36,17 +36,9 @@ import {
   SetField,
   type Contribution,
 } from "@vtt/characters/shared";
-import {
-  CharacterFieldSetSystem,
-  PendingRollContributionSystem,
-} from "@vtt/characters/server";
+import { CharacterFieldSetSystem, PendingRollContributionSystem } from "@vtt/characters/server";
 import { Permissions, everyone, gmOnly } from "@vtt/permissions/shared";
-import {
-  Formula,
-  RequestRoll,
-  RolledBy,
-  RollResult,
-} from "@vtt/resolution/shared";
+import { Formula, RequestRoll, RolledBy, RollResult } from "@vtt/resolution/shared";
 import { systemTorchbearer } from "./manifest.js";
 import {
   ADVENTURING_SKILLS,
@@ -287,11 +279,7 @@ describe("Skill catalog", () => {
     expect(getSkill("alchemist")?.suggestedHelp).toEqual(["loreMaster", "laborer"]);
     expect(getSkill("manipulator")?.suggestedHelp).toEqual(["haggler", "persuader"]);
     expect(getSkill("scout")?.suggestedHelp).toEqual(["pathfinder", "hunter"]);
-    expect(getSkill("strategist")?.suggestedHelp).toEqual([
-      "commander",
-      "scholar",
-      "steward",
-    ]);
+    expect(getSkill("strategist")?.suggestedHelp).toEqual(["commander", "scholar", "steward"]);
   });
 });
 
@@ -322,12 +310,14 @@ describe("eligibleHelpFor", () => {
 
   it("suggested help: lights up listed helps in the rulebook order", () => {
     // Alchemist suggestedHelp = [loreMaster, laborer]. Helper has both.
-    const h = helper({ skills: new Map([["loreMaster", 3], ["laborer", 2]]) });
+    const h = helper({
+      skills: new Map([
+        ["loreMaster", 3],
+        ["laborer", 2],
+      ]),
+    });
     const out = eligibleHelpFor({ kind: "skill", sourceId: "alchemist" }, h);
-    expect(out.map((o) => o.id)).toEqual([
-      "skill:loreMaster",
-      "skill:laborer",
-    ]);
+    expect(out.map((o) => o.id)).toEqual(["skill:loreMaster", "skill:laborer"]);
     expect(out.map((o) => o.via)).toEqual(["suggested-skill", "suggested-skill"]);
   });
 
@@ -379,14 +369,10 @@ describe("eligibleHelpFor", () => {
   it("town-ability: Resources / Circles same-only", () => {
     const h = helper({ resources: 3, circles: 4 });
     expect(
-      eligibleHelpFor({ kind: "town-ability", sourceId: "resources" }, h).map(
-        (o) => o.id,
-      ),
+      eligibleHelpFor({ kind: "town-ability", sourceId: "resources" }, h).map((o) => o.id),
     ).toEqual(["ability:resources"]);
     expect(
-      eligibleHelpFor({ kind: "town-ability", sourceId: "circles" }, h).map(
-        (o) => o.id,
-      ),
+      eligibleHelpFor({ kind: "town-ability", sourceId: "circles" }, h).map((o) => o.id),
     ).toEqual(["ability:circles"]);
   });
 
@@ -437,9 +423,7 @@ describe("Condition ladder", () => {
 
   it("matches the trait schema's keys", () => {
     const sample = Conditions.schema.parse(undefined);
-    expect(Object.keys(sample).sort()).toEqual(
-      [...CONDITION_ORDER.map((c) => c.id)].sort(),
-    );
+    expect(Object.keys(sample).sort()).toEqual([...CONDITION_ORDER.map((c) => c.id)].sort());
   });
 });
 
@@ -470,7 +454,10 @@ describe("Trait schemas", () => {
 
   it("Pools rejects negative values", () => {
     expect(() =>
-      Pools.schema.parse({ fate: { current: -1, totalSpent: 0 }, persona: { current: 0, totalSpent: 0 } }),
+      Pools.schema.parse({
+        fate: { current: -1, totalSpent: 0 },
+        persona: { current: 0, totalSpent: 0 },
+      }),
     ).toThrow();
   });
 
@@ -503,9 +490,7 @@ describe("Trait schemas", () => {
       expect(v.entries[s.id]!.rating).toBe(0);
     }
     // Every catalogued skill must be present and only those skills.
-    expect(Object.keys(v.entries).sort()).toEqual(
-      ALL_SKILLS.map((s) => s.id).sort(),
-    );
+    expect(Object.keys(v.entries).sort()).toEqual(ALL_SKILLS.map((s) => s.id).sort());
   });
 
   it("CharacterTraits.entries enforces level 1..3", () => {
@@ -534,7 +519,6 @@ describe("Trait schemas", () => {
     expect(v.entries[0]!.pass).toBe(true);
     expect(v.entries[0]!.fate).toBe(true);
   });
-
 
   it("Relics tracks Urðr and Burden", () => {
     const v = Relics.schema.parse({});
@@ -716,12 +700,9 @@ describe("Ability rollables", () => {
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", nature: 4, maximum: 2 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(NatureCheck.name)!,
-      h.world,
-      id,
-      { tap: true },
-    );
+    const r = invokeRollable(h.registry.rollables.get(NatureCheck.name)!, h.world, id, {
+      tap: true,
+    });
     const spec = r!.spec as { pool: number; source: string };
     expect(spec.pool).toBe(2);
     expect(spec.source).toBe("Nature (tap)");
@@ -751,12 +732,9 @@ describe("SkillCheck rollable", () => {
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", skills: { fighter: 3 } }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(SkillCheck.name)!,
-      h.world,
-      id,
-      { skillId: "fighter" },
-    );
+    const r = invokeRollable(h.registry.rollables.get(SkillCheck.name)!, h.world, id, {
+      skillId: "fighter",
+    });
     const spec = r!.spec as { pool: number; source: string; baseDice: number };
     expect(spec.baseDice).toBe(3);
     expect(spec.pool).toBe(3);
@@ -767,12 +745,9 @@ describe("SkillCheck rollable", () => {
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", health: 5 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(SkillCheck.name)!,
-      h.world,
-      id,
-      { skillId: "fighter" },
-    );
+    const r = invokeRollable(h.registry.rollables.get(SkillCheck.name)!, h.world, id, {
+      skillId: "fighter",
+    });
     const spec = r!.spec as { pool: number; source: string };
     // Health 5 → ceil(5/2) = 3
     expect(spec.pool).toBe(3);
@@ -783,12 +758,9 @@ describe("SkillCheck rollable", () => {
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 4 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(SkillCheck.name)!,
-      h.world,
-      id,
-      { skillId: "alchemist" },
-    );
+    const r = invokeRollable(h.registry.rollables.get(SkillCheck.name)!, h.world, id, {
+      skillId: "alchemist",
+    });
     const spec = r!.spec as { pool: number; source: string };
     // Will 4 → ceil(4/2) = 2
     expect(spec.pool).toBe(2);
@@ -799,12 +771,9 @@ describe("SkillCheck rollable", () => {
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 5 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(SkillCheck.name)!,
-      h.world,
-      id,
-      { skillId: "strategist" },
-    );
+    const r = invokeRollable(h.registry.rollables.get(SkillCheck.name)!, h.world, id, {
+      skillId: "strategist",
+    });
     const spec = r!.spec as { pool: number; source: string };
     // Will 5 → ceil(5/2) = 3, LMM Strategist BL = will
     expect(spec.pool).toBe(3);
@@ -934,7 +903,14 @@ describe("foldModifiers", () => {
 
   it("clamps a negative pool at zero", () => {
     const r = foldModifiers(2, [
-      { id: "a", kind: "dice", value: -5, label: "huge penalty", apply: "always", source: "manual" },
+      {
+        id: "a",
+        kind: "dice",
+        value: -5,
+        label: "huge penalty",
+        apply: "always",
+        source: "manual",
+      },
     ]);
     expect(r.pool).toBe(0);
   });
@@ -942,8 +918,22 @@ describe("foldModifiers", () => {
   it("ignores conditional modifiers when folding the pool", () => {
     const r = foldModifiers(3, [
       { id: "a", kind: "dice", value: 1, label: "always", apply: "always", source: "manual" },
-      { id: "b", kind: "dice", value: 5, label: "on success", apply: "on-success", source: "manual" },
-      { id: "c", kind: "success", value: 5, label: "on success", apply: "on-success", source: "manual" },
+      {
+        id: "b",
+        kind: "dice",
+        value: 5,
+        label: "on success",
+        apply: "on-success",
+        source: "manual",
+      },
+      {
+        id: "c",
+        kind: "success",
+        value: 5,
+        label: "on success",
+        apply: "on-success",
+        source: "manual",
+      },
     ]);
     expect(r.pool).toBe(4);
     expect(r.bonusSuccesses).toBe(0);
@@ -963,8 +953,22 @@ describe("foldModifiers — obstacle kind", () => {
   it("sums always-applied obstacle modifiers into obstacleAdjust", () => {
     const r = foldModifiers(4, [
       { id: "f", kind: "obstacle", value: 1, label: "factors", apply: "always", source: "manual" },
-      { id: "d", kind: "obstacle", value: 1, label: "dim light", apply: "always", source: "condition" },
-      { id: "b", kind: "obstacle", value: -1, label: "advantage", apply: "always", source: "manual" },
+      {
+        id: "d",
+        kind: "obstacle",
+        value: 1,
+        label: "dim light",
+        apply: "always",
+        source: "condition",
+      },
+      {
+        id: "b",
+        kind: "obstacle",
+        value: -1,
+        label: "advantage",
+        apply: "always",
+        source: "manual",
+      },
     ]);
     expect(r.obstacleAdjust).toBe(1);
     expect(r.pool).toBe(4);
@@ -973,7 +977,14 @@ describe("foldModifiers — obstacle kind", () => {
 
   it("ignores conditional obstacle modifiers (always-applied only)", () => {
     const r = foldModifiers(3, [
-      { id: "x", kind: "obstacle", value: 5, label: "post-pass nonsense", apply: "on-success", source: "manual" },
+      {
+        id: "x",
+        kind: "obstacle",
+        value: 5,
+        label: "post-pass nonsense",
+        apply: "on-success",
+        source: "manual",
+      },
     ]);
     expect(r.obstacleAdjust).toBe(0);
   });
@@ -1005,7 +1016,15 @@ describe("isBlPreHalfModifier (DH p.59 partition)", () => {
   });
 
   it("trait / persona / fate / spell / level-benefit / manual / auto → post-half", () => {
-    for (const source of ["trait", "persona", "fate", "spell", "level-benefit", "manual", "auto"] as const) {
+    for (const source of [
+      "trait",
+      "persona",
+      "fate",
+      "spell",
+      "level-benefit",
+      "manual",
+      "auto",
+    ] as const) {
       expect(isBlPreHalfModifier(mod({ kind: "dice", source }))).toBe(false);
     }
   });
@@ -1037,20 +1056,14 @@ describe("isBlPreHalfModifier (DH p.59 partition)", () => {
   });
 
   it("non-dice modifiers never participate in halving", () => {
-    expect(
-      isBlPreHalfModifier(mod({ kind: "success", source: "trait", value: 1 })),
-    ).toBe(false);
-    expect(
-      isBlPreHalfModifier(mod({ kind: "obstacle", source: "manual", value: 1 })),
-    ).toBe(false);
+    expect(isBlPreHalfModifier(mod({ kind: "success", source: "trait", value: 1 }))).toBe(false);
+    expect(isBlPreHalfModifier(mod({ kind: "obstacle", source: "manual", value: 1 }))).toBe(false);
   });
 
   it("conditional modifiers never participate in halving", () => {
-    expect(
-      isBlPreHalfModifier(
-        mod({ kind: "dice", source: "help", apply: "on-success" }),
-      ),
-    ).toBe(false);
+    expect(isBlPreHalfModifier(mod({ kind: "dice", source: "help", apply: "on-success" }))).toBe(
+      false,
+    );
   });
 });
 
@@ -1078,8 +1091,24 @@ describe("foldBlModifiers (DH p.59 'Beginners Roll Half')", () => {
   it("Injured/Sick reduce ability before halving", () => {
     // Health 5, Injured -1D, Sick -1D → ceil((5 - 1 - 1) / 2) = 2.
     const r = foldBlModifiers(5, [
-      { id: "i", kind: "dice", value: -1, label: "Injured", apply: "always", source: "condition", providedBy: "condition:injured" },
-      { id: "s", kind: "dice", value: -1, label: "Sick", apply: "always", source: "condition", providedBy: "condition:sick" },
+      {
+        id: "i",
+        kind: "dice",
+        value: -1,
+        label: "Injured",
+        apply: "always",
+        source: "condition",
+        providedBy: "condition:injured",
+      },
+      {
+        id: "s",
+        kind: "dice",
+        value: -1,
+        label: "Sick",
+        apply: "always",
+        source: "condition",
+        providedBy: "condition:sick",
+      },
     ]);
     expect(r.pool).toBe(2);
   });
@@ -1089,7 +1118,15 @@ describe("foldBlModifiers (DH p.59 'Beginners Roll Half')", () => {
     // exist with another condition under DH's cancellation rule, but the
     // partition still places it post-half.
     const r = foldBlModifiers(4, [
-      { id: "f", kind: "dice", value: 1, label: "Fresh", apply: "always", source: "condition", providedBy: "condition:fresh" },
+      {
+        id: "f",
+        kind: "dice",
+        value: 1,
+        label: "Fresh",
+        apply: "always",
+        source: "condition",
+        providedBy: "condition:fresh",
+      },
     ]);
     expect(r.pool).toBe(3);
   });
@@ -1108,7 +1145,15 @@ describe("foldBlModifiers (DH p.59 'Beginners Roll Half')", () => {
     // Post-half: + 1 (trait) = 4.
     const r = foldBlModifiers(5, [
       { id: "h", kind: "dice", value: 1, label: "help", apply: "always", source: "help" },
-      { id: "i", kind: "dice", value: -1, label: "Injured", apply: "always", source: "condition", providedBy: "condition:injured" },
+      {
+        id: "i",
+        kind: "dice",
+        value: -1,
+        label: "Injured",
+        apply: "always",
+        source: "condition",
+        providedBy: "condition:injured",
+      },
       { id: "t", kind: "dice", value: 1, label: "Brave", apply: "always", source: "trait" },
     ]);
     expect(r.pool).toBe(4);
@@ -1118,8 +1163,24 @@ describe("foldBlModifiers (DH p.59 'Beginners Roll Half')", () => {
     // Will 1, Injured -1, Sick -1 → pre-half = max(0, 1-1-1) = 0
     // → ceil(0/2) = 0; no traits → pool 0 (auto-fail).
     const r = foldBlModifiers(1, [
-      { id: "i", kind: "dice", value: -1, label: "Injured", apply: "always", source: "condition", providedBy: "condition:injured" },
-      { id: "s", kind: "dice", value: -1, label: "Sick", apply: "always", source: "condition", providedBy: "condition:sick" },
+      {
+        id: "i",
+        kind: "dice",
+        value: -1,
+        label: "Injured",
+        apply: "always",
+        source: "condition",
+        providedBy: "condition:injured",
+      },
+      {
+        id: "s",
+        kind: "dice",
+        value: -1,
+        label: "Sick",
+        apply: "always",
+        source: "condition",
+        providedBy: "condition:sick",
+      },
     ]);
     expect(r.pool).toBe(0);
   });
@@ -1142,7 +1203,14 @@ describe("foldBlModifiers (DH p.59 'Beginners Roll Half')", () => {
 
   it("conditional dice modifiers don't enter the halving (apply post-roll)", () => {
     const r = foldBlModifiers(4, [
-      { id: "x", kind: "dice", value: 1, label: "on-pass bonus", apply: "on-success", source: "manual" },
+      {
+        id: "x",
+        kind: "dice",
+        value: 1,
+        label: "on-pass bonus",
+        apply: "on-success",
+        source: "manual",
+      },
     ]);
     expect(r.pool).toBe(2);
   });
@@ -1338,15 +1406,12 @@ describe("resolveSuccessCount", () => {
   });
 
   it("folds always-applied success bonuses into the final count", () => {
-    const r = resolveSuccessCount(
-      { ...baseSpec, bonusSuccesses: 1 },
-      [
-        { sides: 6, value: 5 },
-        { sides: 6, value: 1 },
-        { sides: 6, value: 2 },
-        { sides: 6, value: 3 },
-      ],
-    );
+    const r = resolveSuccessCount({ ...baseSpec, bonusSuccesses: 1 }, [
+      { sides: 6, value: 5 },
+      { sides: 6, value: 1 },
+      { sides: 6, value: 2 },
+      { sides: 6, value: 3 },
+    ]);
     expect(r.rawSuccesses).toBe(1);
     expect(r.always).toBe(1);
     expect(r.final).toBe(2);
@@ -1489,15 +1554,9 @@ describe("autoModifiersFromConditions", () => {
   });
 
   it("emits -1D each for Injured and Sick stacking on a skill test", () => {
-    const m = autoModifiersFromConditions(
-      conds({ injured: true, sick: true }),
-      "skill",
-    );
+    const m = autoModifiersFromConditions(conds({ injured: true, sick: true }), "skill");
     expect(m.map((x) => x.value)).toEqual([-1, -1]);
-    expect(m.map((x) => x.providedBy)).toEqual([
-      "condition:injured",
-      "condition:sick",
-    ]);
+    expect(m.map((x) => x.providedBy)).toEqual(["condition:injured", "condition:sick"]);
   });
 
   it("emits no modifiers on town-ability rolls (Resources/Circles)", () => {
@@ -1512,20 +1571,14 @@ describe("autoModifiersFromConditions", () => {
     // Fresh + Injured can't co-exist by SG p.46 — Injured cancels
     // the Fresh bonus. So this combination yields only the Injured
     // -1D, not both.
-    const m = autoModifiersFromConditions(
-      conds({ fresh: true, injured: true }),
-      "skill-bl",
-    );
+    const m = autoModifiersFromConditions(conds({ fresh: true, injured: true }), "skill-bl");
     expect(m).toHaveLength(1);
     expect(m[0]!.value).toBe(-1);
     expect(m[0]!.providedBy).toBe("condition:injured");
   });
 
   it("Fresh +1D fires alone when no other condition is set, on skill-bl too", () => {
-    const m = autoModifiersFromConditions(
-      conds({ fresh: true }),
-      "skill-bl",
-    );
+    const m = autoModifiersFromConditions(conds({ fresh: true }), "skill-bl");
     expect(m).toHaveLength(1);
     expect(m[0]!.value).toBe(1);
     expect(m[0]!.providedBy).toBe("condition:fresh");
@@ -1561,20 +1614,13 @@ describe("autoModifiersFromConditions", () => {
   });
 
   it("Dead suppresses Resources/Circles too — town-ability is no exception", () => {
-    const m = autoModifiersFromConditions(
-      conds({ dead: true }),
-      "town-ability",
-    );
+    const m = autoModifiersFromConditions(conds({ dead: true }), "town-ability");
     expect(m).toHaveLength(1);
     expect(m[0]!.providedBy).toBe("condition:dead");
   });
 
   it("Afraid + skill-bl emits a no-BL suppression modifier (SG p.48)", () => {
-    const m = autoModifiersFromConditions(
-      conds({ afraid: true }),
-      "skill-bl",
-      "fighter",
-    );
+    const m = autoModifiersFromConditions(conds({ afraid: true }), "skill-bl", "fighter");
     const blMod = m.find((x) => x.providedBy === "condition:afraid");
     expect(blMod).toBeDefined();
     expect(blMod!.value).toBeLessThan(0);
@@ -1582,11 +1628,7 @@ describe("autoModifiersFromConditions", () => {
   });
 
   it("Afraid does NOT suppress learned-skill rolls (only skill-bl is gated)", () => {
-    const m = autoModifiersFromConditions(
-      conds({ afraid: true }),
-      "skill",
-      "fighter",
-    );
+    const m = autoModifiersFromConditions(conds({ afraid: true }), "skill", "fighter");
     const blMod = m.find((x) => x.providedBy === "condition:afraid");
     expect(blMod).toBeUndefined();
   });
@@ -1611,12 +1653,7 @@ describe("autoModifiersFromConditions", () => {
     // spec automatically. It's surfaced through
     // `suggestedQuickModifiersFor` as a contextual panel button
     // the GM/player can apply deliberately.
-    const m = autoModifiersFromConditions(
-      conds({ angry: true }),
-      "skill",
-      "loreMaster",
-      null,
-    );
+    const m = autoModifiersFromConditions(conds({ angry: true }), "skill", "loreMaster", null);
     expect(m.find((x) => x.providedBy === "condition:angry")).toBeUndefined();
   });
 
@@ -1634,25 +1671,14 @@ describe("autoModifiersFromConditions", () => {
         sourceId,
         "versus:abc",
       );
-      expect(
-        nonVersus.find((x) => x.providedBy === "condition:angry"),
-      ).toBeUndefined();
-      expect(
-        versus.find((x) => x.providedBy === "condition:angry"),
-      ).toBeUndefined();
+      expect(nonVersus.find((x) => x.providedBy === "condition:angry")).toBeUndefined();
+      expect(versus.find((x) => x.providedBy === "condition:angry")).toBeUndefined();
     }
   });
 
   it("Angry doesn't fire on ability or town-ability rolls regardless of source", () => {
-    const ability = autoModifiersFromConditions(
-      conds({ angry: true }),
-      "ability",
-      "will",
-      null,
-    );
-    expect(
-      ability.find((x) => x.providedBy === "condition:angry"),
-    ).toBeUndefined();
+    const ability = autoModifiersFromConditions(conds({ angry: true }), "ability", "will", null);
+    expect(ability.find((x) => x.providedBy === "condition:angry")).toBeUndefined();
     // town-ability returns [] entirely (kind filter), so trivially no angry mod.
     const town = autoModifiersFromConditions(
       conds({ angry: true }),
@@ -1807,12 +1833,8 @@ describe("heroicFromContributions", () => {
   });
 
   it("returns the latest toggle's enabled flag (last-wins)", () => {
-    expect(
-      heroicFromContributions([tbHeroicC(true), tbHeroicC(false)]),
-    ).toBe(false);
-    expect(
-      heroicFromContributions([tbHeroicC(false), tbHeroicC(true)]),
-    ).toBe(true);
+    expect(heroicFromContributions([tbHeroicC(true), tbHeroicC(false)])).toBe(false);
+    expect(heroicFromContributions([tbHeroicC(false), tbHeroicC(true)])).toBe(true);
   });
 
   it("ignores other contribution kinds", () => {
@@ -1852,16 +1874,12 @@ describe("obstacleFromContributions", () => {
   });
 
   it("returns the latest numeric obstacle (last-wins)", () => {
-    expect(
-      obstacleFromContributions([tbObstacleC(2), tbObstacleC(5)]),
-    ).toBe(5);
+    expect(obstacleFromContributions([tbObstacleC(2), tbObstacleC(5)])).toBe(5);
   });
 
   it("distinguishes panel-cleared (null) from no-pick (undefined)", () => {
     expect(obstacleFromContributions([tbObstacleC(null)])).toBeNull();
-    expect(
-      obstacleFromContributions([tbObstacleC(3), tbObstacleC(null)]),
-    ).toBeNull();
+    expect(obstacleFromContributions([tbObstacleC(3), tbObstacleC(null)])).toBeNull();
   });
 
   it("rejects out-of-range obstacle payloads via the schema", () => {
@@ -1911,9 +1929,9 @@ describe("versusFromContributions", () => {
   });
 
   it("returns the latest versusTestId (last-wins)", () => {
-    expect(
-      versusFromContributions([tbVersusC("versus:abc"), tbVersusC("versus:def")]),
-    ).toBe("versus:def");
+    expect(versusFromContributions([tbVersusC("versus:abc"), tbVersusC("versus:def")])).toBe(
+      "versus:def",
+    );
   });
 
   it("distinguishes panel-cleared (null) from no-pick (undefined)", () => {
@@ -1971,10 +1989,7 @@ describe("TbRollSpec schema — versusTestId", () => {
 });
 
 describe("dispositionFromContributions", () => {
-  function tbDispositionC(
-    enabled: boolean,
-    addTo?: "will" | "health" | null,
-  ): Contribution {
+  function tbDispositionC(enabled: boolean, addTo?: "will" | "health" | null): Contribution {
     return {
       kind: TB_DISPOSITION_CONTRIB_KIND,
       label: enabled ? "disposition on" : "disposition off",
@@ -1989,12 +2004,8 @@ describe("dispositionFromContributions", () => {
   });
 
   it("returns the latest enabled flag (last-wins)", () => {
-    expect(
-      dispositionFromContributions([tbDispositionC(true), tbDispositionC(false)]),
-    ).toBe(false);
-    expect(
-      dispositionFromContributions([tbDispositionC(false), tbDispositionC(true)]),
-    ).toBe(true);
+    expect(dispositionFromContributions([tbDispositionC(true), tbDispositionC(false)])).toBe(false);
+    expect(dispositionFromContributions([tbDispositionC(false), tbDispositionC(true)])).toBe(true);
   });
 
   it("dispositionAddToFromContributions returns the latest addTo selection", () => {
@@ -2003,9 +2014,7 @@ describe("dispositionFromContributions", () => {
     // Toggle on with no addTo → null (caller's fallback territory).
     expect(dispositionAddToFromContributions([tbDispositionC(true)])).toBeNull();
     // Pick Will → Will. Pick Health → Health. Last wins.
-    expect(
-      dispositionAddToFromContributions([tbDispositionC(true, "will")]),
-    ).toBe("will");
+    expect(dispositionAddToFromContributions([tbDispositionC(true, "will")])).toBe("will");
     expect(
       dispositionAddToFromContributions([
         tbDispositionC(true, "will"),
@@ -2206,11 +2215,7 @@ describe("Rollables — integration with conditions and panel contributions", ()
 
   it("HealthCheck stacks Injured + Sick onto the pool penalty", async () => {
     const h = buildRollableHarness();
-    await spawn(
-      h.pipeline,
-      { name: "Bryn", health: 4, injured: true, sick: true },
-      h.registry,
-    );
+    await spawn(h.pipeline, { name: "Bryn", health: 4, injured: true, sick: true }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
     const r = invokeRollable(h.registry.rollables.get(HealthCheck.name)!, h.world, id);
     const spec = r!.spec as TbRollSpec;
@@ -2234,11 +2239,7 @@ describe("Rollables — integration with conditions and panel contributions", ()
 
   it("SkillCheck adds a -1D modifier when the skill entry is taxed", async () => {
     const h = buildRollableHarness();
-    await spawn(
-      h.pipeline,
-      { name: "Bryn", skills: { fighter: 4 } },
-      h.registry,
-    );
+    await spawn(h.pipeline, { name: "Bryn", skills: { fighter: 4 } }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
     // Mark the skill as taxed via SetField — the rollable subsystem
     // should pick it up via the auto-mod path.
@@ -2256,12 +2257,9 @@ describe("Rollables — integration with conditions and panel contributions", ()
         value: true,
       }) as CommandInstance,
     });
-    const r = invokeRollable(
-      h.registry.rollables.get(SkillCheck.name)!,
-      h.world,
-      id,
-      { skillId: "fighter" },
-    );
+    const r = invokeRollable(h.registry.rollables.get(SkillCheck.name)!, h.world, id, {
+      skillId: "fighter",
+    });
     const spec = r!.spec as TbRollSpec;
     // 4 base - 1 taxed = 3.
     expect(spec.pool).toBe(3);
@@ -2272,41 +2270,36 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 3 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      {
-        contributions: [
-          {
-            kind: TB_MODIFIER_CONTRIB_KIND,
-            label: "+1D Help",
-            fromUserId: "u1",
-            payload: {
-              id: "help-1",
-              kind: "dice",
-              value: 1,
-              label: "Help (Tarn)",
-              apply: "always",
-              source: "help",
-            },
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      contributions: [
+        {
+          kind: TB_MODIFIER_CONTRIB_KIND,
+          label: "+1D Help",
+          fromUserId: "u1",
+          payload: {
+            id: "help-1",
+            kind: "dice",
+            value: 1,
+            label: "Help (Tarn)",
+            apply: "always",
+            source: "help",
           },
-          {
-            kind: TB_MODIFIER_CONTRIB_KIND,
-            label: "+1s Faith",
-            fromUserId: "u1",
-            payload: {
-              id: "faith-1",
-              kind: "success",
-              value: 1,
-              label: "Faith",
-              apply: "on-success",
-              source: "fate",
-            },
+        },
+        {
+          kind: TB_MODIFIER_CONTRIB_KIND,
+          label: "+1s Faith",
+          fromUserId: "u1",
+          payload: {
+            id: "faith-1",
+            kind: "success",
+            value: 1,
+            label: "Faith",
+            apply: "on-success",
+            source: "fate",
           },
-        ],
-      },
-    );
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     // 3 base + 1 help dice. Faith is on-success, so it stays out of pool.
     expect(spec.pool).toBe(4);
@@ -2331,12 +2324,9 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 3 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      { obstacle: 3 },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      obstacle: 3,
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.obstacle).toBe(3);
     expect(spec.caption).toContain("vs Ob 3");
@@ -2358,12 +2348,9 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 3 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      { heroic: true },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      heroic: true,
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.heroic).toBe(true);
     expect(spec.successTarget).toBe(3);
@@ -2395,12 +2382,9 @@ describe("Rollables — integration with conditions and panel contributions", ()
       townAbilities: [],
       skills: [],
     });
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      { heroic: false },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      heroic: false,
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.heroic).toBe(false);
     expect(spec.successTarget).toBe(4);
@@ -2412,62 +2396,45 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const id = h.world.query([Identity])[0]!.id;
     // Trait says heroic; panel toggle says off; opts is unset → panel wins.
     h.world.set(id, Heroic, { abilities: ["will"], townAbilities: [], skills: [] });
-    const offByPanel = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      {
-        contributions: [
-          {
-            kind: TB_HEROIC_CONTRIB_KIND,
-            label: "Heroic off",
-            fromUserId: "u1",
-            payload: { enabled: false },
-          },
-        ],
-      },
-    );
+    const offByPanel = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      contributions: [
+        {
+          kind: TB_HEROIC_CONTRIB_KIND,
+          label: "Heroic off",
+          fromUserId: "u1",
+          payload: { enabled: false },
+        },
+      ],
+    });
     expect((offByPanel!.spec as TbRollSpec).heroic).toBe(false);
 
     // Trait says heroic; panel says off; opts says on → opts wins.
-    const onByOpts = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      {
-        heroic: true,
-        contributions: [
-          {
-            kind: TB_HEROIC_CONTRIB_KIND,
-            label: "Heroic off",
-            fromUserId: "u1",
-            payload: { enabled: false },
-          },
-        ],
-      },
-    );
+    const onByOpts = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      heroic: true,
+      contributions: [
+        {
+          kind: TB_HEROIC_CONTRIB_KIND,
+          label: "Heroic off",
+          fromUserId: "u1",
+          payload: { enabled: false },
+        },
+      ],
+    });
     expect((onByOpts!.spec as TbRollSpec).heroic).toBe(true);
   });
 
   it("SkillCheck reads the Heroic trait's `skills` list (matched by skill id)", async () => {
     const h = buildRollableHarness();
-    await spawn(
-      h.pipeline,
-      { name: "Bryn", skills: { fighter: 3 } },
-      h.registry,
-    );
+    await spawn(h.pipeline, { name: "Bryn", skills: { fighter: 3 } }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
     h.world.set(id, Heroic, {
       abilities: [],
       townAbilities: [],
       skills: ["fighter"],
     });
-    const r = invokeRollable(
-      h.registry.rollables.get(SkillCheck.name)!,
-      h.world,
-      id,
-      { skillId: "fighter" },
-    );
+    const r = invokeRollable(h.registry.rollables.get(SkillCheck.name)!, h.world, id, {
+      skillId: "fighter",
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.heroic).toBe(true);
     expect(spec.successTarget).toBe(3);
@@ -2482,11 +2449,7 @@ describe("Rollables — integration with conditions and panel contributions", ()
       townAbilities: ["resources"],
       skills: [],
     });
-    const r = invokeRollable(
-      h.registry.rollables.get(ResourcesCheck.name)!,
-      h.world,
-      id,
-    );
+    const r = invokeRollable(h.registry.rollables.get(ResourcesCheck.name)!, h.world, id);
     const spec = r!.spec as TbRollSpec;
     expect(spec.heroic).toBe(true);
   });
@@ -2495,21 +2458,16 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 3 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      {
-        contributions: [
-          {
-            kind: TB_OBSTACLE_CONTRIB_KIND,
-            label: "Ob 3",
-            fromUserId: "u1",
-            payload: { value: 3 },
-          },
-        ],
-      },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      contributions: [
+        {
+          kind: TB_OBSTACLE_CONTRIB_KIND,
+          label: "Ob 3",
+          fromUserId: "u1",
+          payload: { value: 3 },
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.obstacle).toBe(3);
     expect(spec.caption).toContain("vs Ob 3");
@@ -2519,22 +2477,17 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 3 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      {
-        obstacle: 5,
-        contributions: [
-          {
-            kind: TB_OBSTACLE_CONTRIB_KIND,
-            label: "Ob 3",
-            fromUserId: "u1",
-            payload: { value: 3 },
-          },
-        ],
-      },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      obstacle: 5,
+      contributions: [
+        {
+          kind: TB_OBSTACLE_CONTRIB_KIND,
+          label: "Ob 3",
+          fromUserId: "u1",
+          payload: { value: 3 },
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.obstacle).toBe(5);
   });
@@ -2543,55 +2496,50 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 4 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      {
-        obstacle: 3, // base
-        contributions: [
-          {
-            kind: TB_MODIFIER_CONTRIB_KIND,
-            label: "+1 Ob factors",
-            fromUserId: "u1",
-            payload: {
-              id: "factors",
-              kind: "obstacle",
-              value: 1,
-              label: "factors",
-              apply: "always",
-              source: "manual",
-            },
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      obstacle: 3, // base
+      contributions: [
+        {
+          kind: TB_MODIFIER_CONTRIB_KIND,
+          label: "+1 Ob factors",
+          fromUserId: "u1",
+          payload: {
+            id: "factors",
+            kind: "obstacle",
+            value: 1,
+            label: "factors",
+            apply: "always",
+            source: "manual",
           },
-          {
-            kind: TB_MODIFIER_CONTRIB_KIND,
-            label: "-1 Ob advantage",
-            fromUserId: "u1",
-            payload: {
-              id: "adv",
-              kind: "obstacle",
-              value: -1,
-              label: "advantage",
-              apply: "always",
-              source: "manual",
-            },
+        },
+        {
+          kind: TB_MODIFIER_CONTRIB_KIND,
+          label: "-1 Ob advantage",
+          fromUserId: "u1",
+          payload: {
+            id: "adv",
+            kind: "obstacle",
+            value: -1,
+            label: "advantage",
+            apply: "always",
+            source: "manual",
           },
-          {
-            kind: TB_MODIFIER_CONTRIB_KIND,
-            label: "+1 Ob dim light",
-            fromUserId: "u1",
-            payload: {
-              id: "dim",
-              kind: "obstacle",
-              value: 1,
-              label: "dim light",
-              apply: "always",
-              source: "condition",
-            },
+        },
+        {
+          kind: TB_MODIFIER_CONTRIB_KIND,
+          label: "+1 Ob dim light",
+          fromUserId: "u1",
+          payload: {
+            id: "dim",
+            kind: "obstacle",
+            value: 1,
+            label: "dim light",
+            apply: "always",
+            source: "condition",
           },
-        ],
-      },
-    );
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.baseObstacle).toBe(3);
     // 3 + 1 - 1 + 1 = 4.
@@ -2602,29 +2550,24 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 4 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      {
-        obstacle: 1,
-        contributions: [
-          {
-            kind: TB_MODIFIER_CONTRIB_KIND,
-            label: "-5 Ob heaven",
-            fromUserId: "u1",
-            payload: {
-              id: "heaven",
-              kind: "obstacle",
-              value: -5,
-              label: "heaven",
-              apply: "always",
-              source: "manual",
-            },
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      obstacle: 1,
+      contributions: [
+        {
+          kind: TB_MODIFIER_CONTRIB_KIND,
+          label: "-5 Ob heaven",
+          fromUserId: "u1",
+          payload: {
+            id: "heaven",
+            kind: "obstacle",
+            value: -5,
+            label: "heaven",
+            apply: "always",
+            source: "manual",
           },
-        ],
-      },
-    );
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.baseObstacle).toBe(1);
     expect(spec.obstacle).toBe(0);
@@ -2634,29 +2577,24 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 4 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      {
-        // No base obstacle declared.
-        contributions: [
-          {
-            kind: TB_MODIFIER_CONTRIB_KIND,
-            label: "+1 Ob factors",
-            fromUserId: "u1",
-            payload: {
-              id: "factors",
-              kind: "obstacle",
-              value: 1,
-              label: "factors",
-              apply: "always",
-              source: "manual",
-            },
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      // No base obstacle declared.
+      contributions: [
+        {
+          kind: TB_MODIFIER_CONTRIB_KIND,
+          label: "+1 Ob factors",
+          fromUserId: "u1",
+          payload: {
+            id: "factors",
+            kind: "obstacle",
+            value: 1,
+            label: "factors",
+            apply: "always",
+            source: "manual",
           },
-        ],
-      },
-    );
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.baseObstacle).toBeNull();
     expect(spec.obstacle).toBeNull();
@@ -2668,21 +2606,16 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 3 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      {
-        contributions: [
-          {
-            kind: TB_VERSUS_CONTRIB_KIND,
-            label: "vs Tarn",
-            fromUserId: "u1",
-            payload: { versusTestId: "versus:abc" },
-          },
-        ],
-      },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      contributions: [
+        {
+          kind: TB_VERSUS_CONTRIB_KIND,
+          label: "vs Tarn",
+          fromUserId: "u1",
+          payload: { versusTestId: "versus:abc" },
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.versusTestId).toBe("versus:abc");
     expect(spec.caption).toContain("(versus)");
@@ -2692,22 +2625,17 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 3 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      {
-        versusTestId: "versus:opts",
-        contributions: [
-          {
-            kind: TB_VERSUS_CONTRIB_KIND,
-            label: "vs Tarn",
-            fromUserId: "u1",
-            payload: { versusTestId: "versus:panel" },
-          },
-        ],
-      },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      versusTestId: "versus:opts",
+      contributions: [
+        {
+          kind: TB_VERSUS_CONTRIB_KIND,
+          label: "vs Tarn",
+          fromUserId: "u1",
+          payload: { versusTestId: "versus:panel" },
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.versusTestId).toBe("versus:opts");
   });
@@ -2716,27 +2644,22 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 3 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      {
-        contributions: [
-          {
-            kind: TB_VERSUS_CONTRIB_KIND,
-            label: "vs Tarn",
-            fromUserId: "u1",
-            payload: { versusTestId: "versus:abc" },
-          },
-          {
-            kind: TB_VERSUS_CONTRIB_KIND,
-            label: "Versus cleared",
-            fromUserId: "u1",
-            payload: { versusTestId: null },
-          },
-        ],
-      },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      contributions: [
+        {
+          kind: TB_VERSUS_CONTRIB_KIND,
+          label: "vs Tarn",
+          fromUserId: "u1",
+          payload: { versusTestId: "versus:abc" },
+        },
+        {
+          kind: TB_VERSUS_CONTRIB_KIND,
+          label: "Versus cleared",
+          fromUserId: "u1",
+          payload: { versusTestId: null },
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.versusTestId).toBeNull();
   });
@@ -2745,27 +2668,22 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 3 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      {
-        contributions: [
-          {
-            kind: TB_OBSTACLE_CONTRIB_KIND,
-            label: "Ob 3",
-            fromUserId: "u1",
-            payload: { value: 3 },
-          },
-          {
-            kind: TB_OBSTACLE_CONTRIB_KIND,
-            label: "Obstacle cleared",
-            fromUserId: "u1",
-            payload: { value: null },
-          },
-        ],
-      },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      contributions: [
+        {
+          kind: TB_OBSTACLE_CONTRIB_KIND,
+          label: "Ob 3",
+          fromUserId: "u1",
+          payload: { value: 3 },
+        },
+        {
+          kind: TB_OBSTACLE_CONTRIB_KIND,
+          label: "Obstacle cleared",
+          fromUserId: "u1",
+          payload: { value: null },
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.obstacle).toBeNull();
   });
@@ -2887,16 +2805,11 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 4 }, h.registry);
     const id = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      id,
-      {
-        obstacle: 5, // would normally set baseObstacle=5
-        versusTestId: "versus:abc",
-        dispositionMode: true,
-      },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, id, {
+      obstacle: 5, // would normally set baseObstacle=5
+      versusTestId: "versus:abc",
+      dispositionMode: true,
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.dispositionMode).toBe(true);
     // Disposition forces obstacle/versus off.
@@ -2922,16 +2835,11 @@ describe("Rollables — integration with conditions and panel contributions", ()
       },
       h.registry,
     );
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      rollerId,
-      { dispositionMode: true },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, rollerId, {
+      dispositionMode: true,
+    });
     const spec = r!.spec as TbRollSpec;
-    const teamMod = spec.modifiers.find(
-      (m) => m.providedBy === "team:hungry-thirsty",
-    );
+    const teamMod = spec.modifiers.find((m) => m.providedBy === "team:hungry-thirsty");
     expect(teamMod).toBeDefined();
     expect(teamMod!.value).toBe(-1);
     expect(teamMod!.kind).toBe("success");
@@ -2942,31 +2850,14 @@ describe("Rollables — integration with conditions and panel contributions", ()
     await spawn(h.pipeline, { name: "Bryn", will: 4 }, h.registry);
     const rollerId = h.world.query([Identity])[0]!.id;
     // Three teammates, all hungry & thirsty.
-    await spawn(
-      h.pipeline,
-      { name: "Tarn", team: "party", hungryThirsty: true },
-      h.registry,
-    );
-    await spawn(
-      h.pipeline,
-      { name: "Wren", team: "party", hungryThirsty: true },
-      h.registry,
-    );
-    await spawn(
-      h.pipeline,
-      { name: "Olin", team: "party", hungryThirsty: true },
-      h.registry,
-    );
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      rollerId,
-      { dispositionMode: true },
-    );
+    await spawn(h.pipeline, { name: "Tarn", team: "party", hungryThirsty: true }, h.registry);
+    await spawn(h.pipeline, { name: "Wren", team: "party", hungryThirsty: true }, h.registry);
+    await spawn(h.pipeline, { name: "Olin", team: "party", hungryThirsty: true }, h.registry);
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, rollerId, {
+      dispositionMode: true,
+    });
     const spec = r!.spec as TbRollSpec;
-    const ht = spec.modifiers.filter(
-      (m) => m.providedBy === "team:hungry-thirsty",
-    );
+    const ht = spec.modifiers.filter((m) => m.providedBy === "team:hungry-thirsty");
     expect(ht).toHaveLength(1);
   });
 
@@ -2974,27 +2865,14 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 4 }, h.registry);
     const rollerId = h.world.query([Identity])[0]!.id;
-    await spawn(
-      h.pipeline,
-      { name: "Tarn", team: "party", hungryThirsty: true },
-      h.registry,
-    );
-    await spawn(
-      h.pipeline,
-      { name: "Wren", team: "party", exhausted: true },
-      h.registry,
-    );
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      rollerId,
-      { dispositionMode: true },
-    );
+    await spawn(h.pipeline, { name: "Tarn", team: "party", hungryThirsty: true }, h.registry);
+    await spawn(h.pipeline, { name: "Wren", team: "party", exhausted: true }, h.registry);
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, rollerId, {
+      dispositionMode: true,
+    });
     const spec = r!.spec as TbRollSpec;
-    expect(spec.modifiers.some((m) => m.providedBy === "team:hungry-thirsty"))
-      .toBe(true);
-    expect(spec.modifiers.some((m) => m.providedBy === "team:exhausted"))
-      .toBe(true);
+    expect(spec.modifiers.some((m) => m.providedBy === "team:hungry-thirsty")).toBe(true);
+    expect(spec.modifiers.some((m) => m.providedBy === "team:exhausted")).toBe(true);
     // Both fold into bonusSuccesses (-1 + -1 = -2).
     expect(spec.bonusSuccesses).toBe(-2);
   });
@@ -3009,28 +2887,19 @@ describe("Rollables — integration with conditions and panel contributions", ()
       { name: "Goblin", team: "enemy", hungryThirsty: true, exhausted: true },
       h.registry,
     );
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      rollerId,
-      { dispositionMode: true },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, rollerId, {
+      dispositionMode: true,
+    });
     const spec = r!.spec as TbRollSpec;
-    expect(spec.modifiers.find((m) => m.providedBy === "team:hungry-thirsty"))
-      .toBeUndefined();
-    expect(spec.modifiers.find((m) => m.providedBy === "team:exhausted"))
-      .toBeUndefined();
+    expect(spec.modifiers.find((m) => m.providedBy === "team:hungry-thirsty")).toBeUndefined();
+    expect(spec.modifiers.find((m) => m.providedBy === "team:exhausted")).toBeUndefined();
   });
 
   it("disposition off → no team penalties added even when teammates are hungry", async () => {
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 4 }, h.registry);
     const rollerId = h.world.query([Identity])[0]!.id;
-    await spawn(
-      h.pipeline,
-      { name: "Tarn", team: "party", hungryThirsty: true },
-      h.registry,
-    );
+    await spawn(h.pipeline, { name: "Tarn", team: "party", hungryThirsty: true }, h.registry);
     const r = invokeRollable(
       h.registry.rollables.get(WillCheck.name)!,
       h.world,
@@ -3039,29 +2908,23 @@ describe("Rollables — integration with conditions and panel contributions", ()
     );
     const spec = r!.spec as TbRollSpec;
     expect(spec.dispositionMode).toBeUndefined();
-    expect(spec.modifiers.find((m) => m.providedBy === "team:hungry-thirsty"))
-      .toBeUndefined();
+    expect(spec.modifiers.find((m) => m.providedBy === "team:hungry-thirsty")).toBeUndefined();
   });
 
   it("a tb-disposition contribution flips the rollable into disposition mode (panel path)", async () => {
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 4 }, h.registry);
     const rollerId = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      rollerId,
-      {
-        contributions: [
-          {
-            kind: TB_DISPOSITION_CONTRIB_KIND,
-            label: "disposition on",
-            fromUserId: "u1",
-            payload: { enabled: true },
-          },
-        ],
-      },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, rollerId, {
+      contributions: [
+        {
+          kind: TB_DISPOSITION_CONTRIB_KIND,
+          label: "disposition on",
+          fromUserId: "u1",
+          payload: { enabled: true },
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.dispositionMode).toBe(true);
   });
@@ -3077,28 +2940,19 @@ describe("Rollables — integration with conditions and panel contributions", ()
   it("SkillCheck dispo: addTo=will → spec.dispoBase = will rating (NOT skill rating)", async () => {
     const h = buildRollableHarness();
     // Bryn: Will 5, Manipulator skill 3. Trick conflict adds Will.
-    await spawn(
-      h.pipeline,
-      { name: "Bryn", will: 5, skills: { manipulator: 3 } },
-      h.registry,
-    );
+    await spawn(h.pipeline, { name: "Bryn", will: 5, skills: { manipulator: 3 } }, h.registry);
     const rollerId = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(SkillCheck.name)!,
-      h.world,
-      rollerId,
-      {
-        skillId: "manipulator",
-        contributions: [
-          {
-            kind: TB_DISPOSITION_CONTRIB_KIND,
-            label: "disposition: + Will",
-            fromUserId: "u1",
-            payload: { enabled: true, addTo: "will" },
-          },
-        ],
-      },
-    );
+    const r = invokeRollable(h.registry.rollables.get(SkillCheck.name)!, h.world, rollerId, {
+      skillId: "manipulator",
+      contributions: [
+        {
+          kind: TB_DISPOSITION_CONTRIB_KIND,
+          label: "disposition: + Will",
+          fromUserId: "u1",
+          payload: { enabled: true, addTo: "will" },
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.dispositionMode).toBe(true);
     expect(spec.baseDice).toBe(3); // skill rating drives the pool
@@ -3109,28 +2963,19 @@ describe("Rollables — integration with conditions and panel contributions", ()
   it("SkillCheck dispo: addTo=health → spec.dispoBase = health rating", async () => {
     const h = buildRollableHarness();
     // Bryn: Health 6, Fighter skill 4. Kill conflict adds Health.
-    await spawn(
-      h.pipeline,
-      { name: "Bryn", health: 6, skills: { fighter: 4 } },
-      h.registry,
-    );
+    await spawn(h.pipeline, { name: "Bryn", health: 6, skills: { fighter: 4 } }, h.registry);
     const rollerId = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(SkillCheck.name)!,
-      h.world,
-      rollerId,
-      {
-        skillId: "fighter",
-        contributions: [
-          {
-            kind: TB_DISPOSITION_CONTRIB_KIND,
-            label: "disposition: + Health",
-            fromUserId: "u1",
-            payload: { enabled: true, addTo: "health" },
-          },
-        ],
-      },
-    );
+    const r = invokeRollable(h.registry.rollables.get(SkillCheck.name)!, h.world, rollerId, {
+      skillId: "fighter",
+      contributions: [
+        {
+          kind: TB_DISPOSITION_CONTRIB_KIND,
+          label: "disposition: + Health",
+          fromUserId: "u1",
+          payload: { enabled: true, addTo: "health" },
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.baseDice).toBe(4); // pool = Fighter rating
     expect(spec.dispoBase).toBe(6); // additive base = Health rating
@@ -3139,28 +2984,19 @@ describe("Rollables — integration with conditions and panel contributions", ()
 
   it("SkillCheck dispo without addTo: spec.dispoBase undefined (legacy fallback)", async () => {
     const h = buildRollableHarness();
-    await spawn(
-      h.pipeline,
-      { name: "Bryn", will: 5, skills: { manipulator: 3 } },
-      h.registry,
-    );
+    await spawn(h.pipeline, { name: "Bryn", will: 5, skills: { manipulator: 3 } }, h.registry);
     const rollerId = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(SkillCheck.name)!,
-      h.world,
-      rollerId,
-      {
-        skillId: "manipulator",
-        contributions: [
-          {
-            kind: TB_DISPOSITION_CONTRIB_KIND,
-            label: "disposition on",
-            fromUserId: "u1",
-            payload: { enabled: true },
-          },
-        ],
-      },
-    );
+    const r = invokeRollable(h.registry.rollables.get(SkillCheck.name)!, h.world, rollerId, {
+      skillId: "manipulator",
+      contributions: [
+        {
+          kind: TB_DISPOSITION_CONTRIB_KIND,
+          label: "disposition on",
+          fromUserId: "u1",
+          payload: { enabled: true },
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.dispositionMode).toBe(true);
     // dispoBase absent → chat row falls back to baseDice (legacy);
@@ -3173,21 +3009,16 @@ describe("Rollables — integration with conditions and panel contributions", ()
     const h = buildRollableHarness();
     await spawn(h.pipeline, { name: "Bryn", will: 4 }, h.registry);
     const rollerId = h.world.query([Identity])[0]!.id;
-    const r = invokeRollable(
-      h.registry.rollables.get(WillCheck.name)!,
-      h.world,
-      rollerId,
-      {
-        contributions: [
-          {
-            kind: TB_DISPOSITION_CONTRIB_KIND,
-            label: "disposition on",
-            fromUserId: "u1",
-            payload: { enabled: true },
-          },
-        ],
-      },
-    );
+    const r = invokeRollable(h.registry.rollables.get(WillCheck.name)!, h.world, rollerId, {
+      contributions: [
+        {
+          kind: TB_DISPOSITION_CONTRIB_KIND,
+          label: "disposition on",
+          fromUserId: "u1",
+          payload: { enabled: true },
+        },
+      ],
+    });
     const spec = r!.spec as TbRollSpec;
     expect(spec.baseDice).toBe(4);
     // WillCheck auto-fills addTo to "will" (its own ability) when the
@@ -3234,11 +3065,7 @@ function buildImprovementHarness(): {
         PendingRoll,
         ...systemTorchbearer.traits,
       ],
-      events: [
-        CharacterFieldSet,
-        PendingRollContributed,
-        ...systemTorchbearer.events,
-      ],
+      events: [CharacterFieldSet, PendingRollContributed, ...systemTorchbearer.events],
       commands: [RequestRoll, SetField, ...systemTorchbearer.commands],
       // CharacterFieldSetSystem must run before SkillOpportunitySweepSystem
       // so the latter sees the post-write trait state. Since the runner
@@ -3950,10 +3777,12 @@ describe("SkillOpportunitySweepSystem", () => {
 describe("FreshCancellationSystem", () => {
   function readConditions(world: World, id: string): Record<string, boolean> {
     return (
-      world.get(id as Parameters<World["get"]>[0], [Conditions]) as
-        | { Conditions: Record<string, boolean> }
-        | undefined
-    )?.Conditions ?? {};
+      (
+        world.get(id as Parameters<World["get"]>[0], [Conditions]) as
+          | { Conditions: Record<string, boolean> }
+          | undefined
+      )?.Conditions ?? {}
+    );
   }
 
   it("clears fresh when Injured is set true on a fresh character (SG p.46)", async () => {
@@ -3981,31 +3810,27 @@ describe("FreshCancellationSystem", () => {
     expect(c.fresh).toBe(false);
   });
 
-  it.each([
-    ["hungryThirsty"],
-    ["angry"],
-    ["afraid"],
-    ["exhausted"],
-    ["sick"],
-    ["dead"],
-  ])("clears fresh when %s is set true", async (key) => {
-    const h = buildImprovementHarness();
-    await spawnImproveCharacter(h.pipeline, h.registry);
-    const id = h.world.query([Character])[0]!.id;
-    await h.pipeline.dispatch({
-      id: `c-fc-${key}`,
-      issuedBy: "u1",
-      issuedAt: 0,
-      session: gmSession(),
-      cmd: SetField({
-        characterId: id,
-        trait: Conditions.name,
-        path: [key],
-        value: true,
-      }) as CommandInstance,
-    });
-    expect(readConditions(h.world, id).fresh).toBe(false);
-  });
+  it.each([["hungryThirsty"], ["angry"], ["afraid"], ["exhausted"], ["sick"], ["dead"]])(
+    "clears fresh when %s is set true",
+    async (key) => {
+      const h = buildImprovementHarness();
+      await spawnImproveCharacter(h.pipeline, h.registry);
+      const id = h.world.query([Character])[0]!.id;
+      await h.pipeline.dispatch({
+        id: `c-fc-${key}`,
+        issuedBy: "u1",
+        issuedAt: 0,
+        session: gmSession(),
+        cmd: SetField({
+          characterId: id,
+          trait: Conditions.name,
+          path: [key],
+          value: true,
+        }) as CommandInstance,
+      });
+      expect(readConditions(h.world, id).fresh).toBe(false);
+    },
+  );
 
   it("does NOT auto-restore fresh when a non-fresh condition is cleared", async () => {
     const h = buildImprovementHarness();
@@ -4523,9 +4348,7 @@ describe("LogAdvancement command", () => {
         outcome: "pass",
       }) as CommandInstance,
     });
-    const got = h.world.get(rollId as Parameters<World["get"]>[0], [
-      AdvancementLoggedTrait,
-    ]) as
+    const got = h.world.get(rollId as Parameters<World["get"]>[0], [AdvancementLoggedTrait]) as
       | {
           AdvancementLogged: {
             outcome: string;
@@ -4626,12 +4449,7 @@ describe("AdvancementLoggedSystem", () => {
  * Helper for BL tests: jam learningTests directly via world.set so
  * the next dispatch can cross the threshold cleanly.
  */
-function setLearningTests(
-  world: World,
-  characterId: string,
-  skillId: string,
-  count: number,
-): void {
+function setLearningTests(world: World, characterId: string, skillId: string, count: number): void {
   const got = world.get(characterId as Parameters<World["get"]>[0], [Skills]) as {
     Skills: { entries: Record<string, { learningTests: number }> };
   };
@@ -4745,9 +4563,7 @@ describe("Beginner's Luck learning — Log Test increments learningTests", () =>
       }) as CommandInstance,
     });
     expect(logged.result.ok).toBe(true);
-    expect(
-      logged.events.find((e) => e.type === AbilityImprovementOpened.name),
-    ).toBeDefined();
+    expect(logged.events.find((e) => e.type === AbilityImprovementOpened.name)).toBeDefined();
 
     // Improve commits the +1 and resets the tracks.
     const improved = await h.pipeline.dispatch({
@@ -4758,9 +4574,7 @@ describe("Beginner's Luck learning — Log Test increments learningTests", () =>
       cmd: ImproveAbility({ characterId: charId, ability: "will" }) as CommandInstance,
     });
     expect(improved.result.ok).toBe(true);
-    expect(
-      improved.events.find((e) => e.type === AbilityImproved.name),
-    ).toBeDefined();
+    expect(improved.events.find((e) => e.type === AbilityImproved.name)).toBeDefined();
     const after = readRatedAbility(h.world, charId, "will")!;
     expect(after.rating).toBe(2);
     expect(after.advancement).toEqual({ pass: 0, fail: 0 });
@@ -5123,10 +4937,7 @@ describe("SkillLearningSweepSystem", () => {
  * ----------------------------------------------------------------------- */
 
 describe("UseTraitOnRoll command", () => {
-  function spawnPendingRoll(
-    world: World,
-    initiatorCharacterId: string,
-  ): { id: string } {
+  function spawnPendingRoll(world: World, initiatorCharacterId: string): { id: string } {
     const id = world.allocateId();
     world.spawnAt(id, [
       PendingRoll({
@@ -5178,12 +4989,8 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: pr.id as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: charId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: pr.id as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: charId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 0,
         direction: "for",
       }) as CommandInstance,
@@ -5225,12 +5032,8 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: pr.id as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: charId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: pr.id as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: charId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 0,
         direction: "for",
       }) as CommandInstance,
@@ -5256,12 +5059,8 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: pr.id as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: charId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: pr.id as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: charId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 0,
         direction: "for",
       }) as CommandInstance,
@@ -5285,12 +5084,8 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: pr.id as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: charId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: pr.id as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: charId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 0,
         direction: "for",
       }) as CommandInstance,
@@ -5329,12 +5124,8 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: pr.id as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: charId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: pr.id as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: charId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 0,
         direction: "against",
         severity: "minus-1d",
@@ -5378,12 +5169,8 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: pr.id as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: charId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: pr.id as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: charId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 0,
         direction: "for",
       }) as CommandInstance,
@@ -5396,20 +5183,14 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: pr.id as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: charId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: pr.id as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: charId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 1,
         direction: "for",
       }) as CommandInstance,
     });
     expect(r2.result.ok).toBe(false);
-    expect((r2.result as { ok: false; reason: string }).reason).toMatch(
-      /one trait per test/i,
-    );
+    expect((r2.result as { ok: false; reason: string }).reason).toMatch(/one trait per test/i);
   });
 
   it("rejects a non-existent trait index", async () => {
@@ -5425,20 +5206,14 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: pr.id as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: charId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: pr.id as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: charId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 5,
         direction: "for",
       }) as CommandInstance,
     });
     expect(r.result.ok).toBe(false);
-    expect((r.result as { ok: false; reason: string }).reason).toMatch(
-      /no trait at index 5/i,
-    );
+    expect((r.result as { ok: false; reason: string }).reason).toMatch(/no trait at index 5/i);
   });
 
   it("rejects 'against self' without a severity", async () => {
@@ -5454,12 +5229,8 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: pr.id as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: charId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: pr.id as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: charId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 0,
         direction: "against",
         // severity intentionally omitted
@@ -5472,9 +5243,7 @@ describe("UseTraitOnRoll command", () => {
     const h = buildImprovementHarness();
     await spawnImproveCharacter(h.pipeline, h.registry);
     const charId = h.world.query([Character])[0]!.id;
-    setTraits(h.world, charId, [
-      { name: "Reckless", level: 1, usedAgainst: true },
-    ]);
+    setTraits(h.world, charId, [{ name: "Reckless", level: 1, usedAgainst: true }]);
     const pr = spawnPendingRoll(h.world, charId);
 
     const r = await h.pipeline.dispatch({
@@ -5483,12 +5252,8 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: pr.id as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: charId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: pr.id as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: charId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 0,
         direction: "against",
         severity: "minus-1d",
@@ -5504,9 +5269,7 @@ describe("UseTraitOnRoll command", () => {
     const h = buildImprovementHarness();
     await spawnImproveCharacter(h.pipeline, h.registry);
     const charId = h.world.query([Character])[0]!.id;
-    setTraits(h.world, charId, [
-      { name: "Stubborn", level: 1, usedAgainst: true },
-    ]);
+    setTraits(h.world, charId, [{ name: "Stubborn", level: 1, usedAgainst: true }]);
     const pr = spawnPendingRoll(h.world, charId);
 
     const r = await h.pipeline.dispatch({
@@ -5515,12 +5278,8 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: pr.id as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: charId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: pr.id as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: charId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 0,
         direction: "for",
       }) as CommandInstance,
@@ -5541,12 +5300,8 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: pr.id as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: charId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: pr.id as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: charId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 0,
         direction: "for",
       }) as CommandInstance,
@@ -5603,12 +5358,8 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: ours as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: oursCharId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: ours as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: oursCharId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 0,
         direction: "against",
         severity: "plus-2d-opp",
@@ -5666,12 +5417,8 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: pr.id as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: charId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: pr.id as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: charId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 0,
         direction: "against",
         severity: "plus-2d-opp",
@@ -5730,12 +5477,8 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: ours as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: oursCharId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: ours as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: oursCharId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 0,
         direction: "against",
         severity: "plus-2d-opp",
@@ -5752,20 +5495,14 @@ describe("UseTraitOnRoll command", () => {
       issuedAt: 0,
       session: gmSession(),
       cmd: UseTraitOnRoll({
-        pendingRollId: ours as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["pendingRollId"],
-        characterId: oursCharId as Parameters<
-          typeof UseTraitOnRoll
-        >[0]["characterId"],
+        pendingRollId: ours as Parameters<typeof UseTraitOnRoll>[0]["pendingRollId"],
+        characterId: oursCharId as Parameters<typeof UseTraitOnRoll>[0]["characterId"],
         traitIndex: 1,
         direction: "for",
       }) as CommandInstance,
     });
     expect(r2.result.ok).toBe(false);
-    expect((r2.result as { ok: false; reason: string }).reason).toMatch(
-      /one trait per test/i,
-    );
+    expect((r2.result as { ok: false; reason: string }).reason).toMatch(/one trait per test/i);
   });
 });
 
@@ -5804,9 +5541,7 @@ describe("LogTraitUsage command", () => {
     severity?: "minus-1d" | "plus-2d-opp",
   ): TbRollModifier {
     const providedBy =
-      direction === "for"
-        ? `trait:${traitIndex}:for`
-        : `trait:${traitIndex}:against:${severity}`;
+      direction === "for" ? `trait:${traitIndex}:for` : `trait:${traitIndex}:against:${severity}`;
     return {
       id: `trait:test:${providedBy}`,
       kind: direction === "for" ? "dice" : "dice",
@@ -5852,9 +5587,7 @@ describe("LogTraitUsage command", () => {
       }) as CommandInstance,
     });
     expect(r.result.ok).toBe(false);
-    expect((r.result as { ok: false; reason: string }).reason).toMatch(
-      /no trait usage to log/i,
-    );
+    expect((r.result as { ok: false; reason: string }).reason).toMatch(/no trait usage to log/i);
   });
 
   it("for-self Lv1: bumps beneficialUses to 1 and attaches the marker trait", async () => {
@@ -6047,9 +5780,7 @@ describe("LogTraitUsage command", () => {
       }) as CommandInstance,
     });
     expect(r2.result.ok).toBe(false);
-    expect((r2.result as { ok: false; reason: string }).reason).toMatch(
-      /already logged/i,
-    );
+    expect((r2.result as { ok: false; reason: string }).reason).toMatch(/already logged/i);
   });
 });
 
@@ -6103,12 +5834,22 @@ describe("Fate / persona spend commands", () => {
     }
   }
 
-  function readPools(world: World, id: string): {
+  function readPools(
+    world: World,
+    id: string,
+  ): {
     fate: { current: number; totalSpent: number };
     persona: { current: number; totalSpent: number };
   } {
     const got = world.get(id as Parameters<World["get"]>[0], [Pools]) as
-      | { Pools: typeof Pools extends never ? never : { fate: { current: number; totalSpent: number }; persona: { current: number; totalSpent: number } } }
+      | {
+          Pools: typeof Pools extends never
+            ? never
+            : {
+                fate: { current: number; totalSpent: number };
+                persona: { current: number; totalSpent: number };
+              };
+        }
       | undefined;
     return got!.Pools;
   }
@@ -6120,13 +5861,15 @@ describe("Fate / persona spend commands", () => {
     return got?.RollSpends.entries ?? [];
   }
 
-  function readDice(world: World, rollId: string): ReadonlyArray<{ sides: number | "F"; value: number }> {
+  function readDice(
+    world: World,
+    rollId: string,
+  ): ReadonlyArray<{ sides: number | "F"; value: number }> {
     const got = world.get(rollId as Parameters<World["get"]>[0], [RollResult]) as
       | { RollResult: { dice: ReadonlyArray<{ sides: number | "F"; value: number }> } }
       | undefined;
     return got?.RollResult.dice ?? [];
   }
-
 
   describe("SpendLuck", () => {
     it("rejects when no 6s in the dice pool", async () => {
@@ -6178,9 +5921,7 @@ describe("Fate / persona spend commands", () => {
         }) as CommandInstance,
       });
       expect((r.result as { ok: false; reason: string }).ok).toBe(false);
-      expect((r.result as { ok: false; reason: string }).reason).toMatch(
-        /already a success/i,
-      );
+      expect((r.result as { ok: false; reason: string }).reason).toMatch(/already a success/i);
     });
 
     it("decrements fate, replaces a single failed die, bumps wise.fate", async () => {
@@ -6209,9 +5950,9 @@ describe("Fate / persona spend commands", () => {
       });
       expect((r.result as { ok: true }).ok).toBe(true);
       expect(readPools(h.world, charId).fate.current).toBe(0);
-      const wises = h.world.get(charId as Parameters<World["get"]>[0], [
-        Wises,
-      ]) as { Wises: { entries: ReadonlyArray<{ fate: boolean }> } };
+      const wises = h.world.get(charId as Parameters<World["get"]>[0], [Wises]) as {
+        Wises: { entries: ReadonlyArray<{ fate: boolean }> };
+      };
       expect(wises.Wises.entries[0]!.fate).toBe(true);
       const entries = readSpends(h.world, rollId);
       expect(entries[0]!.kind).toBe("deeper-understanding");
@@ -6263,9 +6004,7 @@ describe("Fate / persona spend commands", () => {
         }) as CommandInstance,
       });
       expect((r.result as { ok: false; reason: string }).ok).toBe(false);
-      expect((r.result as { ok: false; reason: string }).reason).toMatch(
-        /OC first|before Luck/i,
-      );
+      expect((r.result as { ok: false; reason: string }).reason).toMatch(/OC first|before Luck/i);
     });
 
     it("rerolls all failed dice, bumps wise.persona", async () => {
@@ -6293,16 +6032,15 @@ describe("Fate / persona spend commands", () => {
       });
       expect((r.result as { ok: true }).ok).toBe(true);
       expect(readPools(h.world, charId).persona.current).toBe(0);
-      const wises = h.world.get(charId as Parameters<World["get"]>[0], [
-        Wises,
-      ]) as { Wises: { entries: ReadonlyArray<{ persona: boolean }> } };
+      const wises = h.world.get(charId as Parameters<World["get"]>[0], [Wises]) as {
+        Wises: { entries: ReadonlyArray<{ persona: boolean }> };
+      };
       expect(wises.Wises.entries[0]!.persona).toBe(true);
       const entries = readSpends(h.world, rollId);
       expect(entries[0]!.kind).toBe("of-course");
       expect(entries[0]!.rerolledIndices).toContain(2);
     });
   });
-
 });
 
 /* -------------------------------------------------------------------------
@@ -6346,32 +6084,26 @@ describe("Pre-roll spend contribution helpers", () => {
     expect(personaSpendTotalFromContributions(undefined)).toBe(0);
     expect(personaSpendTotalFromContributions([])).toBe(0);
     expect(personaSpendTotalFromContributions([persona(1)])).toBe(1);
-    expect(
-      personaSpendTotalFromContributions([persona(1), persona(1), persona(1)]),
-    ).toBe(3);
+    expect(personaSpendTotalFromContributions([persona(1), persona(1), persona(1)])).toBe(3);
     // Beyond 3 should clamp.
-    expect(
-      personaSpendTotalFromContributions([persona(2), persona(2)]),
-    ).toBe(3);
+    expect(personaSpendTotalFromContributions([persona(2), persona(2)])).toBe(3);
   });
 
   it("channelNatureFromContributions returns last-wins or null", () => {
     expect(channelNatureFromContributions(undefined)).toBeNull();
-    expect(channelNatureFromContributions([channel("within")])?.scope).toBe(
-      "within",
+    expect(channelNatureFromContributions([channel("within")])?.scope).toBe("within");
+    expect(channelNatureFromContributions([channel("within"), channel("outside")])?.scope).toBe(
+      "outside",
     );
-    expect(
-      channelNatureFromContributions([channel("within"), channel("outside")])
-        ?.scope,
-    ).toBe("outside");
   });
 
   it("synergyHelpersFromContributions de-dups by helper id", () => {
     expect(synergyHelpersFromContributions(undefined)).toEqual([]);
     expect(synergyHelpersFromContributions([synergy("e1")])).toEqual(["e1"]);
-    expect(
-      synergyHelpersFromContributions([synergy("e1"), synergy("e1"), synergy("e2")]),
-    ).toEqual(["e1", "e2"]);
+    expect(synergyHelpersFromContributions([synergy("e1"), synergy("e1"), synergy("e2")])).toEqual([
+      "e1",
+      "e2",
+    ]);
   });
 });
 
@@ -6459,9 +6191,9 @@ describe("Pre-roll spend → commit-time debit", () => {
       | undefined)!.Pools;
     expect(pools.persona.current).toBe(1);
     expect(pools.persona.totalSpent).toBe(2);
-    const got = h.world.get(rollId as Parameters<World["get"]>[0], [
-      RollSpends,
-    ]) as { RollSpends: { entries: ReadonlyArray<RollSpendEntry> } } | undefined;
+    const got = h.world.get(rollId as Parameters<World["get"]>[0], [RollSpends]) as
+      | { RollSpends: { entries: ReadonlyArray<RollSpendEntry> } }
+      | undefined;
     const spends = got!.RollSpends.entries;
     expect(spends.find((e) => e.kind === "persona-dice")?.cost).toBe(2);
   });
@@ -6558,7 +6290,6 @@ describe("SetSpecialtySkill command", () => {
     expect(r.result.ok).toBe(false);
     expect((r.result as { ok: false; reason: string }).reason).toMatch(/unknown skill/);
   });
-
 });
 
 /* -------------------------------------------------------------------------
@@ -6589,8 +6320,7 @@ describe("TogglePinnedRoll command", () => {
     });
     expect(r.result.ok).toBe(true);
     const entries = readPinned(h.world, id) as Array<
-      | { kind: "ability"; ability: string }
-      | { kind: "skill"; skillId: string }
+      { kind: "ability"; ability: string } | { kind: "skill"; skillId: string }
     >;
     // Defaults (Will + Health) survive; Scout appears at the end.
     expect(entries).toEqual([
@@ -6668,5 +6398,4 @@ describe("TogglePinnedRoll command", () => {
     expect(r.result.ok).toBe(false);
     expect((r.result as { ok: false; reason: string }).reason).toMatch(/unknown skill/);
   });
-
 });

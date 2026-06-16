@@ -18,17 +18,9 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { items } from "@vtt/items";
-import {
-  ItemBundle,
-  ItemIdentity,
-  SetItemTrait,
-  SplitItemBundle,
-} from "@vtt/items/shared";
+import { ItemBundle, ItemIdentity, SetItemTrait, SplitItemBundle } from "@vtt/items/shared";
 import { definePlugin, type EntityId } from "@vtt/substrate";
 import {
   TbArmor,
@@ -70,9 +62,7 @@ const tbItemsTestPlugin = definePlugin({
   gameSystem: true,
 });
 
-function setup(opts?: {
-  initialTraits?: (world: import("@vtt/substrate").World) => EntityId;
-}) {
+function setup(opts?: { initialTraits?: (world: import("@vtt/substrate").World) => EntityId }) {
   let itemId!: EntityId;
   const h = buildTestClient({
     plugins: [items, tbItemsTestPlugin],
@@ -90,11 +80,13 @@ function setup(opts?: {
 describe("Manage Subtypes section", () => {
   it("toggles a subtype on, dispatching SetItemTrait with default values", async () => {
     const h = setup();
-    mountWithClient(h, () =>
-      TbManageSubtypesDetailSection.render({
-        itemId: h.itemId,
-        canEdit: true,
-      }) as never,
+    mountWithClient(
+      h,
+      () =>
+        TbManageSubtypesDetailSection.render({
+          itemId: h.itemId,
+          canEdit: true,
+        }) as never,
     );
     fireEvent.click(screen.getByTestId("subtype-toggle-TbWeapon"));
     await waitFor(() => {
@@ -129,17 +121,17 @@ describe("Manage Subtypes section", () => {
           }),
         ]),
     });
-    mountWithClient(h, () =>
-      TbManageSubtypesDetailSection.render({
-        itemId: h.itemId,
-        canEdit: true,
-      }) as never,
+    mountWithClient(
+      h,
+      () =>
+        TbManageSubtypesDetailSection.render({
+          itemId: h.itemId,
+          canEdit: true,
+        }) as never,
     );
     fireEvent.click(screen.getByTestId("subtype-toggle-TbWeapon"));
     await waitFor(() => {
-      expect(
-        h.dispatched.some((d) => d.type === "@vtt/items/RemoveItemTrait"),
-      ).toBe(true);
+      expect(h.dispatched.some((d) => d.type === "@vtt/items/RemoveItemTrait")).toBe(true);
     });
     expect(h.world.get(h.itemId, [TbWeapon])).toBeUndefined();
   });
@@ -149,16 +141,15 @@ describe("SlotOptions section", () => {
   it("adds a new slot via the + add form", async () => {
     const h = setup({
       initialTraits: (world) =>
-        world.spawn([
-          ItemIdentity({ name: "Hat" }),
-          TbItemSlotOptions({ options: {} }),
-        ]),
+        world.spawn([ItemIdentity({ name: "Hat" }), TbItemSlotOptions({ options: {} })]),
     });
-    mountWithClient(h, () =>
-      TbSlotOptionsDetailSection.render({
-        itemId: h.itemId,
-        canEdit: true,
-      }) as never,
+    mountWithClient(
+      h,
+      () =>
+        TbSlotOptionsDetailSection.render({
+          itemId: h.itemId,
+          canEdit: true,
+        }) as never,
     );
     // Default add form: pack, cost 1.
     fireEvent.change(screen.getByTestId("slot-add-key"), {
@@ -186,11 +177,13 @@ describe("SlotOptions section", () => {
           }),
         ]),
     });
-    mountWithClient(h, () =>
-      TbSlotOptionsDetailSection.render({
-        itemId: h.itemId,
-        canEdit: true,
-      }) as never,
+    mountWithClient(
+      h,
+      () =>
+        TbSlotOptionsDetailSection.render({
+          itemId: h.itemId,
+          canEdit: true,
+        }) as never,
     );
     fireEvent.click(screen.getByTestId("slot-remove-torso"));
     await waitFor(() => {
@@ -205,16 +198,15 @@ describe("SlotOptions section", () => {
   it("changes the cost of an existing slot", async () => {
     const h = setup({
       initialTraits: (world) =>
-        world.spawn([
-          ItemIdentity({ name: "Hat" }),
-          TbItemSlotOptions({ options: { torso: 1 } }),
-        ]),
+        world.spawn([ItemIdentity({ name: "Hat" }), TbItemSlotOptions({ options: { torso: 1 } })]),
     });
-    mountWithClient(h, () =>
-      TbSlotOptionsDetailSection.render({
-        itemId: h.itemId,
-        canEdit: true,
-      }) as never,
+    mountWithClient(
+      h,
+      () =>
+        TbSlotOptionsDetailSection.render({
+          itemId: h.itemId,
+          canEdit: true,
+        }) as never,
     );
     fireEvent.change(screen.getByTestId("slot-cost-torso"), {
       target: { value: "3" },
@@ -245,19 +237,19 @@ describe("Weapon section", () => {
           }),
         ]),
     });
-    mountWithClient(h, () =>
-      TbWeaponDetailSection.render({
-        itemId: h.itemId,
-        canEdit: true,
-      }) as never,
+    mountWithClient(
+      h,
+      () =>
+        TbWeaponDetailSection.render({
+          itemId: h.itemId,
+          canEdit: true,
+        }) as never,
     );
     fireEvent.change(screen.getByTestId("weapon-wield"), {
       target: { value: "2" },
     });
     await waitFor(() => {
-      const w = h.world.get(h.itemId, [TbWeapon]) as
-        | { TbWeapon: { wield: number } }
-        | undefined;
+      const w = h.world.get(h.itemId, [TbWeapon]) as { TbWeapon: { wield: number } } | undefined;
       expect(w?.TbWeapon.wield).toBe(2);
     });
   });
@@ -278,11 +270,13 @@ describe("Weapon section", () => {
           }),
         ]),
     });
-    mountWithClient(h, () =>
-      TbWeaponDetailSection.render({
-        itemId: h.itemId,
-        canEdit: true,
-      }) as never,
+    mountWithClient(
+      h,
+      () =>
+        TbWeaponDetailSection.render({
+          itemId: h.itemId,
+          canEdit: true,
+        }) as never,
     );
     fireEvent.change(screen.getByTestId("weapon-attack-value"), {
       target: { value: "1" },
@@ -312,15 +306,9 @@ describe("Bundle section", () => {
         ]);
       },
     });
-    mountWithClient(h, () =>
-      TbBundleDetailSection.render({ itemId, canEdit: true }) as never,
-    );
-    expect(
-      (screen.getByTestId("bundle-capacity") as HTMLInputElement).value,
-    ).toBe("4");
-    expect(
-      (screen.getByTestId("bundle-count") as HTMLInputElement).value,
-    ).toBe("4");
+    mountWithClient(h, () => TbBundleDetailSection.render({ itemId, canEdit: true }) as never);
+    expect((screen.getByTestId("bundle-capacity") as HTMLInputElement).value).toBe("4");
+    expect((screen.getByTestId("bundle-count") as HTMLInputElement).value).toBe("4");
     fireEvent.change(screen.getByTestId("bundle-capacity"), {
       target: { value: "6" },
     });
@@ -343,17 +331,13 @@ describe("Bundle section", () => {
         ]);
       },
     });
-    mountWithClient(h, () =>
-      TbBundleDetailSection.render({ itemId, canEdit: true }) as never,
-    );
+    mountWithClient(h, () => TbBundleDetailSection.render({ itemId, canEdit: true }) as never);
     fireEvent.input(screen.getByTestId("bundle-split-count"), {
       target: { value: "2" },
     });
     fireEvent.click(screen.getByTestId("bundle-split"));
     await waitFor(() => {
-      expect(
-        h.dispatched.some((d) => d.type === SplitItemBundle.name),
-      ).toBe(true);
+      expect(h.dispatched.some((d) => d.type === SplitItemBundle.name)).toBe(true);
     });
     const ev = h.dispatched.find((d) => d.type === SplitItemBundle.name)!;
     const payload = ev.payload as { itemId: EntityId; count: number };
@@ -386,9 +370,7 @@ describe("Bundle section", () => {
         ]);
       },
     });
-    mountWithClient(h, () =>
-      TbBundleDetailSection.render({ itemId, canEdit: true }) as never,
-    );
+    mountWithClient(h, () => TbBundleDetailSection.render({ itemId, canEdit: true }) as never);
     expect(screen.queryByTestId("bundle-split")).toBeNull();
   });
 });

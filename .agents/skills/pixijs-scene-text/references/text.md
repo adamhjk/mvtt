@@ -229,7 +229,6 @@ app.ticker.add(() => {
 
 Every `Text` update re-rasterizes the full string and uploads a new texture. At 60fps this burns frame budget. Use `BitmapText` for values that change per-frame, or at minimum guard with an equality check against the previous string.
 
-
 ### [HIGH] Using positional constructor args
 
 Wrong:
@@ -245,7 +244,6 @@ const text = new Text({ text: "Hello", style: { fontSize: 24 } });
 ```
 
 v8 `Text` uses an options object. The v7 `(string, style)` signature is not supported.
-
 
 ### [MEDIUM] Stroke or shadow getting clipped at edges
 
@@ -268,7 +266,6 @@ const text = new Text({
 ```
 
 The underlying canvas is sized from the text metrics; heavy strokes or drop-shadows render past those bounds and get clipped. Add `padding` to the style to enlarge the texture.
-
 
 ## API Reference
 

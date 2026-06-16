@@ -15,14 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  ok,
-  readTraitWithDefault,
-  z,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, ok, readTraitWithDefault, z } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
 import { requireWrite } from "@vtt/permissions/shared";
 import {
@@ -50,13 +43,8 @@ import { ContributionSchema, PendingRoll } from "./pending.js";
  * Cache-bust suffixes (`?v=<bytes>`) are accepted; the upload endpoint
  * stamps them on so the browser re-fetches after a replacement.
  */
-function isCharacterTokenUrl(
-  url: string,
-  worldId: string,
-  characterId: string,
-): boolean {
-  const expectedPrefix =
-    `/plugin-data/${worldId}/@vtt/characters/characters/${characterId}/`;
+function isCharacterTokenUrl(url: string, worldId: string, characterId: string): boolean {
+  const expectedPrefix = `/plugin-data/${worldId}/@vtt/characters/characters/${characterId}/`;
   if (!url.startsWith(expectedPrefix)) return false;
   if (url.includes("..")) return false;
   return true;
@@ -83,11 +71,7 @@ export const CreateCharacter = defineCommand({
   validate: (ctx) => {
     const auth = requireSession(ctx);
     if (!auth) return fail("not authenticated");
-    if (
-      ctx.cmd.ownerUserId &&
-      ctx.cmd.ownerUserId !== auth.userId &&
-      auth.role !== "gm"
-    ) {
+    if (ctx.cmd.ownerUserId && ctx.cmd.ownerUserId !== auth.userId && auth.role !== "gm") {
       return fail("only a GM can create a character for another user");
     }
     return ok();
@@ -461,9 +445,7 @@ export const SetCharacterTokenImage = defineCommand({
     // assetId + imageUrl are mutually exclusive on a single write — the
     // command shape stays unambiguous on the wire and at replay.
     if (ctx.cmd.assetId !== null && ctx.cmd.imageUrl !== null) {
-      return fail(
-        "set either assetId or imageUrl, not both",
-      );
+      return fail("set either assetId or imageUrl, not both");
     }
     if (ctx.cmd.assetId !== null) {
       // We don't import the Asset trait here to avoid a layering
@@ -476,11 +458,7 @@ export const SetCharacterTokenImage = defineCommand({
     }
     if (
       ctx.cmd.imageUrl !== null &&
-      !isCharacterTokenUrl(
-        ctx.cmd.imageUrl,
-        ctx.world.worldId,
-        ctx.cmd.characterId,
-      )
+      !isCharacterTokenUrl(ctx.cmd.imageUrl, ctx.world.worldId, ctx.cmd.characterId)
     ) {
       return fail(
         `imageUrl must start with /plugin-data/${ctx.world.worldId}/@vtt/characters/characters/${ctx.cmd.characterId}/`,

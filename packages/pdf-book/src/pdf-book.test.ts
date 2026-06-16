@@ -28,19 +28,9 @@ import {
 import type { AuthSession } from "@vtt/auth";
 import { Permissions, ownedBy } from "@vtt/permissions/shared";
 import { Asset } from "@vtt/assets/shared";
-import {
-  Book,
-  BookCreated,
-  CreateBook,
-} from "@vtt/books/shared";
-import {
-  BookSpawningSystem,
-} from "@vtt/books/server";
-import {
-  PdfDocument,
-  PdfDocumentSet,
-  SetPdfDocument,
-} from "./shared/index.js";
+import { Book, BookCreated, CreateBook } from "@vtt/books/shared";
+import { BookSpawningSystem } from "@vtt/books/server";
+import { PdfDocument, PdfDocumentSet, SetPdfDocument } from "./shared/index.js";
 import { PdfDocumentSetSystem } from "./server/systems.js";
 
 // Bundle a stripped server plugin combining books + pdf-book so the
@@ -81,11 +71,7 @@ function setup() {
 }
 
 let cmdSeq = 0;
-async function dispatch(
-  pipeline: CommandPipeline,
-  cmd: CommandInstance,
-  session: unknown,
-) {
+async function dispatch(pipeline: CommandPipeline, cmd: CommandInstance, session: unknown) {
   return pipeline.dispatch({
     id: `cmd-${++cmdSeq}`,
     issuedBy: "tester",
@@ -95,10 +81,7 @@ async function dispatch(
   });
 }
 
-async function makeBook(
-  pipeline: CommandPipeline,
-  world: World,
-): Promise<EntityId> {
+async function makeBook(pipeline: CommandPipeline, world: World): Promise<EntityId> {
   await dispatch(pipeline, CreateBook({ name: "PHB" }), GM);
   return world.query([Book])[0]!.id;
 }
@@ -142,11 +125,7 @@ describe("@vtt/pdf-book", () => {
     it("GM binds a PDF asset; mirror attaches PdfDocument trait to the Book entity", async () => {
       const bookId = await makeBook(pipeline, world);
       const assetId = seedAsset(world);
-      const res = await dispatch(
-        pipeline,
-        SetPdfDocument({ bookId, assetId }),
-        GM,
-      );
+      const res = await dispatch(pipeline, SetPdfDocument({ bookId, assetId }), GM);
       expect(res.result.ok).toBe(true);
       expect(res.events.map((e) => e.type)).toEqual([PdfDocumentSet.name]);
       const got = world.get(bookId, [Book, PdfDocument]) as {
@@ -171,11 +150,7 @@ describe("@vtt/pdf-book", () => {
     it("rejects a player dispatch (write requires GM or book owner)", async () => {
       const bookId = await makeBook(pipeline, world);
       const assetId = seedAsset(world);
-      const res = await dispatch(
-        pipeline,
-        SetPdfDocument({ bookId, assetId }),
-        PLAYER,
-      );
+      const res = await dispatch(pipeline, SetPdfDocument({ bookId, assetId }), PLAYER);
       expect(res.result.ok).toBe(false);
     });
 
@@ -202,11 +177,7 @@ describe("@vtt/pdf-book", () => {
     it("rejects an asset whose mime is not application/pdf", async () => {
       const bookId = await makeBook(pipeline, world);
       const imageAsset = seedAsset(world, { mime: "image/png" });
-      const res = await dispatch(
-        pipeline,
-        SetPdfDocument({ bookId, assetId: imageAsset }),
-        GM,
-      );
+      const res = await dispatch(pipeline, SetPdfDocument({ bookId, assetId: imageAsset }), GM);
       expect(res.result.ok).toBe(false);
       if (!res.result.ok) {
         expect(res.result.reason).toContain("application/pdf");
@@ -226,9 +197,7 @@ describe("@vtt/pdf-book", () => {
   describe("systems", () => {
     it("PdfDocumentSetSystem is wired to PdfDocumentSet and writes PdfDocument", () => {
       expect(PdfDocumentSetSystem.on.name).toBe(PdfDocumentSet.name);
-      expect(PdfDocumentSetSystem.writes.map((t) => t.name)).toContain(
-        PdfDocument.name,
-      );
+      expect(PdfDocumentSetSystem.writes.map((t) => t.name)).toContain(PdfDocument.name);
     });
 
     it("PdfDocumentSetSystem is a no-op for a despawned bookId", () => {

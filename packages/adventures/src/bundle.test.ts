@@ -109,9 +109,7 @@ function setup() {
 
 describe("sha256Hex", () => {
   it("produces the canonical SHA-256 of an empty string", async () => {
-    expect(sha256Hex("")).toBe(
-      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    );
+    expect(sha256Hex("")).toBe("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
   });
   it("produces the canonical SHA-256 of 'hello'", async () => {
     expect(sha256Hex("hello")).toBe(
@@ -158,14 +156,8 @@ describe("buildBundle", () => {
   });
 
   it("excludes notes not in the selected list", async () => {
-    const noteA = world.spawn([
-      Note({ title: "A", createdAt: 0 }),
-      NoteOrdering({ ordinal: 0 }),
-    ]);
-    const noteB = world.spawn([
-      Note({ title: "B", createdAt: 0 }),
-      NoteOrdering({ ordinal: 1 }),
-    ]);
+    const noteA = world.spawn([Note({ title: "A", createdAt: 0 }), NoteOrdering({ ordinal: 0 })]);
+    const noteB = world.spawn([Note({ title: "B", createdAt: 0 }), NoteOrdering({ ordinal: 1 })]);
     world.spawn([
       Page({ title: "p", body: "x", bodyRev: 1 }),
       BelongsToNote({ noteId: noteA }),
@@ -218,8 +210,7 @@ describe("buildBundle", () => {
       name: "T",
       version: "1.0.0",
       noteIds: [noteId],
-      loadAssetBytes: async (id) =>
-        new Uint8Array([id.charCodeAt(0)]),
+      loadAssetBytes: async (id) => new Uint8Array([id.charCodeAt(0)]),
     });
     // All three asset entities land in the bundle even though the
     // note body references none of them — they were captured because
@@ -363,12 +354,7 @@ describe("importBundle round-trip", () => {
 
     // Imported page carries the page-trait set the normal create flow
     // attaches (Permissions + Headings + PageHistory).
-    const pageRows = b.world.query([
-      Page,
-      Permissions,
-      Headings,
-      PageHistory,
-    ]);
+    const pageRows = b.world.query([Page, Permissions, Headings, PageHistory]);
     expect(pageRows).toHaveLength(1);
     const pageBody = (pageRows[0]!.values.Page as { body: string }).body;
     expect(pageBody).toBe("hello");
@@ -503,9 +489,7 @@ describe("asset bundling", () => {
     const a = setup();
     // Spawn a manual character (no block provenance).
     const manualNpc = a.world.spawn([Character({ name: "Wanderer" })]);
-    a.world.spawn([
-      ItemIdentity({ name: "Mystery Coin", description: "Glints faintly", img: "" }),
-    ]);
+    a.world.spawn([ItemIdentity({ name: "Mystery Coin", description: "Glints faintly", img: "" })]);
     const noteId = a.world.spawn([
       Note({ title: "Refs", createdAt: 0 }),
       NoteOrdering({ ordinal: 0 }),
@@ -554,10 +538,7 @@ describe("computeReferenceClosure", () => {
 
   it("classifies in-selected, in-unselected, and uncoverable references", async () => {
     // Note A: defines `stat:foo`.
-    const noteA = world.spawn([
-      Note({ title: "A", createdAt: 0 }),
-      NoteOrdering({ ordinal: 0 }),
-    ]);
+    const noteA = world.spawn([Note({ title: "A", createdAt: 0 }), NoteOrdering({ ordinal: 0 })]);
     const pageA = world.spawn([
       Page({
         title: "p",
@@ -568,19 +549,11 @@ describe("computeReferenceClosure", () => {
       PageOrdering({ ordinal: 0 }),
     ]);
     // Note B: defines `stat:bar` and references `[[stat:foo]]`.
-    const noteB = world.spawn([
-      Note({ title: "B", createdAt: 0 }),
-      NoteOrdering({ ordinal: 1 }),
-    ]);
+    const noteB = world.spawn([Note({ title: "B", createdAt: 0 }), NoteOrdering({ ordinal: 1 })]);
     const pageB = world.spawn([
       Page({
         title: "p",
-        body: [
-          "```stat bar",
-          "label: refs [[stat:foo]]",
-          "value: 2",
-          "```",
-        ].join("\n"),
+        body: ["```stat bar", "label: refs [[stat:foo]]", "value: 2", "```"].join("\n"),
         bodyRev: 1,
       }),
       BelongsToNote({ noteId: noteB }),
@@ -589,12 +562,12 @@ describe("computeReferenceClosure", () => {
 
     const idx = buildBlockKindIndex(registry);
     runBlockParse(world, pageA, ["```stat foo", "label: x", "value: 1", "```"].join("\n"), idx);
-    runBlockParse(world, pageB, [
-      "```stat bar",
-      "label: refs [[stat:foo]]",
-      "value: 2",
-      "```",
-    ].join("\n"), idx);
+    runBlockParse(
+      world,
+      pageB,
+      ["```stat bar", "label: refs [[stat:foo]]", "value: 2", "```"].join("\n"),
+      idx,
+    );
 
     // Selecting noteB only — `[[stat:foo]]` should classify as
     // "in unselected" (auxiliary include candidate).

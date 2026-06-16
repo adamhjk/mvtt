@@ -16,14 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  defineEvent,
-  definePlugin,
-  defineTrait,
-  Registry,
-  World,
-  z,
-} from "@vtt/substrate";
+import { defineEvent, definePlugin, defineTrait, Registry, World, z } from "@vtt/substrate";
 import { permissions } from "@vtt/permissions";
 import {
   Note,
@@ -37,11 +30,7 @@ import {
   NotesReferenceSlot,
 } from "@vtt/notes/shared";
 import { adventures } from "./manifest.js";
-import {
-  BlockKindsSlot,
-  defineBlockKind,
-  buildBlockKindIndex,
-} from "./shared/index.js";
+import { BlockKindsSlot, defineBlockKind, buildBlockKindIndex } from "./shared/index.js";
 import {
   buildBundle,
   importBundle,
@@ -148,9 +137,7 @@ describe("computeUpdateDiff", () => {
     const diff = computeUpdateDiff(world, v2, new Set(["stat"]));
     expect(diff.notes).toHaveLength(1);
     expect(diff.notes[0]!.kind).toBe("fast-forward");
-    expect(diff.notes[0]!.blocks.find((b) => b.blockKey === "foo")?.kind).toBe(
-      "block-changed",
-    );
+    expect(diff.notes[0]!.blocks.find((b) => b.blockKey === "foo")?.kind).toBe("block-changed");
   });
 
   it("classifies a conflict when both bundle AND world changed", async () => {
@@ -173,7 +160,10 @@ describe("computeUpdateDiff", () => {
 
   it("classifies a 'new' note when the bundle adds one", async () => {
     // Empty world (no prior import). Brand-new bundle = every note is new.
-    const v1 = await buildSourceBundle("1.0.0", ["```stat foo", "label: a", "value: 1", "```"].join("\n"));
+    const v1 = await buildSourceBundle(
+      "1.0.0",
+      ["```stat foo", "label: a", "value: 1", "```"].join("\n"),
+    );
     const diff = computeUpdateDiff(world, v1, new Set(["stat"]));
     expect(diff.notes[0]!.kind).toBe("new");
   });

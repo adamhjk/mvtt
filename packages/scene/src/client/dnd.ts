@@ -85,13 +85,9 @@ export function decodeCharacterDnd(raw: string): CharacterDndPayload | null {
       return null;
     }
     const assetId =
-      parsed.assetId === null || typeof parsed.assetId === "string"
-        ? parsed.assetId
-        : null;
+      parsed.assetId === null || typeof parsed.assetId === "string" ? parsed.assetId : null;
     const imageUrl =
-      parsed.imageUrl === null || typeof parsed.imageUrl === "string"
-        ? parsed.imageUrl
-        : null;
+      parsed.imageUrl === null || typeof parsed.imageUrl === "string" ? parsed.imageUrl : null;
     return {
       characterId: parsed.characterId,
       label: parsed.label,

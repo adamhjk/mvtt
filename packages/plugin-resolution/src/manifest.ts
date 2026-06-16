@@ -23,10 +23,7 @@ import { RequestRoll } from "./shared/commands.js";
 import { RollChatFills } from "./shared/chat-handler.js";
 import { RollActionsSlot } from "./shared/slot.js";
 import { RollRecordingSystem } from "./server/systems.js";
-import {
-  RollAtelierFeedFills,
-  QuickRollComposerFill,
-} from "./client/index.js";
+import { RollAtelierFeedFills, QuickRollComposerFill } from "./client/index.js";
 
 /**
  * The dice-rolling plugin. No standalone UI — input lives in the chat

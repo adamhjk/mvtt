@@ -26,15 +26,15 @@ This document is the design.
 2. **Parsing is eager, idempotent, and additive.** Saving a page parses its blocks and dispatches upsert commands; re-saving with no change emits no events. Deleting a block tombstones the link, never the entity (the entity may be referenced by a running conflict).
 3. **Each block kind has a stable identity.** `(noteId, blockKey)` → a fixed entity id, allocated once on first parse and persisted on a `BlockEntityIndex` sentinel. Renaming the block's title doesn't reallocate; the title becomes a normal trait edit.
 4. **Body format is YAML inside the fence, with two extensions** — wiki-links (`[[…]]`) and dice expressions (`2d6+1`) recognized inside string values. Each block kind ships a Zod schema; the parser is `yaml.parse → schema.parse → entity payload`. Editor support is one CodeMirror language extension over yaml-mode plus a kind-specific autocomplete provider over the schema.
-5. **Autocomplete is schema-driven and pervasive.** Every block kind contributes its UX to the editor *for free* by virtue of registering a schema — no per-system completion code in the typical case. Key suggestions, enum value suggestions, wiki-link target suggestions, and inline validation errors all derive from the Zod schema (with branded subtypes for wiki-link slots and dice slots). A kind may add an optional `complete(path, ctx)` escape hatch for dynamic completion the schema can't express. **Without this, the system is unusable**: block kinds are the surface area each game system extends, and a GM at the table can't be expected to memorize the slot list for a TB armor or the disposition keys for a kill conflict.
+5. **Autocomplete is schema-driven and pervasive.** Every block kind contributes its UX to the editor _for free_ by virtue of registering a schema — no per-system completion code in the typical case. Key suggestions, enum value suggestions, wiki-link target suggestions, and inline validation errors all derive from the Zod schema (with branded subtypes for wiki-link slots and dice slots). A kind may add an optional `complete(path, ctx)` escape hatch for dynamic completion the schema can't express. **Without this, the system is unusable**: block kinds are the surface area each game system extends, and a GM at the table can't be expected to memorize the slot list for a TB armor or the disposition keys for a kill conflict.
 6. **Wiki-link resolution goes through the existing kind registry.** Adventures don't invent new wiki-link kinds for content that already has one (`character`, `item`); they only register a new `encounter` kind for encounter templates. Quantification is grammar-level (`4× [[character:goblin scout]]`), not a separate kind.
-7. **Encounter binding is hybrid by convention.** Singular references (`[[character:Skarra]]`) bind by reference — edits flow, conditions stick, death persists. Quantified references (`4× [[character:goblin scout]]`) spawn N fresh entities from a *template* (the entity authored by a `monster` block) at encounter-instantiation time. Mob copies use the same `ItemDerivedFrom`-style override machinery items use, so future template edits propagate to *future* spawns and existing copies stay stable.
+7. **Encounter binding is hybrid by convention.** Singular references (`[[character:Skarra]]`) bind by reference — edits flow, conditions stick, death persists. Quantified references (`4× [[character:goblin scout]]`) spawn N fresh entities from a _template_ (the entity authored by a `monster` block) at encounter-instantiation time. Mob copies use the same `ItemDerivedFrom`-style override machinery items use, so future template edits propagate to _future_ spawns and existing copies stay stable.
 8. **Bundles are a single zipped file** containing notes, assets, and a manifest. Import unpacks into the world's existing asset store and creates notes with provenance. Export is the reverse over a selected note tree.
 9. **Update is per-block diff.** A bundle subscribed to a world (provenance recorded on each note via a stable `bundleId`) can be re-imported as v2; the GM gets a per-block diff (the smallest unit of merge is one fenced block, not a field within) and chooses keep-mine / take-theirs / merge per block. Surrounding prose between blocks gets a separate text-diff section. Field-level merge inside a block is v2.
 10. **Bundles carry a stable `bundleId` UUID** in their manifest. `name` and `author` are display metadata; provenance and update detection key on `bundleId`. Re-importing the same `(bundleId, version)` is a detected no-op with a "force re-import" toggle for recovery scenarios.
 11. **GameSystem compatibility is semver-respecting** via the manifest's `requires` field. Refuse on major mismatch, warn on minor.
 12. **NPC/PC/template/copy distinction is by trait composition, not separate entity classes.** A PC is `Character` + `OwnedBy`; a named NPC is `Character` (no owner, present in `BlockEntityIndex`); a monster template is `Character` + `MonsterTemplate`; a mob copy is `Character` + `MonsterCopy{ templateId }`. Queries filter by trait presence; no `IsNpc` marker required.
-13. **One seed pattern across all TB catalogs.** Today items use `definePlugin.seed` to spawn `TB_ITEM_TEMPLATES` as real entities at boot; monsters/NPCs/spells are *lazy* (the `TB_*_TEMPLATES` arrays are read by client pickers and entities only exist when a GM clicks "spawn"). Adventures requires every catalog to use the **eager seed** pattern uniformly — wiki-links need stable, pre-existing entity ids before any encounter can reference them. The lazy pickers shift from "browse a static array and spawn-on-click" to "browse seeded entities and fork-on-customize" (the same auto-fork-on-catalog-equip flow items already use for containers).
+13. **One seed pattern across all TB catalogs.** Today items use `definePlugin.seed` to spawn `TB_ITEM_TEMPLATES` as real entities at boot; monsters/NPCs/spells are _lazy_ (the `TB_*_TEMPLATES` arrays are read by client pickers and entities only exist when a GM clicks "spawn"). Adventures requires every catalog to use the **eager seed** pattern uniformly — wiki-links need stable, pre-existing entity ids before any encounter can reference them. The lazy pickers shift from "browse a static array and spawn-on-click" to "browse seeded entities and fork-on-customize" (the same auto-fork-on-catalog-equip flow items already use for containers).
 
 ## Plugin layout
 
@@ -71,7 +71,7 @@ This document is the design.
   manifest.ts: registerBlockKind("npc", npcKind), …
 ```
 
-`@vtt/adventures` declares `dependsOn: ["@vtt/substrate", "@vtt/notes", "@vtt/assets", "@vtt/permissions"]`. It's universal infrastructure — every world gets it. It owns *no* game-system content; block kinds are contributed by system plugins via a `defineBlockKind` registry, exactly mirroring `defineLinkKind`.
+`@vtt/adventures` declares `dependsOn: ["@vtt/substrate", "@vtt/notes", "@vtt/assets", "@vtt/permissions"]`. It's universal infrastructure — every world gets it. It owns _no_ game-system content; block kinds are contributed by system plugins via a `defineBlockKind` registry, exactly mirroring `defineLinkKind`.
 
 ## The block-kind registry
 
@@ -88,19 +88,19 @@ defineBlockKind({
 })
 ```
 
-The kind def is intentionally small. The schema is doing most of the work — it's the source for parsing, validation, *and* autocomplete. A system plugin author writing a new block kind ships a schema, a projection function, and a renderer; everything else falls out.
+The kind def is intentionally small. The schema is doing most of the work — it's the source for parsing, validation, _and_ autocomplete. A system plugin author writing a new block kind ships a schema, a projection function, and a renderer; everything else falls out.
 
 ### Renderer reuse across surfaces
 
 The `render(entityId)` function is the **single canonical widget** for the entity, reused everywhere it surfaces:
 
-| Surface                                              | Form         |
-|------------------------------------------------------|--------------|
-| Live preview under the YAML while authoring          | Full widget  |
-| Read-mode of the source note                         | Full widget  |
-| `![[character:Greta]]` embed in another note         | Full widget  |
-| `[[character:Greta]]` peek popover (click the chip)  | Full widget  |
-| `[[character:Greta]]` chip itself (inline pill)      | Small chip — name + icon, from the link kind's `display(ref)` |
+| Surface                                             | Form                                                          |
+| --------------------------------------------------- | ------------------------------------------------------------- |
+| Live preview under the YAML while authoring         | Full widget                                                   |
+| Read-mode of the source note                        | Full widget                                                   |
+| `![[character:Greta]]` embed in another note        | Full widget                                                   |
+| `[[character:Greta]]` peek popover (click the chip) | Full widget                                                   |
+| `[[character:Greta]]` chip itself (inline pill)     | Small chip — name + icon, from the link kind's `display(ref)` |
 
 `actions` follow the widget. `Start encounter` shows up on the encounter block in its source note **and** in the peek when the encounter is wiki-linked from a session-prep note **and** in the embedded form. Permission gating is per-action (GM-only actions hidden from players).
 
@@ -127,8 +127,8 @@ System-seeded entities (no block provenance) fall back to the link kind's defaul
 
 ```ts
 type EntityProjection = {
-  traits: Array<[TraitDef<unknown>, unknown]>;          // authored fields
-  spawnIfMissing?: Array<TraitDef<unknown>>;            // initial-only (e.g. starting HP)
+  traits: Array<[TraitDef<unknown>, unknown]>; // authored fields
+  spawnIfMissing?: Array<TraitDef<unknown>>; // initial-only (e.g. starting HP)
 };
 ```
 
@@ -146,14 +146,14 @@ The design rule: **schema is the source.** A kind author writing a new block kin
 
 The CodeMirror autocomplete provider, given the cursor position inside a fenced block, walks the schema to the cursor's path and emits suggestions:
 
-| Cursor position                    | Schema node              | Suggestions                                                   |
-|------------------------------------|--------------------------|---------------------------------------------------------------|
-| Beginning of a line (key slot)     | `z.object`               | All keys not yet used at this level, with `?` marker on optional, `*` on required. Description from `.describe()` shown as detail. |
-| After a `: ` for an enum field     | `z.enum` / `z.literal`   | All literal values, sorted, descriptions inline.              |
-| After a `: ` for a wikilink slot   | branded `wikiLink<kind>` | Live entity completions filtered by visibility (same source as the notes plugin's `[[…]]` autocomplete). |
-| After a `: ` for a dice slot       | branded `dice`           | Static suggestions (`1d6`, `2d6+1`, …) plus inline lint of partial expressions. |
-| Inside a list element              | `z.array`                | Recurse into the element schema at depth+1.                   |
-| Inside a discriminated union       | `z.discriminatedUnion`   | First completion is the discriminator field itself; once set, narrows to that variant's keys. |
+| Cursor position                  | Schema node              | Suggestions                                                                                                                        |
+| -------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Beginning of a line (key slot)   | `z.object`               | All keys not yet used at this level, with `?` marker on optional, `*` on required. Description from `.describe()` shown as detail. |
+| After a `: ` for an enum field   | `z.enum` / `z.literal`   | All literal values, sorted, descriptions inline.                                                                                   |
+| After a `: ` for a wikilink slot | branded `wikiLink<kind>` | Live entity completions filtered by visibility (same source as the notes plugin's `[[…]]` autocomplete).                           |
+| After a `: ` for a dice slot     | branded `dice`           | Static suggestions (`1d6`, `2d6+1`, …) plus inline lint of partial expressions.                                                    |
+| Inside a list element            | `z.array`                | Recurse into the element schema at depth+1.                                                                                        |
+| Inside a discriminated union     | `z.discriminatedUnion`   | First completion is the discriminator field itself; once set, narrows to that variant's keys.                                      |
 
 The `wikiLink<kind>` and `dice` brands are top-level helper functions exported from `@vtt/adventures` (not Zod prototype extensions — those bind us to a Zod version). Each wraps `z.string()` and stashes a marker in the schema's `_def.description` (or a sibling metadata key) that the autocomplete reader recognizes. Authoring looks normal:
 
@@ -162,12 +162,9 @@ const ItemRef = wikiLink("item");
 const DamageRoll = dice();
 
 const NpcSchema = z.object({
-  name:    z.string(),
-  carries: z.array(z.union([
-    ItemRef,
-    z.object({ qty: z.number(), item: ItemRef }),
-  ])),
-  attack:  DamageRoll.optional(),
+  name: z.string(),
+  carries: z.array(z.union([ItemRef, z.object({ qty: z.number(), item: ItemRef })])),
+  attack: DamageRoll.optional(),
 });
 ```
 
@@ -181,15 +178,15 @@ Wiki-links work the same inside fenced YAML as they do in prose markdown — typ
 
 ### Snippet expansion
 
-Each kind exports a `snippet()` returning a CodeMirror snippet (with `${1:placeholder}` tab stops) that the editor offers as the *first* completion when the cursor is inside an empty fence with that kind's info string. Authoring a new monster:
+Each kind exports a `snippet()` returning a CodeMirror snippet (with `${1:placeholder}` tab stops) that the editor offers as the _first_ completion when the cursor is inside an empty fence with that kind's info string. Authoring a new monster:
 
-```
+````
 ```monster <cursor here, type Ctrl+Space>
-```
+````
 
 → snippet expands to:
 
-```
+````
 ```monster ${1:name}
 might: ${2:1}
 nature:
@@ -203,7 +200,7 @@ disposition:
 weapons: ${9:[]}
 notes: |
   ${0}
-```
+````
 
 Snippets live as a method on the kind def (rather than a separate `snippets/` folder per system), so they're co-located with the schema they fill. They turn the empty-block experience from "what fields exist?" into a fill-in-the-blank.
 
@@ -217,7 +214,7 @@ When the cursor is on the opening fence line (` ```|` ), the autocomplete shows 
 
 ### Scoping the picker — avoiding the flood
 
-Once monster/spell/NPC catalogs are seeded eagerly, every world boots with hundreds of `MonsterTemplate` entities. A naive autocomplete that lists *all* matching entities on every empty `[[character:` would dump the whole catalog into the GM's face. The fix is simple: **don't pre-populate the dropdown — require at least one character of query before showing catalog matches.**
+Once monster/spell/NPC catalogs are seeded eagerly, every world boots with hundreds of `MonsterTemplate` entities. A naive autocomplete that lists _all_ matching entities on every empty `[[character:` would dump the whole catalog into the GM's face. The fix is simple: **don't pre-populate the dropdown — require at least one character of query before showing catalog matches.**
 
 Empty-query (`[[character:` with cursor right after the colon) shows a tiny strip — maybe the last 3–5 entities the GM referenced or spawned in this world — plus a hint to type. Once the query has ≥ 1 character, fuzzy-search runs over all visible entities, with two ranking boosts: matches authored on the current page or in the current adventure float to the top, and recently-used matches rank above never-used. No flood, because no list appears until the GM expresses intent.
 
@@ -292,9 +289,9 @@ notes: |
   Squads of 3-6 typical. Cowardly alone.
 ```
 
-Projects to a `Character` entity (so it can be wiki-linked the same way) with the **`MonsterTemplate` marker trait**. The marker is what tells `StartEncounter` *how to interpret a quantified reference* (`4× [[monster:goblin]]` → spawn four copies); it does **not** force every reference to spawn.
+Projects to a `Character` entity (so it can be wiki-linked the same way) with the **`MonsterTemplate` marker trait**. The marker is what tells `StartEncounter` _how to interpret a quantified reference_ (`4× [[monster:goblin]]` → spawn four copies); it does **not** force every reference to spawn.
 
-**Block-kind choice follows data shape, not uniqueness.** A named, one-of-a-kind boss is a `monster` block whenever the printed stat block lives in monster shape — Nature + Might + descriptors + per-conflict-type disposition HP + named conflict-weapon abilities (Cursed Blade, Stench of Death, etc.), with *no* will / health / skills / wises / belief / goal / instinct fields. That's true even for unique antagonists: Haathor-Vash, the Barrow Wight in the seed catalog, a named dragon, an undead king. Use `character` only when the foe has PC-shape stats: will + health + skills + wises + character-traits + belief / goal / instinct (think Beronin the Bandit Chief, a defecting captain with a full character sheet, or a sentient NPC who could plausibly Help on a test).
+**Block-kind choice follows data shape, not uniqueness.** A named, one-of-a-kind boss is a `monster` block whenever the printed stat block lives in monster shape — Nature + Might + descriptors + per-conflict-type disposition HP + named conflict-weapon abilities (Cursed Blade, Stench of Death, etc.), with _no_ will / health / skills / wises / belief / goal / instinct fields. That's true even for unique antagonists: Haathor-Vash, the Barrow Wight in the seed catalog, a named dragon, an undead king. Use `character` only when the foe has PC-shape stats: will + health + skills + wises + character-traits + belief / goal / instinct (think Beronin the Bandit Chief, a defecting captain with a full character sheet, or a sentient NPC who could plausibly Help on a test).
 
 **Bind vs spawn is decided by the quantifier in the encounter ref, not by the block kind.** A singular reference (`[[monster:Haathor-Vash]]` or `[[character:Beronin]]`) binds by id — edits flow live, conditions stick, death persists. A quantified reference (`3× [[monster:thoul]]`) spawns N fresh copies from the template at conflict-declare time. Encounter validation rejects `4× [[character:Haathor-Vash]]` (no `MonsterTemplate` marker) and `[[monster:Haathor-Vash]]` works whether or not she's the sole instance.
 
@@ -368,7 +365,7 @@ notes: |
 
 Projects to a `LootParcel` template entity carrying `LootParcel{ items, cash, notes }`. Actions:
 
-- **Place in scene** (the primary flow GMs reach for after a fight) → dispatches `PlaceLootInScene(parcelId, sceneId, x, y)`. Each item in the parcel is *forked* into a fresh entity (clone of the catalog item's authored traits, with a fresh `ItemPosition` at the chosen point) so players can grab them via the existing `PickUpItem` flow. The catalog source isn't touched (catalog items are shared by reference; giving them a Position would put every wielder of the same Sword "on the floor"). Provenance carries through: each placement's `ItemDerivedFrom.templateId` points back to the catalog item the source was derived from, preserving the upstream-merge story end-to-end.
+- **Place in scene** (the primary flow GMs reach for after a fight) → dispatches `PlaceLootInScene(parcelId, sceneId, x, y)`. Each item in the parcel is _forked_ into a fresh entity (clone of the catalog item's authored traits, with a fresh `ItemPosition` at the chosen point) so players can grab them via the existing `PickUpItem` flow. The catalog source isn't touched (catalog items are shared by reference; giving them a Position would put every wielder of the same Sword "on the floor"). Provenance carries through: each placement's `ItemDerivedFrom.templateId` points back to the catalog item the source was derived from, preserving the upstream-merge story end-to-end.
 - **Award to character** → secondary flow for the "this loot is found and immediately handed to player X" case. Dispatches `AwardLoot(parcelId, holderId)` which appends entries to the holder's `TbCarries` in `loose:N` slots; the player can then equip via the existing inventory UI.
 
 Cash is recorded in both events' payloads. v1 doesn't credit a "coin pile" trait — TB has no canonical "loose coins on the floor" entity yet — but the event is durable so a future iteration can mint a `TbCashPile` entity at the same `(sceneId, x, y)`.
@@ -497,6 +494,7 @@ StartEncounter {
 ```
 
 The mob-copy spawn writes:
+
 - `Identity{ name: template.name + ` #${i}`, … }` — distinguishable in the conflict UI.
 - All TB character traits projected from the template (full clone — same trait values).
 - `ItemDerivedFrom{ pluginName: "@vtt/adventures", templateId: template.id, overrides: [] }`.
@@ -508,7 +506,7 @@ When the conflict ends and the GM despawns the cleanup (or the next "Start encou
 
 ### Why hybrid binding
 
-Direct binding alone fails the mob case (one entity can't hold four different damage states). Shadow-copy alone fails the recurring-villain case (mid-campaign edits to Skarra don't propagate; conditions pile up on a per-fight ghost that vanishes when the conflict ends). The split mirrors how published adventures actually read — the named villain is a *character* (referenced), the goblin block is a *stat block* (instantiated). The grammar makes the GM's intent explicit at the encounter authoring site.
+Direct binding alone fails the mob case (one entity can't hold four different damage states). Shadow-copy alone fails the recurring-villain case (mid-campaign edits to Skarra don't propagate; conditions pile up on a per-fight ghost that vanishes when the conflict ends). The split mirrors how published adventures actually read — the named villain is a _character_ (referenced), the goblin block is a _stat block_ (instantiated). The grammar makes the GM's intent explicit at the encounter authoring site.
 
 ## Bundle format
 
@@ -592,7 +590,7 @@ server:
 
 The "current matches old bundle" check needs the bundle's old version available — either we keep the previously-imported bundle on the server (cheap), or we rely on note `bodyRev` history (already capped at 20). v1 keeps the most recent imported bundle per `(world, bundleName)`.
 
-For *entities* (items, NPCs the GM has tweaked locally), the field-override merge in `design/items.md` already covers what we need: GM-edited fields stick, untouched fields take upstream. The `ItemDerivedFrom`/equivalent trait on each block-materialized entity points back to `(bundleName, blockKey)` so the merge engine knows which template version to compare against.
+For _entities_ (items, NPCs the GM has tweaked locally), the field-override merge in `design/items.md` already covers what we need: GM-edited fields stick, untouched fields take upstream. The `ItemDerivedFrom`/equivalent trait on each block-materialized entity points back to `(bundleName, blockKey)` so the merge engine knows which template version to compare against.
 
 ## Export flow
 
@@ -633,11 +631,11 @@ server:
 
 The closure runs recursively — a goblin scout's `monster` block may reference `[[item:curved knife]]`; if curved knife is part of the system seed catalog, fine; if it's a GM-customized item, it joins the closure.
 
-System-seeded entities (items, monsters, spells) are detected by the **same `ItemDerivedFrom`-style trait** the items doc already specifies: `originPlugin === "@vtt/system-torchbearer"` with empty `overrides`. Because the system plugin loads on *both* worlds (export source and import target are both running TB), the seeded entity is guaranteed to exist on the target — the wiki-link resolves naturally on import without any bundled definition.
+System-seeded entities (items, monsters, spells) are detected by the **same `ItemDerivedFrom`-style trait** the items doc already specifies: `originPlugin === "@vtt/system-torchbearer"` with empty `overrides`. Because the system plugin loads on _both_ worlds (export source and import target are both running TB), the seeded entity is guaranteed to exist on the target — the wiki-link resolves naturally on import without any bundled definition.
 
 This is what makes the system plugin's monster/spell/item catalogs load-bearing: the more creatures, items, and spells the system ships in its seed catalog, the smaller and more reusable adventure bundles become. An adventure built entirely from the TB starter catalogs ships zero `monster`/`item`/`spell` blocks — the bundle is just locations, encounters, and a few unique NPCs/villains. (Today the items catalog is real; the monster and spell catalogs aren't shipped yet — see "Substrate work" below.)
 
-Asset references are walked through *both* prose markdown and YAML string values (a `character` block can carry `portrait: ![[asset:greta.webp]]`, etc.).
+Asset references are walked through _both_ prose markdown and YAML string values (a `character` block can carry `portrait: ![[asset:greta.webp]]`, etc.).
 
 A "Publish adventure" button in the notes UI (visible to GM owners of the selected note tree) invokes this. The first version of "publish" is just downloading the zip; distribution / marketplace is out of scope for v1.
 
@@ -656,7 +654,7 @@ Almost none. The plugin is built on existing primitives:
 - `defineBlockKind` is a new registry function but lives entirely inside `@vtt/adventures` — same pattern as `defineLinkKind` in notes.
 - `UpsertBlockEntity` and `TombstoneBlockEntity` are normal commands.
 - The bundle import/export endpoints are new routes mounted by the plugin's server module, using existing world auth + the existing asset pipeline.
-- One small notes-side hook needed: `PageBodyParseSystem` already parses the body for headings + links; it should also expose the *list of fenced blocks with their kind/info/body/range* to other systems. A small refactor — emit an internal `PageBlocksParsed` event AND write a derived `PageBlocks{ blocks: [{kind, key, range}] }` trait on the page so renderers, the orphan-list view, and the autocomplete provider can query without re-parsing.
+- One small notes-side hook needed: `PageBodyParseSystem` already parses the body for headings + links; it should also expose the _list of fenced blocks with their kind/info/body/range_ to other systems. A small refactor — emit an internal `PageBlocksParsed` event AND write a derived `PageBlocks{ blocks: [{kind, key, range}] }` trait on the page so renderers, the orphan-list view, and the autocomplete provider can query without re-parsing.
 
 ### Required precondition work in `@vtt/system-torchbearer`
 
@@ -694,11 +692,11 @@ This work is one focused refactor in `@vtt/system-torchbearer` and lands as **ph
 - A separate "adventure document" that lives outside the notes plugin. There must be exactly one source of truth — the note text.
 - Materializing entities on render. The id must be stable across renders, sessions, and conflicts that hold a binding.
 - Auto-deleting an entity when its block disappears. The entity may be referenced from a running conflict, an inventory, a spell, a journal entry — tombstone, never delete.
-- Snapshotting NPC stats into encounter participant entries at instantiate time. Named NPCs are bound by id; the conflict reads through to the live entity. Mob copies are explicit forks, not snapshots — once spawned, they're their own entities and `world.get(copyId, …)` is the source of truth for *that copy*.
+- Snapshotting NPC stats into encounter participant entries at instantiate time. Named NPCs are bound by id; the conflict reads through to the live entity. Mob copies are explicit forks, not snapshots — once spawned, they're their own entities and `world.get(copyId, …)` is the source of truth for _that copy_.
 - A `monster` entity that's a different kind from a `character`. Both are `Character` entities with TB traits; the difference is one marker trait (`MonsterTemplate`) and the schema's required fields. Same wiki-link kind, same renderers, same edit flow.
 - Inventing new wiki-link kinds for things that already have one. `[[npc:Greta]]` is wrong — use `[[character:Greta]]`. New kinds (`encounter`) appear only when there's no existing kind.
 - A bundle format that hides asset bytes outside the zip (URL refs to a CDN). The bundle must be a single self-contained file the GM can email a friend.
-- A block kind that ships without a complete schema. The schema is the source for parsing, validation, *and* autocomplete; an incomplete schema produces an unusable block kind no matter how good the renderer is. Mark optional fields `.optional()`, give every enum a real `.describe()`, brand wiki-link slots with the right kind — that's the contract.
+- A block kind that ships without a complete schema. The schema is the source for parsing, validation, _and_ autocomplete; an incomplete schema produces an unusable block kind no matter how good the renderer is. Mark optional fields `.optional()`, give every enum a real `.describe()`, brand wiki-link slots with the right kind — that's the contract.
 - Hand-written autocomplete logic per block kind. The point of `defineBlockKind` is that 95% of completion falls out of the schema; reach for the `complete()` escape hatch only when the schema genuinely can't express the suggestion source (runtime-registered skills, computed-from-world enums).
 
 ## Implementation status (v1.5 — fully end-to-end usable)
@@ -706,10 +704,12 @@ This work is one focused refactor in `@vtt/system-torchbearer` and lands as **ph
 Everything landed below has tests + green `pnpm test` (1907 passing) + clean `pnpm -r typecheck`.
 
 **Substrate / catalog (Phase 0):**
+
 - TB monster / NPC catalog seed migration. `MonsterTemplate` / `NpcTemplate` markers, `MonsterCatalogIndex` / `NpcCatalogIndex` sentinels, `MonsterCopy` for per-encounter spawns, `tbSeed` (renamed from `tbItemsSeed`) wires every catalog.
 - Backwards-compat preserved: existing GM-spawned monsters keep working as "manual" entities.
 
 **Adventures plugin core (Phases 1–5):**
+
 - `@vtt/adventures` with `defineBlockKind`, `BlockKindsSlot`, `BlockEntityIndex`, `Tombstoned`, `BlockParseSystem`, `PageBlocksMirrorSystem`.
 - **Deterministic block-entity ids** (`block:<pageId>:<blockKey>`) — works across server + every client without `world.allocateId` coordination.
 - Schema-driven `computeBlockCompletions` covers info-string / key / enum / wiki-link brand / dice brand / kind escape hatch.
@@ -719,21 +719,25 @@ Everything landed below has tests + green `pnpm test` (1907 passing) + clean `pn
 - **Stable `# id: <stable>` annotation** — overrides info-string slugification so renames don't rebind.
 
 **End-to-end UI integration (Tier 1):**
+
 - `MarkdownPostRenderSlot` + `EditorCompletionSourcesSlot` added to `@vtt/notes` as generic plugin extension points.
 - `mountBlockWidgets` (adventures fill) walks `<pre><code class="language-X">` after each markdown render, replaces with a Solid widget showing kind + display name + permission-gated action buttons. `dispatch` + `session` plumbed through `MarkdownView` props → post-render context → action callback.
 - `yamlBlockCompletionFactory` (adventures fill) wires `computeBlockCompletions` into the notes editor's CodeMirror autocomplete, with YAML-path detection for cursor-aware suggestions.
 - Loot widget gets a `Place on ground` GM-only action button that finds the active scene and dispatches.
 
 **Bundle distribution (Tier 2):**
+
 - `bundleToZip` / `zipToBundle` using `fflate` — real `.advt.zip` packaging with `manifest.json` + `notes/<bundlePath>` + `assets/<sha>/<name>` layout.
 - HTTP routes (`@vtt/adventures/routes` entry — split from server/index to keep node-only types out of cross-package compile chains): `POST /adventures/{import, export, check-update}` with GM gating and 50MB body cap. **Mounted in `packages/server/src/main.ts`'s `httpHandler` via `maybeHandleAdventureRoute`** — the routes are live on the running server.
 - Asset bundling: `buildBundle.loadAssetBytes` + `importBundle.saveAssetBytes` hooks walk `[[asset:…]]` refs, transport bytes content-addressed by sha256, rewrite refs from old→new ids on import (via `descriptor.sourceEntityId`). The HTTP routes accept matching `loadAssetBytes` / `saveAssetBytes` props and main.ts wires them to the new `loadAssetBytesFromDisk` / `saveAssetFromBytes` helpers extracted from `@vtt/assets/server` — **so embedded image bytes round-trip end-to-end through the actual `.advt.zip` HTTP path**, not just through the pure functions.
 
 **Update / merge UI + advanced flows (Tier 3):**
+
 - `AdventureUpdateDialog` Solid component renders per-note diff with per-row action picker + sensible defaults (`fast-forward → take-theirs`, `conflict → keep-mine`, `new → import-new`).
 - **Per-block merge** via `{ action: "merge", blockChoices: { blockKey: "take-theirs" | "keep-mine" } }` — `mergeBlockBodies` walks the existing markdown body and replaces or keeps each fenced block per the GM's choices.
 - **Capture-block synthesis** for export uncoverables: `buildBundle({ captureUncoverables: true, kindIndex })` runs `computeReferenceClosure`, synthesizes fenced `character` / `item` blocks for manually-created entities (no block provenance), drops them into `notes/captured.md` so the import target can resolve the references.
 
 **Still deferred (truly out of scope):**
+
 - **Random loot tables** — explicitly deferred per design (would break `apply` determinism).
 - **Per-block diff UI in the dialog** — the data shape supports it; v1 dialog only exposes note-level resolution. The merge action is wired and tested at the service layer.

@@ -26,16 +26,8 @@ import {
   type JSX,
   type Accessor,
 } from "solid-js";
-import {
-  createOptimisticTrait,
-  useClient,
-  useQuery,
-  useTrait,
-} from "@vtt/substrate/client";
-import {
-  type CommandInstance,
-  type EntityId,
-} from "@vtt/substrate";
+import { createOptimisticTrait, useClient, useQuery, useTrait } from "@vtt/substrate/client";
+import { type CommandInstance, type EntityId } from "@vtt/substrate";
 import { canWrite, Permissions } from "@vtt/permissions/shared";
 import {
   AddPage,
@@ -100,11 +92,7 @@ export function NoteView(props: {
    */
   const manualPages = createMemo(() =>
     allPagesRows()
-      .filter(
-        (r) =>
-          (r.values.BelongsToNote as { noteId: EntityId }).noteId ===
-          props.noteId,
-      )
+      .filter((r) => (r.values.BelongsToNote as { noteId: EntityId }).noteId === props.noteId)
       .map((r) => ({
         id: r.id,
         title: (r.values.Page as { title: string }).title,
@@ -192,9 +180,7 @@ export function NoteView(props: {
     });
   });
 
-  const canEdit = createMemo(() =>
-    canWrite(me(), permissions() as Parameters<typeof canWrite>[1]),
-  );
+  const canEdit = createMemo(() => canWrite(me(), permissions() as Parameters<typeof canWrite>[1]));
 
   const dispatch = (cmd: CommandInstance) => client.dispatch(cmd as CommandInstance);
 
@@ -216,8 +202,7 @@ export function NoteView(props: {
     dispatch(ReorderPages({ noteId: props.noteId, pageIds: nextIds }));
   };
 
-  const noteTitle = () =>
-    (note() as { title: string } | undefined)?.title ?? "(deleted note)";
+  const noteTitle = () => (note() as { title: string } | undefined)?.title ?? "(deleted note)";
 
   return (
     <section class="flex h-full min-h-0 flex-col gap-3 overflow-hidden px-4 pt-3 pb-2">
@@ -241,9 +226,7 @@ export function NoteView(props: {
         >
           {noteTitle()}
         </h2>
-        <span class="font-mono text-[0.62rem] text-fg-subtle">
-          {props.noteId}
-        </span>
+        <span class="font-mono text-[0.62rem] text-fg-subtle">{props.noteId}</span>
       </header>
       <div class="flex flex-1 min-h-0 gap-4">
         <Show when={!ui.railCollapsed}>
@@ -272,9 +255,7 @@ export function NoteView(props: {
           <Show
             keyed
             when={effectiveActive()}
-            fallback={
-              <p class="text-fg-subtle italic">No pages — add one to start.</p>
-            }
+            fallback={<p class="text-fg-subtle italic">No pages — add one to start.</p>}
           >
             {(id) => (
               <PageContent
@@ -284,9 +265,7 @@ export function NoteView(props: {
                 sentinelId={sentinelId}
                 canEdit={canEdit()}
                 meUserId={me()?.userId ?? null}
-                onSelectPage={(pid, anchor) =>
-                  navigateInNote(pid, anchor ?? null)
-                }
+                onSelectPage={(pid, anchor) => navigateInNote(pid, anchor ?? null)}
                 pendingAnchor={() => {
                   const ps = pendingScroll();
                   if (!ps) return null;
@@ -313,9 +292,7 @@ function BacklinksFooter(props: { noteId: EntityId }): JSX.Element {
   return (
     <Show when={links().length > 0}>
       <footer class="border-t border-border-muted pt-2 text-xs text-fg-subtle">
-        <span class="font-display tracking-[0.18em] uppercase">
-          Backlinks · {links().length}
-        </span>
+        <span class="font-display tracking-[0.18em] uppercase">Backlinks · {links().length}</span>
         <ul class="mt-1 flex flex-wrap gap-2">
           <For each={links()}>
             {(b) => (
@@ -330,7 +307,7 @@ function BacklinksFooter(props: { noteId: EntityId }): JSX.Element {
                       // when peek/navigate handlers are wired by the
                       // shell.
                       // eslint-disable-next-line
-                      ({} as never) as CommandInstance,
+                      {} as never as CommandInstance,
                     )
                   }
                   class="rounded-(--radius-control) border border-border bg-surface px-2 py-0.5 text-fg-muted hover:border-accent hover:text-fg transition"
@@ -369,8 +346,7 @@ function PageRail(props: {
   const [draggingId, setDraggingId] = createSignal<EntityId | null>(null);
   const [overId, setOverId] = createSignal<EntityId | null>(null);
 
-  const reorderable = () =>
-    props.onReorder !== null && props.sortMode === "manual";
+  const reorderable = () => props.onReorder !== null && props.sortMode === "manual";
 
   const onDragStart = (e: DragEvent, id: EntityId) => {
     if (!reorderable()) {
@@ -458,7 +434,9 @@ function PageRail(props: {
           onClick={() => props.onAdd?.()}
           class="flex items-center justify-center gap-1 rounded-(--radius-control) border border-dashed border-border-muted px-2 py-1 text-xs text-fg-subtle hover:border-accent hover:text-fg transition"
         >
-          <span aria-hidden class="font-mono text-sm leading-none">＋</span>
+          <span aria-hidden class="font-mono text-sm leading-none">
+            ＋
+          </span>
           <span>Add page</span>
         </button>
       </Show>
@@ -563,8 +541,7 @@ function PageContent(props: {
     if (!m) return null;
     return { role: m.role === "gm" ? "gm" : "player" };
   });
-  const dispatchCmd = (cmd: unknown): unknown =>
-    client.dispatch(cmd as CommandInstance);
+  const dispatchCmd = (cmd: unknown): unknown => client.dispatch(cmd as CommandInstance);
   const page = useTrait(props.pageId, Page);
   const draft = useTrait(props.pageId, PageDraft);
   const lock = useTrait(props.pageId, EditorLock);
@@ -675,9 +652,7 @@ function PageContent(props: {
   };
 
   const lockHolderUserId = createMemo(() => {
-    const l = lock() as
-      | { userId: string; clientId: string; expires: number }
-      | undefined;
+    const l = lock() as { userId: string; clientId: string; expires: number } | undefined;
     if (!l) return null;
     if (l.expires <= Date.now()) return null;
     if (!l.userId || l.userId === "-") return null;
@@ -701,9 +676,7 @@ function PageContent(props: {
   });
 
   const startEdit = async () => {
-    const handle = client.dispatch(
-      BeginEdit({ pageId: props.pageId }) as CommandInstance,
-    );
+    const handle = client.dispatch(BeginEdit({ pageId: props.pageId }) as CommandInstance);
     const ack = await handle.ack;
     if (ack.ok) {
       setEditing(true);
@@ -722,9 +695,7 @@ function PageContent(props: {
         <PageTitleField pageId={props.pageId} canEdit={props.canEdit} />
         <div class="flex items-center gap-2">
           <Show when={isLockedByOther()}>
-            <span class="text-xs text-fg-muted italic">
-              ● {lockHolderUserId()} is editing
-            </span>
+            <span class="text-xs text-fg-muted italic">● {lockHolderUserId()} is editing</span>
           </Show>
           <Show when={!editing() && props.canEdit && !isLockedByOther()}>
             <button
@@ -768,15 +739,10 @@ function PageContent(props: {
  * the input as long as it isn't currently focused (so a teammate's
  * rename doesn't clobber your in-progress edit).
  */
-function PageTitleField(props: {
-  pageId: EntityId;
-  canEdit: boolean;
-}): JSX.Element {
+function PageTitleField(props: { pageId: EntityId; canEdit: boolean }): JSX.Element {
   const client = useClient();
   const page = useTrait(props.pageId, Page);
-  const remoteTitle = createMemo(
-    () => (page() as { title: string } | undefined)?.title ?? "",
-  );
+  const remoteTitle = createMemo(() => (page() as { title: string } | undefined)?.title ?? "");
   const [local, setLocal] = createSignal(remoteTitle());
   const [focused, setFocused] = createSignal(false);
 
@@ -801,9 +767,7 @@ function PageTitleField(props: {
       return;
     }
     if (next === remoteTitle()) return;
-    client.dispatch(
-      RenamePage({ pageId: props.pageId, title: next }) as CommandInstance,
-    );
+    client.dispatch(RenamePage({ pageId: props.pageId, title: next }) as CommandInstance);
   };
 
   if (!props.canEdit) {

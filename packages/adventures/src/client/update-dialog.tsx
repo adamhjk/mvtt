@@ -15,12 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  createSignal,
-  For,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createSignal, For, Show, type JSX } from "solid-js";
 
 /**
  * Re-typed shape of the server-side diff payload — this client
@@ -31,12 +26,7 @@ import {
 export interface UpdateDiffNote {
   readonly bundlePath: string;
   readonly title: string;
-  readonly kind:
-    | "new"
-    | "unchanged"
-    | "fast-forward"
-    | "conflict"
-    | "removed-upstream";
+  readonly kind: "new" | "unchanged" | "fast-forward" | "conflict" | "removed-upstream";
   readonly worldNoteId?: string;
   readonly newBody?: string;
   readonly blocks: ReadonlyArray<{
@@ -58,11 +48,7 @@ export interface UpdateDiffPayload {
  * One resolution choice the GM picks per note. Per-block resolution
  * lands in T3.2; v1 is note-level.
  */
-export type ResolutionAction =
-  | "take-theirs"
-  | "keep-mine"
-  | "skip"
-  | "import-new";
+export type ResolutionAction = "take-theirs" | "keep-mine" | "skip" | "import-new";
 
 /**
  * Default action for each diff classification. The dialog seeds its
@@ -118,9 +104,7 @@ export function AdventureUpdateDialog(props: {
   onCancel?: () => void;
 }): JSX.Element {
   const [choices, setChoices] = createSignal<Record<string, ResolutionAction>>(
-    Object.fromEntries(
-      props.diff.notes.map((n) => [n.bundlePath, defaultActionFor(n.kind)]),
-    ),
+    Object.fromEntries(props.diff.notes.map((n) => [n.bundlePath, defaultActionFor(n.kind)])),
   );
 
   function setChoice(bundlePath: string, action: ResolutionAction): void {
@@ -146,16 +130,13 @@ export function AdventureUpdateDialog(props: {
         "max-width": "720px",
       }}
     >
-      <header
-        class="advt-update-header"
-        style={{ "margin-bottom": "12px" }}
-      >
-        <div style={{ "font-weight": "600", "font-size": "1.1em" }}>
-          Adventure update
-        </div>
+      <header class="advt-update-header" style={{ "margin-bottom": "12px" }}>
+        <div style={{ "font-weight": "600", "font-size": "1.1em" }}>Adventure update</div>
         <div style={{ "font-size": "0.9em", color: "var(--color-fg-muted, #888)" }}>
           Bundle <code>{props.diff.bundleId}</code>
-          {props.diff.currentVersion ? ` v${props.diff.currentVersion} → v${props.diff.newVersion}` : ` v${props.diff.newVersion}`}
+          {props.diff.currentVersion
+            ? ` v${props.diff.currentVersion} → v${props.diff.newVersion}`
+            : ` v${props.diff.newVersion}`}
         </div>
       </header>
       <For each={props.diff.notes}>

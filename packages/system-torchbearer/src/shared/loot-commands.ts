@@ -28,11 +28,7 @@ import {
 import { LootParcel } from "@vtt/adventures/shared";
 import { requireSession } from "@vtt/identity/shared";
 import { Character } from "@vtt/characters/shared";
-import {
-  ItemDerivedFrom,
-  ItemEconomics,
-  ItemIdentity,
-} from "@vtt/items/shared";
+import { ItemDerivedFrom, ItemEconomics, ItemIdentity } from "@vtt/items/shared";
 import {
   ItemPosition,
   TbCarries,
@@ -332,19 +328,15 @@ export const LootPlacementSystem = defineSystem({
       factories.push(
         ItemDerivedFrom({
           templateId: sourceDerived?.ItemDerivedFrom.templateId ?? p.sourceItemId,
-          pluginName:
-            sourceDerived?.ItemDerivedFrom.pluginName ??
-            "@vtt/system-torchbearer",
+          pluginName: sourceDerived?.ItemDerivedFrom.pluginName ?? "@vtt/system-torchbearer",
           overrides: [],
         }),
       );
-      factories.push(
-        ItemPosition({ sceneId: event.sceneId, x: event.x, y: event.y }),
-      );
+      factories.push(ItemPosition({ sceneId: event.sceneId, x: event.x, y: event.y }));
       world.spawnAt(p.copyId, factories);
       void p.quantity; // v1 ignores quantity at place-time; one entity
-                       // per placement for simplicity. A future "bundle
-                       // join" flow can collapse stacks.
+      // per placement for simplicity. A future "bundle
+      // join" flow can collapse stacks.
     }
     return [];
   },
@@ -377,9 +369,7 @@ export const LootAwardSystem = defineSystem({
           };
         }
       | undefined;
-    const entries = existing
-      ? existing.TbCarries.entries.map((e) => ({ ...e }))
-      : [];
+    const entries = existing ? existing.TbCarries.entries.map((e) => ({ ...e })) : [];
     let nextLoose = entries.reduce((acc, e) => {
       const m = e.slot.match(/^loose:(\d+)$/);
       if (m) return Math.max(acc, parseInt(m[1]!, 10) + 1);

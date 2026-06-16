@@ -19,14 +19,7 @@ import { definePlugin } from "@vtt/substrate";
 import { PagesSlot } from "@vtt/shell-workbench/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { sceneLinkKind } from "./shared/scene-link-kind.js";
-import {
-  LinkedCharacter,
-  Position,
-  Scene,
-  Sprite,
-  Token,
-  TokenImage,
-} from "./shared/traits.js";
+import { LinkedCharacter, Position, Scene, Sprite, Token, TokenImage } from "./shared/traits.js";
 import {
   CharacterTokenPlaced,
   SceneCreated,
@@ -117,11 +110,7 @@ export const scene = definePlugin({
   views: [SceneCanvasView],
   fills: {
     [PagesSlot.name]: [ScenesPageProvider],
-    [SceneOverlayTabsSlot.name]: [
-      ConfigOverlayTab,
-      TokensOverlayTab,
-      CharactersOverlayTab,
-    ],
+    [SceneOverlayTabsSlot.name]: [ConfigOverlayTab, TokensOverlayTab, CharactersOverlayTab],
     [LinkKindsSlot.name]: [sceneLinkKind],
   },
 });

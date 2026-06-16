@@ -28,9 +28,7 @@ import { PersonaNatureCard } from "../cards/PersonaNatureCard.jsx";
  * Independent test variant — the baseline. Pool + Obstacle on the top
  * row; full modifier list / invocations / helpers / persona below.
  */
-export function TbIndependentEditor(props: {
-  atelier: AtelierState;
-}): JSX.Element {
+export function TbIndependentEditor(props: { atelier: AtelierState }): JSX.Element {
   return (
     <div class="grid gap-3 sm:grid-cols-2" data-testid="atelier-variant-independent">
       <PoolCard atelier={props.atelier} />

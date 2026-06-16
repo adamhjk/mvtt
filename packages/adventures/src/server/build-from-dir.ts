@@ -70,13 +70,7 @@ export interface BuildFromDirOptions {
 
 type ManifestTop = Pick<
   BundleManifest,
-  | "bundleId"
-  | "name"
-  | "version"
-  | "summary"
-  | "author"
-  | "gameSystem"
-  | "requires"
+  "bundleId" | "name" | "version" | "summary" | "author" | "gameSystem" | "requires"
 >;
 
 /**
@@ -135,7 +129,10 @@ function humaniseSlug(slug: string): string {
 /** Strip extension and the numeric `NN-` prefix → stable asset slug. */
 function assetSlug(filename: string): string {
   const noExt = filename.replace(/\.[^./]+$/, "");
-  return noExt.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return noExt
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -208,9 +205,7 @@ async function buildNote(
     .filter((e) => e.isFile && PAGE_FILE_RE.test(e.name))
     .sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }));
   if (pageEntries.length === 0) {
-    throw new Error(
-      `note directory ${noteDir} contains no page files (expected NN-slug.md)`,
-    );
+    throw new Error(`note directory ${noteDir} contains no page files (expected NN-slug.md)`);
   }
 
   const pages: BundleManifest["notes"][number]["pages"] = [];
@@ -279,9 +274,7 @@ async function buildAssets(assetsDir: string): Promise<{
  * fail loudly during authoring rather than silently produce a broken
  * zip.
  */
-export async function buildBundleFromDir(
-  opts: BuildFromDirOptions,
-): Promise<AdventureBundle> {
+export async function buildBundleFromDir(opts: BuildFromDirOptions): Promise<AdventureBundle> {
   const dir = resolve(opts.dir);
 
   // Top-level manifest fields.

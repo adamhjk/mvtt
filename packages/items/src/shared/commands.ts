@@ -361,9 +361,7 @@ export const JoinItemBundles = defineCommand({
     if (!src) return fail(`src ${cmd.srcId} has no ItemBundle`);
     if (!dest) return fail(`dest ${cmd.destId} has no ItemBundle`);
     if (dest.ItemBundle.count >= dest.ItemBundle.capacity) {
-      return fail(
-        `dest is already at capacity (${dest.ItemBundle.capacity})`,
-      );
+      return fail(`dest is already at capacity (${dest.ItemBundle.capacity})`);
     }
     if (!bundlesAreCompatible(world, cmd.srcId, cmd.destId)) {
       return fail("src and dest are not the same kind of item");
@@ -407,12 +405,8 @@ function bundlesAreCompatible(
     return aDerived.ItemDerivedFrom.templateId === bDerived.ItemDerivedFrom.templateId;
   }
   if (aDerived || bDerived) return false;
-  const aIdent = world.get(a, [ItemIdentity]) as
-    | { ItemIdentity: { name: string } }
-    | undefined;
-  const bIdent = world.get(b, [ItemIdentity]) as
-    | { ItemIdentity: { name: string } }
-    | undefined;
+  const aIdent = world.get(a, [ItemIdentity]) as { ItemIdentity: { name: string } } | undefined;
+  const bIdent = world.get(b, [ItemIdentity]) as { ItemIdentity: { name: string } } | undefined;
   if (!aIdent || !bIdent) return false;
   return aIdent.ItemIdentity.name === bIdent.ItemIdentity.name;
 }

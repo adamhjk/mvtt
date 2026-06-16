@@ -103,9 +103,7 @@ Fail: `beginFill(0xff0000).drawRect(50, 50, 100, 100).endFill()`.
 **Fill replaces beginFill/beginTextureFill** -- Expected:
 
 ```ts
-graphics
-  .rect(0, 0, 100, 100)
-  .fill({ texture: Texture.WHITE, alpha: 0.5, color: 0xff0000 });
+graphics.rect(0, 0, 100, 100).fill({ texture: Texture.WHITE, alpha: 0.5, color: 0xff0000 });
 ```
 
 Fail: `beginFill(color, alpha)` or `beginTextureFill({ texture, alpha, color })`.
@@ -365,14 +363,12 @@ import { Sprite, Application } from "pixi.js";
 
 v8 uses a single `pixi.js` package. The v7 core `@pixi/*` sub-packages are deprecated and must not be used (see the full list under Imports above). Supplemental packages like `@pixi/sound` are still valid.
 
-
 ### [CRITICAL] Using DisplayObject as base class
 
 Wrong: `class MyObject extends DisplayObject { ... }`
 Correct: `class MyObject extends Container { ... }`
 
 `DisplayObject` was removed in v8. `Container` is the base class for all display objects.
-
 
 ### [HIGH] Using old SCALE_MODES/WRAP_MODES/DRAW_MODES enums
 
@@ -381,14 +377,12 @@ Correct: `texture.source.scaleMode = 'nearest';`
 
 v8 uses string values. Old enums may work as deprecated aliases but should be replaced.
 
-
 ### [HIGH] Using `interactive = true` instead of `eventMode`
 
 Legacy: `sprite.interactive = true;` (still works as an alias for `eventMode = 'static'`)
 Preferred: `sprite.eventMode = 'static';`
 
 Default `eventMode` is `'passive'` (no events). Must set `'static'` (hit-testable, no tick checks) or `'dynamic'` (hit-testable with tick checks) explicitly. `interactive = true` still works without a deprecation warning, but `eventMode` is the canonical v8 API.
-
 
 ### [HIGH] Using utils namespace
 
@@ -397,14 +391,12 @@ Correct: `import { isMobile } from 'pixi.js'; isMobile.any();`
 
 The `utils` namespace was removed. All utility functions are direct imports.
 
-
 ### [HIGH] Expecting texture UV changes to auto-update sprites
 
 Wrong: modifying `texture.frame` and assuming the sprite updates automatically.
 Correct: call `sprite.onViewUpdate()` after modifying texture UVs.
 
 Sprites no longer subscribe to texture UV change events for performance. Source data updates (e.g. video) still auto-reflect.
-
 
 ## API Reference
 

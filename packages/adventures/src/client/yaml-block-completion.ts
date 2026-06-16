@@ -15,14 +15,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import type {
-  EditorCompletionContext,
-  EditorCompletionSourceFactory,
-} from "@vtt/notes/shared";
-import {
-  buildBlockKindIndex,
-  type AnyBlockKindDef,
-} from "../shared/block-kinds.js";
+import type { EditorCompletionContext, EditorCompletionSourceFactory } from "@vtt/notes/shared";
+import { buildBlockKindIndex, type AnyBlockKindDef } from "../shared/block-kinds.js";
 import { computeBlockCompletions } from "./block-autocomplete.js";
 
 /**
@@ -35,7 +29,11 @@ interface CmCompletionContext {
   readonly pos: number;
   readonly explicit: boolean;
   readonly state: {
-    readonly doc: { toString(): string; lineAt(pos: number): { from: number; to: number; text: string; number: number }; length: number };
+    readonly doc: {
+      toString(): string;
+      lineAt(pos: number): { from: number; to: number; text: string; number: number };
+      length: number;
+    };
   };
   matchBefore(re: RegExp): { from: number; to: number; text: string } | null;
 }
@@ -107,9 +105,7 @@ function fenceAtCursor(
  *           fence line — handled separately).
  *   query: substring the user has typed at the cursor for filtering.
  */
-function pathAtCursor(
-  bodyText: string,
-): { path: string[]; slot: "key" | "value"; query: string } {
+function pathAtCursor(bodyText: string): { path: string[]; slot: "key" | "value"; query: string } {
   const lines = bodyText.split("\n");
   // The path stack: at each indent depth, the most recent key (or "*"
   // for array element). The cursor's depth is determined by leading

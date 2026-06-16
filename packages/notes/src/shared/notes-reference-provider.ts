@@ -36,9 +36,7 @@ import { buildLinkKindIndex } from "./link-kinds.js";
  * Set-design fenced blocks have their own (small) syntax; if/when
  * `@vtt/notes` wants to document them here, this is the place.
  */
-export function buildNotesReferenceSections(
-  ctx: ReferenceProviderContext,
-): ReferenceSection[] {
+export function buildNotesReferenceSections(ctx: ReferenceProviderContext): ReferenceSection[] {
   const out: ReferenceSection[] = [];
 
   out.push({

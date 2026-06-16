@@ -17,32 +17,17 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import {
-  cleanup,
-  render,
-  fireEvent,
-  waitFor,
-  screen,
-} from "@solidjs/testing-library";
+import { cleanup, render, fireEvent, waitFor, screen } from "@solidjs/testing-library";
 import { ClientProvider } from "@vtt/substrate/client";
 import { buildTestClient } from "@vtt/substrate/client-testing";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { Identity, Name, Online } from "@vtt/identity/shared";
-import {
-  ownedBy, Permissions,
-} from "@vtt/permissions/shared";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { type EntityId } from "@vtt/substrate";
 import { notes } from "./manifest.js";
-import {
-  Note,
-  NotesUiState,
-  Page,
-  BelongsToNote,
-  PageOrdering,
-  Headings,
-} from "./shared/index.js";
+import { Note, NotesUiState, Page, BelongsToNote, PageOrdering, Headings } from "./shared/index.js";
 import { TabSentinel, tabSentinelEntityId } from "@vtt/shell-workbench/shared";
 import { headingIdFor } from "./shared/headings.js";
 import { NoteView } from "./client/NoteView.jsx";
@@ -198,9 +183,7 @@ describe("NoteView click → scroll-to-anchor", () => {
     // PageA. There are two chips on the page; we want the first one.
     const chips = await screen.findAllByRole("button");
     // Find the chip whose text matches the same-page heading link.
-    const samePageChip = chips.find((b) =>
-      (b.textContent ?? "").includes("Intro"),
-    );
+    const samePageChip = chips.find((b) => (b.textContent ?? "").includes("Intro"));
     expect(samePageChip, "no chip linking to PageA › Intro").toBeDefined();
 
     fireEvent.click(samePageChip!);
@@ -238,9 +221,7 @@ describe("NoteView click → scroll-to-anchor", () => {
     });
 
     const chips = await screen.findAllByRole("button");
-    const crossPageChip = chips.find((b) =>
-      (b.textContent ?? "").includes("Tactics"),
-    );
+    const crossPageChip = chips.find((b) => (b.textContent ?? "").includes("Tactics"));
     expect(crossPageChip, "no chip linking to PageB › Tactics").toBeDefined();
 
     fireEvent.click(crossPageChip!);

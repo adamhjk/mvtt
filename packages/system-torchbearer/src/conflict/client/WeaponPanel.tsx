@@ -20,29 +20,13 @@ import { useQuery, useTrait } from "@vtt/substrate/client";
 import { BookCitation } from "@vtt/books/client";
 import { createMemo, For, Show, type JSX } from "solid-js";
 import { ItemDerivedFrom, ItemIdentity } from "@vtt/items/shared";
-import {
-  TbCarries,
-  TbItemSpecialRules,
-  TbWeapon,
-} from "../../shared/items/index.js";
+import { TbCarries, TbItemSpecialRules, TbWeapon } from "../../shared/items/index.js";
 import { TbConflictResource } from "../../shared/monster-traits.js";
 import { tbCanonicalBookAbbreviation } from "../../data/seed.js";
-import {
-  ALL_ACTIONS,
-  type ConflictAction,
-  type ConflictSide,
-} from "../shared/index.js";
-import {
-  useCharacterName,
-  useConflict,
-  useParticipants,
-  useWeaponBindings,
-} from "./hooks.js";
+import { ALL_ACTIONS, type ConflictAction, type ConflictSide } from "../shared/index.js";
+import { useCharacterName, useConflict, useParticipants, useWeaponBindings } from "./hooks.js";
 import { ACTION_LETTERS } from "./styles.js";
-import {
-  TB_CONFLICT_TYPES,
-  type ConflictType,
-} from "../shared/index.js";
+import { TB_CONFLICT_TYPES, type ConflictType } from "../shared/index.js";
 
 function citationLabel(canonicalId: string, page: number): string {
   const abbrev = tbCanonicalBookAbbreviation(canonicalId);
@@ -121,20 +105,13 @@ function ParticipantWeapons(props: {
     // the list. Shared catalog resources (Blackmail, Hostage, etc.)
     // live in the dedicated reference section, not duplicated here.
     const ct = conflict()?.type;
-    const carried = new Set(
-      (carries()?.entries ?? []).map((e) => e.itemId as string),
-    );
-    const matches = (cr: {
-      applicableConflicts: ReadonlyArray<string>;
-    }): boolean => {
+    const carried = new Set((carries()?.entries ?? []).map((e) => e.itemId as string));
+    const matches = (cr: { applicableConflicts: ReadonlyArray<string> }): boolean => {
       if (cr.applicableConflicts.length === 0) return true;
       if (!ct) return true;
       return cr.applicableConflicts.includes(ct);
     };
-    const crById = new Map<
-      string,
-      { applicableConflicts: ReadonlyArray<string>; kind: string }
-    >();
+    const crById = new Map<string, { applicableConflicts: ReadonlyArray<string>; kind: string }>();
     for (const row of conflictResources()) {
       crById.set(
         row.id as string,
@@ -158,10 +135,7 @@ function ParticipantWeapons(props: {
   });
 
   return (
-    <div
-      class="mb-3 last:mb-0"
-      data-testid={`weapon-participant-${props.participantEntityId}`}
-    >
+    <div class="mb-3 last:mb-0" data-testid={`weapon-participant-${props.participantEntityId}`}>
       <div class="font-display text-[0.6rem] uppercase tracking-[0.14em] text-fg-subtle mb-1">
         {name()}
       </div>
@@ -172,21 +146,15 @@ function ParticipantWeapons(props: {
             class="text-[0.7rem] text-fg-subtle italic"
             data-testid={`weapon-empty-${props.participantEntityId}`}
           >
-            no weapon available for this conflict — would fight unarmed
-            (-1D)
+            no weapon available for this conflict — would fight unarmed (-1D)
           </p>
         }
       >
-        <table
-          class="w-full text-sm font-mono border-collapse"
-          style={{ "table-layout": "fixed" }}
-        >
+        <table class="w-full text-sm font-mono border-collapse" style={{ "table-layout": "fixed" }}>
           <colgroup>
             <col style={{ width: "1.2rem" }} />
             <col style={{ width: "10rem" }} />
-            <For each={ALL_ACTIONS}>
-              {() => <col style={{ width: "2.5rem" }} />}
-            </For>
+            <For each={ALL_ACTIONS}>{() => <col style={{ width: "2.5rem" }} />}</For>
             <col />
           </colgroup>
           <thead>
@@ -194,23 +162,14 @@ function ParticipantWeapons(props: {
               <th aria-hidden="true" />
               <th class="text-left pb-1 font-normal">weapon</th>
               <For each={ALL_ACTIONS}>
-                {(a) => (
-                  <th class="text-center pb-1 font-normal">
-                    {ACTION_LETTERS[a]}
-                  </th>
-                )}
+                {(a) => <th class="text-center pb-1 font-normal">{ACTION_LETTERS[a]}</th>}
               </For>
               <th class="text-left pb-1 pl-2 font-normal">special</th>
             </tr>
           </thead>
           <tbody>
             <For each={possibleIds()}>
-              {(id) => (
-                <WeaponRow
-                  itemId={id}
-                  bound={boundId() === id}
-                />
-              )}
+              {(id) => <WeaponRow itemId={id} bound={boundId() === id} />}
             </For>
           </tbody>
         </table>
@@ -219,19 +178,12 @@ function ParticipantWeapons(props: {
   );
 }
 
-function WeaponRow(props: {
-  itemId: EntityId;
-  bound: boolean;
-}): JSX.Element {
-  const ident = useTrait(props.itemId, ItemIdentity) as () =>
-    | { name: string }
-    | undefined;
+function WeaponRow(props: { itemId: EntityId; bound: boolean }): JSX.Element {
+  const ident = useTrait(props.itemId, ItemIdentity) as () => { name: string } | undefined;
   const weapon = useTrait(props.itemId, TbWeapon) as () =>
     | ReturnType<typeof TbWeapon>["value"]
     | undefined;
-  const special = useTrait(props.itemId, TbItemSpecialRules) as () =>
-    | { text: string }
-    | undefined;
+  const special = useTrait(props.itemId, TbItemSpecialRules) as () => { text: string } | undefined;
   const conflictRes = useTrait(props.itemId, TbConflictResource) as () =>
     | {
         note: string;
@@ -275,10 +227,7 @@ function WeaponRow(props: {
           </td>
         )}
       </For>
-      <td
-        class="py-1 pl-2 text-[0.65rem] text-fg-subtle leading-snug"
-        title={specialText()}
-      >
+      <td class="py-1 pl-2 text-[0.65rem] text-fg-subtle leading-snug" title={specialText()}>
         <span class="inline-flex flex-wrap items-baseline gap-1.5">
           <Show when={specialText().length > 0}>
             <span>{specialText()}</span>
@@ -350,17 +299,10 @@ export function ConflictWeaponsReference(props: {
       // it out of the shared menu too.
       if (cr.ownerCharacterId) continue;
       if (cr.kind !== "weapon") continue;
-      const buckets =
-        cr.applicableConflicts.length > 0
-          ? cr.applicableConflicts
-          : (["any" as const]);
+      const buckets = cr.applicableConflicts.length > 0 ? cr.applicableConflicts : ["any" as const];
       // Only include in the active conflict (or "any") — same gate
       // as the dropdown so the reference matches what's pickable.
-      if (
-        ct &&
-        cr.applicableConflicts.length > 0 &&
-        !cr.applicableConflicts.includes(ct)
-      ) {
+      if (ct && cr.applicableConflicts.length > 0 && !cr.applicableConflicts.includes(ct)) {
         continue;
       }
       for (const b of buckets) {
@@ -403,30 +345,20 @@ export function ConflictWeaponsReference(props: {
               >
                 <colgroup>
                   <col style={{ width: "10rem" }} />
-                  <For each={ALL_ACTIONS}>
-                    {() => <col style={{ width: "2.5rem" }} />}
-                  </For>
+                  <For each={ALL_ACTIONS}>{() => <col style={{ width: "2.5rem" }} />}</For>
                   <col />
                 </colgroup>
                 <thead>
                   <tr class="text-fg-subtle">
                     <th class="text-left pb-1 font-normal">weapon</th>
                     <For each={ALL_ACTIONS}>
-                      {(a) => (
-                        <th class="text-center pb-1 font-normal">
-                          {ACTION_LETTERS[a]}
-                        </th>
-                      )}
+                      {(a) => <th class="text-center pb-1 font-normal">{ACTION_LETTERS[a]}</th>}
                     </For>
                     <th class="text-left pb-1 pl-2 font-normal">special</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <For each={group.ids}>
-                    {(id) => (
-                      <ReferenceRow itemId={id} />
-                    )}
-                  </For>
+                  <For each={group.ids}>{(id) => <ReferenceRow itemId={id} />}</For>
                 </tbody>
               </table>
             </div>
@@ -437,18 +369,12 @@ export function ConflictWeaponsReference(props: {
   );
 }
 
-function ReferenceRow(props: {
-  itemId: import("@vtt/substrate").EntityId;
-}): JSX.Element {
-  const ident = useTrait(props.itemId, ItemIdentity) as () =>
-    | { name: string }
-    | undefined;
+function ReferenceRow(props: { itemId: import("@vtt/substrate").EntityId }): JSX.Element {
+  const ident = useTrait(props.itemId, ItemIdentity) as () => { name: string } | undefined;
   const weapon = useTrait(props.itemId, TbWeapon) as () =>
     | ReturnType<typeof TbWeapon>["value"]
     | undefined;
-  const cr = useTrait(props.itemId, TbConflictResource) as () =>
-    | { note: string }
-    | undefined;
+  const cr = useTrait(props.itemId, TbConflictResource) as () => { note: string } | undefined;
   const bonusFor = (action: ConflictAction): string => {
     const b = weapon()?.conflictBonuses?.[action];
     if (!b || b.value === 0) return "—";
@@ -457,10 +383,7 @@ function ReferenceRow(props: {
     return `${sign}${b.value}${suffix}`;
   };
   return (
-    <tr
-      class="border-t border-border-muted/40"
-      data-testid={`conflict-weapon-ref-${props.itemId}`}
-    >
+    <tr class="border-t border-border-muted/40" data-testid={`conflict-weapon-ref-${props.itemId}`}>
       <td class="py-1 truncate" title={ident()?.name ?? ""}>
         {ident()?.name ?? "(weapon)"}
       </td>
@@ -471,10 +394,7 @@ function ReferenceRow(props: {
           </td>
         )}
       </For>
-      <td
-        class="py-1 pl-2 text-[0.65rem] text-fg-subtle leading-snug"
-        title={cr()?.note ?? ""}
-      >
+      <td class="py-1 pl-2 text-[0.65rem] text-fg-subtle leading-snug" title={cr()?.note ?? ""}>
         {cr()?.note ?? ""}
       </td>
     </tr>

@@ -90,8 +90,8 @@ describe("characterLinkKind.display", () => {
 
   it("falls back to a placeholder when the entity is gone", () => {
     const world = new World();
-    expect(
-      characterLinkKind.display({ characterId: "e404" as EntityId }, world),
-    ).toBe("(missing character)");
+    expect(characterLinkKind.display({ characterId: "e404" as EntityId }, world)).toBe(
+      "(missing character)",
+    );
   });
 });

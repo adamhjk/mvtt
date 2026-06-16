@@ -66,10 +66,7 @@ export function seedCanonicalBookCatalog(
   });
 }
 
-function findCanonicalBookCatalogId(
-  world: World,
-  pluginName: string,
-): EntityId | null {
+function findCanonicalBookCatalogId(world: World, pluginName: string): EntityId | null {
   for (const row of world.query([CanonicalBookCatalog])) {
     const v = row.values.CanonicalBookCatalog as { pluginName: string };
     if (v.pluginName === pluginName) return row.id;
@@ -87,10 +84,7 @@ function findCanonicalBookCatalogId(
  * sentinel `CanonicalBookIndex` map maintained by the same system that
  * writes the trait. Not done yet because the cost isn't justified.
  */
-export function getCanonicalBook(
-  world: World,
-  canonicalId: string,
-): EntityId | null {
+export function getCanonicalBook(world: World, canonicalId: string): EntityId | null {
   for (const row of world.query([BookCanonical])) {
     const v = row.values.BookCanonical as { canonicalId: string };
     if (v.canonicalId === canonicalId) return row.id;
@@ -125,10 +119,7 @@ export function listCanonicalBookCatalogs(
  * or null if it isn't bound to anything. Used by the Config-tab
  * dropdown to seed its current value.
  */
-export function getBookCanonicalId(
-  world: World,
-  bookId: EntityId,
-): string | null {
+export function getBookCanonicalId(world: World, bookId: EntityId): string | null {
   const got = world.get(bookId, [BookCanonical]) as
     | { BookCanonical: { canonicalId: string } }
     | undefined;

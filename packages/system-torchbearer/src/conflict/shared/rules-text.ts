@@ -45,8 +45,7 @@ export const TB_ARMOR_RULES: ReadonlyArray<ArmorRulesEntry> = [
     id: "leather",
     label: "Leather",
     absorb: 1,
-    afterAbsorb:
-      "Roll 1d6: 4-6 absorbs, 1-3 fails. Once per fight. Never destroyed by absorbing.",
+    afterAbsorb: "Roll 1d6: 4-6 absorbs, 1-3 fails. Once per fight. Never destroyed by absorbing.",
     bypassedBy: "Spear, bolt, arrow",
     notes: "Worn 1 torso slot.",
   },
@@ -54,8 +53,7 @@ export const TB_ARMOR_RULES: ReadonlyArray<ArmorRulesEntry> = [
     id: "chain",
     label: "Chain",
     absorb: 1,
-    afterAbsorb:
-      "Auto-absorbs. Then 1d6: 1-3 damaged & useless, 4-6 intact.",
+    afterAbsorb: "Auto-absorbs. Then 1d6: 1-3 damaged & useless, 4-6 intact.",
     bypassedBy: "Mace, warhammer (still roll for damage)",
     notes: "Damaged armor may be repaired (Armorer).",
   },
@@ -72,8 +70,7 @@ export const TB_ARMOR_RULES: ReadonlyArray<ArmorRulesEntry> = [
     id: "helmet",
     label: "Helmet",
     absorb: 1,
-    afterAbsorb:
-      "Once used: lost / damaged / destroyed at GM discretion. Repairable.",
+    afterAbsorb: "Once used: lost / damaged / destroyed at GM discretion. Repairable.",
     bypassedBy: "—",
     notes: "Worn / head.",
   },
@@ -95,14 +92,7 @@ export const TB_ARMOR_RULES: ReadonlyArray<ArmorRulesEntry> = [
  * SG p.46-51 and p.63-64.
  */
 export interface ConditionRulesEntry {
-  readonly id:
-    | "fresh"
-    | "hungryThirsty"
-    | "angry"
-    | "afraid"
-    | "exhausted"
-    | "injured"
-    | "sick";
+  readonly id: "fresh" | "hungryThirsty" | "angry" | "afraid" | "exhausted" | "injured" | "sick";
   readonly label: string;
   /** What it does to the disposition roll, if anything. */
   readonly dispoEffect: string;
@@ -120,8 +110,7 @@ export const TB_CONDITION_RULES: ReadonlyArray<ConditionRulesEntry> = [
   {
     id: "hungryThirsty",
     label: "Hungry & Thirsty",
-    dispoEffect:
-      "−1s, counted once per side regardless of how many are affected. Min dispo 1.",
+    dispoEffect: "−1s, counted once per side regardless of how many are affected. Min dispo 1.",
     inConflictEffect: "—",
   },
   {
@@ -135,29 +124,25 @@ export const TB_CONDITION_RULES: ReadonlyArray<ConditionRulesEntry> = [
     id: "afraid",
     label: "Afraid",
     dispoEffect: "—",
-    inConflictEffect:
-      "No help, no Beginner's Luck. May still substitute Nature.",
+    inConflictEffect: "No help, no Beginner's Luck. May still substitute Nature.",
   },
   {
     id: "exhausted",
     label: "Exhausted",
-    dispoEffect:
-      "−1s, counted once per side. Stacks with hungry & thirsty. Min dispo 1.",
+    dispoEffect: "−1s, counted once per side. Stacks with hungry & thirsty. Min dispo 1.",
     inConflictEffect: "Instinct not free.",
   },
   {
     id: "injured",
     label: "Injured",
     dispoEffect: "−1D (stacks with sick)",
-    inConflictEffect:
-      "−1D to skills, Nature, Will, Health (not recovery; not Resources/Circles).",
+    inConflictEffect: "−1D to skills, Nature, Will, Health (not recovery; not Resources/Circles).",
   },
   {
     id: "sick",
     label: "Sick",
     dispoEffect: "−1D (stacks with injured)",
-    inConflictEffect:
-      "−1D to skills, Nature, Will, Health (not recovery). No advancement.",
+    inConflictEffect: "−1D to skills, Nature, Will, Health (not recovery). No advancement.",
   },
 ];
 
@@ -213,18 +198,15 @@ export const TB_COMPROMISE_LEVELS: ReadonlyArray<CompromiseLevelEntry> = [
     id: "half",
     label: "Half",
     trigger: "Winner ends with ~1/2 starting disposition",
-    description:
-      "Halfway-to-goal for one side, or the loser introduces a new twist.",
+    description: "Halfway-to-goal for one side, or the loser introduces a new twist.",
     killSpecific: "Injury appropriate as a half compromise.",
   },
   {
     id: "major",
     label: "Major",
     trigger: "Winner has only a few points left",
-    description:
-      "Loser nearly thwarted the winner; major twist; painful for both sides.",
-    killSpecific:
-      "Two of {Afraid, Angry, Exhausted, Injured} appropriate. Death always possible.",
+    description: "Loser nearly thwarted the winner; major twist; painful for both sides.",
+    killSpecific: "Two of {Afraid, Angry, Exhausted, Injured} appropriate. Death always possible.",
   },
 ];
 
@@ -250,28 +232,23 @@ export const TB_MATCHUP_NOTES: Readonly<
     attack:
       "Versus. Only the winner's MoS counts: Defend wins → Regroup heals MoS; Attack wins → MoS damage.",
     defend: "Both roll independent at Ob 3. Each side that passes Regroups (heal = MoS + 1).",
-    feint:
-      "Feint surprises you. You forfeit and do not test; the feinter rolls independent Ob 0.",
+    feint: "Feint surprises you. You forfeit and do not test; the feinter rolls independent Ob 0.",
     maneuver:
       "Versus. Only the winner's MoS counts: Defend wins → Regroup heals MoS; Maneuver wins → MoS spent on effects.",
   },
   feint: {
     attack:
       "You're drawn out of position and do not test. The Attack rolls independent Ob 0; their MoS damages.",
-    defend:
-      "Defender forfeits and does not test. You roll independent Ob 0; MoS damages.",
+    defend: "Defender forfeits and does not test. You roll independent Ob 0; MoS damages.",
     feint: "Versus. Winner's MoS damages the loser.",
-    maneuver:
-      "Both roll independent at Ob 0. Feint MoS damages; Maneuver MoS spent on effects.",
+    maneuver: "Both roll independent at Ob 0. Feint MoS damages; Maneuver MoS spent on effects.",
   },
   maneuver: {
     attack:
       "Versus. Only the winner's MoS counts: Maneuver wins → MoS spent on effects; Attack wins → MoS damage.",
     defend:
       "Versus. Only the winner's MoS counts: Maneuver wins → MoS spent on effects; Defend wins → Regroup heals MoS.",
-    feint:
-      "Both roll independent at Ob 0. Maneuver MoS spent on effects; Feint MoS damages.",
-    maneuver:
-      "Both roll independent at Ob 0. Each side that passes spends its own MoS on effects.",
+    feint: "Both roll independent at Ob 0. Maneuver MoS spent on effects; Feint MoS damages.",
+    maneuver: "Both roll independent at Ob 0. Each side that passes spends its own MoS on effects.",
   },
 };

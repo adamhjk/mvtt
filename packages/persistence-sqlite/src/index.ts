@@ -139,14 +139,14 @@ export class SqlitePersistence implements PersistenceAdapter {
          ORDER BY seq ASC`,
       )
       .all(worldId, sinceSeq) as Array<{
-        worldId: string;
-        seq: number;
-        type: string;
-        payloadVersion: number;
-        payload: string;
-        visibility: string | null;
-        at: number;
-      }>;
+      worldId: string;
+      seq: number;
+      type: string;
+      payloadVersion: number;
+      payload: string;
+      visibility: string | null;
+      at: number;
+    }>;
     return rows.map((r) => ({
       worldId: r.worldId,
       seq: r.seq,
@@ -160,9 +160,7 @@ export class SqlitePersistence implements PersistenceAdapter {
 
   async highestSeq(worldId: WorldId): Promise<number> {
     const row = this.db
-      .prepare(
-        `SELECT COALESCE(MAX(seq), 0) AS s FROM world_event WHERE worldId = ?`,
-      )
+      .prepare(`SELECT COALESCE(MAX(seq), 0) AS s FROM world_event WHERE worldId = ?`)
       .get(worldId) as { s: number };
     return row.s;
   }
@@ -194,12 +192,7 @@ export class SqlitePersistence implements PersistenceAdapter {
         `INSERT OR REPLACE INTO world_snapshot (worldId, atSeq, state, takenAt)
          VALUES (?, ?, ?, ?)`,
       )
-      .run(
-        snapshot.worldId,
-        snapshot.atSeq,
-        JSON.stringify(snapshot.state),
-        snapshot.takenAt,
-      );
+      .run(snapshot.worldId, snapshot.atSeq, JSON.stringify(snapshot.state), snapshot.takenAt);
   }
 
   async hardDeleteWorld(worldId: WorldId): Promise<void> {

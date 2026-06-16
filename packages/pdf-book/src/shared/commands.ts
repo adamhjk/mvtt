@@ -15,12 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  z,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, z } from "@vtt/substrate";
 import { requireWrite } from "@vtt/permissions/shared";
 import { requireSession } from "@vtt/identity/shared";
 import { Book } from "@vtt/books/shared";
@@ -69,7 +64,5 @@ export const SetPdfDocument = defineCommand({
     }
     return requireWrite(ctx, ctx.cmd.bookId);
   },
-  apply: ({ cmd }) => [
-    PdfDocumentSet({ bookId: cmd.bookId, assetId: cmd.assetId }),
-  ],
+  apply: ({ cmd }) => [PdfDocumentSet({ bookId: cmd.bookId, assetId: cmd.assetId })],
 });

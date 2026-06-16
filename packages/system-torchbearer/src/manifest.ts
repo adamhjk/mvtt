@@ -722,10 +722,7 @@ export const systemTorchbearer = definePlugin({
     [ResolvedRollFeedSlot.name]: [TbRollAtelierFeed],
     [RollActionsSlot.name]: [TbRollActionsFill],
     [ItemDetailSectionsSlot.name]: [...TB_ITEM_DETAIL_SECTIONS],
-    [CharacterListExclusionSlot.name]: [
-      tbMonsterListExclusion,
-      tbNpcListExclusion,
-    ],
+    [CharacterListExclusionSlot.name]: [tbMonsterListExclusion, tbNpcListExclusion],
     [LinkKindsSlot.name]: [
       monsterLinkKind,
       npcLinkKind,

@@ -17,12 +17,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  screen,
-  waitFor,
-} from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { type EntityId } from "@vtt/substrate";
 import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { shellWorkbench } from "@vtt/shell-workbench";
@@ -31,21 +26,12 @@ import { permissions } from "@vtt/permissions";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { notes } from "@vtt/notes";
-import {
-  Note,
-  NotesUiState,
-  Page,
-  BelongsToNote,
-  PageOrdering,
-} from "@vtt/notes/shared";
+import { Note, NotesUiState, Page, BelongsToNote, PageOrdering } from "@vtt/notes/shared";
 import { NotesPageProvider } from "@vtt/notes/client";
 import { TabSentinel, tabSentinelEntityId } from "@vtt/shell-workbench/shared";
 import { books } from "./manifest.js";
 import { Book } from "./shared/traits.js";
-import {
-  pendingBookNav,
-  __resetPendingBookNavForTests,
-} from "./shared/pending-nav.js";
+import { pendingBookNav, __resetPendingBookNavForTests } from "./shared/pending-nav.js";
 
 beforeEach(() => {
   cleanup();
@@ -85,10 +71,7 @@ function harness(noteBody: string): {
       ]);
 
       const bookId = world.allocateId();
-      world.spawnAt(bookId, [
-        Book({ name: "Player's Handbook" }),
-        Permissions(ownedBy(ME)),
-      ]);
+      world.spawnAt(bookId, [Book({ name: "Player's Handbook" }), Permissions(ownedBy(ME))]);
 
       const noteId = world.allocateId();
       const pageId = world.allocateId();
@@ -127,9 +110,7 @@ const OPEN_PAGE = "@vtt/shell-workbench/OpenPage";
 
 async function clickBookChip(): Promise<void> {
   const buttons = await screen.findAllByRole("button");
-  const chip = buttons.find(
-    (b) => b.getAttribute("data-link-kind") === "book",
-  );
+  const chip = buttons.find((b) => b.getAttribute("data-link-kind") === "book");
   expect(chip, "expected a chip with data-link-kind=book").toBeDefined();
   fireEvent.click(chip!);
 }
@@ -137,11 +118,13 @@ async function clickBookChip(): Promise<void> {
 describe("book wiki-link click in a note", () => {
   it("plain `[[book:Name]]` dispatches OpenPage and publishes no nav request", async () => {
     const h = harness("see [[book:Player's Handbook]] for combat rules");
-    mountWithClient(h as never, () =>
-      NotesPageProvider.render({
-        tabId: "tab-1",
-        entityId: h.setup.noteId,
-      }) as never,
+    mountWithClient(
+      h as never,
+      () =>
+        NotesPageProvider.render({
+          tabId: "tab-1",
+          entityId: h.setup.noteId,
+        }) as never,
     );
 
     await clickBookChip();
@@ -158,11 +141,13 @@ describe("book wiki-link click in a note", () => {
 
   it("`[[book:Name#42]]` publishes a page nav request and dispatches OpenPage", async () => {
     const h = harness("see [[book:Player's Handbook#42]] for the combat rules");
-    mountWithClient(h as never, () =>
-      NotesPageProvider.render({
-        tabId: "tab-1",
-        entityId: h.setup.noteId,
-      }) as never,
+    mountWithClient(
+      h as never,
+      () =>
+        NotesPageProvider.render({
+          tabId: "tab-1",
+          entityId: h.setup.noteId,
+        }) as never,
     );
 
     await clickBookChip();
@@ -181,21 +166,19 @@ describe("book wiki-link click in a note", () => {
   });
 
   it("`[[book:Name#Chapter 1]]` publishes a TOC nav request and dispatches OpenPage", async () => {
-    const h = harness(
-      "jump to [[book:Player's Handbook#Chapter 1: Step-By-Step Characters]] now",
-    );
-    mountWithClient(h as never, () =>
-      NotesPageProvider.render({
-        tabId: "tab-1",
-        entityId: h.setup.noteId,
-      }) as never,
+    const h = harness("jump to [[book:Player's Handbook#Chapter 1: Step-By-Step Characters]] now");
+    mountWithClient(
+      h as never,
+      () =>
+        NotesPageProvider.render({
+          tabId: "tab-1",
+          entityId: h.setup.noteId,
+        }) as never,
     );
 
     await clickBookChip();
     await waitFor(() => {
-      expect(
-        h.dispatched.some((c) => c.type === OPEN_PAGE),
-      ).toBe(true);
+      expect(h.dispatched.some((c) => c.type === OPEN_PAGE)).toBe(true);
     });
     const nav = pendingBookNav();
     expect(nav).not.toBeNull();

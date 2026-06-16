@@ -91,12 +91,12 @@ export interface TraitMeta<S extends z.ZodTypeAny = z.ZodTypeAny> {
   readonly shareValue?: (value: unknown) => unknown;
 }
 
-export type TraitFactory<S extends z.ZodTypeAny> = (
-  value: z.input<S>,
-) => { name: TraitName; value: z.infer<S> };
+export type TraitFactory<S extends z.ZodTypeAny> = (value: z.input<S>) => {
+  name: TraitName;
+  value: z.infer<S>;
+};
 
-export type TraitDef<S extends z.ZodTypeAny = z.ZodTypeAny> = TraitMeta<S> &
-  TraitFactory<S>;
+export type TraitDef<S extends z.ZodTypeAny = z.ZodTypeAny> = TraitMeta<S> & TraitFactory<S>;
 
 export interface EventInstance<T = unknown> {
   readonly type: EventName;
@@ -136,8 +136,7 @@ export type EventFactory<S extends z.ZodTypeAny> = (
   payload: z.input<S>,
 ) => EventInstance<z.infer<S>>;
 
-export type EventDef<S extends z.ZodTypeAny = z.ZodTypeAny> = EventMeta<S> &
-  EventFactory<S>;
+export type EventDef<S extends z.ZodTypeAny = z.ZodTypeAny> = EventMeta<S> & EventFactory<S>;
 
 export interface CommandInstance<T = unknown> {
   readonly type: CommandName;
@@ -181,8 +180,7 @@ export type CommandFactory<S extends z.ZodTypeAny> = (
   payload: z.input<S>,
 ) => CommandInstance<z.infer<S>>;
 
-export type CommandDef<S extends z.ZodTypeAny = z.ZodTypeAny> = CommandMeta<S> &
-  CommandFactory<S>;
+export type CommandDef<S extends z.ZodTypeAny = z.ZodTypeAny> = CommandMeta<S> & CommandFactory<S>;
 
 export interface SystemContext<E> {
   readonly event: E;
@@ -498,10 +496,7 @@ export function defineView<P = unknown>(def: {
   priority?: number;
   render: (props: P) => unknown;
 }): ViewDef<P> {
-  const surface =
-    typeof def.surface === "string"
-      ? def.surface
-      : def.surface.name;
+  const surface = typeof def.surface === "string" ? def.surface : def.surface.name;
   return {
     __kind: "view",
     name: def.name,

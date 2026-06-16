@@ -18,10 +18,7 @@
 import { qualifiedName, type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useTrait } from "@vtt/substrate/client";
 import { createSignal, Show, type JSX } from "solid-js";
-import {
-  type BookConfigSection,
-  type BookConfigSectionRenderArgs,
-} from "@vtt/books/shared";
+import { type BookConfigSection, type BookConfigSectionRenderArgs } from "@vtt/books/shared";
 import { PdfDocument } from "../shared/traits.js";
 import { SetPdfDocument } from "../shared/commands.js";
 import { useMe } from "./use-me.js";
@@ -106,9 +103,7 @@ function PdfConfigBody(props: { bookId: string }): JSX.Element {
 
   return (
     <label class="flex flex-col gap-2">
-      <span class="font-display text-[0.6rem] uppercase tracking-[0.2em] text-fg-subtle">
-        PDF
-      </span>
+      <span class="font-display text-[0.6rem] uppercase tracking-[0.2em] text-fg-subtle">PDF</span>
       <div class="flex items-start gap-3">
         <div
           class="flex h-20 w-32 shrink-0 items-center justify-center overflow-hidden rounded-(--radius-control) border border-border bg-surface"
@@ -140,8 +135,8 @@ function PdfConfigBody(props: { bookId: string }): JSX.Element {
             </button>
           </div>
           <p class="text-[0.7rem] text-fg-subtle">
-            PDF only. Max 250 MB. Replacing the PDF takes effect for every
-            connected player as soon as the upload completes.
+            PDF only. Max 250 MB. Replacing the PDF takes effect for every connected player as soon
+            as the upload completes.
           </p>
           <Show when={error()}>
             <p class="rounded-(--radius-control) border border-danger/40 bg-danger/10 px-2 py-1 text-[0.7rem] text-danger">

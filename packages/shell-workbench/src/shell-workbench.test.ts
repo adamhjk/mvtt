@@ -31,16 +31,9 @@ import {
 import type { AuthSession } from "@vtt/auth";
 import { actors, Permissions } from "@vtt/permissions/shared";
 import { PlayerJoined } from "@vtt/identity/shared";
-import {
-  TabSentinel,
-  WorkspaceState,
-  WorkspaceOwner,
-} from "./shared/traits.js";
+import { TabSentinel, WorkspaceState, WorkspaceOwner } from "./shared/traits.js";
 import { tabSentinelEntityId } from "./shared/tab-sentinel.js";
-import {
-  WorkspaceBootstrapped,
-  WorkspaceStateChanged,
-} from "./shared/events.js";
+import { WorkspaceBootstrapped, WorkspaceStateChanged } from "./shared/events.js";
 import {
   CloseDrawer,
   CloseTab,
@@ -132,11 +125,7 @@ function setup() {
     ],
     events: [PlayerJoined, WorkspaceStateChanged, WorkspaceBootstrapped, TabShared],
     commands: [...allCommands],
-    systems: [
-      WorkspaceBootstrapSystem,
-      WorkspaceStateApplySystem,
-      TabSharedApplySystem,
-    ],
+    systems: [WorkspaceBootstrapSystem, WorkspaceStateApplySystem, TabSharedApplySystem],
     entityVisibility: (traits) => {
       const p = traits[Permissions.name] as
         | { read: import("@vtt/substrate").Visibility }
@@ -152,11 +141,7 @@ function setup() {
   return { registry, world, bus, pipeline };
 }
 
-function bootstrap(
-  registry: Registry,
-  world: World,
-  userId = PLAYER.userId,
-): EntityId {
+function bootstrap(registry: Registry, world: World, userId = PLAYER.userId): EntityId {
   // Drive PlayerJoined through the system runner — same as the substrate
   // does on a real ConnectionOpened-spawned PlayerJoined emission.
   runSystemsToFixpoint(registry, world, [
@@ -208,13 +193,9 @@ describe("@vtt/shell-workbench schemas", () => {
   it("uses plugin-namespaced ubiquitous-language names", () => {
     expect(WorkspaceState.name).toBe("@vtt/shell-workbench/WorkspaceState");
     expect(WorkspaceOwner.name).toBe("@vtt/shell-workbench/WorkspaceOwner");
-    expect(WorkspaceStateChanged.name).toBe(
-      "@vtt/shell-workbench/WorkspaceStateChanged",
-    );
+    expect(WorkspaceStateChanged.name).toBe("@vtt/shell-workbench/WorkspaceStateChanged");
     expect(OpenPage.name).toBe("@vtt/shell-workbench/OpenPage");
-    expect(OpenPageInNewTab.name).toBe(
-      "@vtt/shell-workbench/OpenPageInNewTab",
-    );
+    expect(OpenPageInNewTab.name).toBe("@vtt/shell-workbench/OpenPageInNewTab");
     expect(OpenPageAsSplit.name).toBe("@vtt/shell-workbench/OpenPageAsSplit");
     expect(CloseTab.name).toBe("@vtt/shell-workbench/CloseTab");
     expect(RetargetTab.name).toBe("@vtt/shell-workbench/RetargetTab");
@@ -222,9 +203,7 @@ describe("@vtt/shell-workbench schemas", () => {
     expect(FocusPane.name).toBe("@vtt/shell-workbench/FocusPane");
     expect(ToggleZen.name).toBe("@vtt/shell-workbench/ToggleZen");
     expect(MoveTab.name).toBe("@vtt/shell-workbench/MoveTab");
-    expect(SetSplitProportions.name).toBe(
-      "@vtt/shell-workbench/SetSplitProportions",
-    );
+    expect(SetSplitProportions.name).toBe("@vtt/shell-workbench/SetSplitProportions");
   });
 
   it("WorkspaceStateChanged event is transient and broadcast", () => {
@@ -283,9 +262,7 @@ describe("@vtt/shell-workbench schemas", () => {
   });
 
   it("OpenPage rejects a malformed pageKind at schema layer", () => {
-    expect(() =>
-      OpenPage({ pageKind: "not-a-qualified-name", entityId: null }),
-    ).toThrow();
+    expect(() => OpenPage({ pageKind: "not-a-qualified-name", entityId: null })).toThrow();
   });
 
   it("definePageProvider brands the kind into a QualifiedName", () => {
@@ -330,11 +307,7 @@ describe("WorkspaceBootstrapSystem", () => {
   it("PlayerJoined spawns one WorkspaceOwner per user with private visibility", () => {
     const { registry, world } = setup();
     const ownerId = bootstrap(registry, world);
-    const got = world.get(ownerId, [
-      WorkspaceOwner,
-      Permissions,
-      WorkspaceState,
-    ]) as {
+    const got = world.get(ownerId, [WorkspaceOwner, Permissions, WorkspaceState]) as {
       WorkspaceOwner: { userId: string };
       Permissions: {
         read: { kind: string; userIds?: string[] };
@@ -365,9 +338,9 @@ describe("WorkspaceBootstrapSystem", () => {
         clientId: "c2",
       }),
     ]);
-    const owners = world.query([WorkspaceOwner]).filter(
-      (r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER.userId,
-    );
+    const owners = world
+      .query([WorkspaceOwner])
+      .filter((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER.userId);
     expect(owners).toHaveLength(1);
   });
 
@@ -410,9 +383,7 @@ describe("WorkspaceStateApplySystem", () => {
       }),
     ]);
     // Original owner untouched.
-    expect(getState(world, ownerId).lastInteractedAt).toBe(
-      stateBefore.lastInteractedAt,
-    );
+    expect(getState(world, ownerId).lastInteractedAt).toBe(stateBefore.lastInteractedAt);
   });
 
   it("spawns a TabSentinel for each tab that appears in WorkspaceState.tabs", async () => {
@@ -447,10 +418,7 @@ describe("WorkspaceStateApplySystem", () => {
     const { registry, world, pipeline } = setup();
     bootstrap(registry, world);
 
-    await dispatch(
-      pipeline,
-      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
-    );
+    await dispatch(pipeline, OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }));
     const sentinels = world.query([TabSentinel]);
     expect(sentinels).toHaveLength(1);
     const sentinelId = sentinels[0]!.id;
@@ -459,7 +427,9 @@ describe("WorkspaceStateApplySystem", () => {
     // Find the pane the tab lives in.
     const ownerRow = world.query([WorkspaceOwner])[0]!;
     const state = (
-      world.get(ownerRow.id, [WorkspaceState]) as { WorkspaceState: import("zod").z.infer<typeof WorkspaceState.schema> }
+      world.get(ownerRow.id, [WorkspaceState]) as {
+        WorkspaceState: import("zod").z.infer<typeof WorkspaceState.schema>;
+      }
     ).WorkspaceState;
     const paneId = Object.values(state.panes).find((p) => p.tabIds.includes(tabId))!.paneId;
 
@@ -474,10 +444,7 @@ describe("WorkspaceStateApplySystem", () => {
     bootstrap(registry, world);
 
     // Open one tab, then split — moving the tab into the new pane.
-    await dispatch(
-      pipeline,
-      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
-    );
+    await dispatch(pipeline, OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }));
     const beforeSentinels = world.query([TabSentinel]);
     expect(beforeSentinels).toHaveLength(1);
     const tabId = (beforeSentinels[0]!.values.TabSentinel as { tabId: string }).tabId;
@@ -551,10 +518,7 @@ describe("WorkspaceStateApplySystem", () => {
 describe("commands (require a WorkspaceOwner — bootstrap-on-join precondition)", () => {
   it("OpenPage rejects without a WorkspaceOwner", async () => {
     const { pipeline } = setup();
-    const res = await dispatch(
-      pipeline,
-      OpenPage({ pageKind: KIND, entityId: null }),
-    );
+    const res = await dispatch(pipeline, OpenPage({ pageKind: KIND, entityId: null }));
     expect(res.result.ok).toBe(false);
     if (!res.result.ok) {
       expect(res.result.reason).toContain("workspace owner");
@@ -563,11 +527,7 @@ describe("commands (require a WorkspaceOwner — bootstrap-on-join precondition)
 
   it("OpenPage rejects unauthenticated", async () => {
     const { pipeline } = setup();
-    const res = await dispatch(
-      pipeline,
-      OpenPage({ pageKind: KIND, entityId: null }),
-      undefined,
-    );
+    const res = await dispatch(pipeline, OpenPage({ pageKind: KIND, entityId: null }), undefined);
     expect(res.result.ok).toBe(false);
   });
 });
@@ -595,23 +555,14 @@ describe("OpenPage", () => {
   it("focuses an existing tab if one already targets the same (kind, entityId)", async () => {
     const { registry, world, pipeline } = setup();
     const ownerId = bootstrap(registry, world);
-    await dispatch(
-      pipeline,
-      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
-    );
-    await dispatch(
-      pipeline,
-      OpenPage({ pageKind: KIND_2, entityId: "ent-2" as EntityId }),
-    );
+    await dispatch(pipeline, OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }));
+    await dispatch(pipeline, OpenPage({ pageKind: KIND_2, entityId: "ent-2" as EntityId }));
     // Two distinct tabs.
     const mid = getState(world, ownerId);
     expect(Object.keys(mid.tabs)).toHaveLength(2);
 
     // Re-open the first.
-    await dispatch(
-      pipeline,
-      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
-    );
+    await dispatch(pipeline, OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }));
     const after = getState(world, ownerId);
     expect(Object.keys(after.tabs)).toHaveLength(2); // no new tab
     const pane = after.panes[after.activePaneId]!;
@@ -644,10 +595,7 @@ describe("OpenPage smart retarget", () => {
     const originalPaneId = before.activePaneId;
     // First, drop a tab into the original pane so "active pane" has
     // content; some tests need a same-kind tab there too.
-    await dispatch(
-      t.pipeline,
-      OpenPage({ pageKind: KIND, entityId: "seed" as EntityId }),
-    );
+    await dispatch(t.pipeline, OpenPage({ pageKind: KIND, entityId: "seed" as EntityId }));
     // Now split — the new pane becomes active.
     await dispatch(
       t.pipeline,
@@ -677,10 +625,7 @@ describe("OpenPage smart retarget", () => {
     // Follow a deep link to a third entity of the same kind. No exact
     // match exists; smart retarget should hit `ent-other` (the tab in
     // the OTHER pane), not the seed in the active pane.
-    await dispatch(
-      t.pipeline,
-      OpenPage({ pageKind: KIND, entityId: "ent-followed" as EntityId }),
-    );
+    await dispatch(t.pipeline, OpenPage({ pageKind: KIND, entityId: "ent-followed" as EntityId }));
 
     const after = getState(t.world, ownerId);
     // No new tab.
@@ -701,16 +646,10 @@ describe("OpenPage smart retarget", () => {
     const t = setup();
     const ownerId = bootstrap(t.registry, t.world);
     // One pane, one same-kind tab.
-    await dispatch(
-      t.pipeline,
-      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
-    );
+    await dispatch(t.pipeline, OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }));
     // Follow a link to a different entity of the same kind. Only
     // candidate is the active-pane tab — retarget it.
-    await dispatch(
-      t.pipeline,
-      OpenPage({ pageKind: KIND, entityId: "ent-2" as EntityId }),
-    );
+    await dispatch(t.pipeline, OpenPage({ pageKind: KIND, entityId: "ent-2" as EntityId }));
     const after = getState(t.world, ownerId);
     expect(Object.keys(after.tabs)).toHaveLength(1);
     const tab = Object.values(after.tabs)[0]!;
@@ -726,10 +665,7 @@ describe("OpenPage smart retarget", () => {
 
     // Following a link to a specific entity of the same kind should
     // *retarget the hub tab*, not stack a second tab beside it.
-    await dispatch(
-      t.pipeline,
-      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
-    );
+    await dispatch(t.pipeline, OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }));
     const after = getState(t.world, ownerId);
     expect(Object.keys(after.tabs)).toHaveLength(1);
     const tab = Object.values(after.tabs)[0]!;
@@ -739,14 +675,8 @@ describe("OpenPage smart retarget", () => {
   it("does not retarget across page-kinds — different kind = open new", async () => {
     const t = setup();
     const ownerId = bootstrap(t.registry, t.world);
-    await dispatch(
-      t.pipeline,
-      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
-    );
-    await dispatch(
-      t.pipeline,
-      OpenPage({ pageKind: KIND_2, entityId: "ent-2" as EntityId }),
-    );
+    await dispatch(t.pipeline, OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }));
+    await dispatch(t.pipeline, OpenPage({ pageKind: KIND_2, entityId: "ent-2" as EntityId }));
     const after = getState(t.world, ownerId);
     // KIND_2 has no same-kind candidate to retarget — opens new.
     expect(Object.keys(after.tabs)).toHaveLength(2);
@@ -776,10 +706,7 @@ describe("OpenPage smart retarget", () => {
       const otherPaneId = getState(t.world, ownerId).activePaneId;
       // Add a second same-kind tab in the same pane. OpenPageInNewTab
       // sets `activeTabId` to the new tab → it's the most-recent.
-      await dispatch(
-        t.pipeline,
-        OpenPageInNewTab({ pageKind: KIND, entityId: "new" as EntityId }),
-      );
+      await dispatch(t.pipeline, OpenPageInNewTab({ pageKind: KIND, entityId: "new" as EntityId }));
       // Refocus the original pane so the other pane is the "different"
       // pane for the upcoming OpenPage.
       await dispatch(t.pipeline, FocusPane({ paneId: originalPaneId }));
@@ -787,10 +714,7 @@ describe("OpenPage smart retarget", () => {
       // Follow a deep link to a third entity of the same kind. Both
       // tabs in the other pane are candidates; the recently-focused one
       // ("new") should win.
-      await dispatch(
-        t.pipeline,
-        OpenPage({ pageKind: KIND, entityId: "followed" as EntityId }),
-      );
+      await dispatch(t.pipeline, OpenPage({ pageKind: KIND, entityId: "followed" as EntityId }));
       const after = getState(t.world, ownerId);
       expect(Object.keys(after.tabs)).toHaveLength(2);
       const otherPane = after.panes[otherPaneId]!;
@@ -810,14 +734,8 @@ describe("OpenPageInNewTab", () => {
   it("always opens a fresh tab even if the same page is already open", async () => {
     const { registry, world, pipeline } = setup();
     const ownerId = bootstrap(registry, world);
-    await dispatch(
-      pipeline,
-      OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }),
-    );
-    await dispatch(
-      pipeline,
-      OpenPageInNewTab({ pageKind: KIND, entityId: "ent-1" as EntityId }),
-    );
+    await dispatch(pipeline, OpenPage({ pageKind: KIND, entityId: "ent-1" as EntityId }));
+    await dispatch(pipeline, OpenPageInNewTab({ pageKind: KIND, entityId: "ent-1" as EntityId }));
     const state = getState(world, ownerId);
     expect(Object.keys(state.tabs)).toHaveLength(2);
   });
@@ -877,14 +795,8 @@ describe("CloseTab", () => {
   it("removes a tab and reassigns activeTabId within the pane", async () => {
     const { registry, world, pipeline } = setup();
     const ownerId = bootstrap(registry, world);
-    await dispatch(
-      pipeline,
-      OpenPage({ pageKind: KIND, entityId: "a" as EntityId }),
-    );
-    await dispatch(
-      pipeline,
-      OpenPageInNewTab({ pageKind: KIND, entityId: "b" as EntityId }),
-    );
+    await dispatch(pipeline, OpenPage({ pageKind: KIND, entityId: "a" as EntityId }));
+    await dispatch(pipeline, OpenPageInNewTab({ pageKind: KIND, entityId: "b" as EntityId }));
     const mid = getState(world, ownerId);
     const pane = mid.panes[mid.activePaneId]!;
     const tabToClose = pane.activeTabId!;
@@ -921,10 +833,7 @@ describe("CloseTab", () => {
   it("rejects when the named pane is unknown", async () => {
     const { registry, world, pipeline } = setup();
     bootstrap(registry, world);
-    const res = await dispatch(
-      pipeline,
-      CloseTab({ paneId: "ghost", tabId: "ghost" }),
-    );
+    const res = await dispatch(pipeline, CloseTab({ paneId: "ghost", tabId: "ghost" }));
     expect(res.result.ok).toBe(false);
   });
 });
@@ -933,10 +842,7 @@ describe("RetargetTab", () => {
   it("changes pageKind and entityId in place", async () => {
     const { registry, world, pipeline } = setup();
     const ownerId = bootstrap(registry, world);
-    await dispatch(
-      pipeline,
-      OpenPage({ pageKind: KIND, entityId: "a" as EntityId }),
-    );
+    await dispatch(pipeline, OpenPage({ pageKind: KIND, entityId: "a" as EntityId }));
     const before = getState(world, ownerId);
     const tabId = before.panes[before.activePaneId]!.activeTabId!;
     await dispatch(
@@ -967,21 +873,12 @@ describe("FocusTab", () => {
   it("sets the named tab as the pane's active tab", async () => {
     const { registry, world, pipeline } = setup();
     const ownerId = bootstrap(registry, world);
-    await dispatch(
-      pipeline,
-      OpenPage({ pageKind: KIND, entityId: "a" as EntityId }),
-    );
-    await dispatch(
-      pipeline,
-      OpenPageInNewTab({ pageKind: KIND, entityId: "b" as EntityId }),
-    );
+    await dispatch(pipeline, OpenPage({ pageKind: KIND, entityId: "a" as EntityId }));
+    await dispatch(pipeline, OpenPageInNewTab({ pageKind: KIND, entityId: "b" as EntityId }));
     const mid = getState(world, ownerId);
     const pane = mid.panes[mid.activePaneId]!;
     const firstTab = pane.tabIds[0]!;
-    await dispatch(
-      pipeline,
-      FocusTab({ paneId: pane.paneId, tabId: firstTab }),
-    );
+    await dispatch(pipeline, FocusTab({ paneId: pane.paneId, tabId: firstTab }));
     const after = getState(world, ownerId);
     expect(after.panes[pane.paneId]!.activeTabId).toBe(firstTab);
   });
@@ -1037,10 +934,7 @@ describe("MoveTab", () => {
     const fromPaneId = mid.activePaneId;
     const toPaneId = Object.keys(mid.panes).find((id) => id !== fromPaneId)!;
     const tabId = mid.panes[fromPaneId]!.activeTabId!;
-    const res = await dispatch(
-      pipeline,
-      MoveTab({ tabId, fromPaneId, toPaneId }),
-    );
+    const res = await dispatch(pipeline, MoveTab({ tabId, fromPaneId, toPaneId }));
     expect(res.result.ok).toBe(true);
     const after = getState(world, ownerId);
     expect(after.panes[fromPaneId]!.tabIds).not.toContain(tabId);
@@ -1075,10 +969,7 @@ describe("SetSplitProportions", () => {
     expect(before.tree.kind).toBe("split");
     if (before.tree.kind !== "split") throw new Error();
     expect(before.tree.proportions).toEqual([1, 1]);
-    const res = await dispatch(
-      pipeline,
-      SetSplitProportions({ path: [], proportions: [2, 3] }),
-    );
+    const res = await dispatch(pipeline, SetSplitProportions({ path: [], proportions: [2, 3] }));
     expect(res.result.ok).toBe(true);
     const after = getState(world, ownerId);
     if (after.tree.kind !== "split") throw new Error();
@@ -1090,10 +981,7 @@ describe("SetSplitProportions", () => {
     const { registry, world, pipeline } = setup();
     bootstrap(registry, world);
     // Root is a single pane node out of the box — path [] addresses it.
-    const res = await dispatch(
-      pipeline,
-      SetSplitProportions({ path: [], proportions: [1, 1] }),
-    );
+    const res = await dispatch(pipeline, SetSplitProportions({ path: [], proportions: [1, 1] }));
     expect(res.result.ok).toBe(false);
     if (!res.result.ok) {
       expect(res.result.reason).toContain("split");
@@ -1111,10 +999,7 @@ describe("SetSplitProportions", () => {
         direction: "right",
       }),
     );
-    const res = await dispatch(
-      pipeline,
-      SetSplitProportions({ path: [], proportions: [1, 1, 1] }),
-    );
+    const res = await dispatch(pipeline, SetSplitProportions({ path: [], proportions: [1, 1, 1] }));
     expect(res.result.ok).toBe(false);
     if (!res.result.ok) {
       expect(res.result.reason).toContain("doesn't match");
@@ -1122,12 +1007,8 @@ describe("SetSplitProportions", () => {
   });
 
   it("rejects a non-positive proportion at the schema layer", () => {
-    expect(() =>
-      SetSplitProportions({ path: [], proportions: [1, 0] }),
-    ).toThrow();
-    expect(() =>
-      SetSplitProportions({ path: [], proportions: [-1, 2] }),
-    ).toThrow();
+    expect(() => SetSplitProportions({ path: [], proportions: [1, 0] })).toThrow();
+    expect(() => SetSplitProportions({ path: [], proportions: [-1, 2] })).toThrow();
   });
 
   it("walks a nested path to a deeper split", async () => {
@@ -1156,10 +1037,7 @@ describe("SetSplitProportions", () => {
     const inner = before.tree.children[1];
     if (!inner || inner.kind !== "split") throw new Error("expected nested split");
     expect(inner.axis).toBe("column");
-    const res = await dispatch(
-      pipeline,
-      SetSplitProportions({ path: [1], proportions: [3, 1] }),
-    );
+    const res = await dispatch(pipeline, SetSplitProportions({ path: [1], proportions: [3, 1] }));
     expect(res.result.ok).toBe(true);
     const after = getState(world, ownerId);
     if (after.tree.kind !== "split") throw new Error();
@@ -1183,10 +1061,7 @@ describe("WorkspaceStateChanged broadcast scope", () => {
       };
       seen.push({ type: ev.type, visibility: ev.visibility });
     });
-    await dispatch(
-      pipeline,
-      OpenPage({ pageKind: KIND, entityId: "a" as EntityId }),
-    );
+    await dispatch(pipeline, OpenPage({ pageKind: KIND, entityId: "a" as EntityId }));
     expect(seen).toHaveLength(1);
     expect(seen[0]!.visibility?.kind).toBe("users");
     expect(seen[0]!.visibility?.userIds).toEqual([PLAYER.userId]);
@@ -1286,9 +1161,7 @@ describe("drawers", () => {
   });
 
   it("rejects schema violations: missing id", () => {
-    expect(() =>
-      OpenDrawer({} as unknown as { id: string }),
-    ).toThrow();
+    expect(() => OpenDrawer({} as unknown as { id: string })).toThrow();
   });
 
   it("rejects malformed drawer id (not plugin-namespaced)", () => {
@@ -1296,9 +1169,7 @@ describe("drawers", () => {
   });
 
   it("rejects ResizeDrawer with size below the schema minimum", () => {
-    expect(() =>
-      ResizeDrawer({ id: DRAWER_A as never, size: 0 }),
-    ).toThrow();
+    expect(() => ResizeDrawer({ id: DRAWER_A as never, size: 0 })).toThrow();
   });
 
   it("OpenDrawer defaults to keepOpen=false (auto-close eligible)", async () => {
@@ -1348,10 +1219,7 @@ describe("drawers", () => {
     const ownerId = bootstrap(registry, world);
     await dispatch(pipeline, OpenDrawer({ id: DRAWER_A, keepOpen: false }));
     const before = getState(world, ownerId).openDrawers[DRAWER_A]!;
-    await dispatch(
-      pipeline,
-      SetDrawerKeepOpen({ id: DRAWER_A, keepOpen: true }),
-    );
+    await dispatch(pipeline, SetDrawerKeepOpen({ id: DRAWER_A, keepOpen: true }));
     const after = getState(world, ownerId).openDrawers[DRAWER_A]!;
     expect(after.keepOpen).toBe(true);
     // openedAt isn't touched — only the preference flips.
@@ -1361,10 +1229,7 @@ describe("drawers", () => {
   it("SetDrawerKeepOpen on a closed drawer is a no-op (no entry created)", async () => {
     const { registry, world, pipeline } = setup();
     const ownerId = bootstrap(registry, world);
-    await dispatch(
-      pipeline,
-      SetDrawerKeepOpen({ id: DRAWER_A, keepOpen: true }),
-    );
+    await dispatch(pipeline, SetDrawerKeepOpen({ id: DRAWER_A, keepOpen: true }));
     expect(getState(world, ownerId).openDrawers[DRAWER_A]).toBeUndefined();
   });
 
@@ -1433,11 +1298,7 @@ describe("ShareTab", () => {
     const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
 
     // The sender's per-tab UI state — the "page 11" of the rulebook.
-    world.set(
-      tabSentinelEntityId(senderTabId),
-      TestTabUiState,
-      { activePage: 11 },
-    );
+    world.set(tabSentinelEntityId(senderTabId), TestTabUiState, { activePage: 11 });
 
     await dispatch(
       pipeline,
@@ -1466,11 +1327,7 @@ describe("ShareTab", () => {
     const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
 
     // A trait that opts out of sharing — must not land on the recipient.
-    world.set(
-      tabSentinelEntityId(senderTabId),
-      TestPrivateState,
-      { secret: "do not copy" },
-    );
+    world.set(tabSentinelEntityId(senderTabId), TestPrivateState, { secret: "do not copy" });
 
     await dispatch(
       pipeline,
@@ -1502,10 +1359,7 @@ describe("ShareTab", () => {
     );
 
     const recipientTabId = Object.keys(getState(world, recipientOwnerId).tabs)[0]!;
-    const got = world.get(tabSentinelEntityId(recipientTabId), [
-      TabSentinel,
-      Permissions,
-    ]) as {
+    const got = world.get(tabSentinelEntityId(recipientTabId), [TabSentinel, Permissions]) as {
       TabSentinel: { tabId: string };
       Permissions: {
         read: { kind: string; userIds?: string[] };
@@ -1528,8 +1382,9 @@ describe("ShareTab", () => {
       .find((r) => (r.values.WorkspaceOwner as { userId: string }).userId === PLAYER.userId)!.id;
     const senderTabId = await openSenderTab(pipeline, senderOwnerId, world);
 
-    const beforeActive = getState(world, recipientOwnerId)
-      .panes[getState(world, recipientOwnerId).activePaneId]!.activeTabId;
+    const beforeActive = getState(world, recipientOwnerId).panes[
+      getState(world, recipientOwnerId).activePaneId
+    ]!.activeTabId;
     expect(beforeActive).toBeNull(); // recipient has no tabs yet
 
     await dispatch(
@@ -1542,8 +1397,9 @@ describe("ShareTab", () => {
       PLAYER,
     );
 
-    const afterPane = getState(world, recipientOwnerId)
-      .panes[getState(world, recipientOwnerId).activePaneId]!;
+    const afterPane = getState(world, recipientOwnerId).panes[
+      getState(world, recipientOwnerId).activePaneId
+    ]!;
     // New tab is in the pane's tab list, but pane.activeTabId stays null —
     // the recipient sees a new tab head appear without being yanked to it.
     expect(afterPane.tabIds).toHaveLength(1);

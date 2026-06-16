@@ -78,9 +78,7 @@ export function PoolCard(props: { atelier: AtelierState }): JSX.Element {
           {pool() ?? 0}D
         </span>
         <Show when={baseDice() !== null}>
-          <span class="font-mono text-[0.7rem] text-fg-subtle">
-            base {baseDice()}
-          </span>
+          <span class="font-mono text-[0.7rem] text-fg-subtle">base {baseDice()}</span>
         </Show>
       </div>
       <Show when={diceMods().length > 0}>

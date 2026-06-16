@@ -39,9 +39,21 @@ const hostGame = definePlugin({
   gameSystem: true,
 });
 
-interface HelloMsg { kind: "hello"; clientId: string }
-interface AckMsg { kind: "ack"; commandId: string; ok: boolean; reason?: string }
-interface EventMsg { kind: "event"; seq: number; event: { type: string; payload: unknown } }
+interface HelloMsg {
+  kind: "hello";
+  clientId: string;
+}
+interface AckMsg {
+  kind: "ack";
+  commandId: string;
+  ok: boolean;
+  reason?: string;
+}
+interface EventMsg {
+  kind: "event";
+  seq: number;
+  event: { type: string; payload: unknown };
+}
 type Msg = HelloMsg | AckMsg | EventMsg;
 
 describe("items wire smoke", () => {
@@ -148,14 +160,10 @@ describe("items wire smoke", () => {
     const eventTypes = messages
       .filter((m): m is EventMsg => m.kind === "event")
       .map((m) => m.event.type)
-      .filter((t) =>
-        t === ItemCreated.name || t === ItemForked.name || t === ItemFieldChanged.name,
+      .filter(
+        (t) => t === ItemCreated.name || t === ItemForked.name || t === ItemFieldChanged.name,
       );
-    expect(eventTypes).toEqual([
-      ItemCreated.name,
-      ItemForked.name,
-      ItemFieldChanged.name,
-    ]);
+    expect(eventTypes).toEqual([ItemCreated.name, ItemForked.name, ItemFieldChanged.name]);
 
     // Suppress the unused-import warning for ItemDerivedFrom; we
     // referenced it in the design doc but don't assert against it

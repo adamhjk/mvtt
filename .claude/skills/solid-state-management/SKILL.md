@@ -10,29 +10,29 @@ Solid is unopinionated about state architecture — there's no built-in flux/red
 
 ### Step 1 — what shape is the data?
 
-| Shape | Choice |
-|---|---|
-| Primitive (number/string/boolean) or replace-whole | **Signal** |
-| Nested object/array with fine-grained updates | **Store** |
-| Async data | **Resource** (or `solid-router`'s `query` + `createAsync`) |
+| Shape                                              | Choice                                                     |
+| -------------------------------------------------- | ---------------------------------------------------------- |
+| Primitive (number/string/boolean) or replace-whole | **Signal**                                                 |
+| Nested object/array with fine-grained updates      | **Store**                                                  |
+| Async data                                         | **Resource** (or `solid-router`'s `query` + `createAsync`) |
 
 ### Step 2 — what's the scope?
 
-| Scope | Choice |
-|---|---|
-| Local to one component | Inline `createSignal`/`createStore` |
-| Shared by a subtree | **Context** wrapping a signal/store |
-| Shared app-wide, no SSR | **Module-level** signal/store (just `export const [x, setX] = createSignal(...)` in a `state.ts` file) |
-| Shared app-wide, with SSR | **Context** at the root (module-level leaks across requests) |
-| Shared across browser tabs/windows | External: localStorage + `storage` event, or a dedicated state library |
+| Scope                              | Choice                                                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Local to one component             | Inline `createSignal`/`createStore`                                                                    |
+| Shared by a subtree                | **Context** wrapping a signal/store                                                                    |
+| Shared app-wide, no SSR            | **Module-level** signal/store (just `export const [x, setX] = createSignal(...)` in a `state.ts` file) |
+| Shared app-wide, with SSR          | **Context** at the root (module-level leaks across requests)                                           |
+| Shared across browser tabs/windows | External: localStorage + `storage` event, or a dedicated state library                                 |
 
 ### Step 3 — derived data?
 
-| Need | Choice |
-|---|---|
-| Simple derived value, single reader | Plain function: `const full = () => `${first()} ${last()}` |
-| Expensive computation OR many readers OR want custom equality | **`createMemo`** |
-| Async derived | `createResource` with the upstream signal as source |
+| Need                                                          | Choice                                                     |
+| ------------------------------------------------------------- | ---------------------------------------------------------- |
+| Simple derived value, single reader                           | Plain function: `const full = () => `${first()} ${last()}` |
+| Expensive computation OR many readers OR want custom equality | **`createMemo`**                                           |
+| Async derived                                                 | `createResource` with the upstream signal as source        |
 
 ## Worked examples
 
@@ -63,7 +63,7 @@ const [form, setForm] = createStore({
 Then bind inputs:
 
 ```tsx
-<input value={form.name} onInput={e => setForm("name", e.currentTarget.value)} />
+<input value={form.name} onInput={(e) => setForm("name", e.currentTarget.value)} />
 ```
 
 Validation in a derived function or memo:
@@ -145,9 +145,7 @@ See `solid-resources`, `solid-router`.
 Pair a signal/store with a `createEffect` that writes to storage:
 
 ```tsx
-const [settings, setSettings] = createStore(
-  JSON.parse(localStorage.getItem("settings") ?? "{}"),
-);
+const [settings, setSettings] = createStore(JSON.parse(localStorage.getItem("settings") ?? "{}"));
 createEffect(() => {
   localStorage.setItem("settings", JSON.stringify(unwrap(settings)));
 });
@@ -182,10 +180,10 @@ For multi-instance scoping (different users in different tabs of the same app, t
 A list of 1000 items with frequent per-item updates? `<For>` + a store keyed by id, with item updates via path syntax:
 
 ```tsx
-setItems("list", id => id === target, "checked", true);
+setItems("list", (id) => id === target, "checked", true);
 ```
 
-A list of cells in a grid where order is fixed but cell *contents* change frequently? `<Index>` instead of `<For>` so the index keys are stable.
+A list of cells in a grid where order is fixed but cell _contents_ change frequently? `<Index>` instead of `<For>` so the index keys are stable.
 
 See `solid-control-flow`.
 

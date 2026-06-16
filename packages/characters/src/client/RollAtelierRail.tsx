@@ -64,9 +64,7 @@ export function RollAtelierRail(props: {
   const client = useClient();
 
   const accessories = createMemo<RollAtelierRailAccessory[]>(() => {
-    const fills = client.registry.fillsForSlot(
-      RollAtelierRailSlot,
-    ) as RollAtelierRailAccessory[];
+    const fills = client.registry.fillsForSlot(RollAtelierRailSlot) as RollAtelierRailAccessory[];
     return [...fills].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
   });
 
@@ -86,15 +84,10 @@ export function RollAtelierRail(props: {
         let badge: RailPill["badge"] = "independent";
         if (rollable) {
           try {
-            const raw = previewRollable(
-              rollable,
-              client.world,
-              v.initiatorCharacterId,
-              {
-                ...(v.opts as Record<string, unknown>),
-                contributions: v.contributions,
-              },
-            ) as Record<string, unknown> | null;
+            const raw = previewRollable(rollable, client.world, v.initiatorCharacterId, {
+              ...(v.opts as Record<string, unknown>),
+              contributions: v.contributions,
+            }) as Record<string, unknown> | null;
             if (raw) {
               if (typeof raw.source === "string" && raw.source.length > 0) {
                 sourceLabel = raw.source;
@@ -119,9 +112,7 @@ export function RollAtelierRail(props: {
       });
   });
 
-  const recent = createMemo<ResolvedRollEntry[]>(() =>
-    props.resolved.slice(0, RECENT_LIMIT),
-  );
+  const recent = createMemo<ResolvedRollEntry[]>(() => props.resolved.slice(0, RECENT_LIMIT));
 
   return (
     <nav
@@ -168,9 +159,7 @@ export function RollAtelierRail(props: {
                 data-selected={selected()}
               >
                 <span class="flex items-baseline justify-between gap-1">
-                  <span class="truncate text-[0.7rem] font-medium">
-                    {p.initiatorName}
-                  </span>
+                  <span class="truncate text-[0.7rem] font-medium">{p.initiatorName}</span>
                   <span class="text-[0.55rem] font-display uppercase tracking-[0.12em] text-fg-subtle">
                     {p.badge}
                   </span>
@@ -185,10 +174,7 @@ export function RollAtelierRail(props: {
               <Show when={selected()}>
                 <For each={accessories()}>
                   {(acc) => {
-                    if (
-                      acc.rollablePrefix &&
-                      !p.rollableName.startsWith(acc.rollablePrefix)
-                    ) {
+                    if (acc.rollablePrefix && !p.rollableName.startsWith(acc.rollablePrefix)) {
                       return null;
                     }
                     return acc.render({
@@ -228,9 +214,7 @@ export function RollAtelierRail(props: {
                 data-selected={selected()}
               >
                 <span class="flex items-baseline justify-between gap-1">
-                  <span class="truncate text-[0.7rem] font-medium">
-                    {e.title}
-                  </span>
+                  <span class="truncate text-[0.7rem] font-medium">{e.title}</span>
                   <Show when={e.subtitle}>
                     <span class="shrink-0 font-mono text-[0.55rem] text-fg-subtle">
                       {e.subtitle}

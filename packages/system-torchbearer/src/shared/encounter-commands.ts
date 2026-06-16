@@ -30,18 +30,9 @@ import { EncounterTemplate } from "@vtt/adventures/shared";
 import { requireSession } from "@vtt/identity/shared";
 import { Character, Team } from "@vtt/characters/shared";
 import { gmOnly, Permissions } from "@vtt/permissions/shared";
-import {
-  ConflictDeclared,
-  ConflictTypeEnum,
-} from "../conflict/shared/index.js";
+import { ConflictDeclared, ConflictTypeEnum } from "../conflict/shared/index.js";
 import type { ConflictType } from "../conflict/shared/index.js";
-import {
-  Conditions,
-  Heroic,
-  Pools,
-  RawAbilities,
-  TownAbilities,
-} from "./traits.js";
+import { Conditions, Heroic, Pools, RawAbilities, TownAbilities } from "./traits.js";
 import {
   MonsterCopy,
   MonsterTemplate,
@@ -88,9 +79,7 @@ export const StartEncounter = defineCommand({
       | { EncounterTemplate: { sides: ReadonlyArray<unknown> } }
       | undefined;
     if (!tmpl) {
-      return fail(
-        `entity ${ctx.cmd.templateId} is not an EncounterTemplate`,
-      );
+      return fail(`entity ${ctx.cmd.templateId} is not an EncounterTemplate`);
     }
     return ok();
   },
@@ -136,8 +125,7 @@ export const StartEncounter = defineCommand({
         }
         if (p.quantity && p.quantity > 1) {
           // Quantified — must point at a MonsterTemplate. Spawn N copies.
-          const isTemplate =
-            world.get(target, [MonsterTemplate]) !== undefined;
+          const isTemplate = world.get(target, [MonsterTemplate]) !== undefined;
           if (!isTemplate) {
             missing.push({ kind: p.kind, body: p.body });
             continue;
@@ -184,12 +172,8 @@ export const StartEncounter = defineCommand({
     // shorthand), enumerate world Characters with Team{kind:"party"}.
     const conflictTypeMapped = mapConflictType(tmpl.EncounterTemplate.type);
     if (conflictTypeMapped) {
-      const partySide = resolvedSides.find((s) =>
-        ["pcs", "party"].includes(s.name.toLowerCase()),
-      );
-      const enemySide = resolvedSides.find((s) =>
-        !["pcs", "party"].includes(s.name.toLowerCase()),
-      );
+      const partySide = resolvedSides.find((s) => ["pcs", "party"].includes(s.name.toLowerCase()));
+      const enemySide = resolvedSides.find((s) => !["pcs", "party"].includes(s.name.toLowerCase()));
       const partyIds: import("@vtt/substrate").EntityId[] = partySide
         ? [...partySide.participantIds]
         : [];
@@ -363,9 +347,7 @@ export const MonsterCopySpawningSystem = defineSystem({
     const ttown = world.get(event.templateId, [TownAbilities]) as
       | { TownAbilities: unknown }
       | undefined;
-    const tmonster = world.get(event.templateId, [TbMonster]) as
-      | { TbMonster: unknown }
-      | undefined;
+    const tmonster = world.get(event.templateId, [TbMonster]) as { TbMonster: unknown } | undefined;
     const tweapons = world.get(event.templateId, [TbMonsterWeapons]) as
       | { TbMonsterWeapons: unknown }
       | undefined;
@@ -407,9 +389,7 @@ export const MonsterCopySpawningSystem = defineSystem({
       factories.push(TbMonsterWeapons(tweapons.TbMonsterWeapons as never));
     }
     if (trules) {
-      factories.push(
-        TbMonsterSpecialRules(trules.TbMonsterSpecialRules as never),
-      );
+      factories.push(TbMonsterSpecialRules(trules.TbMonsterSpecialRules as never));
     }
     world.spawnAt(event.copyId, factories);
     return [];

@@ -176,4 +176,3 @@ export const ItemUnequipped = defineEvent({
     entryIndex: z.number().int().min(0),
   }),
 });
-

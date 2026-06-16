@@ -410,7 +410,6 @@ const newApp = new Application();
 
 Without this flag, stale pooled batches and textures from the old app persist in global pools and get reused by the new app, causing flickering and visual corruption.
 
-
 ### [HIGH] Interleaving object types in scene graph
 
 `sprite / graphic / sprite / graphic` = 4 draw calls.
@@ -418,16 +417,13 @@ Without this flag, stale pooled batches and textures from the old app persist in
 
 Group same object types together in the child order to minimize batch breaks. Same applies to blend mode ordering.
 
-
 ### [HIGH] Destroying and recreating objects instead of recycling
 
 Destroy/recreate is expensive: it deallocates GPU resources, triggers garbage collection, and requires fresh GPU uploads. Reuse objects by updating `texture`, `position`, `visible`, and other properties. Use an object pool pattern for frequently spawned/despawned entities.
 
-
 ### [HIGH] Loading many individual textures instead of spritesheets
 
 Each separate texture consumes its own GPU memory slot and breaks batching when the per-batch texture limit is reached. Spritesheets consolidate textures into atlases. Also avoid textures exceeding 4096px on either axis, as they fail on some mobile GPUs.
-
 
 ### [HIGH] Updating Text or HTMLText every frame
 

@@ -15,11 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import type {
-  SpellCastingKind,
-  SpellCircle,
-  SpellSchool,
-} from "../shared/spells/spell-traits.js";
+import type { SpellCastingKind, SpellCircle, SpellSchool } from "../shared/spells/spell-traits.js";
 
 /**
  * Hand-curated spell catalog template. The page reference points at

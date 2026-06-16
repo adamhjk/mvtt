@@ -16,12 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { getResolvedPDFJS } from "unpdf";
-import type {
-  OutlineEntry,
-  OutlineNode,
-  PageText,
-  TextItem,
-} from "./types.js";
+import type { OutlineEntry, OutlineNode, PageText, TextItem } from "./types.js";
 
 /**
  * Load a PDF with pdfjs-dist (via unpdf for Node-friendly setup) and
@@ -93,9 +88,7 @@ export async function loadPdf(bytes: Uint8Array): Promise<{
         }
       }
       outline.length = 0;
-      outline.push(
-        ...Array.from(dedup.values()).sort((a, b) => a.pdfPage - b.pdfPage),
-      );
+      outline.push(...Array.from(dedup.values()).sort((a, b) => a.pdfPage - b.pdfPage));
     }
   } catch {
     // Some PDFs fail outline parsing; non-fatal.
@@ -160,10 +153,7 @@ async function walkOutline(
   }
 }
 
-async function resolveDestRef(
-  dest: unknown,
-  doc: PdfDocLike,
-): Promise<unknown | null> {
+async function resolveDestRef(dest: unknown, doc: PdfDocLike): Promise<unknown | null> {
   if (!dest) return null;
   if (typeof dest === "string") {
     if (!doc.getDestination) return null;

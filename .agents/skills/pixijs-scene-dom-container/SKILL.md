@@ -137,7 +137,6 @@ import "pixi.js/dom";
 
 Without registration under a custom build, `DOMContainer` is still importable but the renderer has no pipe to process it; elements never synchronize with the scene graph and never appear.
 
-
 ### [MEDIUM] Expecting filters, masks, or blend modes to affect DOM elements
 
 Wrong:
@@ -154,7 +153,6 @@ dom.element.style.filter = "blur(4px)";
 ```
 
 DOM elements are HTML overlays positioned via CSS transforms; they exist outside the WebGL/WebGPU pipeline. PixiJS filters, masks, and blend modes have no effect on them. Use CSS filters and CSS `mix-blend-mode` on the element directly.
-
 
 ### [MEDIUM] Do not nest children inside a DOMContainer
 
@@ -174,7 +172,6 @@ group.addChild(dom, new Sprite(texture));
 
 `DOMContainer` extends `ViewContainer`, which sets `allowChildren = false`. It is a leaf in the PixiJS scene graph. For PixiJS children, wrap the `DOMContainer` alongside them in a plain `Container`. For nested HTML, nest inside the element itself (`element.appendChild(...)`).
 
-
 ### [LOW] Forgetting to set anchor for centered positioning
 
 The default anchor is `(0, 0)`, placing the element's top-left corner at the container's position. For centering a UI element on its scene-graph position, set `anchor: 0.5`:
@@ -183,7 +180,6 @@ The default anchor is `(0, 0)`, placing the element's top-left corner at the con
 const dom = new DOMContainer({ element: myElement, anchor: 0.5 });
 dom.position.set(400, 300);
 ```
-
 
 ## API Reference
 

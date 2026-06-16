@@ -36,14 +36,7 @@ import {
 import { Character } from "@vtt/characters/shared";
 import { RequestRoll } from "@vtt/resolution/shared";
 import { systemSimple } from "./manifest.js";
-import {
-  MaxHp,
-  MaxHpChanged,
-  Notes,
-  StatCheck,
-  Stats,
-  Vitals,
-} from "./shared/index.js";
+import { MaxHp, MaxHpChanged, Notes, StatCheck, Stats, Vitals } from "./shared/index.js";
 
 describe("@vtt/system-simple manifest", () => {
   it("is marked as a game system", () => {
@@ -248,9 +241,9 @@ describe("StatCheck rollable", () => {
       Stats({ might: 1, quickness: 3, mind: 2, charm: 4 }),
     ]);
     const rollable = registry.rollables.get(StatCheck.name)!;
-    expect(() =>
-      invokeRollable(rollable, world, id, { stat: "invalid" }),
-    ).toThrow(/opts failed schema/);
+    expect(() => invokeRollable(rollable, world, id, { stat: "invalid" })).toThrow(
+      /opts failed schema/,
+    );
   });
 });
 

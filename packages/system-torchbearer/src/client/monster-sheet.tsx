@@ -22,17 +22,8 @@ import { ActiveToggle, kit } from "@vtt/characters/client";
 import { Character, SetField } from "@vtt/characters/shared";
 import { ItemIdentity } from "@vtt/items/shared";
 import { createMemo, For, onMount, Show, type JSX } from "solid-js";
-import {
-  Conditions,
-  NatureCheck,
-  RawAbilities,
-  TownAbilities,
-} from "../shared/index.js";
-import {
-  TbMonster,
-  TbMonsterSpecialRules,
-  TbMonsterWeapons,
-} from "../shared/monster-traits.js";
+import { Conditions, NatureCheck, RawAbilities, TownAbilities } from "../shared/index.js";
+import { TbMonster, TbMonsterSpecialRules, TbMonsterWeapons } from "../shared/monster-traits.js";
 import { TbCarries } from "../shared/items/index.js";
 import {
   ALL_CONFLICT_TYPES,
@@ -285,7 +276,6 @@ const CONFLICT_OPTIONS: ReadonlyArray<{ value: ConflictType; label: string }> =
     label: TB_CONFLICT_TYPES[id].label,
   }));
 
-
 /**
  * Monster character sheet — single scrolling column. Reuses the
  * characters kit verbatim (`<TextField>`, `<NumberField>`,
@@ -375,15 +365,8 @@ function StatBlockSection(props: { characterId: string }): JSX.Element {
 
   return (
     <kit.SheetSection title="Stat Block">
-      <div
-        class="tb-monster-sheet__statbar"
-        role="group"
-        aria-label="Monster stat block"
-      >
-        <div
-          class="tb-monster-sheet__stat"
-          data-testid="monster-nature-stat"
-        >
+      <div class="tb-monster-sheet__statbar" role="group" aria-label="Monster stat block">
+        <div class="tb-monster-sheet__stat" data-testid="monster-nature-stat">
           <kit.RollableLabel
             characterId={props.characterId}
             rollable={NatureCheck.name}
@@ -391,29 +374,20 @@ function StatBlockSection(props: { characterId: string }): JSX.Element {
             class="tb-monster-sheet__stat-rollable"
           >
             <span class="tb-monster-sheet__stat-label">Nature</span>
-            <span
-              class="tb-monster-sheet__stat-value"
-              data-testid="monster-nature-value"
-            >
+            <span class="tb-monster-sheet__stat-value" data-testid="monster-nature-value">
               {nature()}
             </span>
           </kit.RollableLabel>
         </div>
         <div class="tb-monster-sheet__stat">
           <span class="tb-monster-sheet__stat-label">Might</span>
-          <span
-            class="tb-monster-sheet__stat-value"
-            data-testid="monster-might-value"
-          >
+          <span class="tb-monster-sheet__stat-value" data-testid="monster-might-value">
             {might()}
           </span>
         </div>
         <div class="tb-monster-sheet__stat">
           <span class="tb-monster-sheet__stat-label">Precedence</span>
-          <span
-            class="tb-monster-sheet__stat-value"
-            data-testid="monster-precedence-value"
-          >
+          <span class="tb-monster-sheet__stat-value" data-testid="monster-precedence-value">
             {precedence()}
           </span>
         </div>
@@ -494,17 +468,13 @@ function DispositionsSection(props: { characterId: string }): JSX.Element {
           margin: 0,
         }}
       >
-        Predetermined disposition per conflict type. Conflict types
-        not listed roll Nature (within Nature) or half Nature (outside
-        Nature) at conflict-declare time. SG p.172.
+        Predetermined disposition per conflict type. Conflict types not listed roll Nature (within
+        Nature) or half Nature (outside Nature) at conflict-declare time. SG p.172.
       </p>
       <Show
         when={rows().length > 0}
         fallback={
-          <div
-            class="tb-monster-sheet__inv-empty"
-            data-testid="monster-dispo-empty"
-          >
+          <div class="tb-monster-sheet__inv-empty" data-testid="monster-dispo-empty">
             no predetermined dispositions
           </div>
         }
@@ -576,9 +546,8 @@ function ConditionsSection(props: { characterId: string }): JSX.Element {
           margin: 0,
         }}
       >
-        Monsters are never fresh. Hungry/thirsty, afraid and exhausted
-        impose −1s to disposition; injured and sick impose −1D to
-        Nature each. SG p.177.
+        Monsters are never fresh. Hungry/thirsty, afraid and exhausted impose −1s to disposition;
+        injured and sick impose −1D to Nature each. SG p.177.
       </p>
       <div class="tb-monster-sheet__conditions">
         <For each={CONDITION_KEYS}>
@@ -586,9 +555,7 @@ function ConditionsSection(props: { characterId: string }): JSX.Element {
             <span
               class="tb-monster-sheet__cond-chip"
               data-on={
-                conditions()?.[
-                  key as keyof NonNullable<ReturnType<typeof conditions>>
-                ]
+                conditions()?.[key as keyof NonNullable<ReturnType<typeof conditions>>]
                   ? "true"
                   : "false"
               }
@@ -676,17 +643,13 @@ function WeaponsSection(props: { characterId: string }): JSX.Element {
           margin: 0,
         }}
       >
-        Monstrous weapons (SG p.173). Each weapon binds to one or more
-        conflict types and grants action-bonus columns A / D / F / M.
-        Real weapons (sword, polearm) live in Inventory.
+        Monstrous weapons (SG p.173). Each weapon binds to one or more conflict types and grants
+        action-bonus columns A / D / F / M. Real weapons (sword, polearm) live in Inventory.
       </p>
       <Show
         when={entries().length > 0}
         fallback={
-          <div
-            class="tb-monster-sheet__inv-empty"
-            data-testid="monster-weapons-empty"
-          >
+          <div class="tb-monster-sheet__inv-empty" data-testid="monster-weapons-empty">
             no monstrous weapons listed
           </div>
         }
@@ -718,7 +681,9 @@ function WeaponsSection(props: { characterId: string }): JSX.Element {
           >
             Remove a weapon
           </summary>
-          <div style={{ display: "flex", "flex-wrap": "wrap", gap: "0.3rem", "margin-top": "0.4rem" }}>
+          <div
+            style={{ display: "flex", "flex-wrap": "wrap", gap: "0.3rem", "margin-top": "0.4rem" }}
+          >
             <For each={entries()}>
               {(w, i) => (
                 <button
@@ -766,10 +731,7 @@ function WeaponRow(props: { characterId: string; index: number }): JSX.Element {
         />
       </kit.FieldRow>
       <kit.FieldStack label="Conflicts">
-        <WeaponConflictsCheckboxes
-          characterId={props.characterId}
-          weaponIndex={props.index}
-        />
+        <WeaponConflictsCheckboxes characterId={props.characterId} weaponIndex={props.index} />
       </kit.FieldStack>
       <div
         style={{
@@ -891,26 +853,14 @@ function ActionBonusCell(props: {
         <kit.NumberField
           characterId={props.characterId}
           trait={TbMonsterWeapons}
-          path={[
-            "entries",
-            props.index,
-            "bonuses",
-            props.action,
-            "value",
-          ]}
+          path={["entries", props.index, "bonuses", props.action, "value"]}
           min={-5}
           max={5}
         />
         <kit.SelectField
           characterId={props.characterId}
           trait={TbMonsterWeapons}
-          path={[
-            "entries",
-            props.index,
-            "bonuses",
-            props.action,
-            "type",
-          ]}
+          path={["entries", props.index, "bonuses", props.action, "type"]}
           options={[
             { value: "dice", label: "D" },
             { value: "rerolls", label: "R" },
@@ -940,10 +890,7 @@ function SpecialRulesSection(props: { characterId: string }): JSX.Element {
   };
 
   const addRow = () => {
-    writeEntries([
-      ...entries(),
-      { name: "New Rule", text: "", pageRef: null },
-    ]);
+    writeEntries([...entries(), { name: "New Rule", text: "", pageRef: null }]);
   };
 
   const removeRow = (i: number) => {
@@ -955,20 +902,14 @@ function SpecialRulesSection(props: { characterId: string }): JSX.Element {
       <Show
         when={entries().length > 0}
         fallback={
-          <div
-            class="tb-monster-sheet__inv-empty"
-            data-testid="monster-rules-empty"
-          >
+          <div class="tb-monster-sheet__inv-empty" data-testid="monster-rules-empty">
             no special rules
           </div>
         }
       >
         <For each={entries()}>
           {(rule, i) => (
-            <div
-              class="tb-monster-sheet__rule"
-              data-testid={`monster-rule-row-${i()}`}
-            >
+            <div class="tb-monster-sheet__rule" data-testid={`monster-rule-row-${i()}`}>
               <div
                 style={{
                   display: "flex",
@@ -1051,10 +992,7 @@ function InstinctSection(props: { characterId: string }): JSX.Element {
           </div>
         )}
       </Show>
-      <Show
-        when={(monster()?.instinct ?? "").trim().length > 0}
-        fallback={null}
-      >
+      <Show when={(monster()?.instinct ?? "").trim().length > 0} fallback={null}>
         <div class="tb-monster-sheet__instinct" data-testid="monster-instinct-display">
           “{monster()!.instinct}”
         </div>
@@ -1088,9 +1026,7 @@ function InventorySection(props: { characterId: string }): JSX.Element {
       >
         <div class="tb-monster-sheet__inventory" role="list">
           <For each={entries()}>
-            {(entry) => (
-              <InventoryRow itemId={entry.itemId} slot={entry.slot} />
-            )}
+            {(entry) => <InventoryRow itemId={entry.itemId} slot={entry.slot} />}
           </For>
         </div>
       </Show>
@@ -1109,4 +1045,3 @@ function InventoryRow(props: { itemId: string; slot: string }): JSX.Element {
     </div>
   );
 }
-

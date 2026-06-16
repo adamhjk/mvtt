@@ -48,9 +48,7 @@ export const RulesProfile = z.object({
   /** How to derive printed page numbers (the numbers on the physical book). */
   pageNumber: z
     .object({
-      strategy: z
-        .enum(["outline", "headerScan", "footerScan", "explicit"])
-        .default("footerScan"),
+      strategy: z.enum(["outline", "headerScan", "footerScan", "explicit"]).default("footerScan"),
       band: z.enum(["top", "bottom", "either"]).default("bottom"),
       /** PDF pages before the printed numbering starts (covers, ToC, …). */
       frontMatterPdfPages: z.number().int().nonnegative().default(0),
@@ -59,9 +57,7 @@ export const RulesProfile = z.object({
        * automatic detection fails (color plates, appendix prefixes,
        * etc.). Keys are 1-based PDF page indexes as strings.
        */
-      explicitMap: z
-        .record(z.string(), z.union([z.string(), z.number()]))
-        .optional(),
+      explicitMap: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
     })
     .default({
       strategy: "footerScan",

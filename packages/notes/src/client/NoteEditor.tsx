@@ -15,16 +15,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  createSignal,
-  onCleanup,
-  Show,
-  type JSX,
-} from "solid-js";
-import {
-  useClient,
-  useTrait,
-} from "@vtt/substrate/client";
+import { createSignal, onCleanup, Show, type JSX } from "solid-js";
+import { useClient, useTrait } from "@vtt/substrate/client";
 import { type CommandInstance, type EntityId } from "@vtt/substrate";
 import {
   EDITOR_LOCK_TTL_MS,
@@ -139,9 +131,7 @@ export function NoteEditor(props: {
       <div class="flex items-center justify-between text-[0.62rem] uppercase tracking-[0.18em] text-fg-subtle">
         <span>
           Editing — auto-saves every 30s
-          {savedAgo() !== null && savedAgo()! >= 0
-            ? ` · last save ${savedAgo()}s ago`
-            : ""}
+          {savedAgo() !== null && savedAgo()! >= 0 ? ` · last save ${savedAgo()}s ago` : ""}
         </span>
         <div class="flex items-center gap-2">
           <button

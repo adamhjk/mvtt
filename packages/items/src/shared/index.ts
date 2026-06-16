@@ -53,8 +53,5 @@ export {
   type FieldPath,
 } from "./field-paths.js";
 export { runCatalogMerge, type CatalogTemplate } from "./merge.js";
-export {
-  ItemDetailSectionsSlot,
-  type ItemDetailSection,
-} from "./slots.js";
+export { ItemDetailSectionsSlot, type ItemDetailSection } from "./slots.js";
 export { itemLinkKind, type ItemRef } from "./item-link-kind.js";

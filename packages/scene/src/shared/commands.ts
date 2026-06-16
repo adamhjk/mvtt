@@ -15,13 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  ok,
-  z,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, ok, z } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
 import { requireWrite } from "@vtt/permissions/shared";
 import {
@@ -242,11 +236,7 @@ export const RemoveScene = defineCommand({
  * Cache-bust suffixes (`?v=<bytes>`) are accepted; the upload endpoint
  * stamps them on so the browser re-fetches after a replacement.
  */
-function isBackgroundUrlForScene(
-  url: string,
-  worldId: string,
-  sceneId: string,
-): boolean {
+function isBackgroundUrlForScene(url: string, worldId: string, sceneId: string): boolean {
   const expectedPrefix = `/plugin-data/${worldId}/@vtt/scene/scenes/${sceneId}/`;
   if (!url.startsWith(expectedPrefix)) return false;
   // Disallow path-traversal in the trait URL too — the upload endpoint
@@ -291,9 +281,7 @@ export const UpdateScene = defineCommand({
       ctx.cmd.backgroundImage !== undefined &&
       ctx.cmd.backgroundImage !== null
     ) {
-      return fail(
-        "set either backgroundAssetId or backgroundImage, not both",
-      );
+      return fail("set either backgroundAssetId or backgroundImage, not both");
     }
     if (
       ctx.cmd.backgroundAssetId !== undefined &&
@@ -305,11 +293,7 @@ export const UpdateScene = defineCommand({
     if (
       ctx.cmd.backgroundImage !== undefined &&
       ctx.cmd.backgroundImage !== null &&
-      !isBackgroundUrlForScene(
-        ctx.cmd.backgroundImage,
-        ctx.world.worldId,
-        ctx.cmd.sceneId,
-      )
+      !isBackgroundUrlForScene(ctx.cmd.backgroundImage, ctx.world.worldId, ctx.cmd.sceneId)
     ) {
       return fail(
         `backgroundImage URL must start with /plugin-data/${ctx.world.worldId}/@vtt/scene/scenes/${ctx.cmd.sceneId}/`,
@@ -415,26 +399,16 @@ export const PlaceCharacterToken = defineCommand({
     if (ctx.cmd.assetId !== null && !ctx.world.has(ctx.cmd.assetId)) {
       return fail(`asset ${ctx.cmd.assetId} does not exist`);
     }
-    if (
-      ctx.cmd.imageUrl !== null &&
-      !isWorldPluginDataUrl(ctx.cmd.imageUrl, ctx.world.worldId)
-    ) {
-      return fail(
-        `imageUrl must start with /plugin-data/${ctx.world.worldId}/`,
-      );
+    if (ctx.cmd.imageUrl !== null && !isWorldPluginDataUrl(ctx.cmd.imageUrl, ctx.world.worldId)) {
+      return fail(`imageUrl must start with /plugin-data/${ctx.world.worldId}/`);
     }
 
     const placed = ctx.world.query([LinkedCharacter, Position]);
     for (const row of placed) {
       const lc = row.values.LinkedCharacter as { characterId: EntityId };
       const pos = row.values.Position as { sceneId: EntityId };
-      if (
-        lc.characterId === ctx.cmd.characterId &&
-        pos.sceneId === ctx.cmd.sceneId
-      ) {
-        return fail(
-          `character ${ctx.cmd.characterId} is already placed on this scene`,
-        );
+      if (lc.characterId === ctx.cmd.characterId && pos.sceneId === ctx.cmd.sceneId) {
+        return fail(`character ${ctx.cmd.characterId} is already placed on this scene`);
       }
     }
     return ok();

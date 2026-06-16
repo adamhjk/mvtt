@@ -16,12 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { TraitMeta } from "./define.js";
-import {
-  type EntityId,
-  type TraitName,
-  type WorldId,
-  DEFAULT_WORLD_ID,
-} from "./schema.js";
+import { type EntityId, type TraitName, type WorldId, DEFAULT_WORLD_ID } from "./schema.js";
 
 type TraitValue = unknown;
 type EntityRecord = Map<TraitName, TraitValue>;
@@ -95,10 +90,7 @@ export class World {
    * `allocateId` calls don't collide. Used by mirror systems that
    * receive the id from an event payload.
    */
-  spawnAt(
-    id: EntityId,
-    traits: Array<{ name: TraitName; value: TraitValue }> = [],
-  ): void {
+  spawnAt(id: EntityId, traits: Array<{ name: TraitName; value: TraitValue }> = []): void {
     if (this.entities.has(id)) {
       throw new Error(`entity ${id} already exists`);
     }
@@ -188,7 +180,9 @@ export class World {
     return new Map(rec);
   }
 
-  query(traits: ReadonlyArray<TraitMeta>): Array<{ id: EntityId; values: Record<string, unknown> }> {
+  query(
+    traits: ReadonlyArray<TraitMeta>,
+  ): Array<{ id: EntityId; values: Record<string, unknown> }> {
     const out: Array<{ id: EntityId; values: Record<string, unknown> }> = [];
     outer: for (const [id, rec] of this.entities) {
       const values: Record<string, unknown> = {};

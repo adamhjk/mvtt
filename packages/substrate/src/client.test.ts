@@ -17,13 +17,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { startClient } from "./client.js";
-import {
-  defineCommand,
-  definePlugin,
-  defineTrait,
-  ok,
-  z,
-} from "./index.js";
+import { defineCommand, definePlugin, defineTrait, ok, z } from "./index.js";
 
 /**
  * Minimal MessageEvent-shaped object for the message handler. The
@@ -296,18 +290,14 @@ describe("startClient reconnect resync", () => {
 
     expect(client.synced()).toBe(true);
     expect(client.lastAppliedSeq()).toBe(5);
-    const e1 = client.world.get("e1", [SomeTrait]) as
-      | { Some: { value: string } }
-      | undefined;
+    const e1 = client.world.get("e1", [SomeTrait]) as { Some: { value: string } } | undefined;
     expect(e1?.Some.value).toBe("after");
     expect(client.world.has("e2")).toBe(true);
 
     // Dispatch flows over the NEW socket.
     const handle = client.dispatch(Noop({}));
     expect(sock1.sent.some((s) => JSON.parse(s).id === handle.id)).toBe(true);
-    expect(sock0.sent.some((s) => JSON.parse(s).kind === "command")).toBe(
-      false,
-    );
+    expect(sock0.sent.some((s) => JSON.parse(s).kind === "command")).toBe(false);
   });
 });
 
@@ -370,9 +360,7 @@ describe("startClient applies entity-revealed / entity-hidden wire frames", () =
       traits: { [SomeTrait.name]: { value: "hello" } },
     });
     expect(client.world.has("e1")).toBe(true);
-    const got = client.world.get("e1", [SomeTrait]) as
-      | { Some: { value: string } }
-      | undefined;
+    const got = client.world.get("e1", [SomeTrait]) as { Some: { value: string } } | undefined;
     expect(got?.Some.value).toBe("hello");
   });
 
@@ -408,9 +396,7 @@ describe("startClient applies entity-revealed / entity-hidden wire frames", () =
       entityId: "e1",
       traits: { [SomeTrait.name]: { value: "new" } },
     });
-    const got = client.world.get("e1", [SomeTrait]) as
-      | { Some: { value: string } }
-      | undefined;
+    const got = client.world.get("e1", [SomeTrait]) as { Some: { value: string } } | undefined;
     expect(got?.Some.value).toBe("new");
   });
 

@@ -41,15 +41,8 @@ import { MonsterTemplate, TbMonster } from "../monster-traits.js";
 import { TbCarries } from "../items/item-traits.js";
 import { TB_BODY_SLOTS_AUTHORING } from "./item.js";
 import { Relics } from "../traits.js";
-import {
-  SpellIdentity,
-  TbLibrary,
-  TbMemoryPalace,
-} from "../spells/spell-traits.js";
-import {
-  InvocationIdentity,
-  TbInvocationRelics,
-} from "../invocations/invocation-traits.js";
+import { SpellIdentity, TbLibrary, TbMemoryPalace } from "../spells/spell-traits.js";
+import { InvocationIdentity, TbInvocationRelics } from "../invocations/invocation-traits.js";
 import {
   channelFor,
   defaultSlotForItem,
@@ -79,22 +72,18 @@ const TraitsArraySchema = z
   .default([]);
 
 const CarriesItemString = wikiLink("item").describe(
-  'String form: a bare item wiki-link, e.g. `[[item:e123|Sword]]`. Quote the YAML string when authoring this form. The item is placed in its default slot at quantity 1.',
+  "String form: a bare item wiki-link, e.g. `[[item:e123|Sword]]`. Quote the YAML string when authoring this form. The item is placed in its default slot at quantity 1.",
 );
 
 const CarriesItemObject = z
   .object({
-    item: wikiLink("item").describe(
-      "Item wiki-link, e.g. `[[item:e123|Sword]]`.",
-    ),
+    item: wikiLink("item").describe("Item wiki-link, e.g. `[[item:e123|Sword]]`."),
     slot: z
       .string()
       .min(1)
       .max(40)
       .optional()
-      .describe(
-        "Where the character carries the item. See the body-slot vocabulary below.",
-      ),
+      .describe("Where the character carries the item. See the body-slot vocabulary below."),
     quantity: z
       .number()
       .int()
@@ -185,7 +174,7 @@ export const CharacterBlockSchema = z.object({
     .array(wikiLink("invocation"))
     .default([])
     .describe(
-      'Invocations (Urðr) the character can perform — wiki-links to invocation catalog entities, e.g. `[[invocation:Stone of Strength]]`. Each entry adds the invocation to `TbInvocationRelics` so the post-roll burden flow on the Invocations tab finds it.',
+      "Invocations (Urðr) the character can perform — wiki-links to invocation catalog entities, e.g. `[[invocation:Stone of Strength]]`. Each entry adds the invocation to `TbInvocationRelics` so the post-roll burden flow on the Invocations tab finds it.",
     ),
   urdr: z
     .number()
@@ -193,18 +182,14 @@ export const CharacterBlockSchema = z.object({
     .min(0)
     .max(4)
     .default(1)
-    .describe(
-      "Urðr — divine-favor counter for theurges / shamans (DH p.99). 0–4. Default 1.",
-    ),
+    .describe("Urðr — divine-favor counter for theurges / shamans (DH p.99). 0–4. Default 1."),
   burden: z
     .number()
     .int()
     .min(0)
     .max(6)
     .default(0)
-    .describe(
-      "Immortal Burden — divine-debt counter (DH p.99). 0–6. Default 0.",
-    ),
+    .describe("Immortal Burden — divine-debt counter (DH p.99). 0–6. Default 0."),
 
   // What you fight for.
   belief: z.string().max(2000).default(""),
@@ -237,9 +222,7 @@ export const MonsterBlockSchema = z.object({
    * The TB conflict subsystem reads these to pick predetermined HP
    * when the conflict type matches; other conflict types roll Nature.
    */
-  disposition: z
-    .record(z.string().min(1).max(40), z.number().int().min(0).max(60))
-    .default({}),
+  disposition: z.record(z.string().min(1).max(40), z.number().int().min(0).max(60)).default({}),
   weapons: z.array(wikiLink("item")).default([]),
   armor: wikiLink("item").optional(),
   instinct: z.string().max(2000).default(""),
@@ -257,10 +240,7 @@ export type MonsterBlockParsed = z.infer<typeof MonsterBlockSchema>;
  * null when nothing resolves — drops at the call site rather than
  * inserting a stale id into the trait.
  */
-function resolveSpellRef(
-  body: string,
-  world: World,
-): string | null {
+function resolveSpellRef(body: string, world: World): string | null {
   // peelWikiLink strips `[[...]]`, `|alias`, `#anchor`, and the
   // `item:` prefix. Spells use the `spell:` prefix instead so we
   // strip it explicitly here before the entity-id / name lookup.
@@ -282,10 +262,7 @@ function resolveSpellRef(
   return null;
 }
 
-function resolveSpellRefs(
-  bodies: ReadonlyArray<string>,
-  world: World,
-): string[] {
+function resolveSpellRefs(bodies: ReadonlyArray<string>, world: World): string[] {
   const out: string[] = [];
   for (const b of bodies) {
     const id = resolveSpellRef(b, world);
@@ -300,9 +277,9 @@ function resolveSpellRefs(
  * caller seeds `slotsConsumed` to 1 in that case.
  */
 function readSpellCircle(spellId: string, world: World): number | null {
-  const got = world.get(spellId as Parameters<typeof world.get>[0], [
-    SpellIdentity,
-  ]) as { SpellIdentity: { circle: number } } | undefined;
+  const got = world.get(spellId as Parameters<typeof world.get>[0], [SpellIdentity]) as
+    | { SpellIdentity: { circle: number } }
+    | undefined;
   return got?.SpellIdentity.circle ?? null;
 }
 
@@ -311,21 +288,14 @@ function readSpellCircle(spellId: string, world: World): number | null {
  * Used to seed `TbInvocationRelics.invocationIds` from the `invocations:`
  * field on a character / npc block.
  */
-function resolveInvocationRef(
-  body: string,
-  world: World,
-): string | null {
+function resolveInvocationRef(body: string, world: World): string | null {
   let cleaned = peelWikiLink(body).trim();
   if (cleaned.toLowerCase().startsWith("invocation:")) {
     cleaned = cleaned.slice("invocation:".length).trim();
   }
   if (cleaned.length === 0) return null;
   if (world.has(cleaned as Parameters<typeof world.has>[0])) {
-    if (
-      world.get(cleaned as Parameters<typeof world.get>[0], [
-        InvocationIdentity,
-      ])
-    ) {
+    if (world.get(cleaned as Parameters<typeof world.get>[0], [InvocationIdentity])) {
       return cleaned;
     }
   }
@@ -337,10 +307,7 @@ function resolveInvocationRef(
   return null;
 }
 
-function resolveInvocationRefs(
-  bodies: ReadonlyArray<string>,
-  world: World,
-): string[] {
+function resolveInvocationRefs(bodies: ReadonlyArray<string>, world: World): string[] {
   const out: string[] = [];
   for (const b of bodies) {
     const id = resolveInvocationRef(b, world);
@@ -349,15 +316,23 @@ function resolveInvocationRefs(
   return out;
 }
 
-function buildSkillsRecord(
-  seed: Record<string, number>,
-): Record<
+function buildSkillsRecord(seed: Record<string, number>): Record<
   string,
-  { rating: number; advancement: { pass: number; fail: number }; taxed: boolean; learningTests: number }
+  {
+    rating: number;
+    advancement: { pass: number; fail: number };
+    taxed: boolean;
+    learningTests: number;
+  }
 > {
   const out: Record<
     string,
-    { rating: number; advancement: { pass: number; fail: number }; taxed: boolean; learningTests: number }
+    {
+      rating: number;
+      advancement: { pass: number; fail: number };
+      taxed: boolean;
+      learningTests: number;
+    }
   > = {};
   for (const s of ALL_SKILLS) {
     out[s.id] = {
@@ -790,11 +765,7 @@ export function completeCharacterKeys(
   // Object-form `carries[i].slot` — the schema is `z.string()` so the
   // value side falls through the enum branch; expose the canonical
   // TB body-slot vocabulary so authors don't have to guess.
-  if (
-    path.length >= 2 &&
-    path[0] === "carries" &&
-    path[path.length - 1] === "slot"
-  ) {
+  if (path.length >= 2 && path[0] === "carries" && path[path.length - 1] === "slot") {
     return TB_BODY_SLOTS_AUTHORING.map((s) => ({ value: s }));
   }
   return [];
@@ -805,13 +776,10 @@ export const characterBlockKind = defineBlockKind<CharacterBlockParsed>({
   name: "character",
   description: "TB character / named NPC",
   schema: CharacterBlockSchema,
-  project: (parsed, ctx) =>
-    buildCharacterTraitWrites(parsed, ctx.info ?? "Unnamed", ctx),
+  project: (parsed, ctx) => buildCharacterTraitWrites(parsed, ctx.info ?? "Unnamed", ctx),
   complete: (path) => completeCharacterKeys(path),
   display: (entityId, world) => {
-    const got = world.get(entityId, [Character]) as
-      | { Character: { name: string } }
-      | undefined;
+    const got = world.get(entityId, [Character]) as { Character: { name: string } } | undefined;
     return got?.Character.name ?? "(unnamed character)";
   },
   // Snippet covers the high-value PC fields: identity, abilities,
@@ -858,8 +826,7 @@ export const monsterBlockKind = defineBlockKind<MonsterBlockParsed>({
   name: "monster",
   description: "TB monster template — encounter blocks spawn copies of these",
   schema: MonsterBlockSchema,
-  project: (parsed, ctx) =>
-    projectMonster(parsed, ctx.info ?? "Unnamed Monster", ctx),
+  project: (parsed, ctx) => projectMonster(parsed, ctx.info ?? "Unnamed Monster", ctx),
   display: (entityId, world) => {
     const got = world.get(entityId, [Character, TbMonster]) as
       | { Character: { name: string }; TbMonster: { type: string } }

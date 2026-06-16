@@ -26,10 +26,7 @@ type Mode = "independent" | "versus" | "disposition";
  * rollable + dispatches the result + CommitPendingRoll; Cancel dispatches
  * CancelPendingRoll.
  */
-export function FooterActions(props: {
-  atelier: AtelierState;
-  mode: Mode;
-}): JSX.Element {
+export function FooterActions(props: { atelier: AtelierState; mode: Mode }): JSX.Element {
   return (
     <Show when={props.atelier.canCommit()}>
       <footer
@@ -42,9 +39,7 @@ export function FooterActions(props: {
           </span>
         </Show>
         <Show when={props.mode === "disposition"}>
-          <span class="text-[0.6rem] text-fg-subtle italic">
-            result becomes conflict HP
-          </span>
+          <span class="text-[0.6rem] text-fg-subtle italic">result becomes conflict HP</span>
         </Show>
         <button
           type="button"

@@ -35,8 +35,8 @@ export function RollAtelierEmpty(): JSX.Element {
         No rolls in progress.
       </p>
       <p class="max-w-prose text-sm text-fg-subtle">
-        Trigger a roll from a character sheet to start one. Every active
-        pending roll lands here — yours, your party's, and the GM's.
+        Trigger a roll from a character sheet to start one. Every active pending roll lands here —
+        yours, your party's, and the GM's.
       </p>
     </section>
   );

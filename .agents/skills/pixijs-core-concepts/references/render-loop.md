@@ -153,7 +153,6 @@ app.ticker.add((ticker) => {
 
 v8 passes the `Ticker` instance to the callback, not a delta. Old v7 code that used `(dt) => sprite.x += dt` compiles but produces `NaN` because `dt` is an object.
 
-
 ### [HIGH] Using `updateTransform` for per-frame logic
 
 Wrong:
@@ -182,7 +181,6 @@ class MySprite extends Sprite {
 
 `updateTransform` was removed in v8. Use `onRender` for per-object per-frame logic.
 
-
 ### [MEDIUM] Assuming ticker callbacks run after render
 
 Wrong:
@@ -206,7 +204,6 @@ app.ticker.add(
 ```
 
 Callbacks added at the default priority (`NORMAL = 0`) run _before_ the render call (at `LOW = -25`). Use `UTILITY = -50` for post-render work like pixel readbacks or DOM sync.
-
 
 ## API Reference
 

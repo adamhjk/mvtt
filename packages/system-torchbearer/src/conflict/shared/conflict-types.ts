@@ -219,9 +219,7 @@ const OTHER: ConflictTypeDef = {
   summary: "GM-defined; pick the skills before disposition.",
 };
 
-export const TB_CONFLICT_TYPES: Readonly<
-  Record<ConflictType, ConflictTypeDef>
-> = {
+export const TB_CONFLICT_TYPES: Readonly<Record<ConflictType, ConflictTypeDef>> = {
   kill: KILL,
   driveOff: DRIVE_OFF,
   capture: CAPTURE,
@@ -286,9 +284,7 @@ export function actionSkillLabel(skills: ReadonlyArray<string>): string {
  */
 export function dispoRollLabel(typeDef: ConflictTypeDef): string | null {
   const skills =
-    typeDef.dispoSkill.kind === "skill"
-      ? [typeDef.dispoSkill.id]
-      : [...typeDef.dispoSkill.ids];
+    typeDef.dispoSkill.kind === "skill" ? [typeDef.dispoSkill.id] : [...typeDef.dispoSkill.ids];
   if (skills.length === 0 || skills.every((s) => s === "")) return null;
   return `Roll ${actionSkillLabel(skills)} and add to ${typeDef.dispoAddTo}`;
 }

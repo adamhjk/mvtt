@@ -39,9 +39,7 @@ const ADVENTURES_BRAND_PREFIX = "@vtt/adventures/brand:";
  *     carries: z.array(ItemRef),
  *   });
  */
-export function wikiLink<K extends string>(
-  kind: K,
-): z.ZodString {
+export function wikiLink<K extends string>(kind: K): z.ZodString {
   const meta = JSON.stringify({ wikiLink: kind });
   return z.string().describe(`${ADVENTURES_BRAND_PREFIX}${meta}`);
 }
@@ -61,9 +59,7 @@ export function dice(): z.ZodString {
  * Returns null for un-branded schemas; otherwise returns the parsed
  * marker object.
  */
-export function readBrand(
-  schema: z.ZodTypeAny,
-): { wikiLink?: string; dice?: boolean } | null {
+export function readBrand(schema: z.ZodTypeAny): { wikiLink?: string; dice?: boolean } | null {
   const desc = schema.description;
   if (typeof desc !== "string") return null;
   if (!desc.startsWith(ADVENTURES_BRAND_PREFIX)) return null;

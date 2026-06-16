@@ -77,9 +77,7 @@ export class RulesSearchIndex {
       // Drop any prior rows for this corpus first — the call site
       // expects insert-or-replace semantics.
       this.db
-        .prepare(
-          `DELETE FROM rules_chunks_fts WHERE worldId = ? AND corpusId = ?`,
-        )
+        .prepare(`DELETE FROM rules_chunks_fts WHERE worldId = ? AND corpusId = ?`)
         .run(args.worldId, args.corpusId);
       const stmt = this.db.prepare(
         `INSERT INTO rules_chunks_fts (
@@ -163,11 +161,7 @@ export class RulesSearchIndex {
    * carrying its `corpusId` so the caller can post-filter on per-corpus
    * visibility and route deep-link clicks back to the right book.
    */
-  queryAll(args: {
-    worldId: WorldId;
-    q: string;
-    limit?: number;
-  }): RulesSearchHit[] {
+  queryAll(args: { worldId: WorldId; q: string; limit?: number }): RulesSearchHit[] {
     const trimmed = args.q.trim();
     if (trimmed.length === 0) return [];
     if (trimmed.length > 256) return [];
@@ -214,17 +208,13 @@ export class RulesSearchIndex {
   /** Drop every row for a corpus (used on RulesCorpusRemoved). */
   removeCorpus(worldId: WorldId, corpusId: EntityId): void {
     this.db
-      .prepare(
-        `DELETE FROM rules_chunks_fts WHERE worldId = ? AND corpusId = ?`,
-      )
+      .prepare(`DELETE FROM rules_chunks_fts WHERE worldId = ? AND corpusId = ?`)
       .run(worldId, corpusId);
   }
 
   /** Drop every row for a world (used when a world is hard-deleted). */
   removeWorld(worldId: WorldId): void {
-    this.db
-      .prepare(`DELETE FROM rules_chunks_fts WHERE worldId = ?`)
-      .run(worldId);
+    this.db.prepare(`DELETE FROM rules_chunks_fts WHERE worldId = ?`).run(worldId);
   }
 
   /**

@@ -29,9 +29,7 @@ import { PersonaNatureCard } from "../cards/PersonaNatureCard.jsx";
  * modifier / invocation / help / persona stack. Modifier card hides the
  * ±Ob quick buttons; OpponentCard provides the unpair affordance.
  */
-export function TbVersusEditor(props: {
-  atelier: AtelierState;
-}): JSX.Element {
+export function TbVersusEditor(props: { atelier: AtelierState }): JSX.Element {
   return (
     <div class="grid gap-3 sm:grid-cols-2" data-testid="atelier-variant-versus">
       <PoolCard atelier={props.atelier} />

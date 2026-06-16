@@ -44,9 +44,7 @@ class MemoryWorldsRepo implements WorldsRepository {
   memberships: MembershipRecord[] = [];
   async migrate(): Promise<void> {}
   async list(opts?: { includeArchived?: boolean }): Promise<WorldRecord[]> {
-    return [...this.worlds.values()].filter(
-      (w) => opts?.includeArchived || w.archivedAt === null,
-    );
+    return [...this.worlds.values()].filter((w) => opts?.includeArchived || w.archivedAt === null);
   }
   async get(id: WorldId): Promise<WorldRecord | null> {
     return this.worlds.get(id) ?? null;
@@ -76,11 +74,7 @@ class MemoryWorldsRepo implements WorldsRepository {
   async hardDelete(id: WorldId): Promise<void> {
     this.worlds.delete(id);
   }
-  async addMembership(input: {
-    worldId: WorldId;
-    userId: string;
-    role: WorldRole;
-  }): Promise<void> {
+  async addMembership(input: { worldId: WorldId; userId: string; role: WorldRole }): Promise<void> {
     this.memberships.push({ ...input, addedAt: Date.now() });
   }
   async removeMembership(): Promise<void> {}
@@ -95,7 +89,17 @@ class MemoryWorldsRepo implements WorldsRepository {
 class MemoryPersistence implements PersistenceAdapter {
   events = new Map<WorldId, EventInstance[]>();
   async migrate(): Promise<void> {}
-  async appendEvents(worldId: WorldId, events: ReadonlyArray<{ payload: unknown; type: string; seq: number; worldId: WorldId; payloadVersion: number; at: number }>): Promise<void> {
+  async appendEvents(
+    worldId: WorldId,
+    events: ReadonlyArray<{
+      payload: unknown;
+      type: string;
+      seq: number;
+      worldId: WorldId;
+      payloadVersion: number;
+      at: number;
+    }>,
+  ): Promise<void> {
     const arr = this.events.get(worldId) ?? [];
     for (const e of events) {
       arr.push({ type: e.type as EventInstance["type"], payload: e.payload });
@@ -363,10 +367,7 @@ describe("WorldsRegistry", () => {
 
     // Replay-honest persistence stub (the test-file MemoryPersistence
     // returns null for snapshots, so cold-boot replay would see nothing).
-    const stored = new Map<
-      WorldId,
-      import("./persistence.js").PersistedSnapshot
-    >();
+    const stored = new Map<WorldId, import("./persistence.js").PersistedSnapshot>();
     const replayPersist: PersistenceAdapter = {
       migrate: async () => {},
       appendEvents: async () => {},

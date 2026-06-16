@@ -81,8 +81,7 @@ function specIsAdvanceable(spec: TbRollSpec): boolean {
   if (spec.dispositionMode) return false;
   if (!spec.sourceId) return false;
   if (spec.kind === "ability") return ADVANCE_ABILITY_IDS.has(spec.sourceId);
-  if (spec.kind === "town-ability")
-    return ADVANCE_TOWN_ABILITY_IDS.has(spec.sourceId);
+  if (spec.kind === "town-ability") return ADVANCE_TOWN_ABILITY_IDS.has(spec.sourceId);
   if (spec.kind === "skill" || spec.kind === "skill-bl") return true;
   return false;
 }
@@ -114,9 +113,17 @@ interface RatedEntryShape {
  */
 function readAdvancementEntry(
   spec: TbRollSpec,
-  abilities: { will: RatedEntryShape; health: RatedEntryShape; nature: RatedEntryShape & { maximum: number; descriptors: string[] } } | undefined,
+  abilities:
+    | {
+        will: RatedEntryShape;
+        health: RatedEntryShape;
+        nature: RatedEntryShape & { maximum: number; descriptors: string[] };
+      }
+    | undefined,
   townAbilities: { resources: RatedEntryShape; circles: RatedEntryShape } | undefined,
-  skills: { entries: Record<string, RatedEntryShape & { taxed: boolean; learningTests: number }> } | undefined,
+  skills:
+    | { entries: Record<string, RatedEntryShape & { taxed: boolean; learningTests: number }> }
+    | undefined,
 ): RatedEntryShape | null {
   if (!spec.sourceId) return null;
   if (spec.kind === "ability") {
@@ -173,27 +180,27 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
   // what the row does for its own verdict display).
   const allRolls = useQuery([Formula, RollResult]);
 
-  const versusVerdict = createMemo<
-    { state: "won" | "lost" | "tied"; margin: number } | null
-  >(() => {
-    const s = spec();
-    if (!s?.versusTestId) return null;
-    let oppTotal: number | null = null;
-    for (const row of allRolls()) {
-      if (row.id === props.rollId) continue;
-      const f = row.values.Formula as { meta?: unknown } | undefined;
-      const parsed = TbRollMetaSchema.safeParse(f?.meta);
-      if (!parsed.success) continue;
-      if (parsed.data.spec.versusTestId !== s.versusTestId) continue;
-      oppTotal = (row.values.RollResult as { total: number }).total;
-      break;
-    }
-    if (oppTotal === null) return null;
-    const myTotal = countSuccesses(dice(), s.successTarget) + s.bonusSuccesses;
-    if (myTotal > oppTotal) return { state: "won", margin: myTotal - oppTotal };
-    if (myTotal < oppTotal) return { state: "lost", margin: oppTotal - myTotal };
-    return { state: "tied", margin: 0 };
-  });
+  const versusVerdict = createMemo<{ state: "won" | "lost" | "tied"; margin: number } | null>(
+    () => {
+      const s = spec();
+      if (!s?.versusTestId) return null;
+      let oppTotal: number | null = null;
+      for (const row of allRolls()) {
+        if (row.id === props.rollId) continue;
+        const f = row.values.Formula as { meta?: unknown } | undefined;
+        const parsed = TbRollMetaSchema.safeParse(f?.meta);
+        if (!parsed.success) continue;
+        if (parsed.data.spec.versusTestId !== s.versusTestId) continue;
+        oppTotal = (row.values.RollResult as { total: number }).total;
+        break;
+      }
+      if (oppTotal === null) return null;
+      const myTotal = countSuccesses(dice(), s.successTarget) + s.bonusSuccesses;
+      if (myTotal > oppTotal) return { state: "won", margin: myTotal - oppTotal };
+      if (myTotal < oppTotal) return { state: "lost", margin: oppTotal - myTotal };
+      return { state: "tied", margin: 0 };
+    },
+  );
 
   const advancementOutcome = createMemo<"pass" | "fail" | null>(() => {
     const s = spec();
@@ -209,9 +216,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
     return sum.passed ? "pass" : "fail";
   });
 
-  const isBeginnersLuck = createMemo<boolean>(
-    () => spec()?.kind === "skill-bl",
-  );
+  const isBeginnersLuck = createMemo<boolean>(() => spec()?.kind === "skill-bl");
 
   /**
    * The rolling character — needed to read the live advancement track
@@ -221,18 +226,15 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
    * disappear.
    */
   const charAbilities = useTrait(
-    (rolledBy()?.speakingAsCharacterId as EntityId | undefined) ??
-      ("" as EntityId),
+    (rolledBy()?.speakingAsCharacterId as EntityId | undefined) ?? ("" as EntityId),
     RawAbilities,
   );
   const charTownAbilities = useTrait(
-    (rolledBy()?.speakingAsCharacterId as EntityId | undefined) ??
-      ("" as EntityId),
+    (rolledBy()?.speakingAsCharacterId as EntityId | undefined) ?? ("" as EntityId),
     TownAbilities,
   );
   const charSkills = useTrait(
-    (rolledBy()?.speakingAsCharacterId as EntityId | undefined) ??
-      ("" as EntityId),
+    (rolledBy()?.speakingAsCharacterId as EntityId | undefined) ?? ("" as EntityId),
     Skills,
   );
 
@@ -245,8 +247,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
    * + verdict for monster rolls.
    */
   const charMonster = useTrait(
-    (rolledBy()?.speakingAsCharacterId as EntityId | undefined) ??
-      ("" as EntityId),
+    (rolledBy()?.speakingAsCharacterId as EntityId | undefined) ?? ("" as EntityId),
     TbMonster,
   );
   const rollerIsMonster = createMemo(() => charMonster() !== undefined);
@@ -269,10 +270,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
       if (!sk || !ab) return false;
       const entry = sk.entries[s.sourceId];
       if (!entry) return false;
-      const learningCap = Math.max(
-        ab.nature.maximum ?? 0,
-        ab.nature.rating ?? 0,
-      );
+      const learningCap = Math.max(ab.nature.maximum ?? 0, ab.nature.rating ?? 0);
       if (learningCap <= 0) return false;
       return entry.learningTests >= learningCap;
     }
@@ -304,12 +302,10 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
     );
   };
 
-  const traitUsage = createMemo<ReturnType<typeof traitUsageFromSpec> | null>(
-    () => {
-      const s = spec();
-      return s ? traitUsageFromSpec(s) : null;
-    },
-  );
+  const traitUsage = createMemo<ReturnType<typeof traitUsageFromSpec> | null>(() => {
+    const s = spec();
+    return s ? traitUsageFromSpec(s) : null;
+  });
 
   const showLogTraitUsage = createMemo<boolean>(() => {
     if (rollerIsMonster()) return false;
@@ -354,10 +350,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
    * sheet only moves when their own player clicks (mirrors the trait /
    * advancement deferred-mutation principle). */
 
-  const synergyLoggedTrait = useTrait(
-    props.rollId,
-    SynergyAdvancementLoggedTrait,
-  );
+  const synergyLoggedTrait = useTrait(props.rollId, SynergyAdvancementLoggedTrait);
   const allCharacters = useQuery([Character, Permissions]);
 
   interface SynergyLogRow {
@@ -382,13 +375,9 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
     for (const helperId of declared) {
       const row = allCharacters().find((r) => r.id === helperId);
       if (!row) continue;
-      const perm = row.values.Permissions as
-        | Parameters<typeof canWrite>[1]
-        | undefined;
+      const perm = row.values.Permissions as Parameters<typeof canWrite>[1] | undefined;
       if (!canWrite(m, perm)) continue;
-      const name =
-        (row.values.Character as { name?: string } | undefined)?.name ??
-        "(helper)";
+      const name = (row.values.Character as { name?: string } | undefined)?.name ?? "(helper)";
       out.push({
         helperCharacterId: helperId as EntityId,
         name,
@@ -402,9 +391,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
   const logSynergy = (helperCharacterId: EntityId): void => {
     client.dispatch(
       LogSynergyAdvancement({
-        rollId: props.rollId as Parameters<
-          typeof LogSynergyAdvancement
-        >[0]["rollId"],
+        rollId: props.rollId as Parameters<typeof LogSynergyAdvancement>[0]["rollId"],
         helperCharacterId,
       }) as CommandInstance,
     );
@@ -441,17 +428,13 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
     return !!m && !!rb && m.userId === rb.userId;
   });
 
-  const spendsArr = createMemo<ReadonlyArray<RollSpendEntry>>(
-    () => spends()?.entries ?? [],
-  );
+  const spendsArr = createMemo<ReadonlyArray<RollSpendEntry>>(() => spends()?.entries ?? []);
 
   const hasSpend = (kind: RollSpendEntry["kind"]): boolean =>
     spendsArr().some((e) => e.kind === kind);
 
   const fateAvail = createMemo<number>(() => rollerPools()?.fate.current ?? 0);
-  const personaAvail = createMemo<number>(
-    () => rollerPools()?.persona.current ?? 0,
-  );
+  const personaAvail = createMemo<number>(() => rollerPools()?.persona.current ?? 0);
 
   /** Are there 6s eligible for Luck (not already rerolled by any spend)? */
   const hasUnrerolledSix = createMemo<boolean>(() => {
@@ -513,9 +496,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
     if (duDieIndex() < 0) return;
     client.dispatch(
       SpendDeeperUnderstanding({
-        rollId: props.rollId as Parameters<
-          typeof SpendDeeperUnderstanding
-        >[0]["rollId"],
+        rollId: props.rollId as Parameters<typeof SpendDeeperUnderstanding>[0]["rollId"],
         wiseIndex: duWiseIndex(),
         dieIndex: duDieIndex(),
       }) as CommandInstance,
@@ -526,9 +507,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
   const spendOC = (): void => {
     client.dispatch(
       SpendOfCourse({
-        rollId: props.rollId as Parameters<
-          typeof SpendOfCourse
-        >[0]["rollId"],
+        rollId: props.rollId as Parameters<typeof SpendOfCourse>[0]["rollId"],
         wiseIndex: ocWiseIndex(),
       }) as CommandInstance,
     );
@@ -557,9 +536,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
           <Show when={showLogAdvancement()}>
             {(_) => {
               const bl = isBeginnersLuck();
-              const outcome = bl
-                ? ("pass" as const)
-                : (advancementOutcome() as "pass" | "fail");
+              const outcome = bl ? ("pass" as const) : (advancementOutcome() as "pass" | "fail");
               return (
                 <button
                   type="button"
@@ -620,10 +597,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
       </Show>
 
       <Show when={showSpends()}>
-        <div
-          class="flex flex-col gap-1.5"
-          data-testid="tb-roll-row-spends"
-        >
+        <div class="flex flex-col gap-1.5" data-testid="tb-roll-row-spends">
           <span class="font-display text-[0.6rem] uppercase tracking-[0.16em] text-fg-subtle">
             Fate / Persona spends
           </span>
@@ -632,9 +606,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
             <button
               type="button"
               class="rounded-(--radius-control) border border-border bg-surface-elevated px-2 py-0.5 text-[0.65rem] text-fg-muted hover:border-accent hover:text-fg transition disabled:opacity-40 disabled:cursor-not-allowed"
-              disabled={
-                fateAvail() < 1 || hasSpend("luck") || !hasUnrerolledSix()
-              }
+              disabled={fateAvail() < 1 || hasSpend("luck") || !hasUnrerolledSix()}
               onClick={spendLuck}
               title={
                 fateAvail() < 1
@@ -658,33 +630,23 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
               >
                 <select
                   value={duWiseIndex()}
-                  onChange={(e) =>
-                    setDuWiseIndex(parseInt(e.currentTarget.value, 10))
-                  }
+                  onChange={(e) => setDuWiseIndex(parseInt(e.currentTarget.value, 10))}
                   class="bg-transparent text-fg outline-none"
                   aria-label="DU wise"
                   data-testid="tb-roll-row-spend-du-wise"
                 >
                   <For each={rollerWises()?.entries ?? []}>
-                    {(w, i) => (
-                      <option value={i()}>
-                        {w.name || `wise ${i() + 1}`}
-                      </option>
-                    )}
+                    {(w, i) => <option value={i()}>{w.name || `wise ${i() + 1}`}</option>}
                   </For>
                 </select>
                 <select
                   value={duDieIndex()}
-                  onChange={(e) =>
-                    setDuDieIndex(parseInt(e.currentTarget.value, 10))
-                  }
+                  onChange={(e) => setDuDieIndex(parseInt(e.currentTarget.value, 10))}
                   class="bg-transparent text-fg outline-none"
                   aria-label="DU die"
                   data-testid="tb-roll-row-spend-du-die"
                 >
-                  <option value={-1}>
-                    pick a fail…
-                  </option>
+                  <option value={-1}>pick a fail…</option>
                   <For each={failsEligible()}>
                     {(idx) => (
                       <option value={idx}>
@@ -696,11 +658,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
                 <button
                   type="button"
                   class="hover:text-fg transition disabled:opacity-40 disabled:cursor-not-allowed"
-                  disabled={
-                    fateAvail() < 1 ||
-                    duDieIndex() < 0 ||
-                    failsEligible().length === 0
-                  }
+                  disabled={fateAvail() < 1 || duDieIndex() < 0 || failsEligible().length === 0}
                   onClick={spendDU}
                   title="Spend 1 fate to reroll one failed die on a wise-related test (DH p.77)"
                   data-testid="tb-roll-row-spend-du"
@@ -718,19 +676,13 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
               >
                 <select
                   value={ocWiseIndex()}
-                  onChange={(e) =>
-                    setOcWiseIndex(parseInt(e.currentTarget.value, 10))
-                  }
+                  onChange={(e) => setOcWiseIndex(parseInt(e.currentTarget.value, 10))}
                   class="bg-transparent text-fg outline-none"
                   aria-label="OC wise"
                   data-testid="tb-roll-row-spend-oc-wise"
                 >
                   <For each={rollerWises()?.entries ?? []}>
-                    {(w, i) => (
-                      <option value={i()}>
-                        {w.name || `wise ${i() + 1}`}
-                      </option>
-                    )}
+                    {(w, i) => <option value={i()}>{w.name || `wise ${i() + 1}`}</option>}
                   </For>
                 </select>
                 <button
@@ -761,10 +713,7 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
           {/* Running ledger of spends. Each entry shows kind, cost, and
               the chat-card delta. */}
           <Show when={spendsArr().length > 0}>
-            <ul
-              class="flex flex-col gap-0.5"
-              data-testid="tb-roll-row-spend-ledger"
-            >
+            <ul class="flex flex-col gap-0.5" data-testid="tb-roll-row-spend-ledger">
               <For each={spendsArr()}>
                 {(e) => (
                   <li class="text-[0.65rem] text-fg-subtle">
@@ -773,14 +722,10 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
                       <span class="text-fg-muted"> · +{e.appendedCount}D</span>
                     </Show>
                     <Show when={e.rerolledIndices.length > 0}>
-                      <span class="text-fg-muted">
-                        {" "}· rerolled {e.rerolledIndices.length}
-                      </span>
+                      <span class="text-fg-muted"> · rerolled {e.rerolledIndices.length}</span>
                     </Show>
                     <Show when={e.newSuccesses > 0}>
-                      <span class="text-fg-muted">
-                        {" "}(+{e.newSuccesses} success)
-                      </span>
+                      <span class="text-fg-muted"> (+{e.newSuccesses} success)</span>
                     </Show>
                   </li>
                 )}
@@ -840,19 +785,17 @@ function TbRollActionsPanel(props: { rollId: EntityId }): JSX.Element {
       <Show when={(synergyLoggedTrait()?.entries.length ?? 0) > 0}>
         <For each={synergyLoggedTrait()?.entries ?? []}>
           {(e) => {
-            const character = allCharacters().find(
-              (r) => r.id === e.helperCharacterId,
-            );
+            const character = allCharacters().find((r) => r.id === e.helperCharacterId);
             const name =
-              (character?.values.Character as { name?: string } | undefined)
-                ?.name ?? e.helperCharacterId;
+              (character?.values.Character as { name?: string } | undefined)?.name ??
+              e.helperCharacterId;
             return (
               <p
                 class="text-[0.65rem] text-fg-subtle text-right"
                 data-testid={`tb-roll-row-synergy-confirmation-${e.helperCharacterId}`}
               >
-                ✓ {name}: {e.outcome === "pass" ? "Pass" : "Fail"} logged for{" "}
-                {e.target.label} (synergy)
+                ✓ {name}: {e.outcome === "pass" ? "Pass" : "Fail"} logged for {e.target.label}{" "}
+                (synergy)
               </p>
             );
           }}
@@ -873,9 +816,7 @@ function spendLabel(e: RollSpendEntry): string {
     case "persona-dice":
       return `+${e.cost}D Persona`;
     case "channel-nature":
-      return e.channelScope === "outside"
-        ? "Channel Nature (outside — taxed)"
-        : "Channel Nature";
+      return e.channelScope === "outside" ? "Channel Nature (outside — taxed)" : "Channel Nature";
     case "synergy":
       return "Synergy (1 fate)";
     default:

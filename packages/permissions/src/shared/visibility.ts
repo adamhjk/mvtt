@@ -60,8 +60,7 @@ export const actors = (userIds: ReadonlyArray<string>): Visibility => ({
  * Convenience: a private event between two specific users. Identical to
  * `actors` but reads as intent at the call site.
  */
-export const whisper = (between: ReadonlyArray<string>): Visibility =>
-  actors(between);
+export const whisper = (between: ReadonlyArray<string>): Visibility => actors(between);
 
 /**
  * The default `Permissions` value for a freshly-created user-owned
@@ -78,9 +77,7 @@ export const whisper = (between: ReadonlyArray<string>): Visibility =>
  * For GM-private entities use `{ read: gmOnly(), write: gmOnly() }`
  * directly; for public/co-edited use `{ read: everyone(), write: everyone() }`.
  */
-export const ownedBy = (
-  userId: string,
-): { read: Visibility; write: Visibility } => ({
+export const ownedBy = (userId: string): { read: Visibility; write: Visibility } => ({
   read: everyone(),
   write: actors([userId]),
 });

@@ -46,9 +46,7 @@ export function slugifyInfo(info: string): string {
   // U+0300..U+036F is the Unicode "Combining Diacritical Marks" block;
   // NFKD decomposition splits e.g. "ö" into "o" + U+0308, which this
   // strips to leave plain "o".
-  const normalized = info
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "");
+  const normalized = info.normalize("NFKD").replace(/[̀-ͯ]/g, "");
   const lowered = normalized.toLowerCase();
   const hyphenated = lowered.replace(/[^a-z0-9]+/g, "-");
   return hyphenated.replace(/^-+|-+$/g, "") || "block";

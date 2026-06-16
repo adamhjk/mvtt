@@ -17,22 +17,14 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  cleanup,
-  render,
-  fireEvent,
-  waitFor,
-  screen,
-} from "@solidjs/testing-library";
+import { cleanup, render, fireEvent, waitFor, screen } from "@solidjs/testing-library";
 import { ClientProvider } from "@vtt/substrate/client";
 import { buildTestClient } from "@vtt/substrate/client-testing";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { Identity, Name, Online } from "@vtt/identity/shared";
-import {
-  ownedBy, Permissions,
-} from "@vtt/permissions/shared";
+import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { type EntityId } from "@vtt/substrate";
 import { notes } from "./manifest.js";
 import {
@@ -141,8 +133,7 @@ describe("PageRail layout", () => {
     const firstPageBtn = screen.getByRole("button", { name: /Aardvark/ });
     // Add button DOM-precedes the first page row.
     expect(
-      addBtn.compareDocumentPosition(firstPageBtn) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      addBtn.compareDocumentPosition(firstPageBtn) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 
@@ -220,9 +211,7 @@ describe("PageRail sort mode", () => {
     });
 
     // Switching to alpha doesn't dispatch a server reorder.
-    expect(
-      h.dispatched.some((c) => c.type === ReorderPages.name),
-    ).toBe(false);
+    expect(h.dispatched.some((c) => c.type === ReorderPages.name)).toBe(false);
   });
 });
 
@@ -236,12 +225,12 @@ describe("PageRail drag reorder", () => {
     mount(h.client, h.setup.noteId);
     const [zebraId, aardvarkId, mongooseId] = h.setup.pageIds;
 
-    const zebraRow = (
-      await screen.findByRole("button", { name: /Zebra/ })
-    ).closest("li") as HTMLLIElement;
-    const mongooseRow = (
-      await screen.findByRole("button", { name: /Mongoose/ })
-    ).closest("li") as HTMLLIElement;
+    const zebraRow = (await screen.findByRole("button", { name: /Zebra/ })).closest(
+      "li",
+    ) as HTMLLIElement;
+    const mongooseRow = (await screen.findByRole("button", { name: /Mongoose/ })).closest(
+      "li",
+    ) as HTMLLIElement;
     expect(zebraRow).toBeTruthy();
     expect(mongooseRow).toBeTruthy();
 
@@ -259,9 +248,7 @@ describe("PageRail drag reorder", () => {
     fireEvent.dragEnd(zebraRow);
 
     await waitFor(() => {
-      const dispatched = h.dispatched.filter(
-        (c) => c.type === ReorderPages.name,
-      );
+      const dispatched = h.dispatched.filter((c) => c.type === ReorderPages.name);
       expect(dispatched).toHaveLength(1);
       expect(dispatched[0]!.payload).toEqual({
         noteId: h.setup.noteId,
@@ -281,12 +268,12 @@ describe("PageRail drag reorder", () => {
     );
     mount(h.client, h.setup.noteId);
 
-    const aardvarkRow = (
-      await screen.findByRole("button", { name: /Aardvark/ })
-    ).closest("li") as HTMLLIElement;
-    const zebraRow = (
-      await screen.findByRole("button", { name: /Zebra/ })
-    ).closest("li") as HTMLLIElement;
+    const aardvarkRow = (await screen.findByRole("button", { name: /Aardvark/ })).closest(
+      "li",
+    ) as HTMLLIElement;
+    const zebraRow = (await screen.findByRole("button", { name: /Zebra/ })).closest(
+      "li",
+    ) as HTMLLIElement;
 
     const dt = {
       effectAllowed: "",
@@ -297,8 +284,6 @@ describe("PageRail drag reorder", () => {
     fireEvent.dragOver(zebraRow, { dataTransfer: dt });
     fireEvent.drop(zebraRow, { dataTransfer: dt });
 
-    expect(
-      h.dispatched.some((c) => c.type === ReorderPages.name),
-    ).toBe(false);
+    expect(h.dispatched.some((c) => c.type === ReorderPages.name)).toBe(false);
   });
 });

@@ -34,9 +34,7 @@ export class InMemoryWorldsRepository implements WorldsRepository {
   async migrate(): Promise<void> {}
 
   async list(opts?: { includeArchived?: boolean }): Promise<WorldRecord[]> {
-    return [...this.worlds.values()].filter(
-      (w) => opts?.includeArchived || w.archivedAt === null,
-    );
+    return [...this.worlds.values()].filter((w) => opts?.includeArchived || w.archivedAt === null);
   }
 
   async get(id: WorldId): Promise<WorldRecord | null> {
@@ -76,11 +74,7 @@ export class InMemoryWorldsRepository implements WorldsRepository {
     this.memberships = this.memberships.filter((m) => m.worldId !== id);
   }
 
-  async addMembership(input: {
-    worldId: WorldId;
-    userId: string;
-    role: WorldRole;
-  }): Promise<void> {
+  async addMembership(input: { worldId: WorldId; userId: string; role: WorldRole }): Promise<void> {
     this.memberships = this.memberships.filter(
       (m) => !(m.worldId === input.worldId && m.userId === input.userId),
     );

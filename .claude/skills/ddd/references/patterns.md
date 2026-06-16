@@ -96,10 +96,7 @@ export class ShoppingCart {
   addProduct(productId: ProductId, quantity: number, price: Money): void {
     const existing = this._items.get(productId);
     if (existing) {
-      this._items.set(
-        productId,
-        existing.withQuantity(existing.quantity + quantity),
-      );
+      this._items.set(productId, existing.withQuantity(existing.quantity + quantity));
     } else {
       this._items.set(productId, CartItem.create(productId, quantity, price));
     }
@@ -110,10 +107,7 @@ export class ShoppingCart {
   }
 
   get total(): Money {
-    return this.items.reduce(
-      (sum, item) => sum.add(item.lineTotal),
-      Money.create(0, "USD"),
-    );
+    return this.items.reduce((sum, item) => sum.add(item.lineTotal), Money.create(0, "USD"));
   }
 }
 
@@ -125,11 +119,7 @@ class CartItem {
     readonly unitPrice: Money,
   ) {}
 
-  static create(
-    productId: ProductId,
-    quantity: number,
-    unitPrice: Money,
-  ): CartItem {
+  static create(productId: ProductId, quantity: number, unitPrice: Money): CartItem {
     return new CartItem(productId, quantity, unitPrice);
   }
 
@@ -138,10 +128,7 @@ class CartItem {
   }
 
   get lineTotal(): Money {
-    return Money.create(
-      this.unitPrice.amount * this.quantity,
-      this.unitPrice.currency,
-    );
+    return Money.create(this.unitPrice.amount * this.quantity, this.unitPrice.currency);
   }
 }
 ```
@@ -230,9 +217,7 @@ export async function* workflowRun(
 
   yield { kind: "started", workflowId: workflow.id };
 
-  for await (
-    const event of deps.executionService.execute(ctx, workflow, input.args)
-  ) {
+  for await (const event of deps.executionService.execute(ctx, workflow, input.args)) {
     yield {
       kind: "stepCompleted",
       stepName: event.stepName,

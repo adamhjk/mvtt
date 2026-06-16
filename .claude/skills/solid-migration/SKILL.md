@@ -10,11 +10,11 @@ This skill is for upgrading existing Solid code, not for new projects. The Solid
 
 Solid's API is unusually stable for a frontend framework. Major changes between minor versions are rare. Recent notable changes:
 
-| Old | New | Since |
-|---|---|---|
-| `className` | `class` | 1.4 |
-| `untrack(() => ...)` returning a promise | unchanged but be careful — async callbacks lose ownership | n/a |
-| `createComputed` use in app code | strongly discouraged in favour of `createMemo`/`createEffect` | n/a |
+| Old                                      | New                                                           | Since |
+| ---------------------------------------- | ------------------------------------------------------------- | ----- |
+| `className`                              | `class`                                                       | 1.4   |
+| `untrack(() => ...)` returning a promise | unchanged but be careful — async callbacks lose ownership     | n/a   |
+| `createComputed` use in app code         | strongly discouraged in favour of `createMemo`/`createEffect` | n/a   |
 
 When in doubt, check `node_modules/solid-js/CHANGELOG.md` or the GitHub releases page.
 
@@ -22,16 +22,16 @@ When in doubt, check `node_modules/solid-js/CHANGELOG.md` or the GitHub releases
 
 The router went through a significant rename pass when actions and queries were introduced. If your code uses any of these, it's old:
 
-| Old | New |
-|---|---|
-| `useRouteData()` | `createAsync(() => query(...))` |
-| `cache(fn, name)` | `query(fn, name)` |
-| `serverAction(fn)` | `action(fn, name)` |
-| `routeData` export from a route | `route.preload` export, plus call queries with `createAsync` |
-| `createRouteData` | `createAsync` |
-| `<Outlet />` | `props.children` (in layout components) |
-| `useIsRouting()` | unchanged |
-| `useNavigate`, `useParams`, `useLocation`, `useSearchParams` | unchanged names |
+| Old                                                          | New                                                          |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `useRouteData()`                                             | `createAsync(() => query(...))`                              |
+| `cache(fn, name)`                                            | `query(fn, name)`                                            |
+| `serverAction(fn)`                                           | `action(fn, name)`                                           |
+| `routeData` export from a route                              | `route.preload` export, plus call queries with `createAsync` |
+| `createRouteData`                                            | `createAsync`                                                |
+| `<Outlet />`                                                 | `props.children` (in layout components)                      |
+| `useIsRouting()`                                             | unchanged                                                    |
+| `useNavigate`, `useParams`, `useLocation`, `useSearchParams` | unchanged names                                              |
 
 ### The data-flow change
 
@@ -66,6 +66,7 @@ export default function User() {
 ```
 
 The mental shift:
+
 - Cache + dedup belongs in `query`, not in the route.
 - Route preload triggers the query (via the cache).
 - Components read with `createAsync` — a thin reactive wrapper over the query result.
@@ -90,15 +91,15 @@ After upgrading, grep for: `useRouteData`, `createRouteData`, `cache(`, `serverA
 
 SolidStart 1.0 was a major rewrite atop Vinxi. The 0.x → 1.x migration involves:
 
-| Old (0.x) | New (1.x) |
-|---|---|
-| `solid-start.config.js` | `app.config.ts` (uses `defineConfig` from `@solidjs/start/config`) |
-| `routeData` named export | `route.preload` export (RouteDefinition shape) |
-| `server$(fn)` | `"use server"` directive (top of file or function) |
-| `createServerData$` / `createServerAction$` | `query` + `createAsync` / `action` (from `@solidjs/router`, with `"use server"` inside) |
-| `<Routes>` | `<FileRoutes>` from `@solidjs/start/router` |
-| `~start/entry-client` etc. import paths | `entry-client.tsx` / `entry-server.tsx` are first-class files in `src/` |
-| Adapter packages (`solid-start-vercel`, etc.) | Vinxi presets via `app.config.ts` (`server: { preset: "vercel" }`) |
+| Old (0.x)                                     | New (1.x)                                                                               |
+| --------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `solid-start.config.js`                       | `app.config.ts` (uses `defineConfig` from `@solidjs/start/config`)                      |
+| `routeData` named export                      | `route.preload` export (RouteDefinition shape)                                          |
+| `server$(fn)`                                 | `"use server"` directive (top of file or function)                                      |
+| `createServerData$` / `createServerAction$`   | `query` + `createAsync` / `action` (from `@solidjs/router`, with `"use server"` inside) |
+| `<Routes>`                                    | `<FileRoutes>` from `@solidjs/start/router`                                             |
+| `~start/entry-client` etc. import paths       | `entry-client.tsx` / `entry-server.tsx` are first-class files in `src/`                 |
+| Adapter packages (`solid-start-vercel`, etc.) | Vinxi presets via `app.config.ts` (`server: { preset: "vercel" }`)                      |
 
 ### File-routing changes
 

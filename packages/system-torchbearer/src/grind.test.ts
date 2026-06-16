@@ -84,12 +84,7 @@ const tbGrindTestPlugin = definePlugin({
     GrindTollRowApplied,
     EntryStateChanged,
   ],
-  commands: [
-    SetGrindTurn,
-    SetGrindExtreme,
-    DismissLightWentOut,
-    MarkGrindToll,
-  ],
+  commands: [SetGrindTurn, SetGrindExtreme, DismissLightWentOut, MarkGrindToll],
   systems: [
     GrindTickSystem,
     GrindExtremeToggleSystem,
@@ -120,10 +115,7 @@ function makeSetup(asGm: boolean): Setup {
   const pipeline = new CommandPipeline(registry, world, bus);
   // Seed: spawn the grind sentinel with turn=0.
   world.spawnAt(GRIND_SENTINEL_ID, [Grind({ turn: 0 })]);
-  const characterId = world.spawn([
-    Character({ name: "Bryn" }),
-    TbCarries({ entries: [] }),
-  ]);
+  const characterId = world.spawn([Character({ name: "Bryn" }), TbCarries({ entries: [] })]);
   return { registry, world, pipeline, characterId, asGm };
 }
 
@@ -369,9 +361,7 @@ describe("@vtt/system-torchbearer Grind", () => {
       expect(nextGrindCondition({})).toBe("hungryThirsty");
       // Each rung up the ladder.
       expect(nextGrindCondition({ hungryThirsty: true })).toBe("exhausted");
-      expect(
-        nextGrindCondition({ hungryThirsty: true, exhausted: true }),
-      ).toBe("angry");
+      expect(nextGrindCondition({ hungryThirsty: true, exhausted: true })).toBe("angry");
       expect(
         nextGrindCondition({
           hungryThirsty: true,
@@ -660,9 +650,7 @@ describe("@vtt/system-torchbearer Grind", () => {
       const after1 = setup.world.get(tollId, [GrindToll]) as {
         GrindToll: { rows: Array<{ applied: boolean }> };
       };
-      const appliedCount1 = after1.GrindToll.rows.filter(
-        (r) => r.applied,
-      ).length;
+      const appliedCount1 = after1.GrindToll.rows.filter((r) => r.applied).length;
       expect(appliedCount1).toBe(1);
       // Apply row 1.
       await dispatchAsRole(setup, {

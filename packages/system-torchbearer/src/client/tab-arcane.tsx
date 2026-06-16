@@ -15,23 +15,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  qualifiedName,
-  type EntityId,
-} from "@vtt/substrate";
+import { qualifiedName, type EntityId } from "@vtt/substrate";
 import { kit } from "@vtt/characters/client";
 import type { CharacterSheetTab } from "@vtt/characters/shared";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
 import { EditItemField, ItemIdentity } from "@vtt/items/shared";
 import { TbContainer } from "../shared/items/index.js";
 import { RuleRef } from "./rule-ref.js";
-import {
-  createMemo,
-  createSignal,
-  For,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
   AddSpellToBook,
   AddSpellToLibrary,
@@ -94,9 +85,7 @@ function openSpellCast(
  * spatial — they're inventory-scoped — so the section list is
  * "anywhere in inventory that isn't on the floor or lost."
  */
-function useLiveCarriedItemIds(
-  characterId: string,
-): () => ReadonlySet<string> {
+function useLiveCarriedItemIds(characterId: string): () => ReadonlySet<string> {
   const client = useClient();
   const allCarries = useQuery([TbCarries]);
   return createMemo<ReadonlySet<string>>(() => {
@@ -118,10 +107,7 @@ function useLiveCarriedItemIds(
       for (const e of got.TbCarries.entries) {
         if (e.state?.dropped || e.state?.lost) continue;
         out.add(e.itemId);
-        if (
-          client.world.get(e.itemId as never, [TbContainer]) &&
-          !visited.has(e.itemId)
-        ) {
+        if (client.world.get(e.itemId as never, [TbContainer]) && !visited.has(e.itemId)) {
           visited.add(e.itemId);
           visit(e.itemId);
         }
@@ -173,10 +159,20 @@ function MemoryPalaceSection(props: { characterId: string }): JSX.Element {
 
   return (
     <div style={{ display: "flex", "flex-direction": "column", gap: "0.6rem" }}>
-      <p style={{ "font-size": "0.85rem", color: "var(--color-fg-muted)", margin: 0, display: "flex", gap: "0.4rem", "align-items": "center", "flex-wrap": "wrap" }}>
+      <p
+        style={{
+          "font-size": "0.85rem",
+          color: "var(--color-fg-muted)",
+          margin: 0,
+          display: "flex",
+          gap: "0.4rem",
+          "align-items": "center",
+          "flex-wrap": "wrap",
+        }}
+      >
         <span>
-          The aetherial matrix in your mind. Memorize spells from your spell
-          books in town or camp; cast them by clicking on a slot.
+          The aetherial matrix in your mind. Memorize spells from your spell books in town or camp;
+          cast them by clicking on a slot.
         </span>
         <RuleRef book="DH" page={89} />
         <RuleRef book="DH" page={90} />
@@ -218,12 +214,7 @@ function MemoryPalaceSection(props: { characterId: string }): JSX.Element {
                       data-testid={`cast-from-palace-${slot.spellId}`}
                       disabled={slot.cast || !canEdit()}
                       onClick={() =>
-                        openSpellCast(
-                          client,
-                          props.characterId,
-                          slot.spellId,
-                          { kind: "palace" },
-                        )
+                        openSpellCast(client, props.characterId, slot.spellId, { kind: "palace" })
                       }
                       style={btnStyle(slot.cast)}
                     >
@@ -251,9 +242,7 @@ function MemoryPalaceSection(props: { characterId: string }): JSX.Element {
           data-testid="discharge-palace"
           disabled={!canEdit() || memorized().length === 0}
           onClick={() =>
-            client.dispatch(
-              ClearMemoryPalace({ characterId: props.characterId as EntityId }),
-            )
+            client.dispatch(ClearMemoryPalace({ characterId: props.characterId as EntityId }))
           }
           style={btnStyle(memorized().length === 0)}
         >
@@ -264,10 +253,7 @@ function MemoryPalaceSection(props: { characterId: string }): JSX.Element {
         </Show>
       </div>
       <Show when={memorizeOpen()}>
-        <MemorizeDialog
-          characterId={props.characterId}
-          onClose={() => setMemorizeOpen(false)}
-        />
+        <MemorizeDialog characterId={props.characterId} onClose={() => setMemorizeOpen(false)} />
       </Show>
     </div>
   );
@@ -327,11 +313,7 @@ function SetCapacityControl(props: { characterId: string }): JSX.Element {
         >
           Save
         </button>
-        <button
-          type="button"
-          onClick={() => setEditing(false)}
-          style={btnStyle(false)}
-        >
+        <button type="button" onClick={() => setEditing(false)} style={btnStyle(false)}>
           Cancel
         </button>
       </span>
@@ -343,10 +325,7 @@ function SetCapacityControl(props: { characterId: string }): JSX.Element {
  * Memorize dialog
  * ----------------------------------------------------------------------- */
 
-function MemorizeDialog(props: {
-  characterId: string;
-  onClose: () => void;
-}): JSX.Element {
+function MemorizeDialog(props: { characterId: string; onClose: () => void }): JSX.Element {
   const client = useClient();
   const palace = useTrait(props.characterId, TbMemoryPalace);
   const liveCarried = useLiveCarriedItemIds(props.characterId);
@@ -362,28 +341,28 @@ function MemorizeDialog(props: {
   // entries gray out — see the notes in the source markup below.)
   const bookContents = useQuery([TbSpellBook]);
   type SpellSource = "book" | "library";
-  const candidatesWithSource = createMemo<
-    ReadonlyArray<{ spellId: string; source: SpellSource }>
-  >(() => {
-    const carriedSet = liveCarried();
-    const seen = new Set<string>();
-    const out: Array<{ spellId: string; source: SpellSource }> = [];
-    for (const row of bookContents()) {
-      if (!carriedSet.has(row.id)) continue;
-      const v = row.values.TbSpellBook as { contents: string[] };
-      for (const sid of v.contents) {
+  const candidatesWithSource = createMemo<ReadonlyArray<{ spellId: string; source: SpellSource }>>(
+    () => {
+      const carriedSet = liveCarried();
+      const seen = new Set<string>();
+      const out: Array<{ spellId: string; source: SpellSource }> = [];
+      for (const row of bookContents()) {
+        if (!carriedSet.has(row.id)) continue;
+        const v = row.values.TbSpellBook as { contents: string[] };
+        for (const sid of v.contents) {
+          if (seen.has(sid)) continue;
+          seen.add(sid);
+          out.push({ spellId: sid, source: "book" });
+        }
+      }
+      for (const sid of lib()?.spellIds ?? []) {
         if (seen.has(sid)) continue;
         seen.add(sid);
-        out.push({ spellId: sid, source: "book" });
+        out.push({ spellId: sid, source: "library" });
       }
-    }
-    for (const sid of lib()?.spellIds ?? []) {
-      if (seen.has(sid)) continue;
-      seen.add(sid);
-      out.push({ spellId: sid, source: "library" });
-    }
-    return out;
-  });
+      return out;
+    },
+  );
   const candidateSpellIds = createMemo<ReadonlyArray<string>>(() =>
     candidatesWithSource().map((c) => c.spellId),
   );
@@ -415,9 +394,7 @@ function MemorizeDialog(props: {
   const loreMasterOb = createMemo(() => slotsUsed() + memorized());
   const palaceFilled = createMemo(() => (palace()?.memorized.length ?? 0) > 0);
   const togglePick = (id: string) => {
-    setPicks((cur) =>
-      cur.includes(id) ? cur.filter((p) => p !== id) : [...cur, id],
-    );
+    setPicks((cur) => (cur.includes(id) ? cur.filter((p) => p !== id) : [...cur, id]));
   };
 
   return (
@@ -445,9 +422,8 @@ function MemorizeDialog(props: {
         }}
       >
         <span>
-          Pick spells from your spell books. Sum of circles ≤ palace
-          capacity ({capacity()}). Lore Master Ob = sum of circles + 1
-          per spell already in palace.
+          Pick spells from your spell books. Sum of circles ≤ palace capacity ({capacity()}). Lore
+          Master Ob = sum of circles + 1 per spell already in palace.
         </span>
         <RuleRef book="DH" page={90} />
       </p>
@@ -540,18 +516,14 @@ function MemorizeDialog(props: {
           color: overCapacity() ? "var(--color-fg-error)" : "var(--color-fg-muted)",
         }}
       >
-        Slots: {slotsUsed()} / {capacity()} {overCapacity() ? "— over capacity" : ""} ·
-        Lore Master Ob: {loreMasterOb()}
+        Slots: {slotsUsed()} / {capacity()} {overCapacity() ? "— over capacity" : ""} · Lore Master
+        Ob: {loreMasterOb()}
       </div>
       <div style={{ display: "flex", gap: "0.4rem" }}>
         <button
           type="button"
           data-testid="memorize-commit"
-          disabled={
-            picks().length === 0 ||
-            overCapacity() ||
-            palaceFilled()
-          }
+          disabled={picks().length === 0 || overCapacity() || palaceFilled()}
           onClick={() => {
             // Direct dispatch: the Arcane tab is a manager, not a
             // rule-enforcer. The Ob calculation is shown to the
@@ -612,12 +584,21 @@ function SpellBooksSection(props: { characterId: string }): JSX.Element {
   });
   return (
     <div style={{ display: "flex", "flex-direction": "column", gap: "0.6rem" }}>
-      <p style={{ "font-size": "0.85rem", color: "var(--color-fg-muted)", margin: 0, display: "flex", gap: "0.4rem", "align-items": "center", "flex-wrap": "wrap" }}>
+      <p
+        style={{
+          "font-size": "0.85rem",
+          color: "var(--color-fg-muted)",
+          margin: 0,
+          display: "flex",
+          gap: "0.4rem",
+          "align-items": "center",
+          "flex-wrap": "wrap",
+        }}
+      >
         <span>
-          Your portable spell collection. Each book has 5 folios; a spell
-          consumes folios equal to its circle. Use a spell book to memorize,
-          or cast directly from one (burns the folio). Scribing from your
-          library uses a Scholar test (the spell's scribe Ob).
+          Your portable spell collection. Each book has 5 folios; a spell consumes folios equal to
+          its circle. Use a spell book to memorize, or cast directly from one (burns the folio).
+          Scribing from your library uses a Scholar test (the spell's scribe Ob).
         </span>
         <RuleRef book="DH" page={92} />
         <RuleRef book="DH" page={93} />
@@ -661,10 +642,7 @@ function SpellBooksSection(props: { characterId: string }): JSX.Element {
   );
 }
 
-function SpellBookCard(props: {
-  characterId: string;
-  bookId: string;
-}): JSX.Element {
+function SpellBookCard(props: { characterId: string; bookId: string }): JSX.Element {
   const client = useClient();
   const ident = useTrait(props.bookId, ItemIdentity);
   const book = useTrait(props.bookId, TbSpellBook);
@@ -787,12 +765,10 @@ function SpellBookCard(props: {
                         data-testid={`cast-from-book-${props.bookId}-${sid}`}
                         disabled={!canEdit()}
                         onClick={() =>
-                          openSpellCast(
-                            client,
-                            props.characterId,
-                            sid,
-                            { kind: "spellbook", bookId: props.bookId },
-                          )
+                          openSpellCast(client, props.characterId, sid, {
+                            kind: "spellbook",
+                            bookId: props.bookId,
+                          })
                         }
                         style={btnStyle(false)}
                       >
@@ -897,9 +873,7 @@ function SpellBookCard(props: {
               candidates={activeCandidates}
               excludeIds={excludeIds}
               placeholder={
-                pickerScope() === "library"
-                  ? "Search your library…"
-                  : "Search all spells…"
+                pickerScope() === "library" ? "Search your library…" : "Search all spells…"
               }
               testid={`book-add-picker-${props.bookId}`}
               onRowAdd={(sid) =>
@@ -911,11 +885,7 @@ function SpellBookCard(props: {
                 )
               }
             />
-            <Show
-              when={
-                pickerScope() === "library" && libraryCandidates().length === 0
-              }
-            >
+            <Show when={pickerScope() === "library" && libraryCandidates().length === 0}>
               <p
                 style={{
                   "font-size": "0.7rem",
@@ -924,8 +894,8 @@ function SpellBookCard(props: {
                   margin: 0,
                 }}
               >
-                Your library is empty — switch to “All spells” above, or add
-                spells to your library first.
+                Your library is empty — switch to “All spells” above, or add spells to your library
+                first.
               </p>
             </Show>
             <button
@@ -972,9 +942,7 @@ function SpellBookNameField(props: {
           }}
           style={{
             cursor: props.canEdit ? "text" : "default",
-            "border-bottom": props.canEdit
-              ? "1px dashed var(--color-border-muted)"
-              : "none",
+            "border-bottom": props.canEdit ? "1px dashed var(--color-border-muted)" : "none",
             padding: "0 0.1rem",
           }}
           title={props.canEdit ? "Click to rename" : undefined}
@@ -1059,12 +1027,21 @@ function ScrollsSection(props: { characterId: string }): JSX.Element {
   });
   return (
     <div style={{ display: "flex", "flex-direction": "column", gap: "0.5rem" }}>
-      <p style={{ "font-size": "0.85rem", color: "var(--color-fg-muted)", margin: 0, display: "flex", gap: "0.4rem", "align-items": "center", "flex-wrap": "wrap" }}>
+      <p
+        style={{
+          "font-size": "0.85rem",
+          color: "var(--color-fg-muted)",
+          margin: 0,
+          display: "flex",
+          gap: "0.4rem",
+          "align-items": "center",
+          "flex-wrap": "wrap",
+        }}
+      >
         <span>
-          Single-use spells. Casting from a scroll uses the same Arcanist
-          roll as casting from memory; the scroll burns on success. Scribing
-          a scroll uses a Scholar test against the spell's scribe Ob and
-          requires the spell memorized.
+          Single-use spells. Casting from a scroll uses the same Arcanist roll as casting from
+          memory; the scroll burns on success. Scribing a scroll uses a Scholar test against the
+          spell's scribe Ob and requires the spell memorized.
         </span>
         <RuleRef book="DH" page={95} />
       </p>
@@ -1097,10 +1074,7 @@ function ScrollsSection(props: { characterId: string }): JSX.Element {
           <For each={scrollsHeld()}>
             {(scrollId) => (
               <li>
-                <ScrollCard
-                  characterId={props.characterId}
-                  scrollId={scrollId}
-                />
+                <ScrollCard characterId={props.characterId} scrollId={scrollId} />
               </li>
             )}
           </For>
@@ -1110,10 +1084,7 @@ function ScrollsSection(props: { characterId: string }): JSX.Element {
   );
 }
 
-function ScrollCard(props: {
-  characterId: string;
-  scrollId: string;
-}): JSX.Element {
+function ScrollCard(props: { characterId: string; scrollId: string }): JSX.Element {
   const client = useClient();
   const scroll = useTrait(props.scrollId, TbScroll);
   const canEdit = kit.useCanEdit(props.characterId);
@@ -1150,12 +1121,10 @@ function ScrollCard(props: {
                 data-testid={`cast-from-scroll-${props.scrollId}`}
                 disabled={!canEdit()}
                 onClick={() =>
-                  openSpellCast(
-                    client,
-                    props.characterId,
-                    sid(),
-                    { kind: "scroll", scrollId: props.scrollId },
-                  )
+                  openSpellCast(client, props.characterId, sid(), {
+                    kind: "scroll",
+                    scrollId: props.scrollId,
+                  })
                 }
                 style={btnStyle(false)}
               >
@@ -1285,8 +1254,7 @@ function BlankScrollCard(props: {
             color: "var(--color-fg-muted)",
           }}
         >
-          No spells available — memorize from a spell book or add one to your
-          library first.
+          No spells available — memorize from a spell book or add one to your library first.
         </span>
       </Show>
       <Show when={adding() && props.canEdit}>
@@ -1360,20 +1328,27 @@ function LibrarySection(props: { characterId: string }): JSX.Element {
   const client = useClient();
   const lib = useTrait(props.characterId, TbLibrary);
   const canEdit = kit.useCanEdit(props.characterId);
-  const spellIds = createMemo<ReadonlyArray<string>>(() =>
-    lib()?.spellIds ?? [],
-  );
+  const spellIds = createMemo<ReadonlyArray<string>>(() => lib()?.spellIds ?? []);
   const [adding, setAdding] = createSignal(false);
   const excludeIds = createMemo(() => new Set(spellIds()));
   const catalog = useSpellCatalog();
   return (
     <div style={{ display: "flex", "flex-direction": "column", gap: "0.5rem" }}>
-      <p style={{ "font-size": "0.85rem", color: "var(--color-fg-muted)", margin: 0, display: "flex", gap: "0.4rem", "align-items": "center", "flex-wrap": "wrap" }}>
+      <p
+        style={{
+          "font-size": "0.85rem",
+          color: "var(--color-fg-muted)",
+          margin: 0,
+          display: "flex",
+          gap: "0.4rem",
+          "align-items": "center",
+          "flex-wrap": "wrap",
+        }}
+      >
         <span>
-          Your at-home collection of spells. The library doesn't travel with
-          you — copy spells into spell books to take them adventuring.
-          Spells from your own books or scrolls can be added freely; learning
-          from another arcanist's source uses a Lore Master test.
+          Your at-home collection of spells. The library doesn't travel with you — copy spells into
+          spell books to take them adventuring. Spells from your own books or scrolls can be added
+          freely; learning from another arcanist's source uses a Lore Master test.
         </span>
         <RuleRef book="DH" page={92} />
         <RuleRef book="DH" page={96} />
@@ -1513,12 +1488,8 @@ function scopeBtnStyle(active: boolean): JSX.CSSProperties {
   return {
     padding: "0.15rem 0.5rem",
     "border-radius": "var(--radius-control)",
-    border: active
-      ? "1px solid var(--color-accent)"
-      : "1px solid var(--color-border-muted)",
-    background: active
-      ? "var(--color-accent-soft)"
-      : "var(--color-surface)",
+    border: active ? "1px solid var(--color-accent)" : "1px solid var(--color-border-muted)",
+    background: active ? "var(--color-accent-soft)" : "var(--color-surface)",
     color: active ? "var(--color-accent)" : "var(--color-fg-muted)",
     cursor: "pointer",
     "font-size": "0.7rem",

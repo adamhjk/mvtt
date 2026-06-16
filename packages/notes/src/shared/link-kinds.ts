@@ -115,11 +115,7 @@ export interface LinkKindDef<Ref = unknown> {
    * is provided so kinds can consult slot fills (e.g. exclusion
    * markers); same optionality contract as `parse`.
    */
-  readonly autocomplete: (
-    query: string,
-    world: World,
-    registry?: Registry,
-  ) => LinkSuggestion[];
+  readonly autocomplete: (query: string, world: World, registry?: Registry) => LinkSuggestion[];
   /**
    * Substrate event names this kind cares about for the
    * `LinkTargets` index. e.g. `["@vtt/notes/NoteCreated", "@vtt/notes/NoteRenamed"]`.
@@ -135,9 +131,7 @@ export type AnyLinkKindDef = LinkKindDef<unknown>;
  * Plugin-side helper: just an identity function with type inference.
  * Mirrors `defineCommand` / `defineEvent` style.
  */
-export function defineLinkKind<Ref>(
-  def: LinkKindDef<Ref>,
-): LinkKindDef<Ref> {
+export function defineLinkKind<Ref>(def: LinkKindDef<Ref>): LinkKindDef<Ref> {
   return def;
 }
 

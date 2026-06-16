@@ -102,7 +102,6 @@ const panel = new NineSliceSprite({ texture, width: 400, height: 200 });
 
 `defaultBorders` is a readonly Texture property. Pass it in the constructor options (or set it on the spritesheet data so `Assets.load` bakes it into the loaded texture). If the texture has borders set, the sprite picks them up automatically when no explicit border values are passed to the `NineSliceSprite` constructor. Define them once per texture and reuse across multiple panels.
 
-
 ### Border updates
 
 ```ts
@@ -172,7 +171,6 @@ const panel = new NineSliceSprite({
 
 `NineSlicePlane` was renamed in v8 and switched to an options-object constructor. The old `NineSlicePlane` name is deprecated — use `NineSliceSprite` instead.
 
-
 ### [HIGH] Setting `texture.scale` to resize the panel
 
 Wrong:
@@ -190,11 +188,9 @@ panel.height = 200;
 
 `scale` stretches the entire geometry including corners, defeating the purpose of 9-slice. Always use `width` / `height` to resize a `NineSliceSprite`; this preserves corner art.
 
-
 ### [MEDIUM] Borders larger than half the texture
 
 If `leftWidth + rightWidth > texture.width`, the corners overlap and the center strip disappears. Keep the sum of opposing borders less than the corresponding texture dimension.
-
 
 ## API Reference
 

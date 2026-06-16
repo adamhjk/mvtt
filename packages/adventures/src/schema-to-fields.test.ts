@@ -151,8 +151,6 @@ describe("schemaToFields", () => {
     // Variant 2: object form — summary + recursed fields.
     expect(paths.some((p) => p.includes("(object form)"))).toBe(true);
     expect(rows.find((r) => r.path === "carries.[].(object form).item")).toBeDefined();
-    expect(
-      rows.find((r) => r.path === "carries.[].(object form).quantity"),
-    ).toBeDefined();
+    expect(rows.find((r) => r.path === "carries.[].(object form).quantity")).toBeDefined();
   });
 });

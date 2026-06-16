@@ -92,9 +92,7 @@ export const DeclareAttack = defineCommand({
     return ok();
   },
 
-  apply: ({ cmd }) => [
-    AttackDeclared({ attackerId: cmd.attackerId, targetId: cmd.targetId }),
-  ],
+  apply: ({ cmd }) => [AttackDeclared({ attackerId: cmd.attackerId, targetId: cmd.targetId })],
 });
 ```
 
@@ -131,7 +129,14 @@ Systems never call other systems directly. Coordination happens by emitting even
 A Solid component bound to a surface and a trait query. Read-only: subscribes to signals and dispatches commands.
 
 ```tsx
-import { defineView, useTrait, useDispatch, useSelectedTarget, useIsMyTurn, clientOnly } from "@vtt/substrate";
+import {
+  defineView,
+  useTrait,
+  useDispatch,
+  useSelectedTarget,
+  useIsMyTurn,
+  clientOnly,
+} from "@vtt/substrate";
 import { Health } from "../traits/Health";
 import { Combatant } from "../traits/Combatant";
 import { DeclareAttack } from "../commands/DeclareAttack";
@@ -144,7 +149,9 @@ export const HealthBarView = defineView({
     return (
       <div class="health-bar">
         <div class="fill" style={{ width: `${(health().current / health().max) * 100}%` }} />
-        <span>{health().current} / {health().max}</span>
+        <span>
+          {health().current} / {health().max}
+        </span>
       </div>
     );
   }),
@@ -160,10 +167,14 @@ export const AttackButtonView = defineView({
     return (
       <button
         disabled={!target() || !myTurn()}
-        onClick={() => dispatch(DeclareAttack({
-          attackerId: entityId,
-          targetId: target()!.id,
-        }))}
+        onClick={() =>
+          dispatch(
+            DeclareAttack({
+              attackerId: entityId,
+              targetId: target()!.id,
+            }),
+          )
+        }
       >
         Attack
       </button>
@@ -181,7 +192,15 @@ When state has to coordinate across multiple ticks or entities — pending rolls
 **Entity ids are server-allocated.** The command's `apply` calls `world.allocateId()` for each entity it will create, embeds the ids in the emitted event, and the spawning system on every side calls `world.spawnAt(event.<id>, traits)`. Never have a system call `world.spawn(...)` to allocate an id — the per-side counters drift and clients end up referencing entities the server never allocated.
 
 ```typescript
-import { defineCommand, defineTrait, defineEvent, defineSystem, EntityId, fail, ok } from "@vtt/substrate";
+import {
+  defineCommand,
+  defineTrait,
+  defineEvent,
+  defineSystem,
+  EntityId,
+  fail,
+  ok,
+} from "@vtt/substrate";
 import { z } from "zod";
 import { Formula, RollContext, Visibility, RollResult } from "@vtt/resolution";
 import { Strength } from "../traits/Strength";
@@ -260,28 +279,35 @@ export const AttackCompletionSystem = defineSystem({
   name: "AttackCompletion",
   on: RollResolved,
   run: ({ event, world }) => {
-    const pending = world.query([PendingAttack])
-      .find(p => p.PendingAttack.attackerRollId === event.rollId
-              || p.PendingAttack.defenderRollId === event.rollId);
+    const pending = world
+      .query([PendingAttack])
+      .find(
+        (p) =>
+          p.PendingAttack.attackerRollId === event.rollId ||
+          p.PendingAttack.defenderRollId === event.rollId,
+      );
     if (!pending) return [];
 
     const aResult = world.get(pending.PendingAttack.attackerRollId, [RollResult]);
     const dResult = world.get(pending.PendingAttack.defenderRollId, [RollResult]);
-    if (!aResult || !dResult) return [];   // other roll still pending
+    if (!aResult || !dResult) return []; // other roll still pending
 
     const attacker = world.get(pending.PendingAttack.attackerId, [Strength])!;
     const target = world.get(pending.PendingAttack.targetId, [Strength])!;
-    const hit = aResult.RollResult.total < attacker.Strength.value
-              && !(dResult.RollResult.total < target.Strength.value);
+    const hit =
+      aResult.RollResult.total < attacker.Strength.value &&
+      !(dResult.RollResult.total < target.Strength.value);
 
     world.despawn(pending.id);
-    const out = [AttackResolved({
-      attackerId: pending.PendingAttack.attackerId,
-      targetId: pending.PendingAttack.targetId,
-      attackerRoll: aResult.RollResult.total,
-      defenderRoll: dResult.RollResult.total,
-      hit,
-    })];
+    const out = [
+      AttackResolved({
+        attackerId: pending.PendingAttack.attackerId,
+        targetId: pending.PendingAttack.targetId,
+        attackerRoll: aResult.RollResult.total,
+        defenderRoll: dResult.RollResult.total,
+        hit,
+      }),
+    ];
     if (hit) out.push(DamageDealt({ targetId: pending.PendingAttack.targetId, amount: 1 }));
     return out;
   },
@@ -295,7 +321,16 @@ The `PendingAttack` sentinel + its two roll entities + the systems above form on
 Reusable producers of template value objects. Used heavily in content plugins to avoid per-thing boilerplate.
 
 ```typescript
-import { defineSpellTemplate, SpellTemplate, SpellSchool, SpellComponents, SpellTargeting, SpellScaling, Ability, DamageType } from "@vtt/dnd5e";
+import {
+  defineSpellTemplate,
+  SpellTemplate,
+  SpellSchool,
+  SpellComponents,
+  SpellTargeting,
+  SpellScaling,
+  Ability,
+  DamageType,
+} from "@vtt/dnd5e";
 import { serverOnly } from "@vtt/substrate";
 import { DealDamage } from "../commands/DealDamage";
 
@@ -325,11 +360,13 @@ export function defineDamageSpell(def: {
       for (const t of targets) {
         if (def.save) {
           const saved = await ctx.requestSave(t, def.save);
-          ctx.dispatch(DealDamage({
-            targetId: t,
-            amount: saved && def.save.halfOnSave ? Math.floor(roll.total / 2) : roll.total,
-            type: def.damage.type,
-          }));
+          ctx.dispatch(
+            DealDamage({
+              targetId: t,
+              amount: saved && def.save.halfOnSave ? Math.floor(roll.total / 2) : roll.total,
+              type: def.damage.type,
+            }),
+          );
         } else {
           ctx.dispatch(DealDamage({ targetId: t, amount: roll.total, type: def.damage.type }));
         }
@@ -366,19 +403,18 @@ import { definePlugin, defineSlot } from "@vtt/substrate";
 import { Strength, Health, Combatant, PendingAttack } from "./shared/traits";
 import { AttackDeclared, AttackResolved, DamageDealt, CombatantDefeated } from "./shared/events";
 import { DeclareAttack } from "./shared/commands/DeclareAttack";
-import { AttackInitiationSystem, AttackCompletionSystem, DamageApplicationSystem } from "./server/systems";
+import {
+  AttackInitiationSystem,
+  AttackCompletionSystem,
+  DamageApplicationSystem,
+} from "./server/systems";
 import { HealthBarView, CombatLogView, AttackButtonView } from "./client/views";
 import type { StatusEffectDef } from "./shared/types";
 
 export default definePlugin({
   name: "@vtt/simple-d100",
   version: "0.1.0",
-  dependsOn: [
-    "@vtt/substrate@^1",
-    "@vtt/scene@^1",
-    "@vtt/identity@^1",
-    "@vtt/resolution@^1",
-  ],
+  dependsOn: ["@vtt/substrate@^1", "@vtt/scene@^1", "@vtt/identity@^1", "@vtt/resolution@^1"],
 
   traits: [Strength, Health, Combatant, PendingAttack],
   events: [AttackDeclared, AttackResolved, DamageDealt, CombatantDefeated],
@@ -411,7 +447,7 @@ import { DamageDealt } from "../events/DamageDealt";
 import { CombatantDefeated } from "../events/CombatantDefeated";
 
 test("attack hits when attacker rolls under and defender does not", () => {
-  given(world =>
+  given((world) =>
     world
       .entity("hero", [
         Identity({ name: "Hero" }),
@@ -425,7 +461,8 @@ test("attack hits when attacker rolls under and defender does not", () => {
         Health({ current: 10, max: 10 }),
         Combatant({ side: "enemy" }),
       ])
-      .turn("hero"))
+      .turn("hero"),
+  )
     .withDice([42, 90])
     .when(DeclareAttack({ attackerId: "hero", targetId: "goblin" }))
     .expectEvents([
@@ -433,15 +470,24 @@ test("attack hits when attacker rolls under and defender does not", () => {
       AttackResolved.where({ hit: true }),
       DamageDealt.where({ amount: 1 }),
     ])
-    .expectState(w => expect(w.get("goblin", Health)!.current).toBe(9));
+    .expectState((w) => expect(w.get("goblin", Health)!.current).toBe(9));
 });
 
 test("a goblin reduced to 0 HP is defeated", () => {
-  given(world =>
+  given((world) =>
     world
-      .entity("hero", [Strength({ value: 99 }), Health({ current: 10, max: 10 }), Combatant({ side: "party" })])
-      .entity("goblin", [Strength({ value: 10 }), Health({ current: 1, max: 10 }), Combatant({ side: "enemy" })])
-      .turn("hero"))
+      .entity("hero", [
+        Strength({ value: 99 }),
+        Health({ current: 10, max: 10 }),
+        Combatant({ side: "party" }),
+      ])
+      .entity("goblin", [
+        Strength({ value: 10 }),
+        Health({ current: 1, max: 10 }),
+        Combatant({ side: "enemy" }),
+      ])
+      .turn("hero"),
+  )
     .withDice([5, 99])
     .when(DeclareAttack({ attackerId: "hero", targetId: "goblin" }))
     .expectEvents.toContain(CombatantDefeated.where({ id: "goblin" }));

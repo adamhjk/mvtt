@@ -117,11 +117,7 @@ export class WorldsService {
     }
   }
 
-  addMember(input: {
-    worldId: WorldId;
-    userId: string;
-    role: WorldRole;
-  }): Promise<void> {
+  addMember(input: { worldId: WorldId; userId: string; role: WorldRole }): Promise<void> {
     return this.opts.worldsRepo.addMembership(input);
   }
 
@@ -151,10 +147,7 @@ export class WorldsService {
    * rows return their stored role; everyone else gets null. Plugins
    * read this via the per-world session synthesized at WS upgrade.
    */
-  async roleFor(
-    worldId: WorldId,
-    userId: string,
-  ): Promise<WorldRole | null> {
+  async roleFor(worldId: WorldId, userId: string): Promise<WorldRole | null> {
     const world = await this.opts.worldsRepo.get(worldId);
     if (!world || world.archivedAt !== null) return null;
     if (world.ownerUserId === userId) return "gm";

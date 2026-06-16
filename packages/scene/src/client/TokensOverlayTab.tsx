@@ -17,20 +17,10 @@
 
 import { qualifiedName, type CommandInstance } from "@vtt/substrate";
 import { useClient, useQuery } from "@vtt/substrate/client";
-import {
-  createMemo,
-  createResource,
-  createSignal,
-  For,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js";
 import { Position, Scene } from "../shared/traits.js";
 import { CreateToken } from "../shared/commands.js";
-import {
-  type SceneOverlayTab,
-  type SceneOverlayTabRenderArgs,
-} from "../shared/slot.js";
+import { type SceneOverlayTab, type SceneOverlayTabRenderArgs } from "../shared/slot.js";
 import { TOKEN_DND_MIME, encodeTokenDnd } from "./dnd.js";
 import { useMe } from "./use-me.js";
 
@@ -77,9 +67,7 @@ function TokensTabBody(props: { sceneId: string }): JSX.Element {
 
   const scenes = useQuery([Scene]);
   const positions = useQuery([Position]);
-  const sceneRow = createMemo(() =>
-    scenes().find((row) => row.id === props.sceneId),
-  );
+  const sceneRow = createMemo(() => scenes().find((row) => row.id === props.sceneId));
 
   const [manifest] = createResource(async () => {
     const res = await fetch("/api/icons/manifest");
@@ -95,11 +83,7 @@ function TokensTabBody(props: { sceneId: string }): JSX.Element {
     const out =
       q.length === 0
         ? all
-        : all.filter(
-            (i) =>
-              i.slug.toLowerCase().includes(q) ||
-              i.name.toLowerCase().includes(q),
-          );
+        : all.filter((i) => i.slug.toLowerCase().includes(q) || i.name.toLowerCase().includes(q));
     // Cap render: 4k SVGs in the DOM kills paint. The picker is for
     // browse-and-search, not exhaustive scroll.
     return out.slice(0, 200);
@@ -193,8 +177,7 @@ function TokensTabBody(props: { sceneId: string }): JSX.Element {
         <div
           class="grid min-h-0 flex-1 gap-1 overflow-y-auto pr-1"
           style={{
-            "grid-template-columns":
-              "repeat(auto-fill, minmax(3rem, 1fr))",
+            "grid-template-columns": "repeat(auto-fill, minmax(3rem, 1fr))",
           }}
         >
           <For each={filtered()}>

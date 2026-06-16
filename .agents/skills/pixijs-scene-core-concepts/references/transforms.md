@@ -164,7 +164,6 @@ container.visible = false;
 
 Scale of exactly 0 collapses the transform matrix to zero, and any subsequent `toLocal` / `toGlobal` / inverse calculations divide by zero. Use `visible = false` to hide, or scale to a tiny non-zero value if you need an animation.
 
-
 ### [MEDIUM] Reading world transform before first render
 
 Wrong:
@@ -184,11 +183,9 @@ const pos = container.getGlobalPosition();
 
 `worldTransform` is computed during render. Before the first render, it's identity. If you need a live position before rendering, use `container.toGlobal({x:0, y:0})` which walks the transforms explicitly.
 
-
 ### [MEDIUM] Confusing anchor and pivot
 
 On `Sprite`, `anchor` is normalized (0–1) and shifts only the draw origin. `pivot` is in pixel space and shifts both the transform origin AND the visual position. For centering a sprite, use `anchor`. For off-center rotation of a Container (which has no `anchor`), use `pivot`.
-
 
 ## API Reference
 

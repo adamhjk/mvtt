@@ -15,23 +15,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  createMemo,
-  createSignal,
-  For,
-  onCleanup,
-  onMount,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, createSignal, For, onCleanup, onMount, Show, type JSX } from "solid-js";
 import Fuse from "fuse.js";
 import type { CommandInstance } from "@vtt/substrate";
 import { useClient } from "@vtt/substrate/client";
-import {
-  OpenPage,
-  OpenPageInNewTab,
-  OpenPageAsSplit,
-} from "../shared/commands.js";
+import { OpenPage, OpenPageInNewTab, OpenPageAsSplit } from "../shared/commands.js";
 import { useProviderContext } from "./provider-context.js";
 import {
   usePageProviders,
@@ -201,11 +189,7 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
     const prefix = m[1]!.toLowerCase();
     const rest = m[2] ?? "";
     for (const p of providers().values()) {
-      if (
-        p.palettePrefix &&
-        p.palettePrefix.toLowerCase() === prefix &&
-        p.publishPaletteQuery
-      ) {
+      if (p.palettePrefix && p.palettePrefix.toLowerCase() === prefix && p.publishPaletteQuery) {
         const trimmed = rest.trim();
         return {
           kind: "prefixSearch",
@@ -213,10 +197,7 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
           providerLabel: p.label,
           providerIcon: p.icon,
           query: trimmed,
-          label:
-            trimmed.length > 0
-              ? `Search ${p.label} for “${trimmed}”`
-              : `Open ${p.label}`,
+          label: trimmed.length > 0 ? `Search ${p.label} for “${trimmed}”` : `Open ${p.label}`,
           hint: trimmed.length > 0 ? "↩ search" : "↩ open",
           publish: p.publishPaletteQuery,
         };
@@ -384,10 +365,7 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
         >
           <header class="border-b border-border-muted px-5 py-4">
             <div class="flex items-baseline gap-3">
-              <span
-                aria-hidden
-                class="font-mono text-base text-fg-subtle select-none"
-              >
+              <span aria-hidden class="font-mono text-base text-fg-subtle select-none">
                 ›
               </span>
               <input
@@ -413,11 +391,7 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
           <div class="max-h-[50vh] overflow-y-auto py-1">
             <Show
               when={results().length > 0}
-              fallback={
-                <div class="px-5 py-8 text-center text-xs text-fg-subtle">
-                  no matches
-                </div>
-              }
+              fallback={<div class="px-5 py-8 text-center text-xs text-fg-subtle">no matches</div>}
             >
               <ul role="listbox">
                 <For each={results()}>
@@ -445,15 +419,14 @@ export function Palette(props: { open: boolean; onClose: () => void }): JSX.Elem
                           class="font-display text-[0.65rem] uppercase tracking-[0.16em] min-w-[5.5rem]"
                           classList={{
                             "text-fg-muted": hit.kind === "page",
-                            "text-accent":
-                              hit.kind === "prefixSearch" || hit.kind === "action",
+                            "text-accent": hit.kind === "prefixSearch" || hit.kind === "action",
                             "text-warning": hit.kind === "command",
                           }}
                         >
                           {hit.kind === "page" || hit.kind === "prefixSearch"
                             ? hit.providerLabel
                             : hit.kind === "action"
-                              ? hit.tag ?? "action"
+                              ? (hit.tag ?? "action")
                               : "command"}
                         </span>
                         <span class="flex-1 truncate text-sm text-fg">{hit.label}</span>

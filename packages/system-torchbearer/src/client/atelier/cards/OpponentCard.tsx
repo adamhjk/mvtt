@@ -18,11 +18,7 @@
 import { createMemo, For, Show, type JSX } from "solid-js";
 import { previewRollable, type EntityId } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
-import {
-  Character,
-  PendingRoll,
-  type Contribution,
-} from "@vtt/characters/shared";
+import { Character, PendingRoll, type Contribution } from "@vtt/characters/shared";
 import { Formula, RolledBy, RollResult } from "@vtt/resolution/shared";
 import { TbRollMetaSchema } from "../../../shared/index.js";
 import type { AtelierState } from "../use-atelier.js";
@@ -51,11 +47,7 @@ export function OpponentCard(props: { atelier: AtelierState }): JSX.Element {
   const pairable = createMemo(() =>
     props.atelier
       .versusCandidates()
-      .filter(
-        (c) =>
-          c.versusId === null ||
-          c.versusId === props.atelier.activeVersusId(),
-      ),
+      .filter((c) => c.versusId === null || c.versusId === props.atelier.activeVersusId()),
   );
   // Reactive query — the partner mirror must update live as the peer
   // roll's contributions land/change (a bare client.world.query inside
@@ -85,11 +77,7 @@ export function OpponentCard(props: { atelier: AtelierState }): JSX.Element {
         return undefined;
       })();
       const active =
-        peerVersus !== undefined
-          ? peerVersus
-          : typeof optsVersus === "string"
-            ? optsVersus
-            : null;
+        peerVersus !== undefined ? peerVersus : typeof optsVersus === "string" ? optsVersus : null;
       if (active !== id) continue;
       return { rowId: row.id, value: v };
     }
@@ -186,8 +174,7 @@ export function OpponentCard(props: { atelier: AtelierState }): JSX.Element {
                 when={pairable().length > 0}
                 fallback={
                   <span class="text-[0.7rem] text-fg-subtle italic">
-                    no other open rolls to oppose — start the opponent's
-                    roll first
+                    no other open rolls to oppose — start the opponent's roll first
                   </span>
                 }
               >
@@ -196,9 +183,7 @@ export function OpponentCard(props: { atelier: AtelierState }): JSX.Element {
                   <For each={pairable()}>
                     {(c) => (
                       <li class="flex items-center justify-between gap-2 text-[0.7rem]">
-                        <span class="truncate text-fg-muted">
-                          {c.characterName}
-                        </span>
+                        <span class="truncate text-fg-muted">{c.characterName}</span>
                         <button
                           type="button"
                           onClick={() => props.atelier.togglePairWith(c)}
@@ -215,13 +200,8 @@ export function OpponentCard(props: { atelier: AtelierState }): JSX.Element {
             }
           >
             {(cp) => (
-              <div
-                class="flex flex-col gap-0.5"
-                data-testid="atelier-opponent-committed"
-              >
-                <span class="font-display text-base text-fg">
-                  vs {cp.name}
-                </span>
+              <div class="flex flex-col gap-0.5" data-testid="atelier-opponent-committed">
+                <span class="font-display text-base text-fg">vs {cp.name}</span>
                 <span class="font-mono text-[0.7rem] text-fg-subtle">
                   tested {cp.source} — rolled, waiting on you
                 </span>
@@ -231,15 +211,9 @@ export function OpponentCard(props: { atelier: AtelierState }): JSX.Element {
         }
       >
         {(p) => (
-          <div
-            class="flex flex-col gap-0.5"
-            data-testid="atelier-opponent-partner"
-          >
+          <div class="flex flex-col gap-0.5" data-testid="atelier-opponent-partner">
             <span class="font-display text-base text-fg">
-              vs{" "}
-              <PartnerName
-                characterId={p.value.initiatorCharacterId as EntityId}
-              />
+              vs <PartnerName characterId={p.value.initiatorCharacterId as EntityId} />
             </span>
             <span
               class="font-mono text-[0.7rem] text-fg-subtle"
@@ -250,9 +224,7 @@ export function OpponentCard(props: { atelier: AtelierState }): JSX.Element {
           </div>
         )}
       </Show>
-      <p class="text-[0.6rem] text-fg-subtle italic">
-        opponent's successes are the obstacle
-      </p>
+      <p class="text-[0.6rem] text-fg-subtle italic">opponent's successes are the obstacle</p>
     </section>
   );
 }

@@ -16,7 +16,15 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
+import {
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  unlinkSync,
+} from "node:fs";
 import { rename } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
@@ -114,10 +122,7 @@ function assetPath(pluginDataDir: string, worldId: WorldId, assetId: EntityId): 
  * Returns its assetId or null. Linear scan; v1 fine for sub-thousands
  * of assets.
  */
-function findExistingAssetBySha256(
-  runtime: WorldRuntime,
-  sha256: string,
-): EntityId | null {
+function findExistingAssetBySha256(runtime: WorldRuntime, sha256: string): EntityId | null {
   for (const row of runtime.world.query([Asset])) {
     const v = row.values.Asset as { sha256: string } | undefined;
     if (v && v.sha256 === sha256) return row.id;
@@ -198,9 +203,9 @@ export async function saveAssetFromBytes(opts: {
     cleanupTemp(tmpPath);
     throw new Error(dispatchResult.result.reason ?? "RegisterAsset rejected");
   }
-  const registered = dispatchResult.events.find(
-    (e) => e.type === AssetRegistered.name,
-  ) as { type: string; payload: { assetId: EntityId } } | undefined;
+  const registered = dispatchResult.events.find((e) => e.type === AssetRegistered.name) as
+    | { type: string; payload: { assetId: EntityId } }
+    | undefined;
   if (!registered) {
     cleanupTemp(tmpPath);
     throw new Error("register dispatch produced no AssetRegistered event");
@@ -258,7 +263,13 @@ export async function handleAssetUpload(
 
   const session = await deps.authenticate(req, worldId);
   if (!session) {
-    return drainAndJson(req, res, 401, { error: "not authenticated or not a world member" }, maxBytes);
+    return drainAndJson(
+      req,
+      res,
+      401,
+      { error: "not authenticated or not a world member" },
+      maxBytes,
+    );
   }
 
   const mime = (req.headers["content-type"] ?? "").toString().split(";")[0]!.trim();
@@ -275,9 +286,7 @@ export async function handleAssetUpload(
   }
 
   const filenameHeader = req.headers["x-filename"];
-  const filename = sanitiseFilename(
-    typeof filenameHeader === "string" ? filenameHeader : null,
-  );
+  const filename = sanitiseFilename(typeof filenameHeader === "string" ? filenameHeader : null);
 
   // Acquire the runtime up-front so a failed acquire doesn't waste an
   // upload slot.
@@ -292,7 +301,13 @@ export async function handleAssetUpload(
   try {
     mkdirSync(dir, { recursive: true });
   } catch (err) {
-    return drainAndJson(req, res, 500, { error: `mkdir failed: ${(err as Error).message}` }, maxBytes);
+    return drainAndJson(
+      req,
+      res,
+      500,
+      { error: `mkdir failed: ${(err as Error).message}` },
+      maxBytes,
+    );
   }
 
   const tmpName = `.${randomBytes(8).toString("hex")}.partial`;
@@ -374,9 +389,9 @@ export async function handleAssetUpload(
     return;
   }
 
-  const registered = dispatchResult.events.find(
-    (e) => e.type === AssetRegistered.name,
-  ) as { type: string; payload: { assetId: EntityId } } | undefined;
+  const registered = dispatchResult.events.find((e) => e.type === AssetRegistered.name) as
+    | { type: string; payload: { assetId: EntityId } }
+    | undefined;
 
   if (!registered) {
     cleanupTemp(tmpPath);
@@ -454,9 +469,7 @@ export async function handleAssetFetch(
   }
 
   const stat = statSync(path);
-  const asset = traits[Asset.name] as
-    | { mime: string; sizeBytes: number }
-    | undefined;
+  const asset = traits[Asset.name] as { mime: string; sizeBytes: number } | undefined;
   res.statusCode = 200;
   if (asset?.mime) res.setHeader("content-type", asset.mime);
   res.setHeader("content-length", String(stat.size));
@@ -470,10 +483,7 @@ export async function handleAssetFetch(
   }
 }
 
-function collectTraits(
-  runtime: WorldRuntime,
-  entityId: EntityId,
-): Record<string, unknown> | null {
+function collectTraits(runtime: WorldRuntime, entityId: EntityId): Record<string, unknown> | null {
   if (!runtime.world.has(entityId)) return null;
   const out: Record<string, unknown> = {};
   for (const [name, def] of runtime.registry.traits) {

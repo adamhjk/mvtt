@@ -41,17 +41,10 @@ import type {
 import type { Root as HastRoot, Element as HastElement } from "hast";
 import { Asset } from "@vtt/assets/shared";
 import { parseLinks, type WikiLinkRef } from "../shared/wiki-link.js";
-import {
-  MarkdownPostRenderSlot,
-  type MarkdownPostRender,
-} from "../shared/post-render.js";
+import { MarkdownPostRenderSlot, type MarkdownPostRender } from "../shared/post-render.js";
 import { headingIdFor, mdastTextContent, slugify } from "../shared/headings.js";
 import { buildLinkKindIndex } from "../shared/index.js";
-import {
-  parseSetDesign,
-  splitSegments,
-  type SetDesignNode,
-} from "../shared/set-design.js";
+import { parseSetDesign, splitSegments, type SetDesignNode } from "../shared/set-design.js";
 
 /**
  * Markdown → static HTML for read-mode pages. We compile the body to
@@ -147,10 +140,7 @@ export function MarkdownView(props: {
           });
         } catch (err) {
           // eslint-disable-next-line no-console
-          console.warn(
-            `[notes] post-render hook ${fill.name} threw:`,
-            (err as Error).message,
-          );
+          console.warn(`[notes] post-render hook ${fill.name} threw:`, (err as Error).message);
         }
       }
     }
@@ -173,10 +163,7 @@ export function MarkdownView(props: {
     if (scroller) {
       const headingTop = el.getBoundingClientRect().top;
       const scrollerTop = scroller.getBoundingClientRect().top;
-      const target = Math.max(
-        0,
-        scroller.scrollTop + (headingTop - scrollerTop) - 8,
-      );
+      const target = Math.max(0, scroller.scrollTop + (headingTop - scrollerTop) - 8);
       scroller.scrollTo({ top: target, behavior: "smooth" });
     } else {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -335,11 +322,7 @@ function remarkSetDesign() {
       if (lang !== "setdesign") return;
       const block = parseSetDesign(node.value);
       const replacement = renderSetDesignBlock(block);
-      (parent as Parent).children.splice(
-        index,
-        1,
-        replacement as unknown as MdRootContent,
-      );
+      (parent as Parent).children.splice(index, 1, replacement as unknown as MdRootContent);
       // Skip the children of the replacement (`visit` semantics: return
       // [SKIP, nextIndex] to advance the cursor past the new node).
       return ["skip", index + 1] as const;
@@ -385,9 +368,7 @@ function renderSetDesignBlock(block: {
   );
 }
 
-function buildSetDesignList(
-  nodes: ReadonlyArray<SetDesignNode>,
-): MdList {
+function buildSetDesignList(nodes: ReadonlyArray<SetDesignNode>): MdList {
   return withHast<MdList>(
     {
       type: "list",
@@ -412,9 +393,7 @@ function buildSetDesignItem(node: SetDesignNode): MdListItem {
   if (node.children.length > 0) {
     body.push(buildSetDesignList(node.children));
   }
-  const cls = node.blankBefore
-    ? ["set-design-node", "is-blank-before"]
-    : ["set-design-node"];
+  const cls = node.blankBefore ? ["set-design-node", "is-blank-before"] : ["set-design-node"];
   return withHast<MdListItem>(
     {
       type: "listItem",
@@ -498,8 +477,7 @@ function remarkWikiLinks() {
           });
         }
         const fallback = link.alias ?? link.body;
-        const url =
-          WIKI_LINK_URL_PREFIX + encodeURIComponent(JSON.stringify(link));
+        const url = WIKI_LINK_URL_PREFIX + encodeURIComponent(JSON.stringify(link));
         replacement.push({
           type: "link",
           url,
@@ -513,11 +491,7 @@ function remarkWikiLinks() {
       }
 
       const p = parent as Parent;
-      p.children.splice(
-        index,
-        1,
-        ...(replacement as unknown as PhrasingContent[]),
-      );
+      p.children.splice(index, 1, ...(replacement as unknown as PhrasingContent[]));
       return ["skip", index + replacement.length];
     });
   };
@@ -531,8 +505,7 @@ const CHIP_CLASSES =
 const MISSING_ASSET_CLASSES =
   "inline-block rounded-sm border border-border-muted bg-surface px-2 py-1 text-xs text-fg-subtle";
 
-const IMG_CLASSES =
-  "max-w-full rounded-(--radius-control) border border-border-muted";
+const IMG_CLASSES = "max-w-full rounded-(--radius-control) border border-border-muted";
 
 function rehypeWikiLinks(ctx: RenderCtx) {
   return (tree: HastRoot) => {
@@ -609,11 +582,7 @@ function rehypeWikiLinks(ctx: RenderCtx) {
   };
 }
 
-function rewriteAssetEmbed(
-  node: HastElement,
-  ref: WikiLinkRef,
-  ctx: RenderCtx,
-): void {
+function rewriteAssetEmbed(node: HastElement, ref: WikiLinkRef, ctx: RenderCtx): void {
   const id = ref.body;
   const has = ctx.world.has(id as never);
   const traits = has
@@ -718,10 +687,7 @@ function findScrollParent(el: HTMLElement): HTMLElement | null {
   while (cur && cur !== document.body) {
     const style = getComputedStyle(cur);
     const overflowY = style.overflowY;
-    if (
-      (overflowY === "auto" || overflowY === "scroll") &&
-      cur.scrollHeight > cur.clientHeight
-    ) {
+    if ((overflowY === "auto" || overflowY === "scroll") && cur.scrollHeight > cur.clientHeight) {
       return cur;
     }
     cur = cur.parentElement;

@@ -2,10 +2,12 @@
   "name": "@vtt/tokens",
   "version": "0.0.0",
   "private": true,
+  "files": [
+    "tokens.css"
+  ],
   "type": "module",
   "exports": {
     ".": "./tokens.css",
     "./tokens.css": "./tokens.css"
-  },
-  "files": ["tokens.css"]
+  }
 }

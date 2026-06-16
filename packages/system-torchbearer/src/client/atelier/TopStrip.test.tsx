@@ -17,17 +17,9 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, expect, it, beforeEach } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  screen,
-  waitFor,
-} from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { mountWithClient } from "@vtt/substrate/client-testing";
-import {
-  buildAtelierHarness,
-  mountTbEditor,
-} from "./test-helpers.jsx";
+import { buildAtelierHarness, mountTbEditor } from "./test-helpers.jsx";
 import {
   TB_DISPOSITION_CONTRIB_KIND,
   TB_VERSUS_CONTRIB_KIND,
@@ -53,18 +45,9 @@ describe("TopStrip — headline + mode switch", () => {
     const { h, rollId } = buildAtelierHarness({ rollableName: WillCheck.name });
     mountWithClient(h, () => mountTbEditor(rollId) as never);
     expect(screen.getByTestId("atelier-mode-switch")).toBeInTheDocument();
-    expect(screen.getByTestId("atelier-mode-independent")).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(screen.getByTestId("atelier-mode-versus")).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
-    expect(screen.getByTestId("atelier-mode-disposition")).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    expect(screen.getByTestId("atelier-mode-independent")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("atelier-mode-versus")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByTestId("atelier-mode-disposition")).toHaveAttribute("aria-pressed", "false");
   });
 
   it("clicking `disposition` dispatches a tb-disposition contribution and switches the variant", async () => {
@@ -82,10 +65,7 @@ describe("TopStrip — headline + mode switch", () => {
       expect(c!.payload.contribution.replaces).toBe("tb:disposition");
     });
     await waitFor(() => {
-      expect(screen.getByTestId("atelier-editor")).toHaveAttribute(
-        "data-mode",
-        "disposition",
-      );
+      expect(screen.getByTestId("atelier-editor")).toHaveAttribute("data-mode", "disposition");
     });
   });
 
@@ -104,15 +84,12 @@ describe("TopStrip — headline + mode switch", () => {
       expect(c!.payload.contribution.replaces).toBe("tb:versus");
     });
     await waitFor(() => {
-      expect(screen.getByTestId("atelier-editor")).toHaveAttribute(
-        "data-mode",
-        "versus",
-      );
+      expect(screen.getByTestId("atelier-editor")).toHaveAttribute("data-mode", "versus");
     });
     // No other open roll exists, so the opponent card shows its empty state.
-    expect(
-      screen.getByTestId("atelier-opponent-card").textContent,
-    ).toContain("no other open rolls");
+    expect(screen.getByTestId("atelier-opponent-card").textContent).toContain(
+      "no other open rolls",
+    );
   });
 
   it("switching from disposition back to `independent` clears the disposition flag", async () => {
@@ -120,10 +97,7 @@ describe("TopStrip — headline + mode switch", () => {
     mountWithClient(h, () => mountTbEditor(rollId) as never);
     fireEvent.click(screen.getByTestId("atelier-mode-disposition"));
     await waitFor(() => {
-      expect(screen.getByTestId("atelier-editor")).toHaveAttribute(
-        "data-mode",
-        "disposition",
-      );
+      expect(screen.getByTestId("atelier-editor")).toHaveAttribute("data-mode", "disposition");
     });
     fireEvent.click(screen.getByTestId("atelier-mode-independent"));
     await waitFor(() => {
@@ -136,10 +110,7 @@ describe("TopStrip — headline + mode switch", () => {
       expect(offs.length).toBeGreaterThan(0);
     });
     await waitFor(() => {
-      expect(screen.getByTestId("atelier-editor")).toHaveAttribute(
-        "data-mode",
-        "independent",
-      );
+      expect(screen.getByTestId("atelier-editor")).toHaveAttribute("data-mode", "independent");
     });
   });
 

@@ -150,14 +150,7 @@ frame();
 The CullerPlugin skips rendering containers that fall outside `app.renderer.screen`. It isn't registered by default; add it before creating your app:
 
 ```ts
-import {
-  Application,
-  Container,
-  Sprite,
-  extensions,
-  CullerPlugin,
-  Rectangle,
-} from "pixi.js";
+import { Application, Container, Sprite, extensions, CullerPlugin, Rectangle } from "pixi.js";
 
 extensions.add(CullerPlugin);
 
@@ -181,12 +174,7 @@ Containers are not culled unless `cullable` is set. Override the default bounds 
 Extend `Application` by registering a class with `static init`, `static destroy`, and `static extension = ExtensionType.Application`. Both methods are called with `this` bound to the Application instance, so `this.renderer` and `this.stage` are available.
 
 ```ts
-import {
-  Application,
-  ExtensionType,
-  extensions,
-  type ApplicationOptions,
-} from "pixi.js";
+import { Application, ExtensionType, extensions, type ApplicationOptions } from "pixi.js";
 
 class FpsOverlay {
   public static extension = ExtensionType.Application;
@@ -241,7 +229,6 @@ document.body.appendChild(app.canvas);
 
 In v8 the `Application` constructor takes no arguments. Options passed there are ignored and log a deprecation warning; the renderer is only created inside the async `init()` call.
 
-
 ### [HIGH] Using app.view instead of app.canvas
 
 Wrong:
@@ -257,7 +244,6 @@ document.body.appendChild(app.canvas);
 ```
 
 `app.view` was renamed to `app.canvas` in v8. The old getter still works but emits a deprecation warning.
-
 
 ### [MEDIUM] Touching app.canvas or app.renderer before init resolves
 
@@ -278,7 +264,6 @@ document.body.appendChild(app.canvas);
 ```
 
 `app.renderer`, `app.canvas`, and `app.screen` are only populated once the `init()` promise resolves. Accessing them earlier returns `undefined`.
-
 
 ## API Reference
 

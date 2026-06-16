@@ -43,17 +43,49 @@ interface QuickButton {
 }
 
 const BASE_QUICKS: ReadonlyArray<QuickButton> = [
-  { shortLabel: "+1D", title: "Add 1 die", mod: { kind: "dice", value: 1, label: "+1D", apply: "always" } },
-  { shortLabel: "−1D", title: "Subtract 1 die", mod: { kind: "dice", value: -1, label: "−1D", apply: "always" } },
-  { shortLabel: "+1s", title: "Add 1 success", mod: { kind: "success", value: 1, label: "+1s", apply: "always" } },
-  { shortLabel: "−1s", title: "Subtract 1 success", mod: { kind: "success", value: -1, label: "−1s", apply: "always" } },
-  { shortLabel: "+1s on succ.", title: "+1s applied only on success", mod: { kind: "success", value: 1, label: "bonus on success", apply: "on-success" } },
-  { shortLabel: "+1s on fail", title: "+1s applied only on failure", mod: { kind: "success", value: 1, label: "bonus on fail", apply: "on-fail" } },
+  {
+    shortLabel: "+1D",
+    title: "Add 1 die",
+    mod: { kind: "dice", value: 1, label: "+1D", apply: "always" },
+  },
+  {
+    shortLabel: "−1D",
+    title: "Subtract 1 die",
+    mod: { kind: "dice", value: -1, label: "−1D", apply: "always" },
+  },
+  {
+    shortLabel: "+1s",
+    title: "Add 1 success",
+    mod: { kind: "success", value: 1, label: "+1s", apply: "always" },
+  },
+  {
+    shortLabel: "−1s",
+    title: "Subtract 1 success",
+    mod: { kind: "success", value: -1, label: "−1s", apply: "always" },
+  },
+  {
+    shortLabel: "+1s on succ.",
+    title: "+1s applied only on success",
+    mod: { kind: "success", value: 1, label: "bonus on success", apply: "on-success" },
+  },
+  {
+    shortLabel: "+1s on fail",
+    title: "+1s applied only on failure",
+    mod: { kind: "success", value: 1, label: "bonus on fail", apply: "on-fail" },
+  },
 ];
 
 const OBSTACLE_QUICKS: ReadonlyArray<QuickButton> = [
-  { shortLabel: "+1 Ob", title: "Raise the obstacle by 1", mod: { kind: "obstacle", value: 1, label: "+1 Ob", apply: "always" } },
-  { shortLabel: "−1 Ob", title: "Lower the obstacle by 1", mod: { kind: "obstacle", value: -1, label: "−1 Ob", apply: "always" } },
+  {
+    shortLabel: "+1 Ob",
+    title: "Raise the obstacle by 1",
+    mod: { kind: "obstacle", value: 1, label: "+1 Ob", apply: "always" },
+  },
+  {
+    shortLabel: "−1 Ob",
+    title: "Lower the obstacle by 1",
+    mod: { kind: "obstacle", value: -1, label: "−1 Ob", apply: "always" },
+  },
 ];
 
 function unitFor(kind: string | undefined): string {
@@ -82,10 +114,7 @@ function formatPreviewModifier(m: PreviewModifier): string {
  * Quick-button strip is mode-aware: ±Ob hidden in versus/disposition
  * (there's no obstacle in those modes).
  */
-export function ModifiersCard(props: {
-  atelier: AtelierState;
-  mode: Mode;
-}): JSX.Element {
+export function ModifiersCard(props: { atelier: AtelierState; mode: Mode }): JSX.Element {
   const mods = createMemo<PreviewModifier[]>(() => {
     const m = props.atelier.previewedSpec()?.["modifiers"];
     return Array.isArray(m) ? (m as PreviewModifier[]) : [];
@@ -132,10 +161,7 @@ export function ModifiersCard(props: {
         Modifiers
       </span>
       <Show when={mods().length > 0}>
-        <ul
-          class="flex flex-wrap gap-1 text-[0.7rem]"
-          data-testid="atelier-modifier-list"
-        >
+        <ul class="flex flex-wrap gap-1 text-[0.7rem]" data-testid="atelier-modifier-list">
           <For each={mods()}>
             {(m) => (
               <li
@@ -221,9 +247,7 @@ export function ModifiersCard(props: {
         <div class="flex flex-wrap items-center gap-1 border-t border-border-muted pt-2">
           <select
             value={kind()}
-            onChange={(e) =>
-              setKind(e.currentTarget.value as TbRollModifierKind)
-            }
+            onChange={(e) => setKind(e.currentTarget.value as TbRollModifierKind)}
             class="rounded-(--radius-control) border border-border bg-surface-elevated px-1 py-0.5 text-[0.65rem] text-fg outline-none focus:border-accent"
             aria-label="modifier kind"
             data-testid="atelier-labelled-kind"
@@ -244,9 +268,7 @@ export function ModifiersCard(props: {
           />
           <select
             value={apply()}
-            onChange={(e) =>
-              setApply(e.currentTarget.value as TbRollModifierApply)
-            }
+            onChange={(e) => setApply(e.currentTarget.value as TbRollModifierApply)}
             class="rounded-(--radius-control) border border-border bg-surface-elevated px-1 py-0.5 text-[0.65rem] text-fg outline-none focus:border-accent"
             aria-label="apply mode"
             data-testid="atelier-labelled-apply"

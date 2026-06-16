@@ -18,14 +18,8 @@
 import { createMemo, createSignal, For, Show, type JSX, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
 import { useClient } from "@vtt/substrate/client";
-import {
-  OpenPage,
-  RetargetTab,
-} from "../shared/commands.js";
-import {
-  usePageProviders,
-  useProviderTraitsVersion,
-} from "./use-providers.js";
+import { OpenPage, RetargetTab } from "../shared/commands.js";
+import { usePageProviders, useProviderTraitsVersion } from "./use-providers.js";
 import type { PageProvider, PageEntity } from "../shared/slots.js";
 import type { WorkspaceTab } from "../shared/traits.js";
 import { useMe } from "./use-me.js";
@@ -180,7 +174,9 @@ export function TabPicker(props: {
         <span>{currentProvider()?.label ?? "Pick a type"}</span>
       </button>
 
-      <span aria-hidden class="text-fg-subtle text-[0.7rem] select-none">▸</span>
+      <span aria-hidden class="text-fg-subtle text-[0.7rem] select-none">
+        ▸
+      </span>
 
       {/* entity disclosure */}
       <button

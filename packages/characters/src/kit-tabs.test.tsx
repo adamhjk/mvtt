@@ -27,11 +27,7 @@ import {
   LabeledLadder,
   Tabs,
 } from "./client/kit.js";
-import {
-  buildCharacterHarness,
-  mountWithClient,
-  type CharacterHarness,
-} from "./testing.js";
+import { buildCharacterHarness, mountWithClient, type CharacterHarness } from "./testing.js";
 import { defineTrait, definePlugin, z } from "@vtt/substrate";
 import { SetField } from "./shared/commands.js";
 
@@ -116,12 +112,7 @@ describe("kit/Tabs", () => {
   });
 
   it("renders the empty-state when given no tabs", () => {
-    render(() => (
-      <Tabs
-        tabs={[]}
-        emptyState={<p data-testid="empty">no tabs yet</p>}
-      />
-    ));
+    render(() => <Tabs tabs={[]} emptyState={<p data-testid="empty">no tabs yet</p>} />);
     expect(screen.getByTestId("empty")).toBeInTheDocument();
     expect(screen.queryByRole("tablist")).toBeNull();
   });
@@ -315,8 +306,9 @@ describe("kit/LabeledLadder", () => {
     const aCheckbox = screen.getAllByRole("checkbox")[0] as HTMLInputElement;
     fireEvent.click(aCheckbox);
     const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
-    const last = dispatched.filter((d) => d.type === SetField.name).slice(-1)[0]!
-      .payload as { path: Array<string> };
+    const last = dispatched.filter((d) => d.type === SetField.name).slice(-1)[0]!.payload as {
+      path: Array<string>;
+    };
     expect(last.path).toEqual(["nested", "a"]);
   });
 
@@ -459,8 +451,11 @@ describe("kit/AdvancementTrack", () => {
     fireEvent.click(passDots[2]!);
 
     const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
-    const last = dispatched.filter((d) => d.type === SetField.name).slice(-1)[0]!
-      .payload as { trait: string; path: Array<string>; value: unknown };
+    const last = dispatched.filter((d) => d.type === SetField.name).slice(-1)[0]!.payload as {
+      trait: string;
+      path: Array<string>;
+      value: unknown;
+    };
     expect(last.path).toEqual(["advancement", "pass"]);
     expect(last.value).toBe(3);
   });
@@ -480,8 +475,10 @@ describe("kit/AdvancementTrack", () => {
     const failDots = Array.from(groups[1]!.querySelectorAll(".vk-dot"));
     fireEvent.click(failDots[1]!);
     const dispatched = h.dispatched as Array<{ type: string; payload: unknown }>;
-    const last = dispatched.filter((d) => d.type === SetField.name).slice(-1)[0]!
-      .payload as { path: Array<string>; value: unknown };
+    const last = dispatched.filter((d) => d.type === SetField.name).slice(-1)[0]!.payload as {
+      path: Array<string>;
+      value: unknown;
+    };
     expect(last.path).toEqual(["advancement", "fail"]);
     expect(last.value).toBe(2);
   });
@@ -548,9 +545,7 @@ function tagsRoot(): HTMLElement {
 }
 
 function tagsInput(): HTMLInputElement {
-  const input = tagsRoot().querySelector(
-    "input.vk-tags__input",
-  ) as HTMLInputElement | null;
+  const input = tagsRoot().querySelector("input.vk-tags__input") as HTMLInputElement | null;
   if (!input) throw new Error("expected .vk-tags__input");
   return input;
 }
@@ -559,25 +554,18 @@ describe("kit/EntryListField", () => {
   it("renders each entry as a pill in order", () => {
     const h = tagsHarness(["alpha", "beta", "gamma"]);
     mountWithClient(h, () => (
-      <EntryListField
-        characterId={h.characterId}
-        trait={TagsTrait}
-        path={["values"]}
-      />
+      <EntryListField characterId={h.characterId} trait={TagsTrait} path={["values"]} />
     ));
-    const texts = Array.from(tagsRoot().querySelectorAll(".vk-tag__text"))
-      .map((n) => n.textContent);
+    const texts = Array.from(tagsRoot().querySelectorAll(".vk-tag__text")).map(
+      (n) => n.textContent,
+    );
     expect(texts).toEqual(["alpha", "beta", "gamma"]);
   });
 
   it("Enter commits the input and dispatches SetField with the new array", () => {
     const h = tagsHarness(["alpha"]);
     mountWithClient(h, () => (
-      <EntryListField
-        characterId={h.characterId}
-        trait={TagsTrait}
-        path={["values"]}
-      />
+      <EntryListField characterId={h.characterId} trait={TagsTrait} path={["values"]} />
     ));
     const input = tagsInput();
     fireEvent.input(input, { target: { value: "beta" } });
@@ -590,11 +578,7 @@ describe("kit/EntryListField", () => {
   it("comma key also commits the entry", () => {
     const h = tagsHarness([]);
     mountWithClient(h, () => (
-      <EntryListField
-        characterId={h.characterId}
-        trait={TagsTrait}
-        path={["values"]}
-      />
+      <EntryListField characterId={h.characterId} trait={TagsTrait} path={["values"]} />
     ));
     const input = tagsInput();
     fireEvent.input(input, { target: { value: "first" } });
@@ -607,11 +591,7 @@ describe("kit/EntryListField", () => {
   it("trims whitespace before committing", () => {
     const h = tagsHarness([]);
     mountWithClient(h, () => (
-      <EntryListField
-        characterId={h.characterId}
-        trait={TagsTrait}
-        path={["values"]}
-      />
+      <EntryListField characterId={h.characterId} trait={TagsTrait} path={["values"]} />
     ));
     const input = tagsInput();
     fireEvent.input(input, { target: { value: "  spaced  " } });
@@ -623,11 +603,7 @@ describe("kit/EntryListField", () => {
   it("ignores blank / whitespace-only commits", () => {
     const h = tagsHarness(["alpha"]);
     mountWithClient(h, () => (
-      <EntryListField
-        characterId={h.characterId}
-        trait={TagsTrait}
-        path={["values"]}
-      />
+      <EntryListField characterId={h.characterId} trait={TagsTrait} path={["values"]} />
     ));
     const input = tagsInput();
     fireEvent.input(input, { target: { value: "   " } });
@@ -638,11 +614,7 @@ describe("kit/EntryListField", () => {
   it("rejects duplicates by default", () => {
     const h = tagsHarness(["alpha"]);
     mountWithClient(h, () => (
-      <EntryListField
-        characterId={h.characterId}
-        trait={TagsTrait}
-        path={["values"]}
-      />
+      <EntryListField characterId={h.characterId} trait={TagsTrait} path={["values"]} />
     ));
     const input = tagsInput();
     fireEvent.input(input, { target: { value: "alpha" } });
@@ -671,11 +643,7 @@ describe("kit/EntryListField", () => {
   it("clicking × on a pill removes that entry", () => {
     const h = tagsHarness(["alpha", "beta", "gamma"]);
     mountWithClient(h, () => (
-      <EntryListField
-        characterId={h.characterId}
-        trait={TagsTrait}
-        path={["values"]}
-      />
+      <EntryListField characterId={h.characterId} trait={TagsTrait} path={["values"]} />
     ));
     fireEvent.click(screen.getByLabelText("remove beta"));
     const cmd = h.dispatched.find((c) => c.type === SetField.name);
@@ -685,11 +653,7 @@ describe("kit/EntryListField", () => {
   it("backspace on empty input removes the trailing entry", () => {
     const h = tagsHarness(["alpha", "beta"]);
     mountWithClient(h, () => (
-      <EntryListField
-        characterId={h.characterId}
-        trait={TagsTrait}
-        path={["values"]}
-      />
+      <EntryListField characterId={h.characterId} trait={TagsTrait} path={["values"]} />
     ));
     const input = tagsInput();
     expect(input.value).toBe("");
@@ -701,11 +665,7 @@ describe("kit/EntryListField", () => {
   it("blur with non-empty input commits", () => {
     const h = tagsHarness([]);
     mountWithClient(h, () => (
-      <EntryListField
-        characterId={h.characterId}
-        trait={TagsTrait}
-        path={["values"]}
-      />
+      <EntryListField characterId={h.characterId} trait={TagsTrait} path={["values"]} />
     ));
     const input = tagsInput();
     fireEvent.input(input, { target: { value: "drift" } });
@@ -760,8 +720,9 @@ describe("kit/EntryListField", () => {
     ));
     expect(tagsRoot().querySelector(".vk-tag__remove")).toBeNull();
     expect(tagsRoot().querySelector("input")).toBeNull();
-    const texts = Array.from(tagsRoot().querySelectorAll(".vk-tag__text"))
-      .map((n) => n.textContent);
+    const texts = Array.from(tagsRoot().querySelectorAll(".vk-tag__text")).map(
+      (n) => n.textContent,
+    );
     expect(texts).toEqual(["alpha", "beta"]);
   });
 });
@@ -880,9 +841,7 @@ describe("kit/EntryRowsField", () => {
     const rows = rowsRoot().querySelectorAll(".vk-rows__row");
     expect(rows).toHaveLength(2);
     expect((rows[0]!.querySelectorAll("input")[0] as HTMLInputElement).value).toBe("Wren");
-    expect((rows[0]!.querySelectorAll("input")[1] as HTMLInputElement).value).toBe(
-      "Highvale",
-    );
+    expect((rows[0]!.querySelectorAll("input")[1] as HTMLInputElement).value).toBe("Highvale");
     expect((rows[0]!.querySelectorAll("input")[2] as HTMLInputElement).value).toBe("2");
     expect((rows[0]!.querySelectorAll("input")[3] as HTMLInputElement).checked).toBe(true);
   });
@@ -927,9 +886,7 @@ describe("kit/EntryRowsField", () => {
   });
 
   it("editing a text cell + Enter dispatches SetField with the updated entry", () => {
-    const h = rowsHarness([
-      { name: "Wren", location: "Highvale", level: 1, active: false },
-    ]);
+    const h = rowsHarness([{ name: "Wren", location: "Highvale", level: 1, active: false }]);
     mountWithClient(h, () => (
       <EntryRowsField<RelationshipEntry>
         characterId={h.characterId}
@@ -950,9 +907,7 @@ describe("kit/EntryRowsField", () => {
   });
 
   it("editing a number cell clamps to min/max", () => {
-    const h = rowsHarness([
-      { name: "Wren", location: "", level: 5, active: false },
-    ]);
+    const h = rowsHarness([{ name: "Wren", location: "", level: 5, active: false }]);
     mountWithClient(h, () => (
       <EntryRowsField<RelationshipEntry>
         characterId={h.characterId}
@@ -973,9 +928,7 @@ describe("kit/EntryRowsField", () => {
   });
 
   it("toggling a check cell dispatches SetField with the boolean flipped", () => {
-    const h = rowsHarness([
-      { name: "Wren", location: "", level: 1, active: false },
-    ]);
+    const h = rowsHarness([{ name: "Wren", location: "", level: 1, active: false }]);
     mountWithClient(h, () => (
       <EntryRowsField<RelationshipEntry>
         characterId={h.characterId}
@@ -1010,16 +963,14 @@ describe("kit/EntryRowsField", () => {
     ));
     fireEvent.click(screen.getByLabelText("remove row 2"));
     const cmd = h.dispatched.find((c) => c.type === SetField.name);
-    expect((cmd!.payload as { value: RelationshipEntry[] }).value.map((e) => e.name)).toEqual(
-      ["Wren", "Brynn"],
-    );
+    expect((cmd!.payload as { value: RelationshipEntry[] }).value.map((e) => e.name)).toEqual([
+      "Wren",
+      "Brynn",
+    ]);
   });
 
   it("non-editor: hides × buttons, hides add row, disables inputs", () => {
-    const h = rowsHarness(
-      [{ name: "Wren", location: "Highvale", level: 1, active: false }],
-      false,
-    );
+    const h = rowsHarness([{ name: "Wren", location: "Highvale", level: 1, active: false }], false);
     mountWithClient(h, () => (
       <EntryRowsField<RelationshipEntry>
         characterId={h.characterId}
@@ -1036,4 +987,3 @@ describe("kit/EntryRowsField", () => {
     for (const i of inputs) expect((i as HTMLInputElement).disabled).toBe(true);
   });
 });
-

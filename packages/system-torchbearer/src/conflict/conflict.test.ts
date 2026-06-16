@@ -42,9 +42,7 @@ describe("@vtt/system-torchbearer/conflict — static rules", () => {
      *     Feint        —         I         V          I
      *     Maneuver     V         V         I          I
      */
-    const BOOK: Readonly<
-      Record<ConflictAction, Readonly<Record<ConflictAction, MatchupCell>>>
-    > = {
+    const BOOK: Readonly<Record<ConflictAction, Readonly<Record<ConflictAction, MatchupCell>>>> = {
       attack: {
         attack: "independent",
         defend: "versus",
@@ -82,11 +80,7 @@ describe("@vtt/system-torchbearer/conflict — static rules", () => {
     }
 
     it("uses only the three cell values the book legend lists", () => {
-      const allowed: ReadonlyArray<MatchupCell> = [
-        "versus",
-        "independent",
-        "noTest",
-      ];
+      const allowed: ReadonlyArray<MatchupCell> = ["versus", "independent", "noTest"];
       for (const r of ALL_ACTIONS) {
         for (const c of ALL_ACTIONS) {
           expect(allowed).toContain(TB_ACTION_MATRIX[r][c]);
@@ -244,9 +238,7 @@ describe("@vtt/system-torchbearer/conflict — static rules", () => {
      * sees in the disposition box has to match the book.
      * ------------------------------------------------------------- */
     describe("disposition roll prompts (SG p.63-64 / LM p.106)", () => {
-      const expected: Readonly<
-        Record<Exclude<ConflictType, "other">, string>
-      > = {
+      const expected: Readonly<Record<Exclude<ConflictType, "other">, string>> = {
         kill: "Roll Fighter and add to Health",
         driveOff: "Roll Fighter and add to Health",
         capture: "Roll Fighter or Hunter and add to Will",
@@ -274,4 +266,3 @@ describe("@vtt/system-torchbearer/conflict — static rules", () => {
     });
   });
 });
-

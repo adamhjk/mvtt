@@ -57,9 +57,7 @@ const noteProvider: PageProvider = definePageProvider({
       label: (row.values.Note as { title: string }).title,
     })),
   render: ({ entityId }) => (
-    <div data-testid="page-body">
-      page body for entity: {entityId ?? "(none)"}
-    </div>
+    <div data-testid="page-body">page body for entity: {entityId ?? "(none)"}</div>
   ),
 });
 
@@ -222,16 +220,10 @@ describe("shell-workbench WorkspaceTreeView", () => {
     const h = harness({ tree, panes, tabs });
     const { createSignal } = await import("solid-js");
     const [treeSig, setTree] = createSignal<TreeShape>(tree);
-    const [paneByIdSig, setPaneById] = createSignal<
-      Record<string, WorkspacePane>
-    >(panes);
+    const [paneByIdSig, setPaneById] = createSignal<Record<string, WorkspacePane>>(panes);
     render(() => (
       <ClientProvider value={h.client}>
-        <WorkspaceTreeView
-          tree={treeSig()}
-          paneById={paneByIdSig()}
-          zenPaneId={null}
-        />
+        <WorkspaceTreeView tree={treeSig()} paneById={paneByIdSig()} zenPaneId={null} />
       </ClientProvider>
     ));
     const before = screen.getByTestId("page-body");
@@ -261,9 +253,9 @@ describe("shell-workbench WorkspaceTreeView", () => {
       },
     });
     const { createSignal } = await import("solid-js");
-    const [paneById, setPaneById] = createSignal<Record<string, WorkspacePane>>(
-      { p1: { paneId: "p1", tabIds: ["t1"], activeTabId: "t1" } },
-    );
+    const [paneById, setPaneById] = createSignal<Record<string, WorkspacePane>>({
+      p1: { paneId: "p1", tabIds: ["t1"], activeTabId: "t1" },
+    });
     render(() => (
       <ClientProvider value={h.client}>
         <WorkspaceTreeView

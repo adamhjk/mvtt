@@ -4,7 +4,7 @@
 
 ## The problem
 
-To build game systems that *implement the rules as written*, both the AI author (during plugin development) and the mvtt runtime (during play) need to look up authoritative rule text by topic and resolve it to a page in the rulebook. There is no such facility today, and three structural pieces are missing:
+To build game systems that _implement the rules as written_, both the AI author (during plugin development) and the mvtt runtime (during play) need to look up authoritative rule text by topic and resolve it to a page in the rulebook. There is no such facility today, and three structural pieces are missing:
 
 1. **No rule index.** Game-system implementations today encode mechanics in code with no link back to the rulebook section that justified them. A change to the implementation has no audit trail to the source. An AI author has no programmatic way to ask "what does the book say about flanking?" — they fall back to re-extracting the PDF on every session, which is slow, lossy, and non-deterministic. The existing `torchbearer-reference-extraction` skill is on-demand and per-question; a comprehensive index is missing.
 
@@ -20,7 +20,7 @@ Three structural decisions:
 
 2. **Build `@vtt/rules-corpus` as an opt-in indexer over assets.** It subscribes to nothing automatically. A `IndexRules { assetId, tags? }` command, dispatched explicitly (UI button, REST endpoint, or dev tool), kicks off extraction for that one asset. Not every PDF is a rulebook (handouts, scenarios, character backstories don't need indexing). Status, manifest, and corpus pointer live on a per-corpus entity owned by a per-world `RulesLibrary` sentinel.
 
-3. **One artifact set, two consumers.** Extraction writes a content-addressed corpus directory (keyed by `assetId`, which is itself sha256-derived under the assets plugin) once. Both the runtime (via `QueryRules` command) and the AI author (via the `rules-lookup` skill) read the same files. Runtime queries cross the wire as commands+events. The skill reads the local data dir directly — it's a dev-time tool, not a runtime client. In dev the developer *is* their GM, so the local data dir is populated naturally by the same upload-and-index flow players use in production.
+3. **One artifact set, two consumers.** Extraction writes a content-addressed corpus directory (keyed by `assetId`, which is itself sha256-derived under the assets plugin) once. Both the runtime (via `QueryRules` command) and the AI author (via the `rules-lookup` skill) read the same files. Runtime queries cross the wire as commands+events. The skill reads the local data dir directly — it's a dev-time tool, not a runtime client. In dev the developer _is_ their GM, so the local data dir is populated naturally by the same upload-and-index flow players use in production.
 
 ## Two page numbers, both tracked
 
@@ -29,7 +29,7 @@ PDF readers and physical books disagree about page numbers, and we need to be us
 - **`pdfPage`** — the 1-based index in the PDF file. This is what `pdf.js` needs to navigate to a page; it's how we deep-link from a query result into the runtime viewer.
 - **`printedPage`** — the page number printed on the physical page, as the reader of a paper book would read it. This is what the AI author cites in code comments and what the rulebook's own cross-references use.
 
-These are usually offset by some constant (covers, copyright, ToC, and foreword push printed-page numbering down — printed p.1 is often PDF p.7), but the offset is *not* always constant. Inserted color plates, unnumbered chapter title pages, appendices with letter-prefix numbering (`A-12`), and Roman numerals on front matter (`vii`) all break a simple "subtract N" rule. So `printedPage` is `string | number | null`, not just an integer offset of `pdfPage`.
+These are usually offset by some constant (covers, copyright, ToC, and foreword push printed-page numbering down — printed p.1 is often PDF p.7), but the offset is _not_ always constant. Inserted color plates, unnumbered chapter title pages, appendices with letter-prefix numbering (`A-12`), and Roman numerals on front matter (`vii`) all break a simple "subtract N" rule. So `printedPage` is `string | number | null`, not just an integer offset of `pdfPage`.
 
 The chunker derives `printedPage` per page, in priority order:
 
@@ -48,22 +48,27 @@ Game-system rulebooks differ enough in layout that one set of chunker heuristics
 // packages/rules-corpus/src/shared/profile.ts
 export const RulesProfile = z.object({
   columns: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(2),
-  headingFontSizes: z.object({
-    h1: z.number().optional(),  // explicit thresholds; if absent, the chunker auto-detects
-    h2: z.number().optional(),
-    h3: z.number().optional(),
-    body: z.number().optional(),
-  }).default({}),
-  pageNumber: z.object({
-    strategy: z.enum(["outline", "headerScan", "footerScan", "explicit"]).default("footerScan"),
-    band: z.enum(["top", "bottom", "either"]).default("bottom"),
-    frontMatterPdfPages: z.number().int().nonnegative().default(0),  // pages before printed numbering
-    explicitMap: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
-  }).default({}),
+  headingFontSizes: z
+    .object({
+      h1: z.number().optional(), // explicit thresholds; if absent, the chunker auto-detects
+      h2: z.number().optional(),
+      h3: z.number().optional(),
+      body: z.number().optional(),
+    })
+    .default({}),
+  pageNumber: z
+    .object({
+      strategy: z.enum(["outline", "headerScan", "footerScan", "explicit"]).default("footerScan"),
+      band: z.enum(["top", "bottom", "either"]).default("bottom"),
+      frontMatterPdfPages: z.number().int().nonnegative().default(0), // pages before printed numbering
+      explicitMap: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
+    })
+    .default({}),
   dehyphenate: z.boolean().default(true),
   chunkSizeTokens: z.number().int().positive().default(2000),
-  imageMinPixels: z.object({ width: z.number().int(), height: z.number().int() })
-    .default({ width: 64, height: 64 }),  // drop tiny inline icons
+  imageMinPixels: z
+    .object({ width: z.number().int(), height: z.number().int() })
+    .default({ width: 64, height: 64 }), // drop tiny inline icons
 });
 ```
 
@@ -103,7 +108,7 @@ Why content-addressed by `assetId` (which is sha256-derived) and not by `corpusI
 
 Why per-world and not global: it preserves the existing per-world isolation guarantee. `WorldsService.hardDelete` already wipes `data/plugin-data/<worldId>/` recursively; nothing new to teach it. Cross-world dedup of identical SRDs is deferred to phase 2 — the cost is one duplicated extraction per world, which is bounded and acceptable.
 
-The search index is the one piece that does *not* live in the per-world dir: it lives in `mvtt.db` as an FTS5 virtual table (`rules_chunks_fts`) tagged by `worldId` + `corpusId` + `chunkId`. `chunks.jsonl` remains the canonical source of truth — the FTS5 table is rebuildable from it at any time. `WorldsService.hardDelete` gains one extra SQL step (`DELETE FROM rules_chunks_fts WHERE worldId = ?`) alongside the existing recursive `rm`.
+The search index is the one piece that does _not_ live in the per-world dir: it lives in `mvtt.db` as an FTS5 virtual table (`rules_chunks_fts`) tagged by `worldId` + `corpusId` + `chunkId`. `chunks.jsonl` remains the canonical source of truth — the FTS5 table is rebuildable from it at any time. `WorldsService.hardDelete` gains one extra SQL step (`DELETE FROM rules_chunks_fts WHERE worldId = ?`) alongside the existing recursive `rm`.
 
 The whole `data/` tree is gitignored; no extraction artifacts ever enter the repo. The `rules-corpus-registry.json` (dev convenience) lives outside per-world dirs and is also gitignored. `mvtt.db` is also gitignored (already true today).
 
@@ -134,19 +139,19 @@ packages/rules-corpus/src/
 
 ### Traits
 
-| Trait | Shape | Owner |
-|---|---|---|
-| `RulesLibrary` | `{}` (sentinel marker) | per-world, one entity, GM-write/world-read |
-| `RulesCorpus` | `{ assetId, status: "pending" \| "indexing" \| "ready" \| "failed", error?: string, tags: string[], indexedAt?: number, pageCount?: number, title?: string }` | one per indexed asset, child of the library sentinel |
+| Trait          | Shape                                                                                                                                                         | Owner                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `RulesLibrary` | `{}` (sentinel marker)                                                                                                                                        | per-world, one entity, GM-write/world-read           |
+| `RulesCorpus`  | `{ assetId, status: "pending" \| "indexing" \| "ready" \| "failed", error?: string, tags: string[], indexedAt?: number, pageCount?: number, title?: string }` | one per indexed asset, child of the library sentinel |
 
 The sentinel pattern follows the same shape as other plugins' singletons (initiative tracker, dice tray). The library entity itself has no data; it exists so its child set is the corpus list.
 
 ### Commands
 
-| Command | Validates | Apply emits |
-|---|---|---|
+| Command                                   | Validates                                                                                          | Apply emits                                                                          |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `IndexRules { assetId, tags?: string[] }` | caller is GM; asset exists; mime is `application/pdf`; corpus for this asset doesn't already exist | `RulesIndexingStarted { corpusId, assetId, tags }` (corpusId = `world.allocateId()`) |
-| `RemoveRulesCorpus { corpusId }` | caller is GM; corpus exists | `RulesCorpusRemoved { corpusId, assetId }` |
+| `RemoveRulesCorpus { corpusId }`          | caller is GM; corpus exists                                                                        | `RulesCorpusRemoved { corpusId, assetId }`                                           |
 
 Search is **not** a command. Following the precedent set by the notes plugin (`GET /api/worlds/:id/notes/search`), search runs as an HTTP route — see "Search HTTP route" below. Search is read-only, returns potentially large snippet payloads, doesn't mutate the world, and doesn't benefit from event-log replay; HTTP is the right shape for it. The trust-boundary rule ("only commands cross client→server") is about the live world bus; HTTP query routes are the established pattern for read-only server-side queries.
 
@@ -196,13 +201,13 @@ PDF  ──unpdf.extractText─────►  per-page text + per-item font/tr
 
 ### Tooling
 
-| Stage | Tool | Notes |
-|---|---|---|
-| Text extraction | [`unpdf`](https://github.com/unjs/unpdf) | Thin wrapper over `pdfjs-dist`. Same engine the runtime viewer uses; if a glyph extracts wrong, it'll render wrong too — they fail consistently. |
-| Image extraction | `pdfimages -all -p` (poppler-utils) | One subprocess; emits page-numbered images. Document the system dep in README. |
-| Chunking | hand-written, ~few hundred lines | Walks text items, treats font-size jumps as section boundaries, carries a `headingPath` array on every chunk, anchors to both `pdfPage` and `printedPage`. This is the part that determines lookup quality and is worth owning. |
-| Search index | **SQLite FTS5** (already in `mvtt.db` for the notes plugin) | `rules_chunks_fts` virtual table, `bm25()` ranking, `snippet()`/`highlight()` for the runtime UI, optional `trigram` tokenizer for substring matches. No new dependency. Server inserts after extraction; the CLI itself never touches the db. Embeddings phase 2 lands as a `rules_chunks_vec` virtual table via `sqlite-vec` in the same db, joined on `chunkId`. |
-| OCR (deferred) | tesseract | Only if a scanned PDF appears. Not in v1. |
+| Stage            | Tool                                                        | Notes                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Text extraction  | [`unpdf`](https://github.com/unjs/unpdf)                    | Thin wrapper over `pdfjs-dist`. Same engine the runtime viewer uses; if a glyph extracts wrong, it'll render wrong too — they fail consistently.                                                                                                                                                                                                                    |
+| Image extraction | `pdfimages -all -p` (poppler-utils)                         | One subprocess; emits page-numbered images. Document the system dep in README.                                                                                                                                                                                                                                                                                      |
+| Chunking         | hand-written, ~few hundred lines                            | Walks text items, treats font-size jumps as section boundaries, carries a `headingPath` array on every chunk, anchors to both `pdfPage` and `printedPage`. This is the part that determines lookup quality and is worth owning.                                                                                                                                     |
+| Search index     | **SQLite FTS5** (already in `mvtt.db` for the notes plugin) | `rules_chunks_fts` virtual table, `bm25()` ranking, `snippet()`/`highlight()` for the runtime UI, optional `trigram` tokenizer for substring matches. No new dependency. Server inserts after extraction; the CLI itself never touches the db. Embeddings phase 2 lands as a `rules_chunks_vec` virtual table via `sqlite-vec` in the same db, joined on `chunkId`. |
+| OCR (deferred)   | tesseract                                                   | Only if a scanned PDF appears. Not in v1.                                                                                                                                                                                                                                                                                                                           |
 
 ### Chunker rules
 
@@ -210,7 +215,7 @@ PDF  ──unpdf.extractText─────►  per-page text + per-item font/tr
 - A chunk carries: `id`, `pdfPage` (first PDF-page index of the chunk), `pdfPageRange: [first, last]` when it spans page breaks, `printedPage: string | number | null` (resolved via outline → header/footer scan → manifest override, in that order), `printedPageRange: [first, last] | null` correspondingly, `headingPath: string[]`, `text` (cleaned, dehyphenated, paragraph-collapsed), `imageRefs: string[]` (relative paths to images on the same pages), `tokens: number`.
 - Hard cap on chunk size (~2000 tokens) to keep BM25 ranking honest; chunks larger than the cap are split on paragraph boundaries with a synthetic `headingPath` suffix `[...parent, "(cont.)"]`.
 - The chunker emits a `pageMap` (`Record<pdfPage, printedPage>`) into the manifest so the runtime and the skill can resolve the printed number for any page without re-scanning text. Pages with no confident printed number are simply absent from the map.
-- A `chunkerVersion` field in `manifest.json` lets us invalidate corpora when we change chunking *or* page-detection; the ExtractRunner can decide to re-run if the version drifts.
+- A `chunkerVersion` field in `manifest.json` lets us invalidate corpora when we change chunking _or_ page-detection; the ExtractRunner can decide to re-run if the version drifts.
 
 ### CLI shape
 
@@ -245,7 +250,7 @@ rules-lookup --asset <assetId> "..."
 rules-lookup --list                    # print all locally-discovered corpora
 ```
 
-Output is a small JSON-or-pretty-printed list of `{ headingPath, pdfPage, pdfPageRange, printedPage, printedPageRange, text, imageRefs }` for the top-k chunks. Pretty-printed mode renders a one-line citation header per result (`Combat → Flanking — printed p.142 (PDF p.148)`) before the body. The AI author reads it and writes mechanics with explicit *printed-page* references in code comments at hot spots only (per CLAUDE.md: comments only when the *why* is non-obvious — a citation is exactly that).
+Output is a small JSON-or-pretty-printed list of `{ headingPath, pdfPage, pdfPageRange, printedPage, printedPageRange, text, imageRefs }` for the top-k chunks. Pretty-printed mode renders a one-line citation header per result (`Combat → Flanking — printed p.142 (PDF p.148)`) before the body. The AI author reads it and writes mechanics with explicit _printed-page_ references in code comments at hot spots only (per CLAUDE.md: comments only when the _why_ is non-obvious — a citation is exactly that).
 
 The skill never re-extracts. If a corpus's status is `pending` or `indexing`, the skill says so and exits — telling the AI "wait" rather than returning empty results.
 
@@ -253,15 +258,15 @@ There is **no** server-side query path for the AI author. The skill is local-onl
 
 ## Considered alternatives
 
-| Option | Shape | Rejected because |
-|---|---|---|
-| **Auto-index every uploaded PDF** | `@vtt/rules-corpus` subscribes to `AssetRegistered` and indexes any `application/pdf`. | Most PDFs aren't rulebooks. Indexing is minutes-long and produces tens of MB of artifacts; running it on every handout, scenario, and player backstory is wrong. Explicit `IndexRules` keeps the cost tied to intent. |
-| **Skip the pdf-book migration; rules-corpus reads from pdf-book's URLs** | Leave pdf-book's storage alone; rules-corpus extracts from `data/plugin-data/<worldId>/@vtt/pdf-book/books/<bookId>/<filename>.pdf`. | Two storage paths is the bug; rules-corpus would entrench it by depending on both. The migration is a single PR pre-launch. Do it. |
-| **Cross-world content-addressed corpus dir** | `data/corpus/<sha256>/` outside per-world tree, with per-world manifests pointing in. | Saves disk on duplicate SRDs across worlds. Costs: world hard-delete needs reference counting; per-world visibility on derived chunks gets ambiguous; orphan cleanup needs a sweeper. Not worth it for v1; per-world duplication is bounded. Re-evaluate at phase 2. |
-| **MiniSearch instead of FTS5** | Pure-JS BM25 index, JSON-serialised inside the corpus dir. | Would be a new dep that does what `mvtt.db` already does (the notes plugin uses FTS5 today). FTS5 gives us `bm25()` ranking, `snippet()`/`highlight()` for the runtime UI, multiple tokenizers, and `sqlite-vec` for phase-2 embeddings on the same db. The one MiniSearch advantage — index lives in the per-world dir so hard-delete is just `rm -rf` — costs us a single `DELETE FROM rules_chunks_fts WHERE worldId=?` to recover. Worth it. |
-| **Embeddings + vector DB instead of FTS5** | Sentence-transformers or Anthropic embeddings; sqlite-vec or chroma for retrieval. | Strictly more recall on synonym-heavy queries, but adds a model dep and embedding compute — all to bump recall past where BM25 over heading-aware chunks already gets us. Phase 2 path is clean: add a `rules_chunks_vec` virtual table via `sqlite-vec` in the same db, joined on `chunkId`. Same chunks, two indexes, merged at query time. |
-| **LLM-pre-parsed structured rule modules** | One-time AI pass converts PDF into typed TS modules (`rules.combat.flanking = {...}`); AI author imports them. | Maximum legibility but premature schema; expensive and lossy extraction; painful to update on errata; the structuring step is itself an open-ended AI problem. The AI author can build typed rule structures *as part of writing the game system*, citing the corpus — that gives us the same destination through a more honest path. |
-| **MCP server instead of a skill** | Expose `rules_lookup` as an MCP tool. | An MCP server is appropriate when the tool needs to talk to *something* (a service, a network resource). This tool only reads local files; a skill (file-read + small CLI) is simpler and has fewer moving parts. Reconsider if/when the corpus moves off-machine. |
+| Option                                                                   | Shape                                                                                                                                | Rejected because                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Auto-index every uploaded PDF**                                        | `@vtt/rules-corpus` subscribes to `AssetRegistered` and indexes any `application/pdf`.                                               | Most PDFs aren't rulebooks. Indexing is minutes-long and produces tens of MB of artifacts; running it on every handout, scenario, and player backstory is wrong. Explicit `IndexRules` keeps the cost tied to intent.                                                                                                                                                                                                                            |
+| **Skip the pdf-book migration; rules-corpus reads from pdf-book's URLs** | Leave pdf-book's storage alone; rules-corpus extracts from `data/plugin-data/<worldId>/@vtt/pdf-book/books/<bookId>/<filename>.pdf`. | Two storage paths is the bug; rules-corpus would entrench it by depending on both. The migration is a single PR pre-launch. Do it.                                                                                                                                                                                                                                                                                                               |
+| **Cross-world content-addressed corpus dir**                             | `data/corpus/<sha256>/` outside per-world tree, with per-world manifests pointing in.                                                | Saves disk on duplicate SRDs across worlds. Costs: world hard-delete needs reference counting; per-world visibility on derived chunks gets ambiguous; orphan cleanup needs a sweeper. Not worth it for v1; per-world duplication is bounded. Re-evaluate at phase 2.                                                                                                                                                                             |
+| **MiniSearch instead of FTS5**                                           | Pure-JS BM25 index, JSON-serialised inside the corpus dir.                                                                           | Would be a new dep that does what `mvtt.db` already does (the notes plugin uses FTS5 today). FTS5 gives us `bm25()` ranking, `snippet()`/`highlight()` for the runtime UI, multiple tokenizers, and `sqlite-vec` for phase-2 embeddings on the same db. The one MiniSearch advantage — index lives in the per-world dir so hard-delete is just `rm -rf` — costs us a single `DELETE FROM rules_chunks_fts WHERE worldId=?` to recover. Worth it. |
+| **Embeddings + vector DB instead of FTS5**                               | Sentence-transformers or Anthropic embeddings; sqlite-vec or chroma for retrieval.                                                   | Strictly more recall on synonym-heavy queries, but adds a model dep and embedding compute — all to bump recall past where BM25 over heading-aware chunks already gets us. Phase 2 path is clean: add a `rules_chunks_vec` virtual table via `sqlite-vec` in the same db, joined on `chunkId`. Same chunks, two indexes, merged at query time.                                                                                                    |
+| **LLM-pre-parsed structured rule modules**                               | One-time AI pass converts PDF into typed TS modules (`rules.combat.flanking = {...}`); AI author imports them.                       | Maximum legibility but premature schema; expensive and lossy extraction; painful to update on errata; the structuring step is itself an open-ended AI problem. The AI author can build typed rule structures _as part of writing the game system_, citing the corpus — that gives us the same destination through a more honest path.                                                                                                            |
+| **MCP server instead of a skill**                                        | Expose `rules_lookup` as an MCP tool.                                                                                                | An MCP server is appropriate when the tool needs to talk to _something_ (a service, a network resource). This tool only reads local files; a skill (file-read + small CLI) is simpler and has fewer moving parts. Reconsider if/when the corpus moves off-machine.                                                                                                                                                                               |
 
 ## Phase 2 / open questions
 

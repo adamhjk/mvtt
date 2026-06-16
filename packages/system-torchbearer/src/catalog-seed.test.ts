@@ -179,8 +179,7 @@ describe("TB monster catalog → seed", () => {
     expect(traits).toBeDefined();
     expect((traits as { Character: { name: string } }).Character.name).toBeTruthy();
     expect(
-      (traits as { TbMonsterDerivedFrom: { templateId: string } })
-        .TbMonsterDerivedFrom.templateId,
+      (traits as { TbMonsterDerivedFrom: { templateId: string } }).TbMonsterDerivedFrom.templateId,
     ).toMatch(/^tb\/monster\//);
   });
 
@@ -227,13 +226,14 @@ describe("TB monster catalog → seed", () => {
     const registry = buildRegistry();
     const world = new World();
     tbSeed({ world, registry });
-    const itemIdx = world.query([ItemCatalogIndex])[0]!.values
-      .ItemCatalogIndex as { entries: Record<string, string> };
-    const monsterIdx = world.query([MonsterCatalogIndex])[0]!.values
-      .MonsterCatalogIndex as { entries: Record<string, string> };
+    const itemIdx = world.query([ItemCatalogIndex])[0]!.values.ItemCatalogIndex as {
+      entries: Record<string, string>;
+    };
+    const monsterIdx = world.query([MonsterCatalogIndex])[0]!.values.MonsterCatalogIndex as {
+      entries: Record<string, string>;
+    };
     const armoredTemplate = TB_MONSTER_TEMPLATES.find(
-      (t) =>
-        t.armorItemTemplateId !== null && itemIdx.entries[t.armorItemTemplateId],
+      (t) => t.armorItemTemplateId !== null && itemIdx.entries[t.armorItemTemplateId],
     );
     if (!armoredTemplate) return; // dataset has no armored monsters? skip.
     const monsterId = monsterIdx.entries[armoredTemplate.id]!;
@@ -242,9 +242,7 @@ describe("TB monster catalog → seed", () => {
       | undefined;
     expect(carries).toBeDefined();
     const expectedItemId = itemIdx.entries[armoredTemplate.armorItemTemplateId!];
-    const armorEntry = carries!.TbCarries.entries.find(
-      (e) => e.itemId === expectedItemId,
-    );
+    const armorEntry = carries!.TbCarries.entries.find((e) => e.itemId === expectedItemId);
     expect(armorEntry).toBeDefined();
     expect(armorEntry!.slot).toBe("torso");
   });
@@ -266,16 +264,10 @@ describe("TB NPC catalog → seed", () => {
     const templateRows = world.query([NpcTemplate]);
     expect(templateRows.length).toBeGreaterThan(0);
     const sample = templateRows[0]!;
-    const traits = world.get(sample.id as never, [
-      Character,
-      TbNpc,
-      TbNpcDerivedFrom,
-      NpcTemplate,
-    ]);
+    const traits = world.get(sample.id as never, [Character, TbNpc, TbNpcDerivedFrom, NpcTemplate]);
     expect(traits).toBeDefined();
     expect(
-      (traits as { TbNpcDerivedFrom: { templateId: string } })
-        .TbNpcDerivedFrom.templateId,
+      (traits as { TbNpcDerivedFrom: { templateId: string } }).TbNpcDerivedFrom.templateId,
     ).toMatch(/^tb\/npc\//);
   });
 

@@ -8,7 +8,7 @@ architectural plan; consult it before touching any of the moving parts.
 ## Locked decisions
 
 1. **Spells are real entities, shared by reference** — exactly like
-   items. The catalog (`TB_SPELL_TEMPLATES`) is *seed input*, not a
+   items. The catalog (`TB_SPELL_TEMPLATES`) is _seed input_, not a
    parallel runtime form. At world boot, the plugin spawns one entity
    per template. Two characters who know "Wayfinder's Friend" both
    have library/spell-book entries pointing at the same `spellId`.
@@ -148,27 +148,27 @@ All TB-namespaced; owner-or-GM gated by `requireWrite(characterId)`
 (or the holder of the spell book / scroll, where applicable). Pattern
 matches existing items commands.
 
-| Command | Notes |
-|---|---|
-| `LearnSpellFromSource(spellId, source)` | Routes to a Lore Master roll request (Ob = `learnOb`); on the `[Add to library/book]` button on the resolved card, dispatches `AddSpellToLibrary` or `AddSpellToBook`. |
-| `AddSpellToLibrary(characterId, spellId)` | Direct add, no roll. GM-only convenience for chargen and homebrew. |
-| `AddSpellToBook(bookId, spellId)` | Validator: spell.circle ≤ free folios. |
-| `RemoveSpellFromLibrary(characterId, spellId)` | Cleanup. |
-| `RemoveSpellFromBook(bookId, spellId)` | Cleanup; recovers folios. |
-| `ScribeSpellToBook(characterId, spellId, bookId)` | RAW p.92: personal business in town, no test, just folio math. Validator: spell in player's library. |
-| `RequestScribeScroll(characterId, spellId)` | Opens a Scholar roll request (Ob = `scribeOb`); the resolved card's button runs `BurnPalaceForScroll` + `SpawnScroll`. |
-| `MemorizeSpells(characterId, picks)` | Opens a Lore Master roll request (Ob = sum of circles + already-memorized count). The card's button runs `FillMemoryPalace`. |
-| `FillMemoryPalace(rollId, picks)` | Post-roll button commit. Marks roll `MemorizationCommitted`. |
-| `CastSpell(characterId, spellId, source)` | `source: { kind: "palace" } \| { kind: "spellbook"; bookId } \| { kind: "scroll"; scrollId }`. Opens an Arcanist roll request whose meta carries the spell context; the chat row's post-roll buttons consume from the right place. |
-| `ConsumePalaceSpell(rollId)` | Post-roll commit. Sets palace entry `cast: true`. |
-| `BurnSpellbookSpell(rollId)` | Post-roll commit. Removes spell from book.contents (recovers folios). |
-| `BurnScroll(rollId)` | Post-roll commit. Despawns the scroll item entity. |
-| `EmptyMemoryPalaceRoll(characterId)` | Opens a Will roll request (Ob = sum of memorized circles). Free, no turn cost (DH p.91). |
-| `CommitMemoryPalaceDischarge(rollId)` | Post-roll commit. Empties palace. |
-| `IncreaseMemoryPalaceCapacity(characterId, by)` | GM-only. Triggered by class level benefits. |
-| `CustomizeSpell(spellId)` | Fork-on-edit. Same pattern as `CustomizeItem`. |
-| `EditSpellField(spellId, path, value)` | GM edit on a forked spell; tracks `SpellDerivedFrom.overrides`. |
-| `CreateBlankSpell(name, circle)` | Homebrew. Spawns a fresh spell entity with empty stat block + `TbSpellHomebrewProse`. |
+| Command                                           | Notes                                                                                                                                                                                                                              |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LearnSpellFromSource(spellId, source)`           | Routes to a Lore Master roll request (Ob = `learnOb`); on the `[Add to library/book]` button on the resolved card, dispatches `AddSpellToLibrary` or `AddSpellToBook`.                                                             |
+| `AddSpellToLibrary(characterId, spellId)`         | Direct add, no roll. GM-only convenience for chargen and homebrew.                                                                                                                                                                 |
+| `AddSpellToBook(bookId, spellId)`                 | Validator: spell.circle ≤ free folios.                                                                                                                                                                                             |
+| `RemoveSpellFromLibrary(characterId, spellId)`    | Cleanup.                                                                                                                                                                                                                           |
+| `RemoveSpellFromBook(bookId, spellId)`            | Cleanup; recovers folios.                                                                                                                                                                                                          |
+| `ScribeSpellToBook(characterId, spellId, bookId)` | RAW p.92: personal business in town, no test, just folio math. Validator: spell in player's library.                                                                                                                               |
+| `RequestScribeScroll(characterId, spellId)`       | Opens a Scholar roll request (Ob = `scribeOb`); the resolved card's button runs `BurnPalaceForScroll` + `SpawnScroll`.                                                                                                             |
+| `MemorizeSpells(characterId, picks)`              | Opens a Lore Master roll request (Ob = sum of circles + already-memorized count). The card's button runs `FillMemoryPalace`.                                                                                                       |
+| `FillMemoryPalace(rollId, picks)`                 | Post-roll button commit. Marks roll `MemorizationCommitted`.                                                                                                                                                                       |
+| `CastSpell(characterId, spellId, source)`         | `source: { kind: "palace" } \| { kind: "spellbook"; bookId } \| { kind: "scroll"; scrollId }`. Opens an Arcanist roll request whose meta carries the spell context; the chat row's post-roll buttons consume from the right place. |
+| `ConsumePalaceSpell(rollId)`                      | Post-roll commit. Sets palace entry `cast: true`.                                                                                                                                                                                  |
+| `BurnSpellbookSpell(rollId)`                      | Post-roll commit. Removes spell from book.contents (recovers folios).                                                                                                                                                              |
+| `BurnScroll(rollId)`                              | Post-roll commit. Despawns the scroll item entity.                                                                                                                                                                                 |
+| `EmptyMemoryPalaceRoll(characterId)`              | Opens a Will roll request (Ob = sum of memorized circles). Free, no turn cost (DH p.91).                                                                                                                                           |
+| `CommitMemoryPalaceDischarge(rollId)`             | Post-roll commit. Empties palace.                                                                                                                                                                                                  |
+| `IncreaseMemoryPalaceCapacity(characterId, by)`   | GM-only. Triggered by class level benefits.                                                                                                                                                                                        |
+| `CustomizeSpell(spellId)`                         | Fork-on-edit. Same pattern as `CustomizeItem`.                                                                                                                                                                                     |
+| `EditSpellField(spellId, path, value)`            | GM edit on a forked spell; tracks `SpellDerivedFrom.overrides`.                                                                                                                                                                    |
+| `CreateBlankSpell(name, circle)`                  | Homebrew. Spawns a fresh spell entity with empty stat block + `TbSpellHomebrewProse`.                                                                                                                                              |
 
 A pragmatic v1 simplification: the Lore Master / Scholar roll
 integration for **learn / scribe / memorize / discharge** can land in a
@@ -258,7 +258,7 @@ The Inventory tab's per-item detail-section slot gets two new fills:
 - **`TbSpellBookSection`** — list of contents with a `[Cast from book]`
   button per row, plus folio usage strip.
 - **`TbScrollSection`** — single-spell summary with a `[Cast from
-  scroll]` button.
+scroll]` button.
 
 ## Casting flow (the load-bearing path)
 
@@ -281,7 +281,7 @@ The Inventory tab's per-item detail-section slot gets two new fills:
 5. Player rolls. `RollResolved` lands.
 6. `TbRollActionsFill` sees `meta.spellCast` and renders the right
    commit button (`[Consume from palace]` / `[Burn folio]` / `[Burn
-   scroll]`). The button dispatches `ConsumePalaceSpell` /
+scroll]`). The button dispatches `ConsumePalaceSpell` /
    `BurnSpellbookSpell` / `BurnScroll`. Click is gated by
    `SpellCastConsumed` marker on the Roll entity.
 7. Materials, if used, consume via the same row's `[Spend materials]`
@@ -307,6 +307,7 @@ The Inventory tab's per-item detail-section slot gets two new fills:
 ## v1 scope
 
 Done:
+
 - All traits, events, commands listed above.
 - Hand-curated catalog of 10 spells.
 - Two new item kinds (spellbook, scroll) + catalog seed.
@@ -319,6 +320,7 @@ Done:
   smoke for the cast round-trip.
 
 Deferred to v2:
+
 - Auto-generator that walks `e420`/`e422` and produces the full
   catalog of ~80 spells.
 - Lore Master roll integration for memorize / learn / discharge

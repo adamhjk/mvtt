@@ -30,11 +30,7 @@ import {
 import type { AuthSession } from "@vtt/auth";
 import { permissions } from "@vtt/permissions";
 import { shellWorkbench } from "@vtt/shell-workbench";
-import {
-  Permissions,
-  PermissionsChanged,
-  SetPermissions,
-} from "@vtt/permissions/shared";
+import { Permissions, PermissionsChanged, SetPermissions } from "@vtt/permissions/shared";
 import {
   AddPage,
   BeginEdit,
@@ -70,11 +66,7 @@ import {
   BelongsToNote,
 } from "./shared/index.js";
 import { notes } from "./manifest.js";
-import {
-  EditEndSystem,
-  LockReleaseSystem,
-  PageHeadingsSystem,
-} from "./server/systems.js";
+import { EditEndSystem, LockReleaseSystem, PageHeadingsSystem } from "./server/systems.js";
 
 const GM: AuthSession = {
   userId: "gm-1",
@@ -185,11 +177,7 @@ describe("@vtt/notes", () => {
     });
 
     it("requires a session", async () => {
-      const res = await dispatch(
-        pipeline,
-        CreateNote({ title: "X" }),
-        undefined,
-      );
+      const res = await dispatch(pipeline, CreateNote({ title: "X" }), undefined);
       expect(res.result.ok).toBe(false);
       expect(world.query([Note])).toHaveLength(0);
     });
@@ -199,11 +187,7 @@ describe("@vtt/notes", () => {
     it("owner renames", async () => {
       await makeNote(pipeline, "Original", ALICE);
       const noteId = world.query([Note])[0]!.id;
-      const res = await dispatch(
-        pipeline,
-        RenameNote({ noteId, title: "Renamed" }),
-        ALICE,
-      );
+      const res = await dispatch(pipeline, RenameNote({ noteId, title: "Renamed" }), ALICE);
       expect(res.result.ok).toBe(true);
       const after = world.get(noteId, [Note]) as { Note: { title: string } };
       expect(after.Note.title).toBe("Renamed");
@@ -212,22 +196,14 @@ describe("@vtt/notes", () => {
     it("GM renames any note", async () => {
       await makeNote(pipeline, "Original", ALICE);
       const noteId = world.query([Note])[0]!.id;
-      const res = await dispatch(
-        pipeline,
-        RenameNote({ noteId, title: "By GM" }),
-        GM,
-      );
+      const res = await dispatch(pipeline, RenameNote({ noteId, title: "By GM" }), GM);
       expect(res.result.ok).toBe(true);
     });
 
     it("non-owner non-GM rejected", async () => {
       await makeNote(pipeline, "Original", ALICE);
       const noteId = world.query([Note])[0]!.id;
-      const res = await dispatch(
-        pipeline,
-        RenameNote({ noteId, title: "Hax" }),
-        BOB,
-      );
+      const res = await dispatch(pipeline, RenameNote({ noteId, title: "Hax" }), BOB);
       expect(res.result.ok).toBe(false);
     });
   });
@@ -290,11 +266,7 @@ describe("@vtt/notes", () => {
     it("RenamePage updates title via owner of parent note", async () => {
       await makeNote(pipeline, "X", ALICE);
       const pageId = world.query([Page])[0]!.id;
-      const res = await dispatch(
-        pipeline,
-        RenamePage({ pageId, title: "Renamed" }),
-        ALICE,
-      );
+      const res = await dispatch(pipeline, RenamePage({ pageId, title: "Renamed" }), ALICE);
       expect(res.result.ok).toBe(true);
       const after = world.get(pageId, [Page]) as { Page: { title: string } };
       expect(after.Page.title).toBe("Renamed");
@@ -326,11 +298,7 @@ describe("@vtt/notes", () => {
             (b.values.PageOrdering as { ordinal: number }).ordinal,
         );
       const reversed = [...pages].reverse().map((r) => r.id);
-      const res = await dispatch(
-        pipeline,
-        ReorderPages({ noteId, pageIds: reversed }),
-        GM,
-      );
+      const res = await dispatch(pipeline, ReorderPages({ noteId, pageIds: reversed }), GM);
       expect(res.result.ok).toBe(true);
       reversed.forEach((id, idx) => {
         const o = world.get(id, [PageOrdering]) as { PageOrdering: { ordinal: number } };
@@ -359,12 +327,7 @@ describe("@vtt/notes", () => {
     it("BeginEdit sets EditorLock; ExtendEditLock bumps expires; EndEdit clears", async () => {
       await makeNote(pipeline, "Doc", ALICE);
       const pageId = world.query([Page])[0]!.id;
-      const begin = await dispatch(
-        pipeline,
-        BeginEdit({ pageId }),
-        ALICE,
-        { actor: "client-A" },
-      );
+      const begin = await dispatch(pipeline, BeginEdit({ pageId }), ALICE, { actor: "client-A" });
       expect(begin.result.ok).toBe(true);
       const lock = world.get(pageId, [EditorLock]) as
         | {
@@ -380,23 +343,15 @@ describe("@vtt/notes", () => {
       const initialExpires = lock!.EditorLock.expires;
       // Wait a tick so Date.now() advances
       await new Promise((r) => setTimeout(r, 5));
-      const ext = await dispatch(
-        pipeline,
-        ExtendEditLock({ pageId }),
-        ALICE,
-        { actor: "client-A" },
-      );
+      const ext = await dispatch(pipeline, ExtendEditLock({ pageId }), ALICE, {
+        actor: "client-A",
+      });
       expect(ext.result.ok).toBe(true);
       const lock2 = world.get(pageId, [EditorLock]) as
         | { EditorLock: { expires: number } }
         | undefined;
       expect(lock2?.EditorLock.expires).toBeGreaterThan(initialExpires);
-      const end = await dispatch(
-        pipeline,
-        EndEdit({ pageId }),
-        ALICE,
-        { actor: "client-A" },
-      );
+      const end = await dispatch(pipeline, EndEdit({ pageId }), ALICE, { actor: "client-A" });
       expect(end.result.ok).toBe(true);
       const cleared = world.get(pageId, [EditorLock]) as
         | { EditorLock: { expires: number } }
@@ -437,17 +392,12 @@ describe("@vtt/notes", () => {
       await dispatch(pipeline, BeginEdit({ pageId }), GM, { actor: "client-A" });
       const seen: string[] = [];
       bus.onAny((e) => seen.push(e.type));
-      const res = await dispatch(
-        pipeline,
-        SetDraftBody({ pageId, body: "draft-1" }),
-        GM,
-        { actor: "client-A" },
-      );
+      const res = await dispatch(pipeline, SetDraftBody({ pageId, body: "draft-1" }), GM, {
+        actor: "client-A",
+      });
       expect(res.result.ok).toBe(true);
       expect(seen).toContain(PageBodyDraft.name);
-      const draft = world.get(pageId, [PageDraft]) as
-        | { PageDraft: { body: string } }
-        | undefined;
+      const draft = world.get(pageId, [PageDraft]) as { PageDraft: { body: string } } | undefined;
       expect(draft?.PageDraft.body).toBe("draft-1");
       const page = world.get(pageId, [Page]) as { Page: { body: string; bodyRev: number } };
       expect(page.Page.body).toBe("");
@@ -459,36 +409,28 @@ describe("@vtt/notes", () => {
       const pageId = world.query([Page])[0]!.id;
       await dispatch(pipeline, BeginEdit({ pageId }), GM, { actor: "client-A" });
 
-      const r1 = await dispatch(
-        pipeline,
-        SetPageBody({ pageId, body: "rev1" }),
-        GM,
-        { actor: "client-A", causalState: { lastSeenRev: 0 } },
-      );
+      const r1 = await dispatch(pipeline, SetPageBody({ pageId, body: "rev1" }), GM, {
+        actor: "client-A",
+        causalState: { lastSeenRev: 0 },
+      });
       expect(r1.result.ok).toBe(true);
       const after1 = world.get(pageId, [Page]) as { Page: { body: string; bodyRev: number } };
       expect(after1.Page.body).toBe("rev1");
       expect(after1.Page.bodyRev).toBe(1);
 
       // Stale CAS
-      const r2 = await dispatch(
-        pipeline,
-        SetPageBody({ pageId, body: "rev-stale" }),
-        GM,
-        { actor: "client-A", causalState: { lastSeenRev: 0 } },
-      );
+      const r2 = await dispatch(pipeline, SetPageBody({ pageId, body: "rev-stale" }), GM, {
+        actor: "client-A",
+        causalState: { lastSeenRev: 0 },
+      });
       expect(r2.result.ok).toBe(false);
-      expect(
-        (world.get(pageId, [Page]) as { Page: { body: string } }).Page.body,
-      ).toBe("rev1");
+      expect((world.get(pageId, [Page]) as { Page: { body: string } }).Page.body).toBe("rev1");
 
       // Fresh CAS
-      const r3 = await dispatch(
-        pipeline,
-        SetPageBody({ pageId, body: "rev2" }),
-        GM,
-        { actor: "client-A", causalState: { lastSeenRev: 1 } },
-      );
+      const r3 = await dispatch(pipeline, SetPageBody({ pageId, body: "rev2" }), GM, {
+        actor: "client-A",
+        causalState: { lastSeenRev: 1 },
+      });
       expect(r3.result.ok).toBe(true);
       const after3 = world.get(pageId, [Page]) as { Page: { bodyRev: number } };
       expect(after3.Page.bodyRev).toBe(2);
@@ -498,12 +440,9 @@ describe("@vtt/notes", () => {
       await makeNote(pipeline, "Doc", GM);
       const pageId = world.query([Page])[0]!.id;
       await dispatch(pipeline, BeginEdit({ pageId }), GM, { actor: "client-A" });
-      const res = await dispatch(
-        pipeline,
-        SetPageBody({ pageId, body: "intruder" }),
-        GM,
-        { actor: "client-B" },
-      );
+      const res = await dispatch(pipeline, SetPageBody({ pageId, body: "intruder" }), GM, {
+        actor: "client-B",
+      });
       expect(res.result.ok).toBe(false);
     });
 
@@ -512,12 +451,7 @@ describe("@vtt/notes", () => {
       const pageId = world.query([Page])[0]!.id;
       await dispatch(pipeline, BeginEdit({ pageId }), GM, { actor: "client-A" });
       for (let i = 0; i < 25; i++) {
-        await dispatch(
-          pipeline,
-          SetPageBody({ pageId, body: `b${i}` }),
-          GM,
-          { actor: "client-A" },
-        );
+        await dispatch(pipeline, SetPageBody({ pageId, body: `b${i}` }), GM, { actor: "client-A" });
       }
       const hist = world.get(pageId, [PageHistory]) as
         | { PageHistory: { entries: { rev: number }[] } }
@@ -582,9 +516,7 @@ describe("@vtt/notes", () => {
     });
 
     it("rejects empty pageIds in ReorderPages", () => {
-      expect(() =>
-        ReorderPages({ noteId: "n" as EntityId, pageIds: [] }),
-      ).toThrow();
+      expect(() => ReorderPages({ noteId: "n" as EntityId, pageIds: [] })).toThrow();
     });
   });
 });

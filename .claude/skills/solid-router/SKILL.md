@@ -47,7 +47,9 @@ render(
 ```tsx
 const Layout = (props: { children?: JSX.Element }) => (
   <>
-    <header><nav>...</nav></header>
+    <header>
+      <nav>...</nav>
+    </header>
     <main>{props.children}</main>
     <footer>...</footer>
   </>
@@ -56,7 +58,7 @@ const Layout = (props: { children?: JSX.Element }) => (
 <Router root={Layout}>
   <Route path="/" component={Home} />
   <Route path="/about" component={About} />
-</Router>
+</Router>;
 ```
 
 The `root` layout doesn't unmount as the route changes — only `props.children` swaps.
@@ -84,7 +86,7 @@ A route with children is a layout for those children:
 <Route path="/users" component={UsersLayout}>
   <Route path="/" component={UsersList} />
   <Route path="/:id" component={UserDetail} />
-</Route>
+</Route>;
 
 // UsersLayout receives props.children
 function UsersLayout(props: { children?: JSX.Element }) {
@@ -120,10 +122,10 @@ Plain `<a href="/x">` also works — Solid Router intercepts it for soft navigat
 const navigate = useNavigate();
 
 navigate("/dashboard");
-navigate("/dashboard", { replace: true });        // replace history entry
-navigate(-1);                                     // back
-navigate("/x", { state: { from: "..." } });       // pass state
-navigate("/x", { scroll: false });                // skip scroll restore
+navigate("/dashboard", { replace: true }); // replace history entry
+navigate(-1); // back
+navigate("/x", { state: { from: "..." } }); // pass state
+navigate("/x", { scroll: false }); // skip scroll restore
 ```
 
 ### `<Navigate>` — declarative redirect
@@ -145,18 +147,18 @@ const logout = action(async () => {
 
 ## Reading the URL
 
-| Primitive | Returns | Use for |
-|---|---|---|
-| `useParams<T>()` | reactive object | path params (`:id`, etc.) |
-| `useLocation<T>()` | reactive `Location` | full URL info: `pathname`, `search`, `hash`, `state`, `query` |
-| `useSearchParams<T>()` | `[search, setSearch]` | query string get/set |
-| `useNavigate()` | `(to, options?) => void` | imperative navigation |
-| `useIsRouting()` | `Accessor<boolean>` | true while a navigation is in flight |
-| `useBeforeLeave(fn)` | — | guard nav (confirm, save) |
-| `useResolvedPath(path)` | resolved string | resolve a path against current route |
-| `usePreloadRoute()` | `(path) => void` | imperative preload |
-| `useMatch(path)` | reactive match info | check if a path matches current location |
-| `useCurrentMatches()` | reactive array of matches | full match chain |
+| Primitive               | Returns                   | Use for                                                       |
+| ----------------------- | ------------------------- | ------------------------------------------------------------- |
+| `useParams<T>()`        | reactive object           | path params (`:id`, etc.)                                     |
+| `useLocation<T>()`      | reactive `Location`       | full URL info: `pathname`, `search`, `hash`, `state`, `query` |
+| `useSearchParams<T>()`  | `[search, setSearch]`     | query string get/set                                          |
+| `useNavigate()`         | `(to, options?) => void`  | imperative navigation                                         |
+| `useIsRouting()`        | `Accessor<boolean>`       | true while a navigation is in flight                          |
+| `useBeforeLeave(fn)`    | —                         | guard nav (confirm, save)                                     |
+| `useResolvedPath(path)` | resolved string           | resolve a path against current route                          |
+| `usePreloadRoute()`     | `(path) => void`          | imperative preload                                            |
+| `useMatch(path)`        | reactive match info       | check if a path matches current location                      |
+| `useCurrentMatches()`   | reactive array of matches | full match chain                                              |
 
 ```tsx
 function User() {
@@ -166,12 +168,7 @@ function User() {
 
 function Search() {
   const [search, setSearch] = useSearchParams<{ q?: string }>();
-  return (
-    <input
-      value={search.q ?? ""}
-      onInput={e => setSearch({ q: e.currentTarget.value })}
-    />
-  );
+  return <input value={search.q ?? ""} onInput={(e) => setSearch({ q: e.currentTarget.value })} />;
 }
 ```
 
@@ -232,7 +229,7 @@ The `name` argument to `action(fn, name)` is **required for SSR** so Solid can s
 ```tsx
 const update = useAction(updateUser);
 
-<button onClick={() => update(someFormData)}>Save</button>
+<button onClick={() => update(someFormData)}>Save</button>;
 ```
 
 ### Pass extra args via `.with`
@@ -266,9 +263,9 @@ Return or throw these from inside an action (or query):
 ```ts
 import { redirect, reload, json } from "@solidjs/router";
 
-throw redirect("/somewhere");                    // navigate; revalidates queries
-throw reload({ revalidate: ["user", "posts"] });  // revalidate just these queries
-return json({ ok: true }, { revalidate: [] });   // return data; skip revalidation
+throw redirect("/somewhere"); // navigate; revalidates queries
+throw reload({ revalidate: ["user", "posts"] }); // revalidate just these queries
+return json({ ok: true }, { revalidate: [] }); // return data; skip revalidation
 ```
 
 Default behaviour after a successful action: all queries used in the same page revalidate. Pass `revalidate: []` to opt out.
@@ -278,14 +275,15 @@ Default behaviour after a successful action: all queries used in the same page r
 ```ts
 import { revalidate } from "@solidjs/router";
 
-await revalidate(getUser.key);                   // revalidate a specific query
-await revalidate(getUser.keyFor(userId));        // ...for specific args
-await revalidate();                              // revalidate everything
+await revalidate(getUser.key); // revalidate a specific query
+await revalidate(getUser.keyFor(userId)); // ...for specific args
+await revalidate(); // revalidate everything
 ```
 
 ## Route-level `preload`
 
 Each route can export or accept a `preload` function that runs:
+
 - During SSR for the initial render.
 - On the client when the route is hovered, focused, or navigated to.
 
@@ -294,7 +292,7 @@ const route = {
   preload: ({ params }) => getUser(params.id),
 } satisfies RouteDefinition;
 
-<Route path="/users/:id" component={User} preload={route.preload} />
+<Route path="/users/:id" component={User} preload={route.preload} />;
 ```
 
 The preload function seeds the query cache. By the time `User` renders, the data is already loading (or ready). This is what makes route transitions feel instant.
@@ -316,7 +314,7 @@ onMouseEnter={() => preload("/users/123")}
 import { lazy } from "solid-js";
 
 const Settings = lazy(() => import("./pages/Settings"));
-<Route path="/settings" component={Settings} />
+<Route path="/settings" component={Settings} />;
 ```
 
 Routes loaded with `lazy()` participate in the same hover/focus preload pipeline.
@@ -366,7 +364,7 @@ function ProtectedRoute(props: { children?: JSX.Element }) {
     <Route path="/" component={Dashboard} />
     <Route path="/settings" component={Settings} />
   </Route>
-</Router>
+</Router>;
 ```
 
 ### Search-as-you-type with URL state
@@ -374,10 +372,7 @@ function ProtectedRoute(props: { children?: JSX.Element }) {
 ```tsx
 const [search, setSearch] = useSearchParams<{ q?: string }>();
 
-<input
-  value={search.q ?? ""}
-  onInput={e => setSearch({ q: e.currentTarget.value })}
-/>
+<input value={search.q ?? ""} onInput={(e) => setSearch({ q: e.currentTarget.value })} />;
 
 const results = createAsync(() => searchQuery(search.q ?? ""));
 ```
@@ -396,7 +391,7 @@ const optimistic = createMemo(() => {
   return [...(items() ?? []), { id: -1, name: formData.get("name") as string }];
 });
 
-return <For each={optimistic()}>{i => <li>{i.name}</li>}</For>;
+return <For each={optimistic()}>{(i) => <li>{i.name}</li>}</For>;
 ```
 
 ## Common pitfalls

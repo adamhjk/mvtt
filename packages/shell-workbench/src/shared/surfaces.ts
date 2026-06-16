@@ -25,8 +25,7 @@ export const WorkbenchHeaderSurface = defineSurface({
   name: "@vtt/shell-workbench/header",
   kind: "stacked",
   context: z.object({}),
-  description:
-    "Top bar of the workbench. Logo, presence chips, palette trigger.",
+  description: "Top bar of the workbench. Logo, presence chips, palette trigger.",
 });
 
 /**
@@ -38,8 +37,7 @@ export const WorkbenchChatRailSurface = defineSurface({
   name: "@vtt/shell-workbench/chat-rail",
   kind: "stacked",
   context: z.object({}),
-  description:
-    "Right-rail chat. Stream + composer + presence/dice widgets stack here.",
+  description: "Right-rail chat. Stream + composer + presence/dice widgets stack here.",
 });
 
 /**
@@ -52,6 +50,5 @@ export const PaletteSurface = defineSurface({
   name: "@vtt/shell-workbench/palette",
   kind: "stacked",
   context: z.object({}),
-  description:
-    "Quick-switcher overlay. Stacked so plugins can add ad-hoc UI.",
+  description: "Quick-switcher overlay. Stacked so plugins can add ad-hoc UI.",
 });

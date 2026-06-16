@@ -28,9 +28,7 @@ import { Active } from "./traits.js";
  * (Monsters, NPCs) ignore this and show every entity.
  */
 export function isActive(world: World, id: EntityId): boolean {
-  const got = world.get(id, [Active]) as
-    | { Active: { active: boolean } }
-    | undefined;
+  const got = world.get(id, [Active]) as { Active: { active: boolean } } | undefined;
   if (!got) return true;
   return got.Active.active !== false;
 }
@@ -42,9 +40,7 @@ export function isActive(world: World, id: EntityId): boolean {
  * GM knows a write is needed to flip it.
  */
 export function readActive(world: World, id: EntityId): boolean | null {
-  const got = world.get(id, [Active]) as
-    | { Active: { active: boolean } }
-    | undefined;
+  const got = world.get(id, [Active]) as { Active: { active: boolean } } | undefined;
   if (!got) return null;
   return got.Active.active !== false;
 }

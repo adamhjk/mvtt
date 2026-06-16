@@ -17,12 +17,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, expect, it, beforeEach } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  screen,
-  waitFor,
-} from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { mountWithClient } from "@vtt/substrate/client-testing";
 import type { EntityId } from "@vtt/substrate";
 import { Character, PendingRoll } from "@vtt/characters/shared";
@@ -81,9 +76,7 @@ function buildTwoRollHarness(): {
   return { h, rollId, otherRollId };
 }
 
-function versusDispatches(
-  h: { dispatched: unknown[] },
-): DispatchedContribution[] {
+function versusDispatches(h: { dispatched: unknown[] }): DispatchedContribution[] {
   return (h.dispatched as DispatchedContribution[]).filter(
     (d) =>
       d.type === "@vtt/characters/ContributeToPendingRoll" &&
@@ -99,23 +92,17 @@ describe("OpponentCard — pair-with flow in the roll screen", () => {
     await waitFor(() => {
       const card = screen.getByTestId("atelier-opponent-card");
       expect(card.textContent).toContain("Grim");
-      expect(
-        screen.getByTestId(`atelier-opponent-pair-${otherRollId}`),
-      ).toBeInTheDocument();
+      expect(screen.getByTestId(`atelier-opponent-pair-${otherRollId}`)).toBeInTheDocument();
     });
     // Versus selected but nobody paired yet — no unpair affordance.
-    expect(
-      screen.queryByTestId("atelier-opponent-unpair"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("atelier-opponent-unpair")).not.toBeInTheDocument();
   });
 
   it("clicking pair dispatches matching tb-versus contributions to both rolls", async () => {
     const { h, rollId, otherRollId } = buildTwoRollHarness();
     mountWithClient(h, () => mountTbEditor(rollId) as never);
     fireEvent.click(screen.getByTestId("atelier-mode-versus"));
-    await waitFor(() =>
-      screen.getByTestId(`atelier-opponent-pair-${otherRollId}`),
-    );
+    await waitFor(() => screen.getByTestId(`atelier-opponent-pair-${otherRollId}`));
     fireEvent.click(screen.getByTestId(`atelier-opponent-pair-${otherRollId}`));
     await waitFor(() => {
       // The two most recent versus dispatches carry the pairing: one to
@@ -134,9 +121,7 @@ describe("OpponentCard — pair-with flow in the roll screen", () => {
     await waitFor(() => {
       const partner = screen.getByTestId("atelier-opponent-partner");
       expect(partner.textContent).toContain("Grim");
-      expect(
-        screen.getByTestId("atelier-opponent-source").textContent,
-      ).toMatch(/^testing /);
+      expect(screen.getByTestId("atelier-opponent-source").textContent).toMatch(/^testing /);
     });
     expect(screen.queryByTestId("atelier-opponent-pool")).not.toBeInTheDocument();
   });
@@ -145,9 +130,7 @@ describe("OpponentCard — pair-with flow in the roll screen", () => {
     const { h, rollId, otherRollId } = buildTwoRollHarness();
     mountWithClient(h, () => mountTbEditor(rollId) as never);
     fireEvent.click(screen.getByTestId("atelier-mode-versus"));
-    await waitFor(() =>
-      screen.getByTestId(`atelier-opponent-pair-${otherRollId}`),
-    );
+    await waitFor(() => screen.getByTestId(`atelier-opponent-pair-${otherRollId}`));
     fireEvent.click(screen.getByTestId(`atelier-opponent-pair-${otherRollId}`));
     // Wait for the partner summary — proof the pairing landed on the peer,
     // not just that an unpaired versus id exists on our roll.
@@ -206,10 +189,7 @@ describe("OpponentCard — pair-with flow in the roll screen", () => {
     });
     // Still in versus mode, and NOT offering a re-pair that would orphan
     // the committed half.
-    expect(screen.getByTestId("atelier-editor")).toHaveAttribute(
-      "data-mode",
-      "versus",
-    );
+    expect(screen.getByTestId("atelier-editor")).toHaveAttribute("data-mode", "versus");
     expect(screen.queryByText(/pair with:/)).not.toBeInTheDocument();
   });
 
@@ -217,9 +197,7 @@ describe("OpponentCard — pair-with flow in the roll screen", () => {
     const { h, rollId, otherRollId } = buildTwoRollHarness();
     mountWithClient(h, () => mountTbEditor(rollId) as never);
     fireEvent.click(screen.getByTestId("atelier-mode-versus"));
-    await waitFor(() =>
-      screen.getByTestId(`atelier-opponent-pair-${otherRollId}`),
-    );
+    await waitFor(() => screen.getByTestId(`atelier-opponent-pair-${otherRollId}`));
     fireEvent.click(screen.getByTestId(`atelier-opponent-pair-${otherRollId}`));
     await waitFor(() => screen.getByTestId("atelier-opponent-partner"));
     fireEvent.click(screen.getByTestId("atelier-mode-disposition"));
@@ -237,10 +215,7 @@ describe("OpponentCard — pair-with flow in the roll screen", () => {
       expect(dispo).toBeDefined();
     });
     await waitFor(() => {
-      expect(screen.getByTestId("atelier-editor")).toHaveAttribute(
-        "data-mode",
-        "disposition",
-      );
+      expect(screen.getByTestId("atelier-editor")).toHaveAttribute("data-mode", "disposition");
     });
   });
 });

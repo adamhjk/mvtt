@@ -118,10 +118,7 @@ describe("tagRollWithOrigin", () => {
   });
 
   it("ignores a non-object meta rather than spreading it", () => {
-    const out = tagRollWithOrigin(
-      cmd({ notation: "1d20", meta: "weird" }),
-      PENDING,
-    );
+    const out = tagRollWithOrigin(cmd({ notation: "1d20", meta: "weird" }), PENDING);
     expect((out.payload as { meta: unknown }).meta).toEqual({
       originPendingRollId: PENDING,
     });

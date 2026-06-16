@@ -43,6 +43,7 @@ function Header() {
 ```
 
 `useContext(MyContext)` returns:
+
 - The `value` of the nearest ancestor `<MyContext.Provider>`, if any.
 - The `defaultValue` passed to `createContext`, otherwise.
 - `undefined` if you didn't pass a default.
@@ -57,11 +58,7 @@ const ThemeContext = createContext<ThemeApi>();
 
 function ThemeProvider(props: { children: JSX.Element; initial?: "light" | "dark" }) {
   const [theme, setTheme] = createSignal(props.initial ?? "light");
-  return (
-    <ThemeContext.Provider value={[theme, setTheme]}>
-      {props.children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={[theme, setTheme]}>{props.children}</ThemeContext.Provider>;
 }
 
 // Consumer:
@@ -70,9 +67,7 @@ function ThemeToggle() {
   if (!ctx) throw new Error("ThemeToggle must be inside ThemeProvider");
   const [theme, setTheme] = ctx;
   return (
-    <button onClick={() => setTheme(theme() === "light" ? "dark" : "light")}>
-      {theme()}
-    </button>
+    <button onClick={() => setTheme(theme() === "light" ? "dark" : "light")}>{theme()}</button>
   );
 }
 ```
@@ -87,8 +82,8 @@ function makeCounter(initial = 0) {
   return [
     { count },
     {
-      increment: () => setCount(c => c + 1),
-      decrement: () => setCount(c => c - 1),
+      increment: () => setCount((c) => c + 1),
+      decrement: () => setCount((c) => c - 1),
       reset: () => setCount(initial),
     },
   ] as const;
@@ -122,15 +117,15 @@ This narrows the type so consumers don't have to deal with `| undefined`, and ma
 If you pass a default value, the type is inferred:
 
 ```ts
-const Theme = createContext<"light" | "dark">("light");   // Context<"light" | "dark">
-useContext(Theme);   // "light" | "dark"
+const Theme = createContext<"light" | "dark">("light"); // Context<"light" | "dark">
+useContext(Theme); // "light" | "dark"
 ```
 
 If you don't, you get `T | undefined`:
 
 ```ts
-const Theme = createContext<"light" | "dark">();          // Context<"light" | "dark" | undefined>
-useContext(Theme);   // "light" | "dark" | undefined
+const Theme = createContext<"light" | "dark">(); // Context<"light" | "dark" | undefined>
+useContext(Theme); // "light" | "dark" | undefined
 ```
 
 For factory-built contexts (signals, stores), use `ReturnType`:
@@ -231,7 +226,10 @@ type I18n = { t: (key: string) => string; lang: Accessor<string> };
 
 const I18nContext = createContext<I18n>();
 
-function I18nProvider(props: { messages: Record<string, Record<string, string>>; children: JSX.Element }) {
+function I18nProvider(props: {
+  messages: Record<string, Record<string, string>>;
+  children: JSX.Element;
+}) {
   const [lang, setLang] = createSignal("en");
   const t = (key: string) => props.messages[lang()]?.[key] ?? key;
   return <I18nContext.Provider value={{ t, lang }}>{props.children}</I18nContext.Provider>;
@@ -252,7 +250,10 @@ const AuthContext = createContext<AuthApi>();
 
 function AuthProvider(props: { children: JSX.Element }) {
   const [user, { mutate }] = createResource(fetchMe);
-  const logout = async () => { await api.logout(); mutate(null); };
+  const logout = async () => {
+    await api.logout();
+    mutate(null);
+  };
   return <AuthContext.Provider value={[user, { logout }]}>{props.children}</AuthContext.Provider>;
 }
 

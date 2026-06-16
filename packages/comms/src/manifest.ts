@@ -20,16 +20,9 @@ import { PagesSlot } from "@vtt/shell-workbench/shared";
 import { ChatMessage } from "./shared/traits.js";
 import { MessageSent } from "./shared/events.js";
 import { SendMessage } from "./shared/commands.js";
-import {
-  ChatInputHandlerSlot,
-  ChatTimelineContributorSlot,
-} from "./shared/slot.js";
+import { ChatInputHandlerSlot, ChatTimelineContributorSlot } from "./shared/slot.js";
 import { MessageRecordingSystem } from "./server/systems.js";
-import {
-  ChatComposerView,
-  ChatStreamView,
-  ChatPageProvider,
-} from "./client/index.js";
+import { ChatComposerView, ChatStreamView, ChatPageProvider } from "./client/index.js";
 
 export const comms = definePlugin({
   name: "@vtt/comms",

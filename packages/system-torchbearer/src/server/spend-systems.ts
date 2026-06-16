@@ -41,12 +41,7 @@
  */
 
 import { defineSystem, type EntityId, type World } from "@vtt/substrate";
-import {
-  Formula,
-  RollResolved,
-  RolledBy,
-  RollResult,
-} from "@vtt/resolution/shared";
+import { Formula, RollResolved, RolledBy, RollResult } from "@vtt/resolution/shared";
 import {
   AdvancementLogged,
   DeeperUnderstandingSpent,
@@ -62,11 +57,7 @@ import {
   Wises,
   type RollSpendEntry,
 } from "../shared/traits.js";
-import {
-  countSuccesses,
-  TbRollMetaSchema,
-  type TbRollSpec,
-} from "../shared/roll-spec.js";
+import { countSuccesses, TbRollMetaSchema, type TbRollSpec } from "../shared/roll-spec.js";
 
 /* -------------------------------------------------------------------------
  * Shared mutation helpers — pulled out of the per-event run() bodies.
@@ -78,16 +69,12 @@ interface Die {
 }
 
 function readDice(world: World, rollId: EntityId): Die[] {
-  const r = world.get(rollId, [RollResult]) as
-    | { RollResult: { dice: Die[] } }
-    | undefined;
+  const r = world.get(rollId, [RollResult]) as { RollResult: { dice: Die[] } } | undefined;
   return [...(r?.RollResult.dice ?? [])];
 }
 
 function readSpec(world: World, rollId: EntityId): TbRollSpec | null {
-  const f = world.get(rollId, [Formula]) as
-    | { Formula: { meta?: unknown } }
-    | undefined;
+  const f = world.get(rollId, [Formula]) as { Formula: { meta?: unknown } } | undefined;
   if (!f) return null;
   const parsed = TbRollMetaSchema.safeParse(f.Formula.meta);
   return parsed.success ? parsed.data.spec : null;
@@ -96,15 +83,22 @@ function readSpec(world: World, rollId: EntityId): TbRollSpec | null {
 function readPools(
   world: World,
   characterId: EntityId,
-): { fate: { current: number; totalSpent: number }; persona: { current: number; totalSpent: number } } | undefined {
-  return (world.get(characterId, [Pools]) as
-    | {
-        Pools: {
-          fate: { current: number; totalSpent: number };
-          persona: { current: number; totalSpent: number };
-        };
-      }
-    | undefined)?.Pools;
+):
+  | {
+      fate: { current: number; totalSpent: number };
+      persona: { current: number; totalSpent: number };
+    }
+  | undefined {
+  return (
+    world.get(characterId, [Pools]) as
+      | {
+          Pools: {
+            fate: { current: number; totalSpent: number };
+            persona: { current: number; totalSpent: number };
+          };
+        }
+      | undefined
+  )?.Pools;
 }
 
 function writePools(
@@ -118,12 +112,7 @@ function writePools(
   world.set(characterId, Pools, next);
 }
 
-function debit(
-  world: World,
-  characterId: EntityId,
-  pool: "fate" | "persona",
-  cost: number,
-): void {
+function debit(world: World, characterId: EntityId, pool: "fate" | "persona", cost: number): void {
   const p = readPools(world, characterId);
   if (!p) return;
   if (pool === "fate") {
@@ -145,11 +134,7 @@ function debit(
   }
 }
 
-function appendSpend(
-  world: World,
-  rollId: EntityId,
-  entry: RollSpendEntry,
-): void {
+function appendSpend(world: World, rollId: EntityId, entry: RollSpendEntry): void {
   const cur = world.get(rollId, [RollSpends]) as
     | { RollSpends: { entries: RollSpendEntry[] } }
     | undefined;
@@ -163,11 +148,7 @@ function appendSpend(
  * `Nd6>=T+B` so total = countSuccesses(dice, T) + bonusSuccesses;
  * we mirror that math here when dice change.
  */
-function recomputeTotal(
-  world: World,
-  rollId: EntityId,
-  dice: Die[],
-): void {
+function recomputeTotal(world: World, rollId: EntityId, dice: Die[]): void {
   const spec = readSpec(world, rollId);
   if (!spec) return;
   let successes = 0;
@@ -188,11 +169,7 @@ function recomputeTotal(
   });
 }
 
-function setDice(
-  world: World,
-  rollId: EntityId,
-  dice: Die[],
-): void {
+function setDice(world: World, rollId: EntityId, dice: Die[]): void {
   recomputeTotal(world, rollId, dice);
 }
 
@@ -238,11 +215,7 @@ export const TbCommitSpendsSystem = defineSystem({
     const persona = spec.personaDiceSpent ?? 0;
     const channel = spec.channelNature ?? null;
     const synergyHelpers = spec.synergyHelpers ?? [];
-    if (
-      persona === 0 &&
-      channel === null &&
-      synergyHelpers.length === 0
-    ) {
+    if (persona === 0 && channel === null && synergyHelpers.length === 0) {
       return [];
     }
     if (persona > 0 && rollerCharacterId && world.has(rollerCharacterId)) {
@@ -416,12 +389,7 @@ export const OfCourseSpentSystem = defineSystem({
  * Internal helpers
  * ----------------------------------------------------------------------- */
 
-function countNewSuccesses(
-  world: World,
-  rollId: EntityId,
-  dice: Die[],
-  startIdx: number,
-): number {
+function countNewSuccesses(world: World, rollId: EntityId, dice: Die[], startIdx: number): number {
   const spec = readSpec(world, rollId);
   if (!spec) return 0;
   let n = 0;
@@ -484,8 +452,7 @@ export const ChannelNatureTaxSystem = defineSystem({
       const spec = readSpec(world, event.rollId);
       const dice = readDice(world, event.rollId);
       if (spec) {
-        const successes =
-          countSuccesses(dice, spec.successTarget) + spec.bonusSuccesses;
+        const successes = countSuccesses(dice, spec.successTarget) + spec.bonusSuccesses;
         const obstacle = spec.obstacle ?? 0;
         const margin = Math.max(1, obstacle - successes);
         tax = margin;
@@ -544,9 +511,7 @@ export const SynergyAdvancementLoggedSystem = defineSystem({
         }
       | undefined;
     const prior = cur?.SynergyAdvancementLogged.entries ?? [];
-    if (
-      prior.some((e) => e.helperCharacterId === event.helperCharacterId)
-    ) {
+    if (prior.some((e) => e.helperCharacterId === event.helperCharacterId)) {
       // Defensive: the validator already rejects double-logs, but
       // mirror systems run on every node and a stale snapshot might
       // have missed the prior log. Idempotent.
@@ -597,8 +562,6 @@ function bumpWise(
   const entries = cur?.Wises.entries;
   if (!entries) return;
   if (wiseIndex >= entries.length) return;
-  const next = entries.map((e, i) =>
-    i === wiseIndex ? { ...e, [field]: true } : e,
-  );
+  const next = entries.map((e, i) => (i === wiseIndex ? { ...e, [field]: true } : e));
   world.set(characterId, Wises, { entries: next });
 }

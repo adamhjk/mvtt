@@ -17,12 +17,7 @@
 
 import { onCleanup } from "solid-js";
 import { useClient } from "@vtt/substrate/client";
-import {
-  CloseTab,
-  FocusPane,
-  OpenPageAsSplit,
-  ToggleZen,
-} from "../shared/commands.js";
+import { CloseTab, FocusPane, OpenPageAsSplit, ToggleZen } from "../shared/commands.js";
 import { useWorkspace } from "./use-workspace.js";
 import type { WorkspaceTree } from "../shared/traits.js";
 

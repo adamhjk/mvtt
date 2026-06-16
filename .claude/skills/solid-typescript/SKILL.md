@@ -1,6 +1,6 @@
 ---
 name: solid-typescript
-description: "Use this skill for any TypeScript-specific question in Solid (SolidJS): tsconfig setup, typing components/props/refs/events/directives, narrowing inside `<Show>`/`<Match>`. Covers the required `tsconfig` settings (`jsx: \"preserve\"`, `jsxImportSource: \"solid-js\"`), the four component types (`Component<P>`, `ParentComponent<P>`, `VoidComponent<P>`, `FlowComponent<P, T>`) and when to use each, generic components (must be a function declaration with `<T,>` trailing comma in TSX, `Component` alias can't carry generics), `JSX.Element` and what counts as one, `JSX.HTMLAttributes<T>` / `JSX.IntrinsicElements`, event handlers via `JSX.EventHandler<TElement, TEvent>` and `JSX.EventHandlerWithOptions`, the `currentTarget` vs `target` typing rule, ref typing with definitive assignment (`let el!: HTMLDivElement`), control-flow narrowing with `<Show keyed>` or function-child accessor (or optional chaining), augmenting `JSX.Directives` / `JSX.DirectiveFunctions` for `use:*`, augmenting `JSX.CustomEvents` for `on:*`, and augmenting `JSX.ExplicitProperties` / `ExplicitAttributes` / `ExplicitBoolAttributes` for `prop:*`/`attr:*`/`bool:*`. Triggers on: TypeScript, TS, types, Component<>, ParentComponent, VoidComponent, FlowComponent, ParentProps, JSX.Element, JSX.EventHandler, JSX.HTMLAttributes, JSX.IntrinsicElements, currentTarget, ref types, definitive assignment, jsxImportSource, jsx preserve, generic component, narrowing, Directives, DirectiveFunctions, CustomEvents, ExplicitProperties, augment JSX namespace."
+description: 'Use this skill for any TypeScript-specific question in Solid (SolidJS): tsconfig setup, typing components/props/refs/events/directives, narrowing inside `<Show>`/`<Match>`. Covers the required `tsconfig` settings (`jsx: "preserve"`, `jsxImportSource: "solid-js"`), the four component types (`Component<P>`, `ParentComponent<P>`, `VoidComponent<P>`, `FlowComponent<P, T>`) and when to use each, generic components (must be a function declaration with `<T,>` trailing comma in TSX, `Component` alias can''t carry generics), `JSX.Element` and what counts as one, `JSX.HTMLAttributes<T>` / `JSX.IntrinsicElements`, event handlers via `JSX.EventHandler<TElement, TEvent>` and `JSX.EventHandlerWithOptions`, the `currentTarget` vs `target` typing rule, ref typing with definitive assignment (`let el!: HTMLDivElement`), control-flow narrowing with `<Show keyed>` or function-child accessor (or optional chaining), augmenting `JSX.Directives` / `JSX.DirectiveFunctions` for `use:*`, augmenting `JSX.CustomEvents` for `on:*`, and augmenting `JSX.ExplicitProperties` / `ExplicitAttributes` / `ExplicitBoolAttributes` for `prop:*`/`attr:*`/`bool:*`. Triggers on: TypeScript, TS, types, Component<>, ParentComponent, VoidComponent, FlowComponent, ParentProps, JSX.Element, JSX.EventHandler, JSX.HTMLAttributes, JSX.IntrinsicElements, currentTarget, ref types, definitive assignment, jsxImportSource, jsx preserve, generic component, narrowing, Directives, DirectiveFunctions, CustomEvents, ExplicitProperties, augment JSX namespace.'
 license: MIT
 ---
 
@@ -14,18 +14,19 @@ Solid is written in TypeScript. Most types come automatically from `solid-js`. T
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
     "strict": true,
-    "moduleResolution": "bundler",       // or "node16"
+    "moduleResolution": "bundler", // or "node16"
     "target": "ESNext",
     "module": "ESNext",
-    "noUncheckedIndexedAccess": true,    // recommended
+    "noUncheckedIndexedAccess": true, // recommended
     "isolatedModules": true,
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true
-  }
+    "allowSyntheticDefaultImports": true,
+  },
 }
 ```
 
 Critical:
+
 - `"jsx": "preserve"` — TypeScript leaves JSX intact for Solid's JSX compiler to handle.
 - `"jsxImportSource": "solid-js"` — uses Solid's JSX type definitions.
 
@@ -41,17 +42,20 @@ For mixed React + Solid projects, use a per-file pragma:
 import type { Component, ParentComponent, VoidComponent, FlowComponent } from "solid-js";
 ```
 
-| Type | `children` | When |
-|---|---|---|
-| `Component<P>` | not allowed (TS errors) | Most leaf components. |
-| `ParentComponent<P>` | optional `JSX.Element` | Layouts, cards, wrappers. |
-| `VoidComponent<P>` | forbidden | Like `Component`, explicit no-children. |
-| `FlowComponent<P, T>` | required, of type `T` | Components like `<Show>`, `<For>` whose children are functions. |
+| Type                  | `children`              | When                                                            |
+| --------------------- | ----------------------- | --------------------------------------------------------------- |
+| `Component<P>`        | not allowed (TS errors) | Most leaf components.                                           |
+| `ParentComponent<P>`  | optional `JSX.Element`  | Layouts, cards, wrappers.                                       |
+| `VoidComponent<P>`    | forbidden               | Like `Component`, explicit no-children.                         |
+| `FlowComponent<P, T>` | required, of type `T`   | Components like `<Show>`, `<For>` whose children are functions. |
 
 ```tsx
 const Badge: Component<{ count: number }> = (p) => <span>{p.count}</span>;
 const Card: ParentComponent<{ title: string }> = (p) => (
-  <article><h3>{p.title}</h3>{p.children}</article>
+  <article>
+    <h3>{p.title}</h3>
+    {p.children}
+  </article>
 );
 ```
 
@@ -71,7 +75,7 @@ The `Component<P>` alias **cannot** carry generics. Use a function declaration:
 
 ```tsx
 function List<T>(props: { items: T[]; render: (item: T) => JSX.Element }) {
-  return <For each={props.items}>{i => props.render(i)}</For>;
+  return <For each={props.items}>{(i) => props.render(i)}</For>;
 }
 ```
 
@@ -112,7 +116,7 @@ For SVG: `JSX.SVGAttributes<T>` and `JSX.SVGSVGAttributes` for the root.
 import type { JSX } from "solid-js";
 
 const handle: JSX.EventHandler<HTMLInputElement, InputEvent> = (e) => {
-  e.currentTarget.value;     // string
+  e.currentTarget.value; // string
 };
 ```
 
@@ -121,7 +125,11 @@ const handle: JSX.EventHandler<HTMLInputElement, InputEvent> = (e) => {
 Inline handlers infer for free:
 
 ```tsx
-<input onInput={(e) => { /* e is fully typed */ }} />
+<input
+  onInput={(e) => {
+    /* e is fully typed */
+  }}
+/>
 ```
 
 For listener-options form:
@@ -141,7 +149,7 @@ const h: JSX.EventHandlerWithOptions<HTMLDivElement, Event> = {
 - `currentTarget` is typed as `T` (the element you bound to).
 - `target` is typed as `Element | null` — needs narrowing.
 
-Always prefer `currentTarget` when reading the value of *the element with the listener*.
+Always prefer `currentTarget` when reading the value of _the element with the listener_.
 
 ## Ref typing
 
@@ -175,7 +183,7 @@ Solid accessors don't narrow via control-flow analysis. Three strategies:
 
 ```tsx
 <Show when={user()}>
-  {(u) => <p>{u().name}</p>}        {/* u: Accessor<NonNullable<User>> */}
+  {(u) => <p>{u().name}</p>} {/* u: Accessor<NonNullable<User>> */}
 </Show>
 ```
 
@@ -183,7 +191,7 @@ Solid accessors don't narrow via control-flow analysis. Three strategies:
 
 ```tsx
 <Show when={user()} keyed>
-  {(u) => <p>{u.name}</p>}          {/* u: NonNullable<User>, value (not accessor) */}
+  {(u) => <p>{u.name}</p>} {/* u: NonNullable<User>, value (not accessor) */}
 </Show>
 ```
 
@@ -294,7 +302,7 @@ See `solid-context`.
 `createStore` infers the type from the initial value:
 
 ```ts
-const [state, setState] = createStore({ count: 0 });   // SetStoreFunction inferred
+const [state, setState] = createStore({ count: 0 }); // SetStoreFunction inferred
 ```
 
 For empty initializers:
@@ -309,10 +317,10 @@ The setter has a complex but mostly-correct type — path-syntax overloads are t
 
 ```ts
 const [data] = createResource<User>(fetchUser);
-data;          // Resource<User>
-data();        // User | undefined
-data.loading;  // boolean
-data.error;    // any
+data; // Resource<User>
+data(); // User | undefined
+data.loading; // boolean
+data.error; // any
 ```
 
 With a source:
@@ -344,7 +352,7 @@ function MyInput(props: JSX.InputHTMLAttributes<HTMLInputElement> & { variant?: 
 }
 
 let r!: HTMLInputElement;
-<MyInput ref={r} />
+<MyInput ref={r} />;
 ```
 
 ### Custom event with detail
@@ -364,17 +372,21 @@ declare module "solid-js" {
   }
 }
 
-<div on:rename={(e) => console.log(e.detail.id, e.detail.name)} />
+<div on:rename={(e) => console.log(e.detail.id, e.detail.name)} />;
 ```
 
 ### Generic list
 
 ```tsx
 function List<T>(props: { items: T[]; render: (item: T) => JSX.Element }) {
-  return <ul><For each={props.items}>{props.render}</For></ul>;
+  return (
+    <ul>
+      <For each={props.items}>{props.render}</For>
+    </ul>
+  );
 }
 
-<List items={users()} render={(u) => <li>{u.name}</li>} />
+<List items={users()} render={(u) => <li>{u.name}</li>} />;
 ```
 
 ## Related

@@ -159,7 +159,6 @@ const mesh = new Mesh({ geometry, shader });
 
 v8 uses an options object. The positional form is deprecated and logs a warning. Note also that the `drawMode` argument was removed; use `geometry.topology` instead.
 
-
 ### [HIGH] `vertices` instead of `positions`
 
 Wrong:
@@ -179,7 +178,6 @@ const geometry = new MeshGeometry({
 ```
 
 The `MeshGeometry` option is `positions`. `vertices` is the convenience name used only by `MeshSimple`, where it's converted internally.
-
 
 ### [MEDIUM] Forgetting to set topology
 
@@ -203,7 +201,6 @@ const geometry = new MeshGeometry({
 ```
 
 The default topology is `'triangle-list'`. If your data is organized as a strip or line list, the mesh renders garbage without an explicit topology.
-
 
 ## API Reference
 

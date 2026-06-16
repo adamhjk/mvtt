@@ -94,7 +94,6 @@ app.ticker.add(() => {
 
 Every `Text` update re-rasterizes the whole string. Use `BitmapText` for any value that changes per-frame.
 
-
 ### [HIGH] Positional constructor args
 
 Wrong:
@@ -111,16 +110,13 @@ const text = new Text({ text: "Hello", style: { fontSize: 24 } });
 
 v8 removed the `(string, style)` form. All text classes use options objects.
 
-
 ### [HIGH] Not importing `pixi.js/text-bitmap` in custom builds
 
 Under `skipExtensionImports: true` or aggressive tree-shaking, `Assets.load('font.fnt')` silently returns raw data unless you add `import 'pixi.js/text-bitmap'`. The standard `import { ... } from 'pixi.js'` bundle includes the extension.
 
-
 ### [MEDIUM] Adding children to a text instance
 
 Every text class sets `allowChildren = false`. Wrap in a `Container` to group text with other content.
-
 
 ## API Reference
 

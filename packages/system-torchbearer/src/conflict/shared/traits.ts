@@ -76,11 +76,7 @@ export const TbConflict = defineTrait({
     partyLocked: z.boolean().default(false),
     enemyLocked: z.boolean().default(false),
     revealedSlots: z
-      .tuple([
-        RevealedSlotEntrySchema,
-        RevealedSlotEntrySchema,
-        RevealedSlotEntrySchema,
-      ])
+      .tuple([RevealedSlotEntrySchema, RevealedSlotEntrySchema, RevealedSlotEntrySchema])
       .default([null, null, null]),
     dispoParty: z.object({
       current: z.number().int().min(0),
@@ -171,11 +167,7 @@ export const TbConflictScript = defineTrait({
     conflictId: EntityId,
     side: ConflictSideEnum,
     locked: z.boolean().default(false),
-    slots: z.tuple([
-      ScriptSlotSchema,
-      ScriptSlotSchema,
-      ScriptSlotSchema,
-    ]),
+    slots: z.tuple([ScriptSlotSchema, ScriptSlotSchema, ScriptSlotSchema]),
   }),
 });
 

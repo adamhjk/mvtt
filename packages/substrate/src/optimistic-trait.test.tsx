@@ -44,10 +44,12 @@ beforeEach(() => cleanup());
 
 const UiTrait = defineTrait({
   name: "@vtt/_test-optimistic/Ui",
-  schema: z.object({
-    count: z.number().default(0),
-    text: z.string().default(""),
-  }).default({ count: 0, text: "" }),
+  schema: z
+    .object({
+      count: z.number().default(0),
+      text: z.string().default(""),
+    })
+    .default({ count: 0, text: "" }),
 });
 
 const NoDefaultTrait = defineTrait({
@@ -117,10 +119,12 @@ function withClient<T>(
   let value!: T;
   const r = render(() => (
     <ClientProvider value={h.client}>
-      {(() => {
-        value = fn();
-        return null;
-      })() as never}
+      {
+        (() => {
+          value = fn();
+          return null;
+        })() as never
+      }
     </ClientProvider>
   ));
   return { value, unmount: r.unmount };
@@ -229,33 +233,33 @@ describe("createOptimisticTrait — local writes", () => {
       createRoot((dispose) => {
         render(() => (
           <ClientProvider value={h.client}>
-            {(() => {
-              const [store, setStore] = createOptimisticTrait(
-                "e1" as EntityId,
-                UiTrait,
-                { write: (v) => SetUi({ entityId: "e1" as EntityId, value: v }) },
-              );
-              createEffect(() => {
-                store.count;
-                countReads += 1;
-              });
-              createEffect(() => {
-                store.text;
-                textReads += 1;
-              });
-              queueMicrotask(() => {
-                expect(countReads).toBe(1);
-                expect(textReads).toBe(1);
-                setStore("text", "hello");
-                queueMicrotask(() => {
-                  expect(countReads).toBe(1); // sibling unchanged
-                  expect(textReads).toBe(2);
-                  dispose();
-                  resolve();
+            {
+              (() => {
+                const [store, setStore] = createOptimisticTrait("e1" as EntityId, UiTrait, {
+                  write: (v) => SetUi({ entityId: "e1" as EntityId, value: v }),
                 });
-              });
-              return null;
-            })() as never}
+                createEffect(() => {
+                  store.count;
+                  countReads += 1;
+                });
+                createEffect(() => {
+                  store.text;
+                  textReads += 1;
+                });
+                queueMicrotask(() => {
+                  expect(countReads).toBe(1);
+                  expect(textReads).toBe(1);
+                  setStore("text", "hello");
+                  queueMicrotask(() => {
+                    expect(countReads).toBe(1); // sibling unchanged
+                    expect(textReads).toBe(2);
+                    dispose();
+                    resolve();
+                  });
+                });
+                return null;
+              })() as never
+            }
           </ClientProvider>
         ));
       });
@@ -296,14 +300,16 @@ describe("createOptimisticTrait — server reconciliation", () => {
     let latestSet!: ReturnType<typeof createOptimisticTrait<typeof UiTrait>>[1];
     const r = render(() => (
       <ClientProvider value={h.client}>
-        {(() => {
-          const [s, set] = createOptimisticTrait("e1" as EntityId, UiTrait, {
-            write: (v) => SetUi({ entityId: "e1" as EntityId, value: v }),
-          });
-          latestStore = s;
-          latestSet = set;
-          return null;
-        })() as never}
+        {
+          (() => {
+            const [s, set] = createOptimisticTrait("e1" as EntityId, UiTrait, {
+              write: (v) => SetUi({ entityId: "e1" as EntityId, value: v }),
+            });
+            latestStore = s;
+            latestSet = set;
+            return null;
+          })() as never
+        }
       </ClientProvider>
     ));
 
@@ -344,14 +350,16 @@ describe("createOptimisticTrait — rollback", () => {
     let store!: ReturnType<typeof createOptimisticTrait<typeof UiTrait>>[0];
     const r = render(() => (
       <ClientProvider value={h.client}>
-        {(() => {
-          const [s, set] = createOptimisticTrait("e1" as EntityId, UiTrait, {
-            write: (v) => RejectUi({ entityId: "e1" as EntityId, value: v }),
-          });
-          store = s;
-          set("count", 999);
-          return null;
-        })() as never}
+        {
+          (() => {
+            const [s, set] = createOptimisticTrait("e1" as EntityId, UiTrait, {
+              write: (v) => RejectUi({ entityId: "e1" as EntityId, value: v }),
+            });
+            store = s;
+            set("count", 999);
+            return null;
+          })() as never
+        }
       </ClientProvider>
     ));
 
@@ -404,14 +412,16 @@ describe("createOptimisticTrait — debounce", () => {
       });
       const r = render(() => (
         <ClientProvider value={h.client}>
-          {(() => {
-            const [, set] = createOptimisticTrait("e1" as EntityId, UiTrait, {
-              write: (v) => SetUi({ entityId: "e1" as EntityId, value: v }),
-              debounceMs: 1000,
-            });
-            set("count", 7);
-            return null;
-          })() as never}
+          {
+            (() => {
+              const [, set] = createOptimisticTrait("e1" as EntityId, UiTrait, {
+                write: (v) => SetUi({ entityId: "e1" as EntityId, value: v }),
+                debounceMs: 1000,
+              });
+              set("count", 7);
+              return null;
+            })() as never
+          }
         </ClientProvider>
       ));
       expect(h.dispatched).toHaveLength(0);
@@ -434,20 +444,21 @@ describe("createOptimisticTrait — disposal", () => {
     let lastSeen = -1;
     const r = render(() => (
       <ClientProvider value={h.client}>
-        {(() => {
-          const [s] = createOptimisticTrait("e1" as EntityId, UiTrait, {
-            write: (v) => SetUi({ entityId: "e1" as EntityId, value: v }),
-          });
-          createEffect(() => {
-            lastSeen = s.count;
-          });
-          return null;
-        })() as never}
+        {
+          (() => {
+            const [s] = createOptimisticTrait("e1" as EntityId, UiTrait, {
+              write: (v) => SetUi({ entityId: "e1" as EntityId, value: v }),
+            });
+            createEffect(() => {
+              lastSeen = s.count;
+            });
+            return null;
+          })() as never
+        }
       </ClientProvider>
     ));
     // Sanity: subscription works.
-    await h.client
-      .dispatch(SetUi({ entityId: "e1" as EntityId, value: { count: 11, text: "" } }))
+    await h.client.dispatch(SetUi({ entityId: "e1" as EntityId, value: { count: 11, text: "" } }))
       .ack;
     expect(lastSeen).toBe(11);
 
@@ -455,8 +466,7 @@ describe("createOptimisticTrait — disposal", () => {
 
     // After cleanup, further server events must not update the disposed store.
     const beforeDispose = lastSeen;
-    await h.client
-      .dispatch(SetUi({ entityId: "e1" as EntityId, value: { count: 22, text: "" } }))
+    await h.client.dispatch(SetUi({ entityId: "e1" as EntityId, value: { count: 22, text: "" } }))
       .ack;
     expect(lastSeen).toBe(beforeDispose);
   });
@@ -522,9 +532,7 @@ describe("OptimisticFlushRegistry", () => {
     // The flush forces the latest pending value through immediately.
     await h.client.optimisticFlushes.flushFor("e1" as EntityId);
     expect(h.dispatched).toHaveLength(1);
-    expect(
-      (h.dispatched[0]!.payload as { value: { count: number } }).value.count,
-    ).toBe(11);
+    expect((h.dispatched[0]!.payload as { value: { count: number } }).value.count).toBe(11);
 
     // A second flush with no fresh writes is a no-op.
     await h.client.optimisticFlushes.flushFor("e1" as EntityId);
@@ -571,9 +579,7 @@ describe("OptimisticFlushRegistry", () => {
     // prepareFlush ran, copied externalCount=95 into the store, dirty
     // became true, the dispatch fired with the latest value.
     expect(h.dispatched).toHaveLength(1);
-    expect(
-      (h.dispatched[0]!.payload as { value: { count: number } }).value.count,
-    ).toBe(95);
+    expect((h.dispatched[0]!.payload as { value: { count: number } }).value.count).toBe(95);
 
     // A second flush with no further external changes is a no-op
     // (dirty=false, and prepareFlush re-writing the same value is a
@@ -585,9 +591,7 @@ describe("OptimisticFlushRegistry", () => {
     // both are correct. Assert at most one and the value is 95.
     expect(h.dispatched.length).toBeLessThanOrEqual(1);
     if (h.dispatched.length === 1) {
-      expect(
-        (h.dispatched[0]!.payload as { value: { count: number } }).value.count,
-      ).toBe(95);
+      expect((h.dispatched[0]!.payload as { value: { count: number } }).value.count).toBe(95);
     }
 
     unmount();

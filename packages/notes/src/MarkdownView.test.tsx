@@ -93,8 +93,7 @@ describe("MarkdownView scrollToAnchor", () => {
     // jsdom doesn't implement scrollIntoView; install a spy on the
     // prototype so any heading element in the rendered tree picks it up.
     const scrollSpy = vi.fn();
-    const original = (Element.prototype as { scrollIntoView?: () => void })
-      .scrollIntoView;
+    const original = (Element.prototype as { scrollIntoView?: () => void }).scrollIntoView;
     Object.defineProperty(Element.prototype, "scrollIntoView", {
       configurable: true,
       writable: true,
@@ -176,10 +175,7 @@ describe("MarkdownView scrollToAnchor", () => {
 
     // Give the initial RAFs a chance to fire while body is still empty.
     await new Promise((r) => setTimeout(r, 50));
-    expect(
-      scrollSpy,
-      "should not have scrolled — heading didn't exist yet",
-    ).not.toHaveBeenCalled();
+    expect(scrollSpy, "should not have scrolled — heading didn't exist yet").not.toHaveBeenCalled();
 
     // Body arrives — scroll should now fire.
     setBody("# Tactics\n\nstuff");
@@ -272,9 +268,7 @@ describe("MarkdownView wiki-link click delegation", () => {
       </ClientProvider>
     ));
 
-    const chip = container.querySelector(
-      "[data-wiki-ref]",
-    ) as HTMLElement | null;
+    const chip = container.querySelector("[data-wiki-ref]") as HTMLElement | null;
     expect(chip, "expected a chip with data-wiki-ref").not.toBeNull();
     expect(chip?.tagName).toBe("BUTTON");
     expect(chip?.getAttribute("data-link-kind")).toBe("note");
@@ -312,9 +306,7 @@ describe("MarkdownView wiki-link click delegation", () => {
 
     // The chip wraps a `<span>` with the display text. A click on the
     // span must walk up to the [data-wiki-ref] node.
-    const span = container.querySelector(
-      "[data-wiki-ref] span",
-    ) as HTMLElement | null;
+    const span = container.querySelector("[data-wiki-ref] span") as HTMLElement | null;
     expect(span).not.toBeNull();
     fireEvent.click(span!);
     expect(onLink).toHaveBeenCalledTimes(1);
@@ -378,9 +370,7 @@ describe("MarkdownView set-design blocks", () => {
     expect(topItems.length).toBe(2);
 
     // First item: Bookshelves has bold for the visible element.
-    expect(topItems[0]!.querySelector("strong")?.textContent).toBe(
-      "Bookshelves",
-    );
+    expect(topItems[0]!.querySelector("strong")?.textContent).toBe("Bookshelves");
 
     // Arrows: `->` source should render as a → glyph in a styled span.
     const arrows = wrapper!.querySelectorAll("span.set-design-arrow");
@@ -417,13 +407,9 @@ describe("MarkdownView set-design blocks", () => {
         />
       </ClientProvider>
     ));
-    const top = container.querySelectorAll(
-      ".set-design > ul.set-design-tree > li.set-design-node",
-    );
+    const top = container.querySelectorAll(".set-design > ul.set-design-tree > li.set-design-node");
     expect(top.length).toBe(1);
-    const children = top[0]!.querySelectorAll(
-      ":scope > ul.set-design-tree > li.set-design-node",
-    );
+    const children = top[0]!.querySelectorAll(":scope > ul.set-design-tree > li.set-design-node");
     expect(children.length).toBe(2);
     expect(children[0]!.textContent).toContain("blocks tunnel");
     expect(children[1]!.textContent).toContain("can pass under");
@@ -432,11 +418,9 @@ describe("MarkdownView set-design blocks", () => {
   it("rewrites [[…]] inside a set-design line into a clickable chip", () => {
     const h = harness();
     const onLink = vi.fn();
-    const body = [
-      "```setdesign",
-      "**Innkeeper** [[character:Marta]] -> 5sp/night",
-      "```",
-    ].join("\n");
+    const body = ["```setdesign", "**Innkeeper** [[character:Marta]] -> 5sp/night", "```"].join(
+      "\n",
+    );
     const { container } = render(() => (
       <ClientProvider value={h.client}>
         <MarkdownView
@@ -448,9 +432,7 @@ describe("MarkdownView set-design blocks", () => {
         />
       </ClientProvider>
     ));
-    const chip = container.querySelector(
-      ".set-design [data-wiki-ref]",
-    ) as HTMLElement | null;
+    const chip = container.querySelector(".set-design [data-wiki-ref]") as HTMLElement | null;
     expect(chip, "expected a wiki-link chip inside the set-design block").not.toBeNull();
     expect(chip?.getAttribute("data-link-kind")).toBe("character");
     expect(chip?.getAttribute("data-link-body")).toBe("Marta");
@@ -480,4 +462,3 @@ describe("MarkdownView external links", () => {
     expect(a?.getAttribute("rel")).toContain("noopener");
   });
 });
-

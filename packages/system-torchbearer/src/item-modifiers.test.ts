@@ -67,22 +67,8 @@ const tbItemsTestPlugin = definePlugin({
     TbCarries,
     ItemPosition,
   ],
-  events: [
-    ItemEquipped,
-    ItemMoved,
-    EntryStateChanged,
-    ItemDropped,
-    ItemPickedUp,
-    ItemUnequipped,
-  ],
-  commands: [
-    EquipItem,
-    MoveItem,
-    SetEntryState,
-    DropItem,
-    PickUpItem,
-    UnequipItem,
-  ],
+  events: [ItemEquipped, ItemMoved, EntryStateChanged, ItemDropped, ItemPickedUp, ItemUnequipped],
+  commands: [EquipItem, MoveItem, SetEntryState, DropItem, PickUpItem, UnequipItem],
   systems: [
     TbItemEquipSystem,
     TbItemMoveSystem,
@@ -126,9 +112,7 @@ function setup(): S {
     ItemIdentity({ name: "Burglar's Gloves" }),
     TbItemSlotOptions({ options: { wornHand: 1 } }),
     TbSkillBonuses({
-      entries: [
-        { skill: "Criminal", value: 1, condition: "sleight of hand, locks" },
-      ],
+      entries: [{ skill: "Criminal", value: 1, condition: "sleight of hand, locks" }],
     }),
   ]);
   const damagedAxeId = world.spawn([
@@ -198,8 +182,8 @@ describe("suggestedItemModifiersFor", () => {
       kind: "skill",
       sourceId: "fighter",
     });
-    const swordSuggestion = out.find((m) =>
-      m.id.startsWith("item:weapon:") && m.id.includes(s.swordId),
+    const swordSuggestion = out.find(
+      (m) => m.id.startsWith("item:weapon:") && m.id.includes(s.swordId),
     );
     expect(swordSuggestion).toBeDefined();
     expect(swordSuggestion!.modifier.value).toBe(1);

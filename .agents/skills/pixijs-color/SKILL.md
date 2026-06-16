@@ -246,7 +246,6 @@ const [r, g, b] = new Color({ r: 255, g: 128, b: 0 }).toUint8RgbArray();
 
 RGB object _inputs_ use 0-255 range (`{ r: 255, g: 0, b: 0 }`), but all output methods (`toRgba()`, `toRgb()`, `toArray()`, `toRgbArray()`) normalize to 0-1. Use `toUint8RgbArray()` when you need 0-255 integers for CSS or external APIs.
 
-
 ### [MEDIUM] Using 0-255 range in color arrays
 
 Wrong:
@@ -270,7 +269,6 @@ new Color(new Uint8Array([255, 0, 0])); // red via Uint8Array (0-255)
 
 Plain number arrays (`number[]` and `Float32Array`) use normalized 0-1 range. `[255, 0, 0]` clamps to `[1, 0, 0]` because values are clamped, but `[200, 100, 50]` does not produce the expected color. Use `Uint8Array` or `Uint8ClampedArray` for 0-255 input.
 
-
 ### [MEDIUM] Using utils.string2hex or utils.hex2string
 
 Wrong:
@@ -291,7 +289,6 @@ const str = new Color(0xff0000).toHex();
 ```
 
 The `utils` namespace was removed in v8. Use the `Color` class for all color conversions.
-
 
 ## API Reference
 

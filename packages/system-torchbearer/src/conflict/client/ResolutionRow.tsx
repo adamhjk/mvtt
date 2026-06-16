@@ -68,9 +68,7 @@ export function ResolutionRow(props: { conflictId: EntityId }): JSX.Element {
   );
   const revealIndex = createMemo(() => conflict()?.revealIndex ?? 0);
   const round = createMemo(() => conflict()?.round ?? 1);
-  const conflictType = createMemo<ConflictType | null>(
-    () => conflict()?.type ?? null,
-  );
+  const conflictType = createMemo<ConflictType | null>(() => conflict()?.type ?? null);
 
   /**
    * Per-slot pair to render. Revealed slots come from the publicly-
@@ -78,10 +76,12 @@ export function ResolutionRow(props: { conflictId: EntityId }): JSX.Element {
    * pending / next-up slots fall back to whichever side's script the
    * viewer can read (own side + GM).
    */
-  const slots = createMemo<{
-    party: ScriptSlot;
-    enemy: ScriptSlot;
-  }[]>(() => {
+  const slots = createMemo<
+    {
+      party: ScriptSlot;
+      enemy: ScriptSlot;
+    }[]
+  >(() => {
     const c = conflict();
     const revealed = c?.revealedSlots ?? [null, null, null];
     const ps = partyScript()?.slots;
@@ -116,14 +116,10 @@ export function ResolutionRow(props: { conflictId: EntityId }): JSX.Element {
   const allRevealed = createMemo(() => revealIndex() >= 3);
 
   const reveal = (): void => {
-    client.dispatch(
-      RevealNextSlot({ conflictId: props.conflictId }) as CommandInstance,
-    );
+    client.dispatch(RevealNextSlot({ conflictId: props.conflictId }) as CommandInstance);
   };
   const advanceRound = (): void => {
-    client.dispatch(
-      AdvanceRound({ conflictId: props.conflictId }) as CommandInstance,
-    );
+    client.dispatch(AdvanceRound({ conflictId: props.conflictId }) as CommandInstance);
   };
 
   return (
@@ -132,9 +128,7 @@ export function ResolutionRow(props: { conflictId: EntityId }): JSX.Element {
       data-testid="resolution-row"
     >
       <header class="flex items-baseline justify-between">
-        <h2
-          class="font-display uppercase tracking-[0.22em] text-[0.78rem]"
-        >
+        <h2 class="font-display uppercase tracking-[0.22em] text-[0.78rem]">
           Round {round()}
           <span class="ml-2 font-mono text-fg-subtle text-[0.62rem] tracking-[0.16em]">
             reveal {Math.min(revealIndex(), 3)}/3
@@ -158,10 +152,7 @@ export function ResolutionRow(props: { conflictId: EntityId }): JSX.Element {
       <Show
         when={bothLocked()}
         fallback={
-          <p
-            class="text-sm text-fg-subtle italic"
-            data-testid="reveal-placeholder"
-          >
+          <p class="text-sm text-fg-subtle italic" data-testid="reveal-placeholder">
             Lock both scripts to see the round play out.
           </p>
         }
@@ -198,10 +189,7 @@ function SlotCard(props: {
   onReveal: () => void;
 }): JSX.Element {
   const status = (): "revealed" | "next" | "pending" => {
-    if (
-      props.pair.party.status === "revealed" &&
-      props.pair.enemy.status === "revealed"
-    )
+    if (props.pair.party.status === "revealed" && props.pair.enemy.status === "revealed")
       return "revealed";
     if (props.slotIndex === props.revealIndex) return "next";
     return "pending";
@@ -224,11 +212,7 @@ function SlotCard(props: {
       </Show>
       <Show when={status() === "next" && props.isGm}>
         <div class="px-4 py-2 border-t border-border-muted/60 flex justify-end">
-          <RevealButton
-            slotIndex={props.slotIndex}
-            onClick={props.onReveal}
-            compact
-          />
+          <RevealButton slotIndex={props.slotIndex} onClick={props.onReveal} compact />
         </div>
       </Show>
       <Show when={status() === "next" && !props.isGm}>
@@ -292,16 +276,11 @@ function SlotHeader(props: {
           </div>
         </Show>
         <Show when={showActions()}>
-          <MatchupKindChip
-            partyAction={partyAction()!}
-            enemyAction={enemyAction()!}
-          />
+          <MatchupKindChip partyAction={partyAction()!} enemyAction={enemyAction()!} />
         </Show>
       </div>
       <Show when={showActions() && matchupNote()}>
-        <p class="mt-1 text-[0.7rem] text-fg-muted italic">
-          {matchupNote()}
-        </p>
+        <p class="mt-1 text-[0.7rem] text-fg-muted italic">{matchupNote()}</p>
       </Show>
     </div>
   );
@@ -328,10 +307,8 @@ function MatchupKindChip(props: {
   // Show whether this slot involves a forfeit — that's the only
   // surprising shape worth a header chip. Both party and enemy cells
   // are inspected since the matrix is asymmetric.
-  const partyCell = (): MatchupCell =>
-    testForAction(props.partyAction, props.enemyAction);
-  const enemyCell = (): MatchupCell =>
-    testForAction(props.enemyAction, props.partyAction);
+  const partyCell = (): MatchupCell => testForAction(props.partyAction, props.enemyAction);
+  const enemyCell = (): MatchupCell => testForAction(props.enemyAction, props.partyAction);
   const label = (): string => {
     if (partyCell() === "versus") return "Versus test";
     if (partyCell() === "noTest") return "Party forfeits";
@@ -387,15 +364,11 @@ function SideColumn(props: {
 }): JSX.Element {
   const sideLabel = (): string => (props.side === "party" ? "Party" : "Enemy");
   const sideColor = (): string =>
-    props.side === "party"
-      ? "var(--color-accent, #7A1E1E)"
-      : "var(--color-warning, #8C6210)";
+    props.side === "party" ? "var(--color-accent, #7A1E1E)" : "var(--color-warning, #8C6210)";
   const performerCharId = (): EntityId | null =>
     props.slot.status === "revealed" ? props.slot.performerCharacterId : null;
   const performerParticipantId = (): EntityId | null =>
-    props.slot.status === "revealed"
-      ? props.slot.performerParticipantEntityId
-      : null;
+    props.slot.status === "revealed" ? props.slot.performerParticipantEntityId : null;
   const action = (): ConflictAction | null =>
     props.slot.status === "revealed" ? props.slot.action : null;
   const opposingAction = (): ConflictAction | null =>
@@ -451,11 +424,7 @@ function SideColumn(props: {
 
       <Show
         when={test() && action()}
-        fallback={
-          <p class="text-[0.72rem] text-fg-subtle italic">
-            no action this slot
-          </p>
-        }
+        fallback={<p class="text-[0.72rem] text-fg-subtle italic">no action this slot</p>}
       >
         <TestPrompt
           test={test()!}
@@ -481,9 +450,7 @@ function PerformerName(props: {
     props.participantEntityId ?? ("" as EntityId),
     TbConflictParticipant,
   ) as () => { label?: string } | undefined;
-  const display = createMemo(
-    () => participant()?.label ?? characterName(),
-  );
+  const display = createMemo(() => participant()?.label ?? characterName());
   const openSheet = useOpenCharacterSheet();
   return (
     <button
@@ -514,9 +481,7 @@ function TestPrompt(props: {
           </Show>
         </span>
         <Show when={props.test !== "noTest"}>
-          <span class="font-display text-fg">
-            {actionSkillLabel(props.skills)}
-          </span>
+          <span class="font-display text-fg">{actionSkillLabel(props.skills)}</span>
         </Show>
       </div>
       <Show when={props.test === "independent"}>

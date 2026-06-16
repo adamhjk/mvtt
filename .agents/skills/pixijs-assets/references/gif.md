@@ -63,9 +63,7 @@ Construction options control playback behavior; they're independent of the load-
 ### Loading from a data URI
 
 ```ts
-const source = await Assets.load(
-  "data:image/gif;base64,R0lGODlhAQABAAAAACw...",
-);
+const source = await Assets.load("data:image/gif;base64,R0lGODlhAQABAAAAACw...");
 ```
 
 The parser matches both `.gif` file extensions and `data:image/gif` URIs. No extra configuration needed.
@@ -144,11 +142,9 @@ await Assets.load("explosion.gif");
 
 Without `'pixi.js/gif'`, the loader parser isn't registered. The call fails or returns undefined.
 
-
 ### [MEDIUM] Using GIF when a spritesheet would be cheaper
 
 GIF decoding creates one texture per frame. For a 30-frame animation that's 30 separate uploads. A spritesheet packs all frames into a single atlas texture, which batches better and uses less GPU memory. Prefer spritesheets for performance-critical game animations; use GIFs for convenience and one-off effects.
-
 
 ### [MEDIUM] destroy(true) when other sprites share the source
 
@@ -161,7 +157,6 @@ a.destroy(true); // WRONG: also destroys source, breaking sprite b
 ```
 
 Pass `true` to `destroy` only if you know nothing else references the `GifSource`. Otherwise call plain `destroy()` and `Assets.unload()` when the source is no longer needed.
-
 
 ## API Reference
 

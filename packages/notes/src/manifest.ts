@@ -164,12 +164,7 @@ export const notes = definePlugin({
     LockReleaseSystem,
     NotesUiStateMirror,
   ],
-  slots: [
-    LinkKindsSlot,
-    MarkdownPostRenderSlot,
-    EditorCompletionSourcesSlot,
-    NotesReferenceSlot,
-  ],
+  slots: [LinkKindsSlot, MarkdownPostRenderSlot, EditorCompletionSourcesSlot, NotesReferenceSlot],
   fills: {
     [LinkKindsSlot.name]: [noteLinkKind],
     [PagesSlot.name]: [NotesPageProvider],

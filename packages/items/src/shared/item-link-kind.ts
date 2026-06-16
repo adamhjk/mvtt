@@ -87,9 +87,5 @@ export const itemLinkKind = defineLinkKind<ItemRef>({
     }
     return out;
   },
-  indexEvents: [
-    ItemCreated.name,
-    ItemDestroyed.name,
-    ItemFieldChanged.name,
-  ],
+  indexEvents: [ItemCreated.name, ItemDestroyed.name, ItemFieldChanged.name],
 });

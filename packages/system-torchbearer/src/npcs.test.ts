@@ -16,13 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  CommandPipeline,
-  definePlugin,
-  EventBus,
-  Registry,
-  World,
-} from "@vtt/substrate";
+import { CommandPipeline, definePlugin, EventBus, Registry, World } from "@vtt/substrate";
 import { items } from "@vtt/items";
 import { ItemCatalogIndex, ItemIdentity } from "@vtt/items/shared";
 import { Character, Team } from "@vtt/characters/shared";
@@ -47,10 +41,7 @@ import {
   WhatYouFightFor,
   Wises,
 } from "./shared/index.js";
-import {
-  NpcRemovalSystem,
-  NpcSpawningSystem,
-} from "./server/npc-systems.js";
+import { NpcRemovalSystem, NpcSpawningSystem } from "./server/npc-systems.js";
 import { TbCarries } from "./shared/items/index.js";
 import {
   TbArmor,
@@ -166,11 +157,7 @@ function makeSetup(): Setup {
 
 type AnyCmd = Parameters<CommandPipeline["dispatch"]>[0]["cmd"];
 
-function dispatchAsGm(
-  s: Setup,
-  cmd: AnyCmd,
-  id = "c1",
-): ReturnType<CommandPipeline["dispatch"]> {
+function dispatchAsGm(s: Setup, cmd: AnyCmd, id = "c1"): ReturnType<CommandPipeline["dispatch"]> {
   return s.pipeline.dispatch({
     id,
     issuedBy: GM_USER,
@@ -240,9 +227,7 @@ describe("@vtt/system-torchbearer NPCs", () => {
         | { Character: { name: string } }
         | undefined;
       expect(character?.Character.name).toBe("Alchemist");
-      const team = setup.world.get(npcId, [Team]) as
-        | { Team: { kind: string } }
-        | undefined;
+      const team = setup.world.get(npcId, [Team]) as { Team: { kind: string } } | undefined;
       // NPCs default to enemy; the GM flips on the sheet for friendlies.
       expect(team?.Team.kind).toBe("enemy");
       const npc = setup.world.get(npcId, [TbNpc]) as
@@ -302,10 +287,7 @@ describe("@vtt/system-torchbearer NPCs", () => {
       const wises = setup.world.get(npcId, [Wises]) as
         | { Wises: { entries: Array<{ name: string }> } }
         | undefined;
-      expect(wises?.Wises.entries.map((w) => w.name)).toEqual([
-        "Chemistry-wise",
-        "Herb-wise",
-      ]);
+      expect(wises?.Wises.entries.map((w) => w.name)).toEqual(["Chemistry-wise", "Herb-wise"]);
 
       const traits = setup.world.get(npcId, [CharacterTraits]) as
         | {
@@ -326,10 +308,7 @@ describe("@vtt/system-torchbearer NPCs", () => {
     });
 
     it("Bandit (SG p.202) — fighter/scout/manipulator NPC carries the right skills", async () => {
-      const res = await dispatchAsGm(
-        setup,
-        CreateNpcFromCatalog({ templateId: "tb/npc/bandit" }),
-      );
+      const res = await dispatchAsGm(setup, CreateNpcFromCatalog({ templateId: "tb/npc/bandit" }));
       expect(res.result.ok).toBe(true);
       const npcId = setup.world.query([Character, TbNpc])[0]!.id;
       const skills = setup.world.get(npcId, [Skills]) as
@@ -358,9 +337,7 @@ describe("@vtt/system-torchbearer NPCs", () => {
         | { Character: { name: string } }
         | undefined;
       expect(character?.Character.name).toBe("Beronin");
-      const npc = setup.world.get(npcId, [TbNpc]) as
-        | { TbNpc: { role: string } }
-        | undefined;
+      const npc = setup.world.get(npcId, [TbNpc]) as { TbNpc: { role: string } } | undefined;
       expect(npc?.TbNpc.role).toBe("Bandit Chief, Dwarf");
       // Printed gear line — leather armor, helmet, sword, dagger —
       // becomes real catalog item entities equipped onto TbCarries.
@@ -388,10 +365,7 @@ describe("@vtt/system-torchbearer NPCs", () => {
 
     it("Soldier — chain + spear + shield equipped onto TbCarries from the catalog", async () => {
       tbSeed({ world: setup.world, registry: setup.registry });
-      const res = await dispatchAsGm(
-        setup,
-        CreateNpcFromCatalog({ templateId: "tb/npc/soldier" }),
-      );
+      const res = await dispatchAsGm(setup, CreateNpcFromCatalog({ templateId: "tb/npc/soldier" }));
       expect(res.result.ok).toBe(true);
       const npcId = setup.world
         .query([Character, TbNpc])
@@ -437,10 +411,7 @@ describe("@vtt/system-torchbearer NPCs", () => {
       // Same lenient policy as the monster spawn path: if the items
       // catalog isn't seeded yet (race during world boot), the spawn
       // proceeds without the gear entries — the GM can equip later.
-      const res = await dispatchAsGm(
-        setup,
-        CreateNpcFromCatalog({ templateId: "tb/npc/soldier" }),
-      );
+      const res = await dispatchAsGm(setup, CreateNpcFromCatalog({ templateId: "tb/npc/soldier" }));
       expect(res.result.ok).toBe(true);
       const npcId = setup.world.query([Character, TbNpc])[0]!.id;
       const carries = setup.world.get(npcId, [TbCarries]);
@@ -449,10 +420,7 @@ describe("@vtt/system-torchbearer NPCs", () => {
 
     it("Smith (SG p.209) — uses the SG-extended Smith skill", async () => {
       // The Smith craft is in LORE_MASTER_SKILLS with id "smith".
-      const res = await dispatchAsGm(
-        setup,
-        CreateNpcFromCatalog({ templateId: "tb/npc/smith" }),
-      );
+      const res = await dispatchAsGm(setup, CreateNpcFromCatalog({ templateId: "tb/npc/smith" }));
       expect(res.result.ok).toBe(true);
       const npcId = setup.world.query([Character, TbNpc])[0]!.id;
       const skills = setup.world.get(npcId, [Skills]) as
@@ -478,10 +446,7 @@ describe("@vtt/system-torchbearer NPCs", () => {
     });
 
     it("Noble (SG p.207) — uses the Popinjay NPC-only skill", async () => {
-      const res = await dispatchAsGm(
-        setup,
-        CreateNpcFromCatalog({ templateId: "tb/npc/noble" }),
-      );
+      const res = await dispatchAsGm(setup, CreateNpcFromCatalog({ templateId: "tb/npc/noble" }));
       expect(res.result.ok).toBe(true);
       const npcId = setup.world.query([Character, TbNpc])[0]!.id;
       const skills = setup.world.get(npcId, [Skills]) as
@@ -504,9 +469,7 @@ describe("@vtt/system-torchbearer NPCs", () => {
         | { Character: { name: string } }
         | undefined;
       expect(character?.Character.name).toBe("Bran the Bold");
-      const npc = setup.world.get(npcId, [TbNpc]) as
-        | { TbNpc: { role: string } }
-        | undefined;
+      const npc = setup.world.get(npcId, [TbNpc]) as { TbNpc: { role: string } } | undefined;
       // Role still reads "Bandit" (the printed denizen label) — only
       // the display name is overridden.
       expect(npc?.TbNpc.role).toBe("Bandit");
@@ -515,10 +478,7 @@ describe("@vtt/system-torchbearer NPCs", () => {
 
   describe("CreateBlankNpc", () => {
     it("spawns a minimal NPC the GM can edit later", async () => {
-      const res = await dispatchAsGm(
-        setup,
-        CreateBlankNpc({ name: "Old Bran" }),
-      );
+      const res = await dispatchAsGm(setup, CreateBlankNpc({ name: "Old Bran" }));
       expect(res.result.ok).toBe(true);
       const npcId = setup.world.query([Character, TbNpc])[0]!.id;
       const character = setup.world.get(npcId, [Character]) as
@@ -550,10 +510,7 @@ describe("@vtt/system-torchbearer NPCs", () => {
     });
 
     it("rejects from non-GM session", async () => {
-      const res = await dispatchAsPlayer(
-        setup,
-        CreateBlankNpc({ name: "Old Bran" }),
-      );
+      const res = await dispatchAsPlayer(setup, CreateBlankNpc({ name: "Old Bran" }));
       expect(res.result.ok).toBe(false);
     });
   });
@@ -563,15 +520,10 @@ describe("@vtt/system-torchbearer NPCs", () => {
       // The conflict declare form queries `[Character, Team]` to
       // partition combatants — see ConflictPage.tsx DeclareConflictForm.
       // This test is the load-bearing check that NPCs show up there.
-      await dispatchAsGm(
-        setup,
-        CreateNpcFromCatalog({ templateId: "tb/npc/soldier" }),
-      );
+      await dispatchAsGm(setup, CreateNpcFromCatalog({ templateId: "tb/npc/soldier" }));
       const enemyRows = setup.world
         .query([Character, Team])
-        .filter(
-          (r) => (r.values.Team as { kind: string }).kind === "enemy",
-        );
+        .filter((r) => (r.values.Team as { kind: string }).kind === "enemy");
       expect(enemyRows).toHaveLength(1);
     });
   });
@@ -605,10 +557,7 @@ describe("@vtt/system-torchbearer NPCs", () => {
         return { registry: reg, world: w, pipeline: p };
       })();
 
-      await dispatchAsGm(
-        richSetup,
-        CreateNpcFromCatalog({ templateId: "tb/npc/alchemist" }),
-      );
+      await dispatchAsGm(richSetup, CreateNpcFromCatalog({ templateId: "tb/npc/alchemist" }));
       const npcId = richSetup.world.query([Character, TbNpc])[0]!.id;
       const result = invokeRollable(WillCheck, richSetup.world, npcId);
       // Non-null means every input trait resolved (Identity / Heroic /
@@ -646,10 +595,7 @@ describe("@vtt/system-torchbearer NPCs", () => {
         return { registry: reg, world: w, pipeline: p };
       })();
 
-      await dispatchAsGm(
-        richSetup,
-        CreateNpcFromCatalog({ templateId: "tb/npc/bandit" }),
-      );
+      await dispatchAsGm(richSetup, CreateNpcFromCatalog({ templateId: "tb/npc/bandit" }));
       const npcId = richSetup.world.query([Character, TbNpc])[0]!.id;
       const result = invokeRollable(SkillCheck, richSetup.world, npcId, {
         skillId: "fighter",
@@ -664,16 +610,9 @@ describe("@vtt/system-torchbearer NPCs", () => {
 
   describe("RemoveNpc", () => {
     it("despawns a previously-created NPC", async () => {
-      await dispatchAsGm(
-        setup,
-        CreateNpcFromCatalog({ templateId: "tb/npc/alchemist" }),
-      );
+      await dispatchAsGm(setup, CreateNpcFromCatalog({ templateId: "tb/npc/alchemist" }));
       const npcId = setup.world.query([Character, TbNpc])[0]!.id;
-      const res = await dispatchAsGm(
-        setup,
-        RemoveNpc({ npcId }),
-        "c2",
-      );
+      const res = await dispatchAsGm(setup, RemoveNpc({ npcId }), "c2");
       expect(res.result.ok).toBe(true);
       expect(setup.world.has(npcId)).toBe(false);
     });

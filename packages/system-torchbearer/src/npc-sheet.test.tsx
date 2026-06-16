@@ -38,7 +38,10 @@ import { ItemDetailSectionsSlot } from "@vtt/items/shared";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { BlockKindsSlot } from "@vtt/adventures/shared";
 import {
-  NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
+  NotificationsSlot,
+  PaletteActionsSlot,
+  PaletteCommandsSlot,
+  WorkbenchStatusSlot,
   WorkbenchChatRailSurface,
 } from "@vtt/shell-workbench/shared";
 import {
@@ -74,7 +77,10 @@ const sheetSlotsTestInfra = definePlugin({
     ChatTimelineContributorSlot,
     RollActionsSlot,
     ItemDetailSectionsSlot,
-    NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
+    NotificationsSlot,
+    PaletteActionsSlot,
+    PaletteCommandsSlot,
+    WorkbenchStatusSlot,
     LinkKindsSlot,
     BlockKindsSlot,
   ],
@@ -199,9 +205,7 @@ function alchemistHarness(): CharacterHarness {
 describe("NpcSheet — identity + stat block + role pill", () => {
   it("renders the canonical Alchemist stat values, role pill, and SG citation", () => {
     const h = alchemistHarness();
-    mountWithClient(h, () => (
-      <NpcSheet characterId={h.characterId} />
-    ));
+    mountWithClient(h, () => <NpcSheet characterId={h.characterId} />);
     // Stat strip surfaces the rated abilities.
     expect(screen.getByTestId("npc-will-value").textContent).toBe("6");
     expect(screen.getByTestId("npc-health-value").textContent).toBe("3");
@@ -213,21 +217,15 @@ describe("NpcSheet — identity + stat block + role pill", () => {
     // Role pill renders.
     expect(screen.getByTestId("npc-role-pill").textContent).toBe("ALCHEMIST");
     // Default Team is enemy (NPC default).
-    expect(screen.getByTestId("npc-team-display").textContent).toContain(
-      "Enemy",
-    );
+    expect(screen.getByTestId("npc-team-display").textContent).toContain("Enemy");
   });
 
   it("flipping the team button dispatches SetField onto Team.kind", () => {
     const h = alchemistHarness();
-    mountWithClient(h, () => (
-      <NpcSheet characterId={h.characterId} />
-    ));
+    mountWithClient(h, () => <NpcSheet characterId={h.characterId} />);
     fireEvent.click(screen.getByTestId("npc-team-flip"));
     const dispatched = h.dispatched.find(
-      (d) =>
-        d.type === SetField.name &&
-        (d.payload as { trait: string }).trait === Team.name,
+      (d) => d.type === SetField.name && (d.payload as { trait: string }).trait === Team.name,
     );
     expect(dispatched).toBeTruthy();
     expect(dispatched!.payload).toMatchObject({
@@ -241,9 +239,7 @@ describe("NpcSheet — identity + stat block + role pill", () => {
 describe("NpcSheet — Skills section", () => {
   it("only shows skills with rating > 0 in the rated list", () => {
     const h = alchemistHarness();
-    mountWithClient(h, () => (
-      <NpcSheet characterId={h.characterId} />
-    ));
+    mountWithClient(h, () => <NpcSheet characterId={h.characterId} />);
     expect(screen.queryByTestId("npc-skill-row-alchemist")).not.toBeNull();
     expect(screen.queryByTestId("npc-skill-row-healer")).not.toBeNull();
     expect(screen.queryByTestId("npc-skill-row-loreMaster")).not.toBeNull();
@@ -254,12 +250,8 @@ describe("NpcSheet — Skills section", () => {
 
   it("the add-skill dropdown lists unrated skills (Fighter, etc.)", () => {
     const h = alchemistHarness();
-    mountWithClient(h, () => (
-      <NpcSheet characterId={h.characterId} />
-    ));
-    const select = screen.getByTestId(
-      "npc-skill-add-select",
-    ) as HTMLSelectElement;
+    mountWithClient(h, () => <NpcSheet characterId={h.characterId} />);
+    const select = screen.getByTestId("npc-skill-add-select") as HTMLSelectElement;
     const options = Array.from(select.options).map((o) => o.value);
     expect(options).toContain("fighter");
     // Already-rated skills are excluded.
@@ -269,16 +261,10 @@ describe("NpcSheet — Skills section", () => {
 
   it("clicking + add skill dispatches SetField with the picked skill at the picked rating", () => {
     const h = alchemistHarness();
-    mountWithClient(h, () => (
-      <NpcSheet characterId={h.characterId} />
-    ));
-    const select = screen.getByTestId(
-      "npc-skill-add-select",
-    ) as HTMLSelectElement;
+    mountWithClient(h, () => <NpcSheet characterId={h.characterId} />);
+    const select = screen.getByTestId("npc-skill-add-select") as HTMLSelectElement;
     fireEvent.change(select, { target: { value: "fighter" } });
-    const ratingSelect = screen.getByTestId(
-      "npc-skill-add-rating",
-    ) as HTMLSelectElement;
+    const ratingSelect = screen.getByTestId("npc-skill-add-rating") as HTMLSelectElement;
     fireEvent.change(ratingSelect, { target: { value: "4" } });
     fireEvent.click(screen.getByTestId("npc-skill-add-submit"));
     const dispatched = h.dispatched.find(
@@ -298,14 +284,10 @@ describe("NpcSheet — Skills section", () => {
 
   it("clicking remove (×) on a skill row dispatches SetField with rating 0", () => {
     const h = alchemistHarness();
-    mountWithClient(h, () => (
-      <NpcSheet characterId={h.characterId} />
-    ));
+    mountWithClient(h, () => <NpcSheet characterId={h.characterId} />);
     fireEvent.click(screen.getByTestId("npc-skill-remove-loreMaster"));
     const dispatched = h.dispatched.find(
-      (d) =>
-        d.type === SetField.name &&
-        (d.payload as { path: string[] }).path[1] === "loreMaster",
+      (d) => d.type === SetField.name && (d.payload as { path: string[] }).path[1] === "loreMaster",
     );
     expect(dispatched).toBeTruthy();
     expect(dispatched!.payload).toMatchObject({
@@ -319,60 +301,40 @@ describe("NpcSheet — Skills section", () => {
 describe("NpcSheet — Wises section", () => {
   it("renders existing wises and accepts a new one via the input", () => {
     const h = alchemistHarness();
-    mountWithClient(h, () => (
-      <NpcSheet characterId={h.characterId} />
-    ));
+    mountWithClient(h, () => <NpcSheet characterId={h.characterId} />);
     // Existing Chemistry-wise renders.
     expect(screen.queryByTestId("npc-wise-0")).not.toBeNull();
     // Add a new wise.
-    const input = screen.getByTestId(
-      "npc-wise-add-input",
-    ) as HTMLInputElement;
+    const input = screen.getByTestId("npc-wise-add-input") as HTMLInputElement;
     fireEvent.input(input, { target: { value: "Herb-wise" } });
     fireEvent.click(screen.getByTestId("npc-wise-add-submit"));
     const dispatched = h.dispatched.find(
-      (d) =>
-        d.type === SetField.name &&
-        (d.payload as { trait: string }).trait === Wises.name,
+      (d) => d.type === SetField.name && (d.payload as { trait: string }).trait === Wises.name,
     );
     expect(dispatched).toBeTruthy();
     const value = (dispatched!.payload as { value: { name: string }[] }).value;
-    expect(value.map((w) => w.name)).toEqual([
-      "Chemistry-wise",
-      "Herb-wise",
-    ]);
+    expect(value.map((w) => w.name)).toEqual(["Chemistry-wise", "Herb-wise"]);
   });
 });
 
 describe("NpcSheet — Traits section", () => {
   it("renders existing TB-traits with their level and accepts a new one", () => {
     const h = alchemistHarness();
-    mountWithClient(h, () => (
-      <NpcSheet characterId={h.characterId} />
-    ));
-    expect(screen.queryByTestId("npc-trait-0")?.textContent).toContain(
-      "Curious",
-    );
+    mountWithClient(h, () => <NpcSheet characterId={h.characterId} />);
+    expect(screen.queryByTestId("npc-trait-0")?.textContent).toContain("Curious");
     expect(screen.queryByTestId("npc-trait-0")?.textContent).toContain("(2)");
 
-    const nameInput = screen.getByTestId(
-      "npc-trait-add-name",
-    ) as HTMLInputElement;
-    const levelSelect = screen.getByTestId(
-      "npc-trait-add-level",
-    ) as HTMLSelectElement;
+    const nameInput = screen.getByTestId("npc-trait-add-name") as HTMLInputElement;
+    const levelSelect = screen.getByTestId("npc-trait-add-level") as HTMLSelectElement;
     fireEvent.input(nameInput, { target: { value: "Wise" } });
     fireEvent.change(levelSelect, { target: { value: "3" } });
     fireEvent.click(screen.getByTestId("npc-trait-add-submit"));
     const dispatched = h.dispatched.find(
       (d) =>
-        d.type === SetField.name &&
-        (d.payload as { trait: string }).trait === CharacterTraits.name,
+        d.type === SetField.name && (d.payload as { trait: string }).trait === CharacterTraits.name,
     );
     expect(dispatched).toBeTruthy();
-    const value = (
-      dispatched!.payload as { value: { name: string; level: number }[] }
-    ).value;
+    const value = (dispatched!.payload as { value: { name: string; level: number }[] }).value;
     expect(value).toEqual([
       expect.objectContaining({ name: "Curious", level: 2 }),
       expect.objectContaining({ name: "Wise", level: 3 }),
@@ -383,14 +345,10 @@ describe("NpcSheet — Traits section", () => {
 describe("NpcSheet — Conditions section", () => {
   it("clicking a condition chip flips the corresponding boolean", () => {
     const h = alchemistHarness();
-    mountWithClient(h, () => (
-      <NpcSheet characterId={h.characterId} />
-    ));
+    mountWithClient(h, () => <NpcSheet characterId={h.characterId} />);
     fireEvent.click(screen.getByTestId("npc-cond-injured"));
     const dispatched = h.dispatched.find(
-      (d) =>
-        d.type === SetField.name &&
-        (d.payload as { trait: string }).trait === Conditions.name,
+      (d) => d.type === SetField.name && (d.payload as { trait: string }).trait === Conditions.name,
     );
     expect(dispatched).toBeTruthy();
     expect(dispatched!.payload).toMatchObject({
@@ -404,9 +362,7 @@ describe("NpcSheet — Conditions section", () => {
 describe("NpcSheet — Description (textarea)", () => {
   it("renders the notes field as a textarea with rows=6", () => {
     const h = alchemistHarness();
-    mountWithClient(h, () => (
-      <NpcSheet characterId={h.characterId} />
-    ));
+    mountWithClient(h, () => <NpcSheet characterId={h.characterId} />);
     const ta = document.querySelector("textarea") as HTMLTextAreaElement | null;
     expect(ta).not.toBeNull();
     expect(ta!.tagName).toBe("TEXTAREA");
@@ -422,9 +378,7 @@ describe("NpcSheet — Gear section mounts the inventory view", () => {
     // catalog-search input is present is the load-bearing check that
     // the inventory body wired up correctly.
     const h = alchemistHarness();
-    mountWithClient(h, () => (
-      <NpcSheet characterId={h.characterId} />
-    ));
+    mountWithClient(h, () => <NpcSheet characterId={h.characterId} />);
     expect(screen.getByTestId("npc-gear-inventory")).toBeInTheDocument();
     expect(screen.getByTestId("catalog-search")).toBeInTheDocument();
   });

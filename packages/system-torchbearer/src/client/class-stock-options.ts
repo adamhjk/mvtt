@@ -78,18 +78,63 @@ interface BasePair {
 }
 
 const DH_BASE: ReadonlyArray<BasePair> = [
-  { stock: "Halfling", class: "Burglar", classPageRef: { book: "DH", page: 26 }, levelPageRef: { book: "DH", page: 113 } },
-  { stock: "Human", class: "Magician", classPageRef: { book: "DH", page: 26 }, levelPageRef: { book: "DH", page: 115 } },
-  { stock: "Dwarf", class: "Outcast", classPageRef: { book: "DH", page: 26 }, levelPageRef: { book: "DH", page: 119 } },
-  { stock: "Elf", class: "Ranger", classPageRef: { book: "DH", page: 27 }, levelPageRef: { book: "DH", page: 122 } },
-  { stock: "Human", class: "Theurge", classPageRef: { book: "DH", page: 27 }, levelPageRef: { book: "DH", page: 125 } },
-  { stock: "Human", class: "Warrior", classPageRef: { book: "DH", page: 27 }, levelPageRef: { book: "DH", page: 129 } },
+  {
+    stock: "Halfling",
+    class: "Burglar",
+    classPageRef: { book: "DH", page: 26 },
+    levelPageRef: { book: "DH", page: 113 },
+  },
+  {
+    stock: "Human",
+    class: "Magician",
+    classPageRef: { book: "DH", page: 26 },
+    levelPageRef: { book: "DH", page: 115 },
+  },
+  {
+    stock: "Dwarf",
+    class: "Outcast",
+    classPageRef: { book: "DH", page: 26 },
+    levelPageRef: { book: "DH", page: 119 },
+  },
+  {
+    stock: "Elf",
+    class: "Ranger",
+    classPageRef: { book: "DH", page: 27 },
+    levelPageRef: { book: "DH", page: 122 },
+  },
+  {
+    stock: "Human",
+    class: "Theurge",
+    classPageRef: { book: "DH", page: 27 },
+    levelPageRef: { book: "DH", page: 125 },
+  },
+  {
+    stock: "Human",
+    class: "Warrior",
+    classPageRef: { book: "DH", page: 27 },
+    levelPageRef: { book: "DH", page: 129 },
+  },
 ];
 
 const LMM_HUMAN_CLASSES: ReadonlyArray<BasePair> = [
-  { stock: "Human", class: "Shaman", classPageRef: { book: "LMM", page: 11 }, levelPageRef: { book: "LMM", page: 15 } },
-  { stock: "Human", class: "Skald", classPageRef: { book: "LMM", page: 13 }, levelPageRef: { book: "LMM", page: 19 } },
-  { stock: "Human", class: "Thief", classPageRef: { book: "LMM", page: 14 }, levelPageRef: { book: "LMM", page: 23 } },
+  {
+    stock: "Human",
+    class: "Shaman",
+    classPageRef: { book: "LMM", page: 11 },
+    levelPageRef: { book: "LMM", page: 15 },
+  },
+  {
+    stock: "Human",
+    class: "Skald",
+    classPageRef: { book: "LMM", page: 13 },
+    levelPageRef: { book: "LMM", page: 19 },
+  },
+  {
+    stock: "Human",
+    class: "Thief",
+    classPageRef: { book: "LMM", page: 14 },
+    levelPageRef: { book: "LMM", page: 23 },
+  },
 ];
 
 /**
@@ -134,10 +179,7 @@ export const TB_CLASS_STOCK_OPTIONS: ReadonlyArray<ClassStockOption> = [
  * / "Human" / "HUMAN") still match. Returns null when neither field
  * is set or the combination is one we don't have a chip for.
  */
-export function lookupClassStockOption(
-  stock: string,
-  klass: string,
-): ClassStockOption | null {
+export function lookupClassStockOption(stock: string, klass: string): ClassStockOption | null {
   const key = `${slug(stock.trim())}/${slug(klass.trim())}`;
   return TB_CLASS_STOCK_OPTIONS.find((o) => o.key === key) ?? null;
 }

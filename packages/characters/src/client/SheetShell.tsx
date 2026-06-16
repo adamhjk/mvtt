@@ -28,10 +28,7 @@ import {
   type CharacterSheetRegion,
   type CharacterSheetTab,
 } from "../shared/slot.js";
-import {
-  CharacterSheetUiState,
-  SetCharacterSheetUiState,
-} from "../shared/sheet-ui-state.js";
+import { CharacterSheetUiState, SetCharacterSheetUiState } from "../shared/sheet-ui-state.js";
 import { Tabs, type TabSpec } from "./kit.js";
 
 const SHEET_SHELL_STYLE_ID = "vtt-characters-sheet-shell-styles";
@@ -223,9 +220,7 @@ export function SheetShell(props: {
   // local-signal default — ephemeral but functional.
   const sentinelId = props.tabId ? useTabSentinel(props.tabId) : null;
   const persistence =
-    sentinelId !== null && client.world.has(sentinelId)
-      ? sheetTabPersistence(sentinelId)
-      : null;
+    sentinelId !== null && client.world.has(sentinelId) ? sheetTabPersistence(sentinelId) : null;
 
   const identity = createMemo(() =>
     sortRegion(client.registry.fillsForSlot(CharacterSheetIdentitySlot)),
@@ -239,9 +234,7 @@ export function SheetShell(props: {
   const actions = createMemo(() =>
     sortRegion(client.registry.fillsForSlot(CharacterSheetActionsSlot)),
   );
-  const tabFills = createMemo(() =>
-    sortTabs(client.registry.fillsForSlot(CharacterSheetTabsSlot)),
-  );
+  const tabFills = createMemo(() => sortTabs(client.registry.fillsForSlot(CharacterSheetTabsSlot)));
 
   // Adapt CharacterSheetTab fills to the kit.Tabs `TabSpec` shape. The
   // characterId is captured here so the tab's render closure doesn't
@@ -251,8 +244,7 @@ export function SheetShell(props: {
       id: fill.id,
       label: fill.label,
       priority: fill.priority,
-      render: () =>
-        fill.render({ characterId: props.characterId }) as JSX.Element,
+      render: () => fill.render({ characterId: props.characterId }) as JSX.Element,
     })),
   );
 
@@ -268,10 +260,7 @@ export function SheetShell(props: {
   onMount(() => {
     if (!shellEl || !identityEl || typeof ResizeObserver === "undefined") return;
     const sync = () => {
-      shellEl!.style.setProperty(
-        "--sheet-identity-height",
-        `${identityEl!.offsetHeight}px`,
-      );
+      shellEl!.style.setProperty("--sheet-identity-height", `${identityEl!.offsetHeight}px`);
     };
     sync();
     const ro = new ResizeObserver(sync);
@@ -287,9 +276,7 @@ export function SheetShell(props: {
         data-region="identity"
       >
         <For each={identity()}>
-          {(fill) => (
-            <>{fill.render({ characterId: props.characterId }) as JSX.Element}</>
-          )}
+          {(fill) => <>{fill.render({ characterId: props.characterId }) as JSX.Element}</>}
         </For>
       </div>
 
@@ -346,23 +333,16 @@ export function SheetShell(props: {
         />
       </div>
 
-      <div
-        class="sheet-shell__region sheet-shell__actions"
-        data-region="actions"
-      >
+      <div class="sheet-shell__region sheet-shell__actions" data-region="actions">
         <For each={actions()}>
-          {(fill) => (
-            <>{fill.render({ characterId: props.characterId }) as JSX.Element}</>
-          )}
+          {(fill) => <>{fill.render({ characterId: props.characterId }) as JSX.Element}</>}
         </For>
       </div>
     </div>
   );
 }
 
-function sortRegion(
-  fills: ReadonlyArray<unknown>,
-): CharacterSheetRegion[] {
+function sortRegion(fills: ReadonlyArray<unknown>): CharacterSheetRegion[] {
   const arr = [...(fills as ReadonlyArray<CharacterSheetRegion>)];
   arr.sort((a, b) => {
     const pa = a.priority ?? 0;

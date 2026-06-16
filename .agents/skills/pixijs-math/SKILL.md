@@ -199,9 +199,7 @@ new Rectangle(150, 150, 200, 200).fit(viewport); // -> 150, 150, 50, 50
 
 // enlarge expands `this` to include another rect (bounds aggregation)
 const total = new Rectangle();
-items.forEach((item) =>
-  total.enlarge(new Rectangle().copyFromBounds(item.getBounds())),
-);
+items.forEach((item) => total.enlarge(new Rectangle().copyFromBounds(item.getBounds())));
 
 // ceil snaps to a pixel grid (resolution: 1 = whole pixels, 2 = half pixels)
 new Rectangle(10.2, 10.6, 100.8, 100.4).ceil();
@@ -334,11 +332,7 @@ r1.intersection(r2, out);
 These functions are exported from `pixi.js/math-extras`, not the main `pixi.js` entry.
 
 ```ts
-import {
-  floatEqual,
-  lineIntersection,
-  segmentIntersection,
-} from "pixi.js/math-extras";
+import { floatEqual, lineIntersection, segmentIntersection } from "pixi.js/math-extras";
 import { Point } from "pixi.js";
 
 // Epsilon-based float comparison (default epsilon: Number.EPSILON)
@@ -386,7 +380,6 @@ import { Point } from "pixi.js";
 
 v8 uses a single `pixi.js` package. All sub-packages like `@pixi/math`, `@pixi/core`, etc. were removed.
 
-
 ### MEDIUM: Mutating ObservablePoint without triggering observer
 
 Wrong:
@@ -411,7 +404,6 @@ container.position.copyFrom(new Point(100, 200));
 
 Container's position, scale, pivot, origin, and skew are ObservablePoints. Setting `.x` or `.y` on them triggers the container's transform update. Reassigning the variable reference does not modify the container. Always mutate the existing ObservablePoint via `.set()`, `.copyFrom()`, or direct property assignment on the original object.
 
-
 ### MEDIUM: Not importing math-extras for extended methods
 
 Wrong:
@@ -432,7 +424,6 @@ const sum = p.add(new Point(3, 4)); // works
 ```
 
 Extended math utilities (add, subtract, multiply, magnitude, normalize, dot, cross, etc. on Point; intersection methods on shapes) require an explicit `import 'pixi.js/math-extras'`. These are not included in the default bundle.
-
 
 ### MEDIUM: Storing references to shared/temporary objects
 
@@ -455,7 +446,6 @@ const myPoint = new Point(100, 200);
 ```
 
 `Point.shared` and `Matrix.shared` are reset to zero/identity every time they are accessed. They exist for one-off calculations within a single expression. Never store a reference to them.
-
 
 ## API Reference
 

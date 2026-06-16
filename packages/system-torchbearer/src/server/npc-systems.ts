@@ -47,9 +47,7 @@ import { ALL_SKILLS, isKnownSkillId } from "../shared/skills.js";
  * "migrate seed-skill-ids" tooling lands as a script that rewrites the
  * generated catalog.
  */
-function buildSkillsRecord(
-  seed: ReadonlyArray<{ skillId: string; rating: number }>,
-): Record<
+function buildSkillsRecord(seed: ReadonlyArray<{ skillId: string; rating: number }>): Record<
   string,
   {
     rating: number;

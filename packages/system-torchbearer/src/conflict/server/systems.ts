@@ -57,8 +57,7 @@ import type { ScriptSlot } from "../shared/resolution.js";
 function getConflict(world: World, conflictId: EntityId) {
   const got = world.get(conflictId, [TbConflict]);
   if (!got) return null;
-  return (got as { TbConflict: ReturnType<typeof TbConflict>["value"] })
-    .TbConflict;
+  return (got as { TbConflict: ReturnType<typeof TbConflict>["value"] }).TbConflict;
 }
 
 function setConflict(
@@ -268,8 +267,9 @@ export const ParticipantHpSetSystem = defineSystem({
   run: ({ event, world }) => {
     const got = world.get(event.participantEntityId, [TbConflictParticipant]);
     if (!got) return [];
-    const cur = (got as { TbConflictParticipant: ReturnType<typeof TbConflictParticipant>["value"] })
-      .TbConflictParticipant;
+    const cur = (
+      got as { TbConflictParticipant: ReturnType<typeof TbConflictParticipant>["value"] }
+    ).TbConflictParticipant;
     world.set(event.participantEntityId, TbConflictParticipant, {
       ...cur,
       hp: event.hp,
@@ -289,8 +289,9 @@ export const HpAssignedSystem = defineSystem({
     for (const a of event.allocations) {
       const got = world.get(a.participantEntityId, [TbConflictParticipant]);
       if (!got) continue;
-      const cur = (got as { TbConflictParticipant: ReturnType<typeof TbConflictParticipant>["value"] })
-        .TbConflictParticipant;
+      const cur = (
+        got as { TbConflictParticipant: ReturnType<typeof TbConflictParticipant>["value"] }
+      ).TbConflictParticipant;
       world.set(a.participantEntityId, TbConflictParticipant, {
         ...cur,
         hp: a.hp,
@@ -473,13 +474,11 @@ export const SlotRevealedSystem = defineSystem({
       ];
       revealed[event.slotIndex] = {
         partyAction: event.partySlot.action,
-        partyPerformerParticipantEntityId:
-          event.partySlot.performerParticipantEntityId,
+        partyPerformerParticipantEntityId: event.partySlot.performerParticipantEntityId,
         partyPerformerCharacterId: event.partySlot.performerCharacterId,
         partyWeaponItemId: event.partySlot.weaponItemId,
         enemyAction: event.enemySlot.action,
-        enemyPerformerParticipantEntityId:
-          event.enemySlot.performerParticipantEntityId,
+        enemyPerformerParticipantEntityId: event.enemySlot.performerParticipantEntityId,
         enemyPerformerCharacterId: event.enemySlot.performerCharacterId,
         enemyWeaponItemId: event.enemySlot.weaponItemId,
       };

@@ -17,10 +17,7 @@
 
 import { type JSX } from "solid-js";
 import { Surface } from "@vtt/substrate/client";
-import {
-  definePageProvider,
-  WorkbenchChatRailSurface,
-} from "@vtt/shell-workbench/shared";
+import { definePageProvider, WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
 import { ChatMessage } from "../shared/traits.js";
 
 /**
@@ -41,10 +38,7 @@ export const CHAT_PAGE_KIND = "@vtt/comms/chat";
  */
 function ChatPage(): JSX.Element {
   return (
-    <div
-      class="flex h-full min-h-0 flex-col gap-3 p-4"
-      data-testid="chat-page"
-    >
+    <div class="flex h-full min-h-0 flex-col gap-3 p-4" data-testid="chat-page">
       <Surface name={WorkbenchChatRailSurface.name} />
     </div>
   );

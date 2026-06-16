@@ -24,10 +24,7 @@ import {
   useEffectiveSpeakerId,
   useSpeakAsOptions,
 } from "@vtt/characters/client";
-import {
-  type QuickRollComposer,
-  type QuickRollComposerArgs,
-} from "@vtt/characters/shared";
+import { type QuickRollComposer, type QuickRollComposerArgs } from "@vtt/characters/shared";
 import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import { RequestRoll } from "../shared/commands.js";
 
@@ -52,9 +49,7 @@ function QuickRollComposerBody(props: QuickRollComposerArgs): JSX.Element {
   const me = createMemo(() => {
     const cid = client.clientId();
     if (!cid) return null;
-    const found = players().find(
-      (p) => (p.values.Online as { clientId: string }).clientId === cid,
-    );
+    const found = players().find((p) => (p.values.Online as { clientId: string }).clientId === cid);
     if (!found) return null;
     const id = found.values.Identity as { userId: string; role: string };
     return { userId: id.userId, role: id.role };
@@ -81,10 +76,7 @@ function QuickRollComposerBody(props: QuickRollComposerArgs): JSX.Element {
   };
 
   return (
-    <article
-      class="flex flex-col gap-3"
-      data-testid="atelier-quick-roll-composer"
-    >
+    <article class="flex flex-col gap-3" data-testid="atelier-quick-roll-composer">
       <header class="flex items-baseline justify-between gap-2 border-b border-border-muted pb-2">
         <h3 class="font-display text-sm tracking-tight text-fg">Quick roll</h3>
         <button
@@ -100,15 +92,11 @@ function QuickRollComposerBody(props: QuickRollComposerArgs): JSX.Element {
       <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[0.65rem] text-fg-subtle">
         <Show when={speakAsOptions().length > 1}>
           <label class="flex items-center gap-1.5">
-            <span class="font-display uppercase tracking-[0.16em]">
-              speak as
-            </span>
+            <span class="font-display uppercase tracking-[0.16em]">speak as</span>
             <select
               value={activeSpeakerId() ?? ""}
               onChange={(e) =>
-                setActiveSpeakerId(
-                  e.currentTarget.value === "" ? null : e.currentTarget.value,
-                )
+                setActiveSpeakerId(e.currentTarget.value === "" ? null : e.currentTarget.value)
               }
               class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-xs text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
             >

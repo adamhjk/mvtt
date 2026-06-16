@@ -19,11 +19,7 @@ import type { Contribution } from "@vtt/characters/shared";
 import { Team } from "@vtt/characters/shared";
 import { z, type World } from "@vtt/substrate";
 import { Conditions } from "./traits.js";
-import {
-  TbRollModifierSchema,
-  type TbRollKind,
-  type TbRollModifier,
-} from "./roll-spec.js";
+import { TbRollModifierSchema, type TbRollKind, type TbRollModifier } from "./roll-spec.js";
 
 /**
  * Convention: a TB pending-roll contribution carries the modifier
@@ -440,9 +436,7 @@ export function synergyDeclsFromContributions(
 export function synergyHelpersFromContributions(
   contributions: ReadonlyArray<Contribution> | undefined,
 ): string[] {
-  return synergyDeclsFromContributions(contributions).map(
-    (e) => e.helperCharacterId,
-  );
+  return synergyDeclsFromContributions(contributions).map((e) => e.helperCharacterId);
 }
 
 /**
@@ -702,9 +696,7 @@ export interface TbSuggestedQuickModifier {
  * antagonist side. For a player rolling disposition, we sum across
  * every party-tagged character (including themself).
  */
-export function teamPenaltiesForDisposition(
-  world: World,
-): TbRollModifier[] {
+export function teamPenaltiesForDisposition(world: World): TbRollModifier[] {
   const out: TbRollModifier[] = [];
   let anyHungryThirsty = false;
   let anyExhausted = false;
@@ -814,9 +806,7 @@ export function suggestedItemModifiersFor(args: {
 }): TbSuggestedQuickModifier[] {
   const { world, characterId, kind, sourceId } = args;
   const holderTraits = world.traitsOn(characterId as never);
-  const carries = holderTraits.get(
-    "@vtt/system-torchbearer/TbCarries" as never,
-  ) as
+  const carries = holderTraits.get("@vtt/system-torchbearer/TbCarries" as never) as
     | {
         entries: Array<{
           slot: string;
@@ -835,21 +825,16 @@ export function suggestedItemModifiersFor(args: {
 
     // Item identity for the chip label.
     const itemTraits = world.traitsOn(entry.itemId as never);
-    const ident = itemTraits.get(
-      "@vtt/items/ItemIdentity" as never,
-    ) as { name?: string } | undefined;
+    const ident = itemTraits.get("@vtt/items/ItemIdentity" as never) as
+      | { name?: string }
+      | undefined;
     const itemName = ident?.name ?? "item";
 
     // Weapon → conflict-action bonus.
     if (kind === "skill" || kind === "skill-bl") {
-      const weapon = itemTraits.get(
-        "@vtt/system-torchbearer/TbWeapon" as never,
-      ) as
+      const weapon = itemTraits.get("@vtt/system-torchbearer/TbWeapon" as never) as
         | {
-            conflictBonuses: Record<
-              string,
-              { type: string; value: number }
-            >;
+            conflictBonuses: Record<string, { type: string; value: number }>;
           }
         | undefined;
       if (weapon) {
@@ -877,9 +862,9 @@ export function suggestedItemModifiersFor(args: {
     }
 
     // Skill-bonus entries → optional, condition-tagged suggestion.
-    const sb = itemTraits.get(
-      "@vtt/system-torchbearer/TbSkillBonuses" as never,
-    ) as { entries: Array<{ skill: string; value: number; condition: string }> } | undefined;
+    const sb = itemTraits.get("@vtt/system-torchbearer/TbSkillBonuses" as never) as
+      | { entries: Array<{ skill: string; value: number; condition: string }> }
+      | undefined;
     if (sb && (kind === "skill" || kind === "skill-bl")) {
       for (const e of sb.entries) {
         if (!skillMatches(e.skill, sourceId)) continue;
@@ -917,13 +902,7 @@ function mapSkillToConflictAction(sourceId: string): string | null {
   // a skill source — for now we offer the highest of the four
   // bonuses on any Fighter / Hunter / Scout / Pathfinder roll. The
   // panel decides whether to apply.
-  const fighterLike = new Set([
-    "fighter",
-    "hunter",
-    "scout",
-    "pathfinder",
-    "ritualist",
-  ]);
+  const fighterLike = new Set(["fighter", "hunter", "scout", "pathfinder", "ritualist"]);
   if (fighterLike.has(sourceId)) return "attack";
   return null;
 }
@@ -931,8 +910,7 @@ function mapSkillToConflictAction(sourceId: string): string | null {
 function skillMatches(skillName: string, sourceId: string): boolean {
   return (
     skillName.toLowerCase() === sourceId.toLowerCase() ||
-    skillName.toLowerCase().replace(/[^a-z]/g, "") ===
-      sourceId.toLowerCase().replace(/[^a-z]/g, "")
+    skillName.toLowerCase().replace(/[^a-z]/g, "") === sourceId.toLowerCase().replace(/[^a-z]/g, "")
   );
 }
 

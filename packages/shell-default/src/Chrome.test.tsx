@@ -18,18 +18,10 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
 import { screen, cleanup } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-  mountWithClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient, mountWithClient } from "@vtt/substrate/client-testing";
 import { defineView, clientOnly } from "@vtt/substrate";
 import { shellDefault } from "./manifest.js";
-import {
-  HeaderSurface,
-  MainSurface,
-  SidebarSurface,
-  FooterSurface,
-} from "./shared/surfaces.js";
+import { HeaderSurface, MainSurface, SidebarSurface, FooterSurface } from "./shared/surfaces.js";
 import { ChromeView } from "./client/Chrome.js";
 import { definePlugin } from "@vtt/substrate";
 

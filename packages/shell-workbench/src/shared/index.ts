@@ -25,16 +25,8 @@ export {
   type WorkbenchDrawerState,
 } from "./traits.js";
 export { tabSentinelEntityId } from "./tab-sentinel.js";
-export {
-  TabShared,
-  WorkspaceStateChanged,
-  WorkspaceBootstrapped,
-} from "./events.js";
-export {
-  WorkbenchHeaderSurface,
-  WorkbenchChatRailSurface,
-  PaletteSurface,
-} from "./surfaces.js";
+export { TabShared, WorkspaceStateChanged, WorkspaceBootstrapped } from "./events.js";
+export { WorkbenchHeaderSurface, WorkbenchChatRailSurface, PaletteSurface } from "./surfaces.js";
 export {
   PagesSlot,
   PaletteCommandsSlot,

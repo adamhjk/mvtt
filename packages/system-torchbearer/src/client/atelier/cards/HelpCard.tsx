@@ -39,7 +39,9 @@ export function HelpCard(props: { atelier: AtelierState }): JSX.Element {
   };
 
   return (
-    <Show when={props.atelier.helpers().length > 0 || props.atelier.suggestedHelpNames().length > 0}>
+    <Show
+      when={props.atelier.helpers().length > 0 || props.atelier.suggestedHelpNames().length > 0}
+    >
       <section
         class="flex flex-col gap-2 rounded-(--radius-card) border border-border bg-surface p-3 sm:col-span-2"
         data-testid="atelier-help-card"
@@ -65,8 +67,7 @@ export function HelpCard(props: { atelier: AtelierState }): JSX.Element {
               {(h) => {
                 const isHelping = (): boolean => h.activeOptionId !== null;
                 const activeViaGm = (): boolean =>
-                  !!h.activeOptionId &&
-                  !h.automatic.some((o) => o.id === h.activeOptionId);
+                  !!h.activeOptionId && !h.automatic.some((o) => o.id === h.activeOptionId);
                 const isSynergy = (): boolean =>
                   props.atelier.synergyDeclared().includes(h.characterId);
                 return (
@@ -85,9 +86,7 @@ export function HelpCard(props: { atelier: AtelierState }): JSX.Element {
                     <Show when={h.automatic.length + h.gm.length > 1}>
                       <select
                         value={pickOf(h)}
-                        onChange={(e) =>
-                          setPickFor(h.characterId, e.currentTarget.value)
-                        }
+                        onChange={(e) => setPickFor(h.characterId, e.currentTarget.value)}
                         class="rounded-(--radius-control) border border-border bg-surface px-1 py-0.5 text-[0.65rem] text-fg outline-none focus:border-accent"
                         aria-label={`${h.name} help skill`}
                         data-testid={`atelier-help-pick-${h.characterId}`}
@@ -101,9 +100,7 @@ export function HelpCard(props: { atelier: AtelierState }): JSX.Element {
                         </Show>
                         <Show when={h.gm.length > 0}>
                           <optgroup label="per GM">
-                            <For each={h.gm}>
-                              {(o) => <option value={o.id}>{o.label}</option>}
-                            </For>
+                            <For each={h.gm}>{(o) => <option value={o.id}>{o.label}</option>}</For>
                           </optgroup>
                         </Show>
                       </select>
@@ -139,10 +136,7 @@ export function HelpCard(props: { atelier: AtelierState }): JSX.Element {
                           "border-border bg-surface text-fg-muted hover:border-accent hover:text-fg":
                             !isSynergy(),
                         }}
-                        disabled={
-                          !isSynergy() &&
-                          props.atelier.helperFateAvail(h.characterId) < 1
-                        }
+                        disabled={!isSynergy() && props.atelier.helperFateAvail(h.characterId) < 1}
                         onClick={() => props.atelier.toggleSynergy(h)}
                         data-testid={`atelier-synergy-btn-${h.characterId}`}
                       >

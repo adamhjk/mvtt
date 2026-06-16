@@ -18,15 +18,9 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
 import { screen, cleanup, fireEvent, render } from "@solidjs/testing-library";
-import {
-  buildTestClient,
-} from "@vtt/substrate/client-testing";
+import { buildTestClient } from "@vtt/substrate/client-testing";
 import { ClientProvider } from "@vtt/substrate/client";
-import {
-  definePlugin,
-  qualifiedName,
-  type World,
-} from "@vtt/substrate";
+import { definePlugin, qualifiedName, type World } from "@vtt/substrate";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { TabSentinel, tabSentinelEntityId } from "@vtt/shell-workbench/shared";
@@ -114,9 +108,7 @@ describe("scene SceneDock", () => {
     ));
     fireEvent.click(screen.getByRole("button", { name: /Custom/i }));
 
-    const dispatched = h.dispatched.find(
-      (cmd) => cmd.type === SetSceneUiState.name,
-    );
+    const dispatched = h.dispatched.find((cmd) => cmd.type === SetSceneUiState.name);
     expect(dispatched).toBeDefined();
     expect(
       (dispatched!.payload as { value: { dockOpen: boolean; dockActiveId: string } }).value,

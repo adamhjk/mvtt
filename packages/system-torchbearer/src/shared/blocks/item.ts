@@ -17,12 +17,7 @@
 
 import { z } from "@vtt/substrate";
 import { defineBlockKind, type EntityProjection } from "@vtt/adventures/shared";
-import {
-  ItemBundle,
-  ItemDerivedFrom,
-  ItemEconomics,
-  ItemIdentity,
-} from "@vtt/items/shared";
+import { ItemBundle, ItemDerivedFrom, ItemEconomics, ItemIdentity } from "@vtt/items/shared";
 import {
   TbArmor,
   TbContainer,
@@ -96,9 +91,7 @@ const ConflictBonus = z
     value: z.number().int().default(0),
   })
   .or(z.number().int())
-  .transform((v) =>
-    typeof v === "number" ? { type: "dice" as const, value: v } : v,
-  );
+  .transform((v) => (typeof v === "number" ? { type: "dice" as const, value: v } : v));
 
 /**
  * Schema for the body of an `item` fenced block.
@@ -110,109 +103,97 @@ const ConflictBonus = z
  * Subtype data lives under one of {weapon, armor, supply, container};
  * `type` selects which is read.
  */
-export const ItemBlockSchema = z
-  .object({
-    /** Subtype discriminator — drives which optional sub-block applies. */
-    type: z
-      .enum(["weapon", "armor", "supply", "container", "gear"])
-      .default("gear"),
-    /**
-     * Single-slot shorthand for the most common case: the item fits in
-     * exactly one body slot at a cost of 1 slot. Use the `slots:` map
-     * for anything richer (multiple placement options, or a single slot
-     * that consumes more than one slot count).
-     */
-    slot: z.enum(TB_BODY_SLOTS_AUTHORING).optional(),
-    /**
-     * Multi-option / non-1-cost placement. Each entry maps body-slot →
-     * how many slots that placement consumes. Examples:
-     *   slots: { torso: 1, pack: 2 }   — cloak, wear or pack
-     *   slots: { torso: 2 }            — bulky breastplate
-     *
-     * Keys are free strings (Zod 4's `record(enum, _)` requires every
-     * enum key to be present, which isn't what we want here); the
-     * autocomplete provider's `complete()` hook suggests the canonical
-     * TB body slots from this kind's def.
-     */
-    slots: z
-      .record(z.string().min(1).max(40), z.number().int().min(1).max(20))
-      .optional(),
-    /** Free-text description shown in the inventory + on the chip. */
-    description: z.string().max(2000).default(""),
-    /** Image URL or asset wiki-link. */
-    img: z.string().max(480).default(""),
-    /** Free-form tags (e.g. ["martial", "common"]); informational. */
-    tags: z.array(z.string().min(1).max(40)).default([]),
-    /** Cost in coins (a flat integer; full coin breakdown comes later). */
-    cost: z.number().int().min(0).max(99999).optional(),
+export const ItemBlockSchema = z.object({
+  /** Subtype discriminator — drives which optional sub-block applies. */
+  type: z.enum(["weapon", "armor", "supply", "container", "gear"]).default("gear"),
+  /**
+   * Single-slot shorthand for the most common case: the item fits in
+   * exactly one body slot at a cost of 1 slot. Use the `slots:` map
+   * for anything richer (multiple placement options, or a single slot
+   * that consumes more than one slot count).
+   */
+  slot: z.enum(TB_BODY_SLOTS_AUTHORING).optional(),
+  /**
+   * Multi-option / non-1-cost placement. Each entry maps body-slot →
+   * how many slots that placement consumes. Examples:
+   *   slots: { torso: 1, pack: 2 }   — cloak, wear or pack
+   *   slots: { torso: 2 }            — bulky breastplate
+   *
+   * Keys are free strings (Zod 4's `record(enum, _)` requires every
+   * enum key to be present, which isn't what we want here); the
+   * autocomplete provider's `complete()` hook suggests the canonical
+   * TB body slots from this kind's def.
+   */
+  slots: z.record(z.string().min(1).max(40), z.number().int().min(1).max(20)).optional(),
+  /** Free-text description shown in the inventory + on the chip. */
+  description: z.string().max(2000).default(""),
+  /** Image URL or asset wiki-link. */
+  img: z.string().max(480).default(""),
+  /** Free-form tags (e.g. ["martial", "common"]); informational. */
+  tags: z.array(z.string().min(1).max(40)).default([]),
+  /** Cost in coins (a flat integer; full coin breakdown comes later). */
+  cost: z.number().int().min(0).max(99999).optional(),
 
-    weapon: z
-      .object({
-        // YAML parses `wield: 1` as a number; keep the union of
-        // numeric literals. Autocomplete suggests `1` / `2` via the
-        // union-of-literals handler in computeBlockCompletions.
-        wield: z.union([z.literal(1), z.literal(2)]).default(1),
-        attack: ConflictBonus.optional(),
-        defend: ConflictBonus.optional(),
-        feint: ConflictBonus.optional(),
-        maneuver: ConflictBonus.optional(),
-      })
-      .optional(),
-    armor: z
-      .object({
-        armorType: z
-          .enum(["leather", "chain", "plate", "helmet", "shield", "other"])
-          .default("leather"),
-        absorbs: z.number().int().min(0).max(10).default(1),
-      })
-      .optional(),
-    supply: z
-      .object({
-        supplyType: z
-          .enum([
-            "food",
-            "light",
-            "ammunition",
-            "sacramental",
-            "spellMaterial",
-            "other",
-          ])
-          .default("other"),
-        turnsRemaining: z.number().int().min(0).max(99).default(0),
-        lit: z.boolean().default(false),
-        nameSingular: z.string().max(120).default(""),
-      })
-      .optional(),
-    container: z
-      .object({
-        containerType: z.enum(TB_CONTAINER_TYPES).default("backpack"),
-        containerSlots: z.number().int().min(0).max(50).default(0),
-      })
-      .optional(),
-    /**
-     * Bundleable supply (rations, arrows, oil flasks). `count` is the
-     * current pile size; `capacity` is the max before it splits into
-     * a second bundle. Drives the existing items pipeline's
-     * BundleSplit / BundleJoin flows.
-     */
-    bundle: z
-      .object({
-        count: z.number().int().min(1).max(99).default(1),
-        capacity: z.number().int().min(1).max(99).default(1),
-      })
-      .optional(),
-    /** Optional skill bonuses while equipped. */
-    skillBonuses: z
-      .array(
-        z.object({
-          skill: z.string().min(1).max(40),
-          value: z.number().int().min(-3).max(5),
-          condition: z.string().max(240).default(""),
-        }),
-      )
-      .default([]),
-    specialRules: z.string().max(2000).default(""),
-  });
+  weapon: z
+    .object({
+      // YAML parses `wield: 1` as a number; keep the union of
+      // numeric literals. Autocomplete suggests `1` / `2` via the
+      // union-of-literals handler in computeBlockCompletions.
+      wield: z.union([z.literal(1), z.literal(2)]).default(1),
+      attack: ConflictBonus.optional(),
+      defend: ConflictBonus.optional(),
+      feint: ConflictBonus.optional(),
+      maneuver: ConflictBonus.optional(),
+    })
+    .optional(),
+  armor: z
+    .object({
+      armorType: z
+        .enum(["leather", "chain", "plate", "helmet", "shield", "other"])
+        .default("leather"),
+      absorbs: z.number().int().min(0).max(10).default(1),
+    })
+    .optional(),
+  supply: z
+    .object({
+      supplyType: z
+        .enum(["food", "light", "ammunition", "sacramental", "spellMaterial", "other"])
+        .default("other"),
+      turnsRemaining: z.number().int().min(0).max(99).default(0),
+      lit: z.boolean().default(false),
+      nameSingular: z.string().max(120).default(""),
+    })
+    .optional(),
+  container: z
+    .object({
+      containerType: z.enum(TB_CONTAINER_TYPES).default("backpack"),
+      containerSlots: z.number().int().min(0).max(50).default(0),
+    })
+    .optional(),
+  /**
+   * Bundleable supply (rations, arrows, oil flasks). `count` is the
+   * current pile size; `capacity` is the max before it splits into
+   * a second bundle. Drives the existing items pipeline's
+   * BundleSplit / BundleJoin flows.
+   */
+  bundle: z
+    .object({
+      count: z.number().int().min(1).max(99).default(1),
+      capacity: z.number().int().min(1).max(99).default(1),
+    })
+    .optional(),
+  /** Optional skill bonuses while equipped. */
+  skillBonuses: z
+    .array(
+      z.object({
+        skill: z.string().min(1).max(40),
+        value: z.number().int().min(-3).max(5),
+        condition: z.string().max(240).default(""),
+      }),
+    )
+    .default([]),
+  specialRules: z.string().max(2000).default(""),
+});
 
 export type ItemBlockParsed = z.infer<typeof ItemBlockSchema>;
 
@@ -339,11 +320,7 @@ export const itemBlockKind = defineBlockKind<ItemBlockParsed>({
     if (path.length === 1 && path[0] === "slots") {
       return TB_BODY_SLOTS_AUTHORING.map((s) => ({ value: s }));
     }
-    if (
-      path.length >= 2 &&
-      path[0] === "skillBonuses" &&
-      path[path.length - 1] === "skill"
-    ) {
+    if (path.length >= 2 && path[0] === "skillBonuses" && path[path.length - 1] === "skill") {
       return ALL_SKILLS.map((s) => ({ value: s.id, detail: s.name }));
     }
     return [];

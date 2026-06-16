@@ -8,7 +8,7 @@ it before touching any of the moving parts.
 ## Locked decisions
 
 1. **Items are real entities, no exceptions.** Catalog data
-   (`TB_ITEM_TEMPLATES` in TS/Zod) is *seed input*, not a parallel
+   (`TB_ITEM_TEMPLATES` in TS/Zod) is _seed input_, not a parallel
    runtime form. At world boot, the plugin spawns one entity per
    template. After that, the world has only entities; the catalog
    table is consulted only for re-seed and merge.
@@ -35,7 +35,7 @@ it before touching any of the moving parts.
    be referenced by five characters; a Backpack can't — that asymmetry
    is enforced at command-validation time, not encoded in two
    different entity kinds. Picking up an already-forked container off
-   the floor does *not* fork; it transfers as-is, contents intact.
+   the floor does _not_ fork; it transfers as-is, contents intact.
 
 ## Plugin split
 
@@ -157,6 +157,7 @@ PickUpItem(holderId, itemId, slot, slotIndex)
 - pocket: descriptive text for now
 
 Containers expand capacity:
+
 - Backpack/satchel on torso adds an internal slot vocabulary
   (`container:<id>`) with `containerSlots` capacity.
 - Sacks held in hand work the same way; the item entity is the
@@ -259,7 +260,7 @@ Small, well-scoped additions:
    the log for catalog seeds — they're deterministic and would just
    bloat the event tail).
 
-2. *(optional)* A `world.findOrSpawn(probe, traits)` helper if it
+2. _(optional)_ A `world.findOrSpawn(probe, traits)` helper if it
    tightens the seeding code. Nice-to-have, not required.
 
 ## Phased delivery
@@ -292,6 +293,6 @@ Small, well-scoped additions:
 - Mutating an item entity directly from a system reading
   `world.set(...)` on every keystroke. Always go through
   `EditItemField` so override tracking stays correct.
-- A catalog of *separate item types* (`TbWeapon` extends nothing,
+- A catalog of _separate item types_ (`TbWeapon` extends nothing,
   etc.). Item subtypes are traits on a generic item entity. A weapon
   is "an entity with `ItemIdentity` and `TbWeapon`."

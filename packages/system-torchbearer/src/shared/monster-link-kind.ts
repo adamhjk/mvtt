@@ -101,9 +101,5 @@ export const monsterLinkKind = defineLinkKind<MonsterRef>({
   // `MonsterCreated` / `MonsterRemoved` track the set of monsters;
   // `CharacterRenamed` keeps the printed label fresh (rename of the
   // shared catalog entry has to repaint every reference to it).
-  indexEvents: [
-    MonsterCreated.name,
-    MonsterRemoved.name,
-    CharacterRenamed.name,
-  ],
+  indexEvents: [MonsterCreated.name, MonsterRemoved.name, CharacterRenamed.name],
 });

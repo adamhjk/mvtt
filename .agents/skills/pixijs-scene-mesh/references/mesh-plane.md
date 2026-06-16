@@ -128,7 +128,6 @@ const plane = new MeshPlane({ texture, verticesX: 10, verticesY: 10 });
 
 `SimplePlane` was renamed to `MeshPlane` in v8 and switched to an options-object constructor.
 
-
 ### [MEDIUM] Mutating positions without calling `buffer.update()`
 
 Wrong:
@@ -146,11 +145,9 @@ buffer.update();
 
 The buffer does not observe its own `data` array. Without `update()`, the changes stay on the CPU and the next render draws stale vertex data.
 
-
 ### [MEDIUM] High vertex density on pixel-art textures
 
 A dense grid on a small pixel-art texture can cause visible UV interpolation artifacts. Use fewer vertices (10×10 or less) for pixel art, or set `roundPixels: true` on the mesh.
-
 
 ## API Reference
 

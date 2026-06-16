@@ -12,15 +12,15 @@ The cost of this design: **destructuring or aliasing `props` at the top of the c
 
 ```tsx
 function Greeting(props: { name: string }) {
-  const { name } = props;       // ❌ string, captured once, never updates.
-  const name = props.name;      // ❌ same problem.
+  const { name } = props; // ❌ string, captured once, never updates.
+  const name = props.name; // ❌ same problem.
   const name = () => props.name; // ✓ accessor function — re-reads each time it's called.
 
-  return <p>Hello {props.name}</p>;   // ✓ reactive — re-evaluates when parent's name changes.
+  return <p>Hello {props.name}</p>; // ✓ reactive — re-evaluates when parent's name changes.
 }
 ```
 
-Why? `props.name` getter runs only when the property is *accessed*. Destructuring accesses it once, at mount, and the local variable is dead reactive-wise.
+Why? `props.name` getter runs only when the property is _accessed_. Destructuring accesses it once, at mount, and the local variable is dead reactive-wise.
 
 ## `mergeProps` — defaults that stay reactive
 
@@ -68,7 +68,8 @@ function Button(props: ButtonProps & JSX.HTMLAttributes<HTMLButtonElement>) {
 You can split into multiple groups:
 
 ```tsx
-const [styling, behavior, rest] = splitProps(props,
+const [styling, behavior, rest] = splitProps(
+  props,
   ["class", "style", "classList"],
   ["onClick", "onSubmit"],
 );
@@ -77,7 +78,9 @@ const [styling, behavior, rest] = splitProps(props,
 ## `children` helper — resolve `props.children` once
 
 ```ts
-function children(fn: Accessor<JSX.Element>): Accessor<ResolvedChildren> & { toArray(): ResolvedChild[] };
+function children(
+  fn: Accessor<JSX.Element>,
+): Accessor<ResolvedChildren> & { toArray(): ResolvedChild[] };
 ```
 
 `props.children` is itself reactive — accessing it can re-create the children. If you read `props.children` multiple times (or want to inspect what was passed), wrap it in `children`:
@@ -133,7 +136,11 @@ When wrapping a component, forward unknown props with `splitProps` + spread:
 ```tsx
 function PrimaryButton(props: { label: string } & JSX.ButtonHTMLAttributes<HTMLButtonElement>) {
   const [local, rest] = splitProps(props, ["label"]);
-  return <button class="primary" {...rest}>{local.label}</button>;
+  return (
+    <button class="primary" {...rest}>
+      {local.label}
+    </button>
+  );
 }
 ```
 
@@ -144,7 +151,10 @@ This preserves reactivity for every forwarded property.
 `props.children` is the JSX between the opening and closing tags of your component:
 
 ```tsx
-<MyCard><p>hi</p><p>there</p></MyCard>
+<MyCard>
+  <p>hi</p>
+  <p>there</p>
+</MyCard>
 // inside MyCard, props.children is an array of two <p> elements
 ```
 
@@ -198,7 +208,7 @@ See `solid-context`.
 ## Common pitfalls
 
 - **Destructuring at the top of a component.** The single biggest Solid bug source.
-- **`onClick={() => doThing(props.id)}` — fine.** The handler reads `props.id` at click time, which is inside an event handler scope (not tracked, but the read is fresh). Don't be fooled into thinking *all* destructure-like patterns are bad — it's specifically aliasing into a non-reactive variable that breaks things.
+- **`onClick={() => doThing(props.id)}` — fine.** The handler reads `props.id` at click time, which is inside an event handler scope (not tracked, but the read is fresh). Don't be fooled into thinking _all_ destructure-like patterns are bad — it's specifically aliasing into a non-reactive variable that breaks things.
 - **Spreading `{...props}` directly into another component.** This works (Solid preserves the proxy under spread) — but it can cause unexpected propagation. Use `splitProps` to isolate the props you want to forward.
 - **Reading `props.children` more than once.** Use `children()` helper.
 - **Computing children at the top of the component.** Same destructure problem; wrap in `children(() => props.children)` or compute in JSX.
@@ -234,7 +244,9 @@ function Tabs(props: { children: JSX.Element }) {
 ```tsx
 function Slider(props: { value: number; min?: number; max?: number; step?: number }) {
   const merged = mergeProps({ min: 0, max: 100, step: 1 }, props);
-  return <input type="range" min={merged.min} max={merged.max} step={merged.step} value={merged.value} />;
+  return (
+    <input type="range" min={merged.min} max={merged.max} step={merged.step} value={merged.value} />
+  );
 }
 ```
 

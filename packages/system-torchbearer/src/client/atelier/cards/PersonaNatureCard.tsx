@@ -24,9 +24,7 @@ import type { AtelierState } from "../use-atelier.js";
  * cumulative dice (DH p.8); the channel-nature picker only appears when
  * the character has a Nature rating > 0.
  */
-export function PersonaNatureCard(props: {
-  atelier: AtelierState;
-}): JSX.Element {
+export function PersonaNatureCard(props: { atelier: AtelierState }): JSX.Element {
   return (
     <Show when={!props.atelier.initiatorIsMonster()}>
       <section
@@ -41,10 +39,7 @@ export function PersonaNatureCard(props: {
           <button
             type="button"
             class="rounded-(--radius-control) border border-border bg-surface-elevated px-2 py-0.5 text-[0.7rem] text-fg-muted hover:border-accent hover:text-fg transition disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={
-              props.atelier.personaAvail() < 1 ||
-              props.atelier.personaSpendDeclared() >= 3
-            }
+            disabled={props.atelier.personaAvail() < 1 || props.atelier.personaSpendDeclared() >= 3}
             onClick={() => props.atelier.declarePersonaDice(1)}
             title={
               props.atelier.personaAvail() < 1
@@ -73,8 +68,7 @@ export function PersonaNatureCard(props: {
                     props.atelier.channelDeclared() !== "within",
                 }}
                 disabled={
-                  props.atelier.personaAvail() < 1 &&
-                  props.atelier.channelDeclared() !== "within"
+                  props.atelier.personaAvail() < 1 && props.atelier.channelDeclared() !== "within"
                 }
                 onClick={() => props.atelier.toggleChannelNature("within")}
                 data-testid="atelier-channel-within"
@@ -91,17 +85,14 @@ export function PersonaNatureCard(props: {
                     props.atelier.channelDeclared() !== "outside",
                 }}
                 disabled={
-                  props.atelier.personaAvail() < 1 &&
-                  props.atelier.channelDeclared() !== "outside"
+                  props.atelier.personaAvail() < 1 && props.atelier.channelDeclared() !== "outside"
                 }
                 onClick={() => props.atelier.toggleChannelNature("outside")}
                 data-testid="atelier-channel-outside"
               >
                 outside
               </button>
-              <span class="text-fg-subtle">
-                channel +{props.atelier.natureRating()}D
-              </span>
+              <span class="text-fg-subtle">channel +{props.atelier.natureRating()}D</span>
             </span>
           </Show>
         </div>

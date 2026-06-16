@@ -18,14 +18,7 @@
 import { useQuery } from "@vtt/substrate/client";
 import { PendingRoll } from "@vtt/characters/shared";
 import { PendingRollPanels } from "@vtt/characters/client";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  on,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, on, Show, type JSX } from "solid-js";
 
 type SheetState = "hidden" | "peek" | "full";
 
@@ -97,11 +90,7 @@ export function PendingRollSheet(): JSX.Element {
           type="button"
           onClick={toggle}
           class="flex w-full shrink-0 flex-col items-center gap-1.5 px-4 py-3"
-          aria-label={
-            state() === "peek"
-              ? "Expand pending roll"
-              : "Collapse pending roll"
-          }
+          aria-label={state() === "peek" ? "Expand pending roll" : "Collapse pending roll"}
         >
           <span class="h-1 w-10 rounded-full bg-fg-subtle/40" />
           <span class="font-display text-[0.65rem] uppercase tracking-[0.16em] text-fg-muted">

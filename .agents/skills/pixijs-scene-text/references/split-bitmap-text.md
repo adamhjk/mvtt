@@ -168,16 +168,13 @@ const split = new SplitBitmapText({
 
 Pre-installation avoids first-render latency and gives you control over the atlas.
 
-
 ### [MEDIUM] Expecting CJK or emoji support
 
 `SplitBitmapText` inherits BitmapText's limitations: the glyph atlas must contain every character, and very large character sets exceed GPU texture size. For per-character animation on CJK or emoji-heavy text, use `SplitText` (which accepts the performance cost) or pre-generate a targeted atlas covering only the characters you'll use.
 
-
 ### [MEDIUM] Missing glyphs silently dropped
 
 If a character isn't in the font atlas, its segment is skipped and no error is thrown. Array indices may not line up one-to-one with source character positions if glyphs are missing. Always test your font against the full string content.
-
 
 ## API Reference
 

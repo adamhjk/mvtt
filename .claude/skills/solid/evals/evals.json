@@ -7,9 +7,13 @@
       "prompt": "I'm new to SolidJS. I have this component but the greeting doesn't update when I change the parent's name signal:\n\nfunction Greeting(props) {\n  const { name } = props;\n  return <p>Hello {name}!</p>;\n}\n\nfunction App() {\n  const [name, setName] = createSignal('Ada');\n  return (\n    <>\n      <button onClick={() => setName('Lin')}>Change</button>\n      <Greeting name={name()} />\n    </>\n  );\n}\n\nWhy doesn't the greeting update? Show me the fix and explain it.",
       "files": [],
       "assertions": [
-        {"text": "Identifies that destructuring `props` breaks reactivity in Solid"},
-        {"text": "Explains that `props` is a reactive proxy and per-property access is the reactive read"},
-        {"text": "Provides a corrected component that reads `props.name` directly inside JSX (not destructured)"}
+        { "text": "Identifies that destructuring `props` breaks reactivity in Solid" },
+        {
+          "text": "Explains that `props` is a reactive proxy and per-property access is the reactive read"
+        },
+        {
+          "text": "Provides a corrected component that reads `props.name` directly inside JSX (not destructured)"
+        }
       ]
     },
     {
@@ -18,10 +22,14 @@
       "prompt": "I have a Solid app with a list of input fields. The user can add and remove fields, and the order is stable (no reordering). Every keystroke causes the entire list to re-render and I lose focus on the active input. Should I use <For> or <Index>? Show me the fix.",
       "files": [],
       "assertions": [
-        {"text": "Recommends <Index> over <For> for this case"},
-        {"text": "Explains that <For> keys by reference (recreates on every value change for primitives) while <Index> keys by position"},
-        {"text": "Notes that with <Index>, the item is a signal (call as item()) rather than a value"},
-        {"text": "Provides a working <Index>-based example"}
+        { "text": "Recommends <Index> over <For> for this case" },
+        {
+          "text": "Explains that <For> keys by reference (recreates on every value change for primitives) while <Index> keys by position"
+        },
+        {
+          "text": "Notes that with <Index>, the item is a signal (call as item()) rather than a value"
+        },
+        { "text": "Provides a working <Index>-based example" }
       ]
     },
     {
@@ -30,11 +38,11 @@
       "prompt": "I'm building a SolidJS app with @solidjs/router. I need a /users/:id route that fetches the user from a server function and shows it. I want: route preloading on hover, automatic deduplication of the fetch, an error boundary with a retry button, and a loading state while pending. Show me the complete route file.",
       "files": [],
       "assertions": [
-        {"text": "Uses `query(fn, name)` to wrap the fetcher (provides dedup + revalidation)"},
-        {"text": "Uses `createAsync(() => query(args))` to read the data in the component"},
-        {"text": "Exports a route definition with `preload` so hover/focus preload works"},
-        {"text": "Wraps content in <Suspense> with a loading fallback"},
-        {"text": "Wraps content in <ErrorBoundary> whose fallback offers a retry/reset"}
+        { "text": "Uses `query(fn, name)` to wrap the fetcher (provides dedup + revalidation)" },
+        { "text": "Uses `createAsync(() => query(args))` to read the data in the component" },
+        { "text": "Exports a route definition with `preload` so hover/focus preload works" },
+        { "text": "Wraps content in <Suspense> with a loading fallback" },
+        { "text": "Wraps content in <ErrorBoundary> whose fallback offers a retry/reset" }
       ]
     }
   ]

@@ -283,7 +283,6 @@ const shader = Shader.from({
 
 v8 requires an options object with `gl`/`gpu` programs and `resources`. The positional API was removed.
 
-
 ### [CRITICAL] UniformGroup without type annotation
 
 Wrong:
@@ -300,13 +299,11 @@ new UniformGroup({ uTime: { value: 1, type: "f32" } });
 
 Every uniform requires an explicit `{ value, type }` pair. Omitting the type causes a runtime error: "Uniform type undefined is not supported."
 
-
 ### [HIGH] UBO with unsupported types or wrong structure
 
 UBO mode supports `f32` and `i32` based types (scalars and vectors). `u32` is not in the supported `UniformGroup` type list and will throw. Matrices are float-only (`mat*<f32>`). Samplers cannot be placed in UBOs.
 
 The struct name and field order must exactly match the shader's UBO declaration. Mismatches produce garbled rendering with no error.
-
 
 ### [HIGH] Putting textures in UniformGroup
 
@@ -334,7 +331,6 @@ const shader = Shader.from({
 ```
 
 Textures are resources, not uniforms. Pass `texture.source` (TextureSource) and `texture.source.style` (TextureStyle) as top-level resource entries.
-
 
 ## API Reference
 

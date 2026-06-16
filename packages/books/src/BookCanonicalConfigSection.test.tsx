@@ -26,11 +26,7 @@ import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { notes } from "@vtt/notes";
 import { books } from "./manifest.js";
-import {
-  BookCanonical,
-  seedCanonicalBookCatalog,
-  SetBookCanonical,
-} from "./shared/index.js";
+import { BookCanonical, seedCanonicalBookCatalog, SetBookCanonical } from "./shared/index.js";
 import { BookCanonicalConfigSection } from "./client/BookCanonicalConfigSection.js";
 
 // Stub the workbench surfaces/slots @vtt/identity targets so the
@@ -39,9 +35,7 @@ import { BookCanonicalConfigSection } from "./client/BookCanonicalConfigSection.
 const workbenchStub = definePlugin({
   name: "@vtt/test-workbench-stub",
   version: "0.0.0",
-  slots: [
-    defineSlot({ name: "@vtt/shell-workbench/pages", schema: z.any() }),
-  ],
+  slots: [defineSlot({ name: "@vtt/shell-workbench/pages", schema: z.any() })],
   surfaces: [
     defineSurface({
       name: "@vtt/shell-workbench/header",
@@ -108,11 +102,7 @@ describe("BookCanonicalConfigSection", () => {
     ));
     const select = screen.getByLabelText("canonical rulebook") as HTMLSelectElement;
     const optionValues = Array.from(select.options).map((o) => o.value);
-    expect(optionValues).toEqual([
-      "",
-      "tb/book/loremasters-manual",
-      "tb/book/scholars-guide",
-    ]);
+    expect(optionValues).toEqual(["", "tb/book/loremasters-manual", "tb/book/scholars-guide"]);
   });
 
   it("disables options already claimed by a different Book in the world", () => {
@@ -128,9 +118,7 @@ describe("BookCanonicalConfigSection", () => {
       </ClientProvider>
     ));
     const select = screen.getByLabelText("canonical rulebook") as HTMLSelectElement;
-    const sg = Array.from(select.options).find(
-      (o) => o.value === "tb/book/scholars-guide",
-    )!;
+    const sg = Array.from(select.options).find((o) => o.value === "tb/book/scholars-guide")!;
     expect(sg.disabled).toBe(true);
     expect(sg.textContent).toMatch(/already bound/i);
   });
@@ -148,9 +136,7 @@ describe("BookCanonicalConfigSection", () => {
     ));
     const select = screen.getByLabelText("canonical rulebook") as HTMLSelectElement;
     expect(select.value).toBe("tb/book/scholars-guide");
-    const sg = Array.from(select.options).find(
-      (o) => o.value === "tb/book/scholars-guide",
-    )!;
+    const sg = Array.from(select.options).find((o) => o.value === "tb/book/scholars-guide")!;
     expect(sg.disabled).toBe(false);
   });
 

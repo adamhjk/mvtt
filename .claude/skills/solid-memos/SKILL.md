@@ -76,7 +76,7 @@ The memo callback receives the previous return value. The optional `value` param
 
 ```ts
 const trend = createMemo<{ value: number; label: string }>(
-  prev => {
+  (prev) => {
     const v = count();
     if (v === prev.value) return { value: v, label: "Same" };
     return { value: v, label: v > prev.value ? "Up" : "Down" };
@@ -90,7 +90,11 @@ const trend = createMemo<{ value: number; label: string }>(
 A memo is just an accessor — call it like any signal:
 
 ```tsx
-return <p>You picked {count()}, doubled = {doubled()}</p>;
+return (
+  <p>
+    You picked {count()}, doubled = {doubled()}
+  </p>
+);
 ```
 
 ## Chained memos
@@ -98,7 +102,7 @@ return <p>You picked {count()}, doubled = {doubled()}</p>;
 Memos can read other memos. Each is a node in the dependency graph; updates flow through.
 
 ```ts
-const items = createMemo(() => fetchedItems().filter(i => i.active));
+const items = createMemo(() => fetchedItems().filter((i) => i.active));
 const itemCount = createMemo(() => items().length);
 ```
 
@@ -110,7 +114,7 @@ Use `untrack` inside the memo to read a signal without making it a dependency:
 
 ```ts
 const m = createMemo(() => {
-  return important() + untrack(() => debugFlag() ? 1 : 0);
+  return important() + untrack(() => (debugFlag() ? 1 : 0));
 });
 // m only recomputes when `important` changes, not when `debugFlag` changes.
 ```
@@ -120,14 +124,14 @@ See `solid-reactive-utilities`.
 ## Typing
 
 ```ts
-const a = createMemo(() => 1 + 2);                 // Accessor<number>
-const b = createMemo<string>(() => `${count()}`);  // Accessor<string> (explicit)
+const a = createMemo(() => 1 + 2); // Accessor<number>
+const b = createMemo<string>(() => `${count()}`); // Accessor<string> (explicit)
 ```
 
 When using the previous-value form with no seed, the first call's `prev` is `undefined`:
 
 ```ts
-const c = createMemo<number | undefined>(prev => (prev ?? 0) + 1);
+const c = createMemo<number | undefined>((prev) => (prev ?? 0) + 1);
 ```
 
 ## Common pitfalls
@@ -144,13 +148,13 @@ const c = createMemo<number | undefined>(prev => (prev ?? 0) + 1);
 ```tsx
 const [query, setQuery] = createSignal("");
 const filtered = createMemo(() =>
-  items().filter(i => i.name.toLowerCase().includes(query().toLowerCase())),
+  items().filter((i) => i.name.toLowerCase().includes(query().toLowerCase())),
 );
 
 return (
   <>
-    <input onInput={e => setQuery(e.currentTarget.value)} />
-    <For each={filtered()}>{item => <li>{item.name}</li>}</For>
+    <input onInput={(e) => setQuery(e.currentTarget.value)} />
+    <For each={filtered()}>{(item) => <li>{item.name}</li>}</For>
   </>
 );
 ```
@@ -158,7 +162,7 @@ return (
 ### Custom equality on a derived array
 
 ```ts
-const ids = createMemo(() => items().map(i => i.id), undefined, {
+const ids = createMemo(() => items().map((i) => i.id), undefined, {
   equals: (a, b) => a.length === b.length && a.every((id, i) => id === b[i]),
 });
 ```

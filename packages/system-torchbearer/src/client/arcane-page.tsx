@@ -23,19 +23,10 @@
 
 import { type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
-import {
-  definePageProvider,
-  RetargetTab,
-} from "@vtt/shell-workbench/shared";
+import { definePageProvider, RetargetTab } from "@vtt/shell-workbench/shared";
 import { kit } from "@vtt/characters/client";
 import { BookCitation } from "@vtt/books/client";
-import {
-  createMemo,
-  createSignal,
-  For,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
   CreateBlankSpell,
   EditSpellField,
@@ -77,20 +68,12 @@ export const ArcanePageProvider = definePageProvider({
     });
   },
   defaultEntity: () => null,
-  render: ({ tabId, entityId }) => (
-    <ArcanePage tabId={tabId} entityId={entityId} />
-  ),
+  render: ({ tabId, entityId }) => <ArcanePage tabId={tabId} entityId={entityId} />,
 });
 
-function ArcanePage(props: {
-  tabId: string;
-  entityId: string | null;
-}): JSX.Element {
+function ArcanePage(props: { tabId: string; entityId: string | null }): JSX.Element {
   return (
-    <Show
-      when={props.entityId}
-      fallback={<ArcaneHub tabId={props.tabId} />}
-    >
+    <Show when={props.entityId} fallback={<ArcaneHub tabId={props.tabId} />}>
       {(idAcc) => <ArcaneDetail spellId={idAcc()} tabId={props.tabId} />}
     </Show>
   );
@@ -205,9 +188,7 @@ function ArcaneHub(props: { tabId: string }): JSX.Element {
   };
 
   const createBlank = (): void => {
-    client.dispatch(
-      CreateBlankSpell({ name: "New spell" }) as CommandInstance,
-    );
+    client.dispatch(CreateBlankSpell({ name: "New spell" }) as CommandInstance);
   };
 
   return (
@@ -297,32 +278,20 @@ function ArcaneHub(props: { tabId: string }): JSX.Element {
           style={selectStyle()}
         >
           <option value="all">All circles</option>
-          <For each={[1, 2, 3, 4, 5] as const}>
-            {(n) => <option value={n}>Circle {n}</option>}
-          </For>
+          <For each={[1, 2, 3, 4, 5] as const}>{(n) => <option value={n}>Circle {n}</option>}</For>
         </select>
         <select
           value={schoolFilter()}
-          onChange={(e) =>
-            setSchoolFilter(e.currentTarget.value as "all" | SpellSchool)
-          }
+          onChange={(e) => setSchoolFilter(e.currentTarget.value as "all" | SpellSchool)}
           style={selectStyle()}
         >
           <option value="all">All schools</option>
-          <For each={SPELL_SCHOOLS}>
-            {(school) => <option value={school}>{school}</option>}
-          </For>
+          <For each={SPELL_SCHOOLS}>{(school) => <option value={school}>{school}</option>}</For>
         </select>
         <select
           value={originFilter()}
           onChange={(e) =>
-            setOriginFilter(
-              e.currentTarget.value as
-                | "all"
-                | "catalog"
-                | "homebrew"
-                | "deprecated",
-            )
+            setOriginFilter(e.currentTarget.value as "all" | "catalog" | "homebrew" | "deprecated")
           }
           style={selectStyle()}
         >
@@ -383,9 +352,7 @@ function ArcaneHub(props: { tabId: string }): JSX.Element {
                   {s.name || "(unnamed)"}
                 </span>
                 <CircleDots circle={s.circle} />
-                <span style={{ color: "var(--color-fg-muted)" }}>
-                  {s.school}
-                </span>
+                <span style={{ color: "var(--color-fg-muted)" }}>{s.school}</span>
                 <span
                   style={{
                     color:
@@ -400,10 +367,7 @@ function ArcaneHub(props: { tabId: string }): JSX.Element {
                 >
                   {s.origin}
                 </span>
-                <span
-                  onClick={(e) => e.stopPropagation()}
-                  style={{ display: "inline-flex" }}
-                >
+                <span onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex" }}>
                   <Show when={s.pageRef}>
                     {(ref) => (
                       <BookCitation
@@ -427,10 +391,7 @@ function ArcaneHub(props: { tabId: string }): JSX.Element {
  * Detail — editor for a single spell
  * ----------------------------------------------------------------------- */
 
-function ArcaneDetail(props: {
-  spellId: string;
-  tabId: string;
-}): JSX.Element {
+function ArcaneDetail(props: { spellId: string; tabId: string }): JSX.Element {
   const client = useClient();
   const me = kit.useMe();
   const ident = useTrait(props.spellId, SpellIdentity);
@@ -453,9 +414,7 @@ function ArcaneDetail(props: {
 
   const remove = (): void => {
     if (!confirm("Remove this spell from the catalog?")) return;
-    client.dispatch(
-      RemoveSpell({ spellId: props.spellId as EntityId }) as CommandInstance,
-    );
+    client.dispatch(RemoveSpell({ spellId: props.spellId as EntityId }) as CommandInstance);
     back();
   };
 
@@ -520,12 +479,7 @@ function ArcaneDetail(props: {
           gap: "0.5rem",
         }}
       >
-        <button
-          type="button"
-          onClick={back}
-          data-testid="arcane-back"
-          style={btnStyle()}
-        >
+        <button type="button" onClick={back} data-testid="arcane-back" style={btnStyle()}>
           ← All spells
         </button>
         <Show when={isGm() && isHomebrew()}>
@@ -561,10 +515,7 @@ function ArcaneDetail(props: {
             value={ident()?.circle ?? 1}
             disabled={!isGm()}
             onChange={(e) =>
-              editIdentity(
-                ["circle"],
-                parseInt(e.currentTarget.value, 10) as SpellCircle,
-              )
+              editIdentity(["circle"], parseInt(e.currentTarget.value, 10) as SpellCircle)
             }
             style={selectStyle()}
           >
@@ -577,14 +528,10 @@ function ArcaneDetail(props: {
           <select
             value={ident()?.school ?? "Other"}
             disabled={!isGm()}
-            onChange={(e) =>
-              editIdentity(["school"], e.currentTarget.value as SpellSchool)
-            }
+            onChange={(e) => editIdentity(["school"], e.currentTarget.value as SpellSchool)}
             style={selectStyle()}
           >
-            <For each={SPELL_SCHOOLS}>
-              {(school) => <option value={school}>{school}</option>}
-            </For>
+            <For each={SPELL_SCHOOLS}>{(school) => <option value={school}>{school}</option>}</For>
           </select>
         </Field>
         <Field label="Page reference">
@@ -619,9 +566,7 @@ function ArcaneDetail(props: {
           <select
             value={casting()?.kind ?? "fixed"}
             disabled={!isGm()}
-            onChange={(e) =>
-              editCasting(["kind"], e.currentTarget.value)
-            }
+            onChange={(e) => editCasting(["kind"], e.currentTarget.value)}
             style={selectStyle()}
           >
             <option value="fixed">Fixed Ob</option>
@@ -640,10 +585,7 @@ function ArcaneDetail(props: {
               placeholder="(blank — set per cast)"
               onChange={(e) => {
                 const raw = e.currentTarget.value;
-                editCasting(
-                  ["fixedOb"],
-                  raw === "" ? null : parseInt(raw, 10),
-                );
+                editCasting(["fixedOb"], raw === "" ? null : parseInt(raw, 10));
               }}
               style={inputStyle()}
             />
@@ -656,12 +598,7 @@ function ArcaneDetail(props: {
               value={casting()?.versusSkill ?? ""}
               disabled={!isGm()}
               placeholder="e.g. arcanist, will"
-              onChange={(e) =>
-                editCasting(
-                  ["versusSkill"],
-                  e.currentTarget.value || null,
-                )
-              }
+              onChange={(e) => editCasting(["versusSkill"], e.currentTarget.value || null)}
               style={inputStyle()}
             />
           </Field>
@@ -670,9 +607,7 @@ function ArcaneDetail(props: {
           <select
             value={casting()?.castingTime ?? "action"}
             disabled={!isGm()}
-            onChange={(e) =>
-              editCasting(["castingTime"], e.currentTarget.value)
-            }
+            onChange={(e) => editCasting(["castingTime"], e.currentTarget.value)}
             style={selectStyle()}
           >
             <option value="free">Free</option>
@@ -686,9 +621,7 @@ function ArcaneDetail(props: {
             type="text"
             value={casting()?.duration ?? ""}
             disabled={!isGm()}
-            onChange={(e) =>
-              editCasting(["duration"], e.currentTarget.value)
-            }
+            onChange={(e) => editCasting(["duration"], e.currentTarget.value)}
             style={inputStyle()}
           />
         </Field>
@@ -698,9 +631,7 @@ function ArcaneDetail(props: {
             value={casting()?.materials ?? ""}
             disabled={!isGm()}
             placeholder="e.g. A handful of coarse salt"
-            onChange={(e) =>
-              editCasting(["materials"], e.currentTarget.value)
-            }
+            onChange={(e) => editCasting(["materials"], e.currentTarget.value)}
             style={inputStyle()}
           />
         </Field>
@@ -710,9 +641,7 @@ function ArcaneDetail(props: {
             value={casting()?.focus ?? ""}
             disabled={!isGm()}
             placeholder="e.g. A silver bell"
-            onChange={(e) =>
-              editCasting(["focus"], e.currentTarget.value)
-            }
+            onChange={(e) => editCasting(["focus"], e.currentTarget.value)}
             style={inputStyle()}
           />
         </Field>
@@ -727,9 +656,7 @@ function ArcaneDetail(props: {
             max={10}
             value={learning()?.scribeOb ?? 2}
             disabled={!isGm()}
-            onChange={(e) =>
-              editLearning(["scribeOb"], parseInt(e.currentTarget.value, 10))
-            }
+            onChange={(e) => editLearning(["scribeOb"], parseInt(e.currentTarget.value, 10))}
             style={inputStyle()}
           />
         </Field>
@@ -740,9 +667,7 @@ function ArcaneDetail(props: {
             max={10}
             value={learning()?.learnOb ?? 2}
             disabled={!isGm()}
-            onChange={(e) =>
-              editLearning(["learnOb"], parseInt(e.currentTarget.value, 10))
-            }
+            onChange={(e) => editLearning(["learnOb"], parseInt(e.currentTarget.value, 10))}
             style={inputStyle()}
           />
         </Field>
@@ -758,17 +683,14 @@ function ArcaneDetail(props: {
               margin: 0,
             }}
           >
-            For homebrew spells without a rulebook page reference, write
-            the effect prose here. Canon spells leave this blank and rely
-            on the page citation chip.
+            For homebrew spells without a rulebook page reference, write the effect prose here.
+            Canon spells leave this blank and rely on the page citation chip.
           </p>
           <textarea
             value={homebrew()?.effect ?? ""}
             disabled={!isGm()}
             rows={4}
-            onChange={(e) =>
-              editHomebrew(["effect"], e.currentTarget.value)
-            }
+            onChange={(e) => editHomebrew(["effect"], e.currentTarget.value)}
             style={{
               ...inputStyle(),
               "min-height": "5rem",
@@ -780,9 +702,7 @@ function ArcaneDetail(props: {
             disabled={!isGm()}
             placeholder="Casting prose (optional — per-spell mechanical rules)"
             rows={3}
-            onChange={(e) =>
-              editHomebrew(["casting"], e.currentTarget.value)
-            }
+            onChange={(e) => editHomebrew(["casting"], e.currentTarget.value)}
             style={{
               ...inputStyle(),
               "min-height": "4rem",
@@ -812,9 +732,7 @@ function Section(props: { title: string; children: JSX.Element }): JSX.Element {
         border: "1px solid var(--color-border-muted)",
       }}
     >
-      <h3 style={{ margin: 0, "font-size": "0.85rem", "font-weight": "600" }}>
-        {props.title}
-      </h3>
+      <h3 style={{ margin: 0, "font-size": "0.85rem", "font-weight": "600" }}>{props.title}</h3>
       {props.children}
     </section>
   );

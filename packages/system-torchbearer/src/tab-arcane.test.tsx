@@ -43,7 +43,12 @@ import { ItemDetailSectionsSlot, ItemIdentity } from "@vtt/items/shared";
 import { TbContainer } from "./shared/items/index.js";
 import { LinkKindsSlot } from "@vtt/notes/shared";
 import { BlockKindsSlot } from "@vtt/adventures/shared";
-import { NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot } from "@vtt/shell-workbench/shared";
+import {
+  NotificationsSlot,
+  PaletteActionsSlot,
+  PaletteCommandsSlot,
+  WorkbenchStatusSlot,
+} from "@vtt/shell-workbench/shared";
 import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
 import { systemTorchbearer } from "./manifest.js";
 import {
@@ -77,7 +82,10 @@ const sheetSlotsTestInfra = definePlugin({
     ChatTimelineContributorSlot,
     RollActionsSlot,
     ItemDetailSectionsSlot,
-    NotificationsSlot, PaletteActionsSlot, PaletteCommandsSlot, WorkbenchStatusSlot,
+    NotificationsSlot,
+    PaletteActionsSlot,
+    PaletteCommandsSlot,
+    WorkbenchStatusSlot,
     LinkKindsSlot,
     BlockKindsSlot,
   ],
@@ -189,17 +197,23 @@ function harness(): CharacterHarness {
     },
   });
   // Stash for tests below.
-  (out as { _spellId?: string; _spellTwoId?: string; _bookId?: string; _scrollId?: string })._spellId = spellId;
-  (out as { _spellId?: string; _spellTwoId?: string; _bookId?: string; _scrollId?: string })._spellTwoId = spellTwoId;
-  (out as { _spellId?: string; _spellTwoId?: string; _bookId?: string; _scrollId?: string })._bookId = bookId;
-  (out as { _spellId?: string; _spellTwoId?: string; _bookId?: string; _scrollId?: string })._scrollId = scrollId;
+  (
+    out as { _spellId?: string; _spellTwoId?: string; _bookId?: string; _scrollId?: string }
+  )._spellId = spellId;
+  (
+    out as { _spellId?: string; _spellTwoId?: string; _bookId?: string; _scrollId?: string }
+  )._spellTwoId = spellTwoId;
+  (
+    out as { _spellId?: string; _spellTwoId?: string; _bookId?: string; _scrollId?: string }
+  )._bookId = bookId;
+  (
+    out as { _spellId?: string; _spellTwoId?: string; _bookId?: string; _scrollId?: string }
+  )._scrollId = scrollId;
   return out;
 }
 
 function mount(h: CharacterHarness): void {
-  mountWithClient(h, () =>
-    TbArcaneTabFill.render({ characterId: h.characterId }) as JSX.Element,
-  );
+  mountWithClient(h, () => TbArcaneTabFill.render({ characterId: h.characterId }) as JSX.Element);
 }
 
 describe("Arcane tab", () => {
@@ -268,9 +282,7 @@ describe("Arcane tab", () => {
     mount(h);
     const bookId = (h as unknown as { _bookId: string })._bookId;
     const spellId = (h as unknown as { _spellId: string })._spellId;
-    fireEvent.click(
-      await screen.findByTestId(`copy-to-library-${bookId}-${spellId}`),
-    );
+    fireEvent.click(await screen.findByTestId(`copy-to-library-${bookId}-${spellId}`));
     const add = h.dispatched.find((c) => c.type === AddSpellToLibrary.name);
     expect(add).toBeDefined();
     expect((add!.payload as { spellId: string }).spellId).toBe(spellId);
@@ -281,9 +293,7 @@ describe("Arcane tab", () => {
     mount(h);
     const scrollId = (h as unknown as { _scrollId: string })._scrollId;
     const spellId = (h as unknown as { _spellId: string })._spellId;
-    fireEvent.click(
-      await screen.findByTestId(`copy-scroll-to-library-${scrollId}`),
-    );
+    fireEvent.click(await screen.findByTestId(`copy-scroll-to-library-${scrollId}`));
     const add = h.dispatched.find((c) => c.type === AddSpellToLibrary.name);
     expect(add).toBeDefined();
     expect((add!.payload as { spellId: string }).spellId).toBe(spellId);
@@ -296,9 +306,7 @@ describe("Arcane tab", () => {
     // Inline-add: filter / scroll to the row, click + Add directly,
     // no separate commit step.
     const spellId = (h as unknown as { _spellId: string })._spellId;
-    fireEvent.click(
-      await screen.findByTestId(`library-add-picker-add-${spellId}`),
-    );
+    fireEvent.click(await screen.findByTestId(`library-add-picker-add-${spellId}`));
     const add = h.dispatched.find((c) => c.type === AddSpellToLibrary.name);
     expect(add).toBeDefined();
     expect((add!.payload as { spellId: string }).spellId).toBe(spellId);
@@ -325,9 +333,9 @@ describe("Arcane tab", () => {
     fireEvent.click(screen.getByTestId("memorize-commit"));
     const fill = h.dispatched.find((c) => c.type === FillMemoryPalace.name);
     expect(fill).toBeDefined();
-    expect(
-      (fill!.payload as { picks: ReadonlyArray<{ spellId: string }> }).picks,
-    ).toEqual([{ spellId }]);
+    expect((fill!.payload as { picks: ReadonlyArray<{ spellId: string }> }).picks).toEqual([
+      { spellId },
+    ]);
   });
 
   it("surfaces spell books and scrolls nested inside a carried container", () => {
@@ -430,9 +438,7 @@ describe("Arcane tab", () => {
         });
       },
     });
-    mountWithClient(h, () =>
-      TbArcaneTabFill.render({ characterId: h.characterId }) as JSX.Element,
-    );
+    mountWithClient(h, () => TbArcaneTabFill.render({ characterId: h.characterId }) as JSX.Element);
 
     // Both the book (named "Vermes' Primer") and the scroll surface,
     // even though neither is in the character's own slots.
@@ -440,9 +446,7 @@ describe("Arcane tab", () => {
     // The scroll holds Wayfinder's Friend; the spell name appears on
     // the scroll row's SpellCard. Use queryAllBy to dodge the multi-
     // match from the book contents.
-    expect(
-      screen.getAllByText("Wayfinder's Friend").length,
-    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Wayfinder's Friend").length).toBeGreaterThanOrEqual(1);
   });
 
   it("excludes a spell book whose carry entry is dropped or lost", () => {
@@ -470,13 +474,9 @@ describe("Arcane tab", () => {
         });
       },
     });
-    mountWithClient(h, () =>
-      TbArcaneTabFill.render({ characterId: h.characterId }) as JSX.Element,
-    );
+    mountWithClient(h, () => TbArcaneTabFill.render({ characterId: h.characterId }) as JSX.Element);
     expect(screen.queryByText("Lost Tome")).toBeNull();
-    expect(
-      screen.getByText(/no spell books carried/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/no spell books carried/i)).toBeInTheDocument();
     void bookId;
   });
 
@@ -534,9 +534,7 @@ describe("Arcane tab", () => {
         ]);
       },
     });
-    mountWithClient(h, () =>
-      TbArcaneTabFill.render({ characterId: h.characterId }) as JSX.Element,
-    );
+    mountWithClient(h, () => TbArcaneTabFill.render({ characterId: h.characterId }) as JSX.Element);
     // Blank-scroll affordance present.
     const open = await screen.findByTestId(`open-scribe-scroll-${blankScrollId}`);
     fireEvent.click(open);
@@ -544,9 +542,7 @@ describe("Arcane tab", () => {
     const opt = await screen.findByTestId(`spell-option-${spellId}`);
     fireEvent.click(opt);
     fireEvent.click(screen.getByTestId(`scribe-commit-${blankScrollId}`));
-    const scribe = h.dispatched.find(
-      (c) => c.type === ScribeSpellToScroll.name,
-    );
+    const scribe = h.dispatched.find((c) => c.type === ScribeSpellToScroll.name);
     expect(scribe).toBeDefined();
     const payload = scribe!.payload as {
       scrollId: string;

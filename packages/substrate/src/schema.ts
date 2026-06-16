@@ -79,9 +79,7 @@ export function isQualifiedName(s: string): s is QualifiedName {
 
 export function qualifiedName(s: string): QualifiedName {
   if (!isQualifiedName(s)) {
-    throw new Error(
-      `invalid qualified name: ${JSON.stringify(s)} — expected "@scope/plugin/Type"`,
-    );
+    throw new Error(`invalid qualified name: ${JSON.stringify(s)} — expected "@scope/plugin/Type"`);
   }
   return s;
 }
@@ -100,9 +98,7 @@ export function isPluginName(s: string): s is PluginName {
 
 export function pluginName(s: string): PluginName {
   if (!isPluginName(s)) {
-    throw new Error(
-      `invalid plugin name: ${JSON.stringify(s)} — expected "@scope/name"`,
-    );
+    throw new Error(`invalid plugin name: ${JSON.stringify(s)} — expected "@scope/name"`);
   }
   return s as PluginName;
 }

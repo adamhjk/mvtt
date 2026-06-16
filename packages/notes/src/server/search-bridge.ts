@@ -15,12 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import type {
-  EntityId,
-  EventInstance,
-  WorldId,
-  WorldRuntime,
-} from "@vtt/substrate";
+import type { EntityId, EventInstance, WorldId, WorldRuntime } from "@vtt/substrate";
 import type { NotesSearchIndex } from "./search.js";
 import {
   NoteCreated,
@@ -31,11 +26,7 @@ import {
   PageRenamed,
   PageRemoved,
 } from "../shared/events.js";
-import {
-  Note,
-  Page,
-  BelongsToNote,
-} from "../shared/traits.js";
+import { Note, Page, BelongsToNote } from "../shared/traits.js";
 
 /**
  * Subscribe to a runtime's event bus and keep the FTS index up to

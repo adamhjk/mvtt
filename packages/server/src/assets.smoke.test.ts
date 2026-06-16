@@ -19,10 +19,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve as pathResolve } from "node:path";
-import {
-  startServer,
-  type ServerHandle,
-} from "@vtt/substrate/server";
+import { startServer, type ServerHandle } from "@vtt/substrate/server";
 import {
   definePlugin,
   InMemoryWorldsRepository,
@@ -35,10 +32,7 @@ import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { notes } from "@vtt/notes";
 import { assets } from "@vtt/assets";
-import {
-  handleAssetFetch,
-  handleAssetUpload,
-} from "@vtt/assets/server";
+import { handleAssetFetch, handleAssetUpload } from "@vtt/assets/server";
 import { Asset, RegisterAsset, DeleteAsset } from "@vtt/assets/shared";
 import { SetPermissions } from "@vtt/permissions/shared";
 import type { AuthSession } from "@vtt/auth";
@@ -109,7 +103,10 @@ describe("assets HTTP smoke", () => {
       return SESSIONS[userKey] ?? null;
     };
 
-    const httpHandler = async (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse): Promise<boolean> => {
+    const httpHandler = async (
+      req: import("node:http").IncomingMessage,
+      res: import("node:http").ServerResponse,
+    ): Promise<boolean> => {
       const url = req.url ?? "/";
       const path = url.split("?")[0]!;
       if (!registryRef.value) return false;

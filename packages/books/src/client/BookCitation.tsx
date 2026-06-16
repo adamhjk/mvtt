@@ -15,10 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  qualifiedName,
-  type EntityId,
-} from "@vtt/substrate";
+import { qualifiedName, type EntityId } from "@vtt/substrate";
 import { useQuery } from "@vtt/substrate/client";
 import { useFollowLink } from "@vtt/shell-workbench/client";
 import { type Accessor, createMemo, Show, type JSX } from "solid-js";
@@ -90,8 +87,7 @@ export function BookCitation(props: {
   const follow = useFollowLink();
 
   const text = () => props.label ?? `p.${props.page}`;
-  const aria = () =>
-    props.ariaLabel ?? `open ${props.canonicalId} at page ${props.page}`;
+  const aria = () => props.ariaLabel ?? `open ${props.canonicalId} at page ${props.page}`;
 
   const open = (e: MouseEvent) => {
     const id: EntityId | null = bookId();

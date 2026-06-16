@@ -1,6 +1,6 @@
 ---
 name: solid-configuration
-description: "Use this skill when configuring a Solid (SolidJS) project: `tsconfig.json` for JSX, `vite.config.ts` (or `vitest.config.ts` for tests) with `vite-plugin-solid`, environment variables (Vite's `VITE_*` for client-exposed, server-only otherwise), `.env` files and modes, `app.config.ts` in SolidStart (Vinxi), and bundler integration with other tools. Covers required tsconfig keys (`jsx: \"preserve\"`, `jsxImportSource: \"solid-js\"`), vite-plugin-solid options (`hot`, `ssr`, `solid`, `babel`, `typescript`, `extensions`), the env-var rule (Vite exposes only `VITE_*` to the client; everything else is server-only and tree-shaken), how `import.meta.env` works, and SolidStart-specific config in `app.config.ts` (presets, ssr toggle, middleware path, vite plugin pass-through). Triggers on: vite-plugin-solid, vite.config, tsconfig, jsx preserve, jsxImportSource, env vars, VITE_, .env, .env.production, app.config, app.config.ts, vinxi, build configuration, deployment preset, NODE_ENV, mode, importmeta env."
+description: 'Use this skill when configuring a Solid (SolidJS) project: `tsconfig.json` for JSX, `vite.config.ts` (or `vitest.config.ts` for tests) with `vite-plugin-solid`, environment variables (Vite''s `VITE_*` for client-exposed, server-only otherwise), `.env` files and modes, `app.config.ts` in SolidStart (Vinxi), and bundler integration with other tools. Covers required tsconfig keys (`jsx: "preserve"`, `jsxImportSource: "solid-js"`), vite-plugin-solid options (`hot`, `ssr`, `solid`, `babel`, `typescript`, `extensions`), the env-var rule (Vite exposes only `VITE_*` to the client; everything else is server-only and tree-shaken), how `import.meta.env` works, and SolidStart-specific config in `app.config.ts` (presets, ssr toggle, middleware path, vite plugin pass-through). Triggers on: vite-plugin-solid, vite.config, tsconfig, jsx preserve, jsxImportSource, env vars, VITE_, .env, .env.production, app.config, app.config.ts, vinxi, build configuration, deployment preset, NODE_ENV, mode, importmeta env.'
 license: MIT
 ---
 
@@ -22,12 +22,13 @@ Solid runs on Vite. Configuration lives in `tsconfig.json`, `vite.config.ts` (or
     "isolatedModules": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["vite/client"]                    // adds import.meta.env types
-  }
+    "types": ["vite/client"], // adds import.meta.env types
+  },
 }
 ```
 
 Critical bits:
+
 - `"jsx": "preserve"` — TS leaves JSX untouched; Solid's compiler handles it.
 - `"jsxImportSource": "solid-js"` — uses Solid's JSX type defs.
 - `"types": ["vite/client"]` — types `import.meta.env`. Add `"@testing-library/jest-dom"` if you're using it.
@@ -55,14 +56,18 @@ export default defineConfig({
 
 ```ts
 solid({
-  hot: true,                           // enable HMR (default true in dev)
-  ssr: false,                          // emit SSR-friendly code (default false; SolidStart sets this true)
-  dev: true,                           // dev-mode helpers (default: development)
-  solid: { /* solid compiler opts */ }, // passed to babel-preset-solid
-  babel: { /* extra babel opts */ },   // additional babel config
-  typescript: { onlyRemoveTypeImports: true },  // useful when using directives
+  hot: true, // enable HMR (default true in dev)
+  ssr: false, // emit SSR-friendly code (default false; SolidStart sets this true)
+  dev: true, // dev-mode helpers (default: development)
+  solid: {
+    /* solid compiler opts */
+  }, // passed to babel-preset-solid
+  babel: {
+    /* extra babel opts */
+  }, // additional babel config
+  typescript: { onlyRemoveTypeImports: true }, // useful when using directives
   extensions: [".tsx", ".jsx", ".mdx"], // file extensions to transform
-})
+});
 ```
 
 ### Common: `onlyRemoveTypeImports`
@@ -70,7 +75,7 @@ solid({
 If you import a `use:*` directive from another file but only reference it via JSX, the bundler may strip the import as type-only. Set:
 
 ```ts
-solid({ typescript: { onlyRemoveTypeImports: true } })
+solid({ typescript: { onlyRemoveTypeImports: true } });
 ```
 
 (Or in babel config, `babel-preset-typescript` with the same option.)
@@ -83,7 +88,7 @@ Standard Vite config:
 export default defineConfig({
   plugins: [solid()],
   resolve: {
-    alias: { "~": "/src" },            // ~/components/Foo → /src/components/Foo
+    alias: { "~": "/src" }, // ~/components/Foo → /src/components/Foo
   },
   css: {
     modules: { localsConvention: "camelCase" },
@@ -131,8 +136,8 @@ DATABASE_URL=postgres://...              # server-only (NOT in client bundle)
 Read in code:
 
 ```ts
-const api = import.meta.env.VITE_API_BASE;     // string, available everywhere
-const dbUrl = process.env.DATABASE_URL;        // server-only context (e.g. "use server" function, vite.config)
+const api = import.meta.env.VITE_API_BASE; // string, available everywhere
+const dbUrl = process.env.DATABASE_URL; // server-only context (e.g. "use server" function, vite.config)
 ```
 
 `import.meta.env` is a compile-time constant — Vite inlines the values during build, so unused branches are dead code.
@@ -149,11 +154,11 @@ const dbUrl = process.env.DATABASE_URL;        // server-only context (e.g. "use
 ### Built-in vars
 
 ```ts
-import.meta.env.MODE          // "development" | "production" | custom
-import.meta.env.DEV           // boolean
-import.meta.env.PROD          // boolean
-import.meta.env.SSR           // boolean (true in SSR builds)
-import.meta.env.BASE_URL      // base URL of the deployment
+import.meta.env.MODE; // "development" | "production" | custom
+import.meta.env.DEV; // boolean
+import.meta.env.PROD; // boolean
+import.meta.env.SSR; // boolean (true in SSR builds)
+import.meta.env.BASE_URL; // base URL of the deployment
 ```
 
 ### Typing custom env vars
@@ -180,9 +185,9 @@ SolidStart uses Vinxi (Vite + Nitro) and configures both via a single file:
 import { defineConfig } from "@solidjs/start/config";
 
 export default defineConfig({
-  ssr: true,                              // false for SPA-only build
+  ssr: true, // false for SPA-only build
   server: {
-    preset: "node-server",                // deployment target
+    preset: "node-server", // deployment target
     prerender: {
       routes: ["/", "/about"],
       crawlLinks: true,
@@ -190,7 +195,9 @@ export default defineConfig({
   },
   middleware: "src/middleware.ts",
   vite: {
-    plugins: [/* extra Vite plugins */],
+    plugins: [
+      /* extra Vite plugins */
+    ],
     resolve: { alias: { "~": "/src" } },
   },
 });
@@ -233,19 +240,19 @@ Pass through `solid({ babel: { plugins: [...] } })`.
 
 ## Build commands
 
-| Command | Purpose |
-|---|---|
-| `vite` / `npm run dev` | Dev server with HMR |
-| `vite build` | Production client build |
-| `vite preview` | Serve the built output for verification |
+| Command                | Purpose                                 |
+| ---------------------- | --------------------------------------- |
+| `vite` / `npm run dev` | Dev server with HMR                     |
+| `vite build`           | Production client build                 |
+| `vite preview`         | Serve the built output for verification |
 
 For SolidStart:
 
-| Command | Purpose |
-|---|---|
-| `vinxi dev` | Dev server (SSR + client) |
+| Command       | Purpose                         |
+| ------------- | ------------------------------- |
+| `vinxi dev`   | Dev server (SSR + client)       |
 | `vinxi build` | Build for the configured preset |
-| `vinxi start` | Start production server |
+| `vinxi start` | Start production server         |
 
 ## Common pitfalls
 

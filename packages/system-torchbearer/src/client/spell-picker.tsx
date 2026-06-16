@@ -22,13 +22,7 @@
 
 import { useQuery } from "@vtt/substrate/client";
 import { BookCitation } from "@vtt/books/client";
-import {
-  createMemo,
-  createSignal,
-  For,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
   SpellCatalogIndex,
   SpellIdentity,
@@ -239,9 +233,7 @@ export function SpellPicker(props: {
                   "font-size": "0.8rem",
                 }}
               >
-                <span style={{ "font-weight": "500", "min-width": "11rem" }}>
-                  {s.name}
-                </span>
+                <span style={{ "font-weight": "500", "min-width": "11rem" }}>{s.name}</span>
                 <CircleDots circle={s.circle} />
                 <span style={{ color: "var(--color-fg-muted)" }}>{s.school}</span>
                 <span
@@ -258,11 +250,7 @@ export function SpellPicker(props: {
                 >
                   <Show
                     when={s.pageRef}
-                    fallback={
-                      <span style={{ color: "var(--color-fg-muted)" }}>
-                        —
-                      </span>
-                    }
+                    fallback={<span style={{ color: "var(--color-fg-muted)" }}>—</span>}
                   >
                     {(ref) => (
                       <BookCitation
@@ -329,9 +317,7 @@ export function CircleDots(props: { circle: SpellCircle }): JSX.Element {
       }}
     >
       <For each={[1, 2, 3, 4, 5]}>
-        {(n) => (
-          <span style={{ opacity: n <= props.circle ? 1 : 0.25 }}>●</span>
-        )}
+        {(n) => <span style={{ opacity: n <= props.circle ? 1 : 0.25 }}>●</span>}
       </For>
     </span>
   );

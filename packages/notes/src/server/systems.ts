@@ -15,18 +15,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineSystem,
-  type EntityId,
-  type EventInstance,
-  type Visibility,
-} from "@vtt/substrate";
+import { defineSystem, type EntityId, type EventInstance, type Visibility } from "@vtt/substrate";
 import { ConnectionClosed } from "@vtt/substrate";
-import {
-  Permissions,
-  PermissionsChanged,
-  ownedBy,
-} from "@vtt/permissions/shared";
+import { Permissions, PermissionsChanged, ownedBy } from "@vtt/permissions/shared";
 import {
   EditBegun,
   EditEnded,
@@ -240,9 +231,7 @@ export const PageBodyMirrorSystem = defineSystem({
   writes: [Page, PageDraft],
   run: ({ event, world }) => {
     if (!world.has(event.pageId)) return [];
-    const got = world.get(event.pageId, [Page]) as
-      | { Page: { title: string } }
-      | undefined;
+    const got = world.get(event.pageId, [Page]) as { Page: { title: string } } | undefined;
     if (!got) return [];
     world.set(event.pageId, Page, {
       title: got.Page.title,
@@ -250,9 +239,7 @@ export const PageBodyMirrorSystem = defineSystem({
       bodyRev: event.bodyRev,
     });
     // Clear draft — committed body now matches.
-    if (
-      world.get(event.pageId, [PageDraft]) !== undefined
-    ) {
+    if (world.get(event.pageId, [PageDraft]) !== undefined) {
       world.set(event.pageId, PageDraft, { body: "" });
     }
     return [];

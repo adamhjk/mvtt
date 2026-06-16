@@ -1,6 +1,6 @@
 ---
 name: solid-testing
-description: "Use this skill when writing tests for Solid (SolidJS) code: components, reactive logic, custom hooks/factories, routes, stores. Covers the recommended stack — `vitest` + `@solidjs/testing-library` + `@testing-library/jest-dom` + `jsdom` (or `happy-dom`) — vite-plugin-solid in test mode (`solid({ ssr: false })` + `test: { environment: 'jsdom' }`), the `render(() => <Comp />)` API (returns `{ container, unmount, ...queries }`), event simulation via `fireEvent` / `userEvent`, screen queries (`getByRole`, `getByText`, `findByText` for async, `queryByText` for assertions of absence), testing reactive logic without mounting (`createRoot(dispose => { ...; dispose() })`), testing components that use the router (`<MemoryRouter url=\"/foo\"><Comp /></MemoryRouter>`), waiting for resources/Suspense (`findBy*`), and the rule that effects don't fire outside an owner so tests must use `render` or `createRoot`. Triggers on: testing, vitest, jest, @solidjs/testing-library, render in tests, fireEvent, userEvent, screen, jsdom, happy-dom, MemoryRouter, test reactive logic, test custom hook, test signal."
+description: 'Use this skill when writing tests for Solid (SolidJS) code: components, reactive logic, custom hooks/factories, routes, stores. Covers the recommended stack — `vitest` + `@solidjs/testing-library` + `@testing-library/jest-dom` + `jsdom` (or `happy-dom`) — vite-plugin-solid in test mode (`solid({ ssr: false })` + `test: { environment: ''jsdom'' }`), the `render(() => <Comp />)` API (returns `{ container, unmount, ...queries }`), event simulation via `fireEvent` / `userEvent`, screen queries (`getByRole`, `getByText`, `findByText` for async, `queryByText` for assertions of absence), testing reactive logic without mounting (`createRoot(dispose => { ...; dispose() })`), testing components that use the router (`<MemoryRouter url="/foo"><Comp /></MemoryRouter>`), waiting for resources/Suspense (`findBy*`), and the rule that effects don''t fire outside an owner so tests must use `render` or `createRoot`. Triggers on: testing, vitest, jest, @solidjs/testing-library, render in tests, fireEvent, userEvent, screen, jsdom, happy-dom, MemoryRouter, test reactive logic, test custom hook, test signal.'
 license: MIT
 ---
 
@@ -24,7 +24,7 @@ export default defineConfig({
   plugins: [solid()],
   test: {
     environment: "jsdom",
-    globals: true,         // optional — exposes `expect`, `it`, `describe`
+    globals: true, // optional — exposes `expect`, `it`, `describe`
     setupFiles: ["./test-setup.ts"],
     deps: {
       optimizer: {
@@ -43,7 +43,7 @@ The `conditions: ["development", "browser"]` is important — it tells Vite to l
 `vite-plugin-solid` may need the test option:
 
 ```ts
-solid({ ssr: false })
+solid({ ssr: false });
 ```
 
 if you hit "render is undefined" issues at test time.
@@ -80,15 +80,15 @@ describe("Counter", () => {
 
 ## Queries
 
-| Query | Use |
-|---|---|
-| `getByRole(role)` | Preferred — accessibility-aligned. |
-| `getByLabelText(text)` | Form fields paired with `<label>`. |
-| `getByText(text)` | Visible text. |
-| `getByTestId(id)` | Last resort for elements without semantic markup. |
-| `queryBy*` | Returns null if not found (use for "should not exist" assertions). |
-| `findBy*` | Returns a promise; waits for the element to appear. Use for async/Suspense. |
-| `getAllBy*` / `queryAllBy*` / `findAllBy*` | Multiple matches. |
+| Query                                      | Use                                                                         |
+| ------------------------------------------ | --------------------------------------------------------------------------- |
+| `getByRole(role)`                          | Preferred — accessibility-aligned.                                          |
+| `getByLabelText(text)`                     | Form fields paired with `<label>`.                                          |
+| `getByText(text)`                          | Visible text.                                                               |
+| `getByTestId(id)`                          | Last resort for elements without semantic markup.                           |
+| `queryBy*`                                 | Returns null if not found (use for "should not exist" assertions).          |
+| `findBy*`                                  | Returns a promise; waits for the element to appear. Use for async/Suspense. |
+| `getAllBy*` / `queryAllBy*` / `findAllBy*` | Multiple matches.                                                           |
 
 Always prefer `getByRole`/`getByLabelText` over `getByTestId` — they nudge you toward accessible markup.
 
@@ -121,9 +121,7 @@ await user.type(input, "hello");
 
 ```tsx
 it("loads user data", async () => {
-  vi.spyOn(global, "fetch").mockResolvedValue(
-    new Response(JSON.stringify({ name: "Ada" })),
-  );
+  vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify({ name: "Ada" })));
   render(() => <UserCard id="1" />);
   expect(await screen.findByText("Ada")).toBeInTheDocument();
 });
@@ -144,7 +142,7 @@ import { describe, it, expect } from "vitest";
 
 describe("makeCounter", () => {
   it("increments", () => {
-    createRoot(dispose => {
+    createRoot((dispose) => {
       const counter = makeCounter(0);
       expect(counter.count()).toBe(0);
       counter.increment();
@@ -196,7 +194,7 @@ For tests of the consumer logic only (no UI), put `useContext` calls inside a `c
 Apply the directive to a real element via `render` and assert the resulting DOM/state:
 
 ```tsx
-import "./directives";   // ensures use:autofocus is registered for tree-shaking
+import "./directives"; // ensures use:autofocus is registered for tree-shaking
 
 render(() => <input use:autofocus />);
 expect(document.activeElement).toBe(screen.getByRole("textbox"));
@@ -236,9 +234,7 @@ it("submits the form", async () => {
 
 ```tsx
 it("renders user", async () => {
-  global.fetch = vi.fn().mockResolvedValue(
-    new Response(JSON.stringify({ name: "Ada" })),
-  );
+  global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ name: "Ada" })));
   render(() => <UserPage id="1" />);
   expect(await screen.findByText("Ada")).toBeInTheDocument();
 });
@@ -248,7 +244,7 @@ it("renders user", async () => {
 
 ```ts
 it("toggles", () => {
-  createRoot(dispose => {
+  createRoot((dispose) => {
     const t = useToggle(false);
     expect(t.on()).toBe(false);
     t.toggle();

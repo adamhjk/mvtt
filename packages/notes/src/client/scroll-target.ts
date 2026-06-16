@@ -40,8 +40,6 @@ export interface ScrollTarget {
   readonly anchor: string;
 }
 
-const [pendingScroll, setPendingScroll] = createSignal<ScrollTarget | null>(
-  null,
-);
+const [pendingScroll, setPendingScroll] = createSignal<ScrollTarget | null>(null);
 
 export { pendingScroll, setPendingScroll };

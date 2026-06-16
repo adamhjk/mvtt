@@ -57,12 +57,7 @@ const booksPlugin = definePlugin({
   traits: [Book, BookCanonical, CanonicalBookCatalog, Permissions],
   events: [BookCreated, BookRemoved, BookUpdated, BookCanonicalChanged],
   commands: [CreateBook, RemoveBook, UpdateBook, SetBookCanonical],
-  systems: [
-    BookSpawningSystem,
-    BookRemovalSystem,
-    BookUpdateSystem,
-    BookCanonicalSystem,
-  ],
+  systems: [BookSpawningSystem, BookRemovalSystem, BookUpdateSystem, BookCanonicalSystem],
 });
 
 const GM: AuthSession = {
@@ -95,11 +90,7 @@ function setup() {
 }
 
 let cmdSeq = 0;
-async function dispatch(
-  pipeline: CommandPipeline,
-  cmd: CommandInstance,
-  session: unknown,
-) {
+async function dispatch(pipeline: CommandPipeline, cmd: CommandInstance, session: unknown) {
   return pipeline.dispatch({
     id: `cmd-${++cmdSeq}`,
     issuedBy: "tester",
@@ -169,10 +160,7 @@ describe("@vtt/books canonical-book binding", () => {
       const plugins = rows
         .map((r) => (r.values.CanonicalBookCatalog as { pluginName: string }).pluginName)
         .sort();
-      expect(plugins).toEqual([
-        "@vtt/system-other",
-        "@vtt/system-torchbearer",
-      ]);
+      expect(plugins).toEqual(["@vtt/system-other", "@vtt/system-torchbearer"]);
     });
 
     it("does not spawn an empty sentinel for a plugin with zero entries", () => {
@@ -184,17 +172,13 @@ describe("@vtt/books canonical-book binding", () => {
     });
 
     it("listCanonicalBookCatalogs flattens entries across plugins", () => {
-      seedCanonicalBookCatalog(world, "@vtt/system-other", [
-        { id: "other/book/h", name: "H" },
-      ]);
+      seedCanonicalBookCatalog(world, "@vtt/system-other", [{ id: "other/book/h", name: "H" }]);
       const flat = listCanonicalBookCatalogs(world);
       expect(flat).toHaveLength(4);
       expect(flat.find((e) => e.id === "tb/book/scholars-guide")?.pluginName).toBe(
         "@vtt/system-torchbearer",
       );
-      expect(flat.find((e) => e.id === "other/book/h")?.pluginName).toBe(
-        "@vtt/system-other",
-      );
+      expect(flat.find((e) => e.id === "other/book/h")?.pluginName).toBe("@vtt/system-other");
     });
   });
 
@@ -221,11 +205,7 @@ describe("@vtt/books canonical-book binding", () => {
       );
       expect(getBookCanonicalId(world, bookId)).toBe("tb/book/scholars-guide");
 
-      const res = await dispatch(
-        pipeline,
-        SetBookCanonical({ bookId, canonicalId: null }),
-        GM,
-      );
+      const res = await dispatch(pipeline, SetBookCanonical({ bookId, canonicalId: null }), GM);
       expect(res.result.ok).toBe(true);
       expect(getBookCanonicalId(world, bookId)).toBeNull();
       expect(getCanonicalBook(world, "tb/book/scholars-guide")).toBeNull();
@@ -324,11 +304,7 @@ describe("@vtt/books canonical-book binding", () => {
         SetBookCanonical({ bookId: a, canonicalId: "tb/book/scholars-guide" }),
         GM,
       );
-      await dispatch(
-        pipeline,
-        SetBookCanonical({ bookId: a, canonicalId: null }),
-        GM,
-      );
+      await dispatch(pipeline, SetBookCanonical({ bookId: a, canonicalId: null }), GM);
       const res = await dispatch(
         pipeline,
         SetBookCanonical({ bookId: b, canonicalId: "tb/book/scholars-guide" }),

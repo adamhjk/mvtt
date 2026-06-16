@@ -15,20 +15,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  ok,
-  z,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, ok, z } from "@vtt/substrate";
 import { requireSession } from "@vtt/identity/shared";
 import { requireWrite } from "@vtt/permissions/shared";
-import {
-  AssetDeleted,
-  AssetRegistered,
-  AssetRenamed,
-} from "./events.js";
+import { AssetDeleted, AssetRegistered, AssetRenamed } from "./events.js";
 
 /**
  * Register a freshly-uploaded asset against the world.

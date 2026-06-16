@@ -144,7 +144,6 @@ await Assets.init({ manifest, basePath: "https://cdn.example.com/" });
 
 `Assets.init()` can only be called once. The second call is ignored with a warning. Combine all configuration into a single call.
 
-
 ### [MEDIUM] Missing format expansion on manifest entries
 
 Wrong:
@@ -161,11 +160,9 @@ Correct:
 
 Listing only one format blocks the resolver from falling back on browsers without WebP/AVIF support. Always list at least one fallback.
 
-
 ### [MEDIUM] Loading manifest after `Assets.add`
 
 If you call `Assets.add(...)` or `Assets.addBundle(...)` before `Assets.init({ manifest })`, the manifest bundles will append to the existing state but preference-detection (format, resolution) hasn't run yet. Prefer calling `init` first, then adding ad-hoc assets.
-
 
 ## API Reference
 

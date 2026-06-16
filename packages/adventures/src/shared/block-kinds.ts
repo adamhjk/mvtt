@@ -151,9 +151,7 @@ export type AnyBlockKindDef = BlockKindDef<unknown>;
  * Plugin-side helper. Identity function with type inference; mirrors
  * `defineLinkKind`, `defineCommand`, `defineEvent`.
  */
-export function defineBlockKind<Parsed>(
-  def: BlockKindDef<Parsed>,
-): BlockKindDef<Parsed> {
+export function defineBlockKind<Parsed>(def: BlockKindDef<Parsed>): BlockKindDef<Parsed> {
   return def;
 }
 

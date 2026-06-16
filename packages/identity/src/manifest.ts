@@ -24,11 +24,7 @@ import {
   PlayerDespawnSystem,
   PlayerLeftMirrorSystem,
 } from "./server/systems.js";
-import {
-  PlayerListView,
-  PresenceHeaderView,
-  UserMenuView,
-} from "./client/index.js";
+import { PlayerListView, PresenceHeaderView, UserMenuView } from "./client/index.js";
 
 export const identity = definePlugin({
   name: "@vtt/identity",
@@ -36,12 +32,7 @@ export const identity = definePlugin({
   dependsOn: ["@vtt/substrate@^0", "@vtt/auth@^0"],
   traits: [Identity, Name, Online],
   events: [PlayerJoined, PlayerLeft],
-  systems: [
-    PlayerSpawningSystem,
-    PlayerMirrorSystem,
-    PlayerDespawnSystem,
-    PlayerLeftMirrorSystem,
-  ],
+  systems: [PlayerSpawningSystem, PlayerMirrorSystem, PlayerDespawnSystem, PlayerLeftMirrorSystem],
   views: [PlayerListView, PresenceHeaderView, UserMenuView],
 });
 

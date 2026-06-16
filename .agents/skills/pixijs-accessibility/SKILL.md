@@ -164,7 +164,6 @@ app.renderer.accessibility.setAccessibilityEnabled(true);
 
 Without one of these, automated accessibility testing tools will not find the overlay elements.
 
-
 ### [MEDIUM] Setting accessible without accessibleTitle
 
 Wrong:
@@ -186,7 +185,6 @@ sprite.accessibleHint = "Click to start the game";
 
 A container with `accessible = true` but no `accessibleTitle` or `accessibleHint` gets a fallback title of `"container {tabIndex}"`. Screen readers will announce this generic label with no useful context. Always provide at least `accessibleTitle`.
 
-
 ### [MEDIUM] Accessibility deactivates when moving mouse
 
 By default, `deactivateOnMouseMove` is `true`. Any mouse movement after Tab-activation will deactivate the overlay. This is by design (assumes keyboard-only users don't use a mouse), but it makes testing with a mouse frustrating.
@@ -198,7 +196,6 @@ await app.init({
   },
 });
 ```
-
 
 ### [MEDIUM] Not importing accessibility extension in custom builds
 
@@ -213,7 +210,6 @@ await app.init({ skipExtensionImports: true });
 ```
 
 Without this import, `app.renderer.accessibility` will be undefined and no shadow DOM layer will be created.
-
 
 ## API Reference
 

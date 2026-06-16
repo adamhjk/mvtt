@@ -18,11 +18,7 @@
 import { type EntityId, type World } from "@vtt/substrate";
 import { defineLinkKind, type LinkSuggestion } from "@vtt/notes/shared";
 import { Scene } from "./traits.js";
-import {
-  SceneCreated,
-  SceneRemoved,
-  SceneUpdated,
-} from "./events.js";
+import { SceneCreated, SceneRemoved, SceneUpdated } from "./events.js";
 
 interface SceneRef {
   readonly sceneId: EntityId;
@@ -52,9 +48,7 @@ export const sceneLinkKind = defineLinkKind<SceneRef>({
     return null;
   },
   display: (ref, world) => {
-    const got = world.get(ref.sceneId, [Scene]) as
-      | { Scene: { name: string } }
-      | undefined;
+    const got = world.get(ref.sceneId, [Scene]) as { Scene: { name: string } } | undefined;
     return got?.Scene.name ?? "(missing scene)";
   },
   target: (ref) => ({ entityId: ref.sceneId }),

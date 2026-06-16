@@ -15,25 +15,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  type CommandInstance,
-  type EntityId,
-  qualifiedName,
-} from "@vtt/substrate";
+import { type CommandInstance, type EntityId, qualifiedName } from "@vtt/substrate";
 import { useClient, useTrait, useQuery } from "@vtt/substrate/client";
 import { definePageProvider, OpenPage } from "@vtt/shell-workbench/shared";
 import { Asset } from "@vtt/assets/shared";
 import { Identity, Online } from "@vtt/identity/shared";
 import { Book, publishBookNav } from "@vtt/books/shared";
 import { PdfDocument } from "@vtt/pdf-book/shared";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  For,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import {
   clearRulesQuery,
   IndexRules,
@@ -94,8 +83,7 @@ export const RulesPageProvider = definePageProvider({
       // title is sometimes the bare entity-id stub like "e3" when
       // the asset has no embedded PDF metadata, which is meaningless
       // in the rail.
-      const label =
-        bookNameByAsset.get(c.assetId) ?? c.title ?? "(untitled corpus)";
+      const label = bookNameByAsset.get(c.assetId) ?? c.title ?? "(untitled corpus)";
       return {
         id: row.id,
         label,
@@ -130,9 +118,7 @@ function useMyRole() {
     const list = players();
     const cid = client.clientId();
     if (!cid) return null;
-    const found = list.find(
-      (p) => (p.values.Online as { clientId: string }).clientId === cid,
-    );
+    const found = list.find((p) => (p.values.Online as { clientId: string }).clientId === cid);
     if (!found) return null;
     const id = found.values.Identity as { role: string };
     return id.role;
@@ -176,9 +162,7 @@ function RulesIndexHelper(): JSX.Element {
     setError(null);
     setBusyAssetId(assetId);
     try {
-      const handle = client.dispatch(
-        IndexRules({ assetId, tags: [] }) as CommandInstance,
-      );
+      const handle = client.dispatch(IndexRules({ assetId, tags: [] }) as CommandInstance);
       const ack = await handle.ack;
       if (!ack.ok) {
         setError(ack.reason ?? "dispatch rejected");
@@ -193,14 +177,13 @@ function RulesIndexHelper(): JSX.Element {
     <div class="mt-2 flex w-full max-w-md flex-col gap-1.5">
       <Show when={!isGm()}>
         <p class="rounded-(--radius-control) border border-border bg-surface-sunken px-3 py-2 text-left text-xs text-fg-muted">
-          Only the GM may index rulebooks. (You're seeing this page
-          because the rules library is world-readable.)
+          Only the GM may index rulebooks. (You're seeing this page because the rules library is
+          world-readable.)
         </p>
       </Show>
       <Show when={isGm() && candidatePdfs().length === 0}>
         <p class="rounded-(--radius-control) border border-border bg-surface-sunken px-3 py-2 text-left text-xs text-fg-muted">
-          No unindexed application/pdf assets in this world. Upload a
-          PDF on the Assets page first.
+          No unindexed application/pdf assets in this world. Upload a PDF on the Assets page first.
         </p>
       </Show>
       <Show when={isGm() && candidatePdfs().length > 0}>
@@ -316,9 +299,8 @@ function RulesSearchAllView(): JSX.Element {
             No rules corpora yet
           </p>
           <p class="max-w-md text-sm text-fg-muted">
-            Upload a rulebook PDF via the Assets page, then click
-            "Index" below. Extraction runs in a subprocess (30s–a few
-            minutes) and the result becomes searchable here.
+            Upload a rulebook PDF via the Assets page, then click "Index" below. Extraction runs in
+            a subprocess (30s–a few minutes) and the result becomes searchable here.
           </p>
           <RulesIndexHelper />
         </div>
@@ -353,9 +335,7 @@ function RulesSearchAllView(): JSX.Element {
         </Show>
         <Show when={hits().length > 0}>
           <ol class="flex flex-col gap-3">
-            <For each={hits()}>
-              {(hit) => <SearchHitCard hit={hit} showCorpus />}
-            </For>
+            <For each={hits()}>{(hit) => <SearchHitCard hit={hit} showCorpus />}</For>
           </ol>
         </Show>
         <details class="rounded-(--radius-control) border border-border bg-surface-sunken px-3 py-2 text-xs">
@@ -406,9 +386,7 @@ function RulesCorpusView(props: { corpusId: string }): JSX.Element {
 
   const onRemove = () => {
     if (!confirm("Remove this corpus? Chunks and images on disk will be deleted.")) return;
-    client.dispatch(
-      RemoveRulesCorpus({ corpusId: props.corpusId as EntityId }) as CommandInstance,
-    );
+    client.dispatch(RemoveRulesCorpus({ corpusId: props.corpusId as EntityId }) as CommandInstance);
   };
 
   const onSearch = async (e: Event) => {
@@ -454,9 +432,7 @@ function RulesCorpusView(props: { corpusId: string }): JSX.Element {
         <h2 class="font-display text-lg">{headerLabel()}</h2>
         <span class="font-display text-[0.65rem] uppercase tracking-[0.18em] text-fg-subtle">
           status: {corpus()?.status ?? "unknown"}
-          <Show when={corpus()?.pageCount}>
-            {" "}· {corpus()!.pageCount} pages
-          </Show>
+          <Show when={corpus()?.pageCount}> · {corpus()!.pageCount} pages</Show>
         </span>
         <Show when={isGm()}>
           <button
@@ -474,9 +450,7 @@ function RulesCorpusView(props: { corpusId: string }): JSX.Element {
           extraction failed: {corpus()?.error ?? "unknown error"}
         </p>
       </Show>
-      <Show
-        when={corpus()?.status === "pending" || corpus()?.status === "indexing"}
-      >
+      <Show when={corpus()?.status === "pending" || corpus()?.status === "indexing"}>
         <p class="rounded-(--radius-control) border border-border bg-surface-sunken px-3 py-2 text-xs text-fg-muted">
           extraction in progress…
         </p>
@@ -514,9 +488,7 @@ function RulesCorpusView(props: { corpusId: string }): JSX.Element {
 
         <Show when={hits().length > 0}>
           <ol class="flex flex-col gap-3">
-            <For each={hits()}>
-              {(hit) => <SearchHitCard hit={hit} />}
-            </For>
+            <For each={hits()}>{(hit) => <SearchHitCard hit={hit} />}</For>
           </ol>
         </Show>
       </Show>
@@ -555,10 +527,7 @@ function findBookIdForAsset(
   return null;
 }
 
-function SearchHitCard(props: {
-  hit: SearchHit;
-  showCorpus?: boolean;
-}): JSX.Element {
+function SearchHitCard(props: { hit: SearchHit; showCorpus?: boolean }): JSX.Element {
   const client = useClient();
   const corpus = useTrait(props.hit.corpusId, RulesCorpus);
   const books = useQuery([Book]);

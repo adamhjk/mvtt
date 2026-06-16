@@ -18,21 +18,12 @@
 import { type CommandInstance, type TraitMeta } from "@vtt/substrate";
 import { useClient, useQuery } from "@vtt/substrate/client";
 import { canWrite, Permissions } from "@vtt/permissions/shared";
-import {
-  definePageProvider,
-  RetargetTab,
-} from "@vtt/shell-workbench/shared";
+import { definePageProvider, RetargetTab } from "@vtt/shell-workbench/shared";
 import { createMemo, createSignal, For, onMount, Show, type JSX } from "solid-js";
 import { Character } from "../shared/traits.js";
-import {
-  CreateCharacter,
-  RemoveCharacter,
-} from "../shared/commands.js";
+import { CreateCharacter, RemoveCharacter } from "../shared/commands.js";
 import { CharacterCreated } from "../shared/events.js";
-import {
-  CharacterListExclusionSlot,
-  type CharacterListExclusion,
-} from "../shared/slot.js";
+import { CharacterListExclusionSlot, type CharacterListExclusion } from "../shared/slot.js";
 import { CharacterSheet } from "./CharacterSheet.js";
 import { useMe } from "./use-me.js";
 
@@ -44,9 +35,7 @@ const CHARACTERS_KIND = "@vtt/characters/characters";
  * hub's view query so monsters / NPCs / etc. show up in their own
  * archetype-specific tabs and never the Characters list.
  */
-function excludedTraits(
-  registry: import("@vtt/substrate").Registry,
-): TraitMeta[] {
+function excludedTraits(registry: import("@vtt/substrate").Registry): TraitMeta[] {
   const fills = registry.fillsForSlot(
     CharacterListExclusionSlot,
   ) as ReadonlyArray<CharacterListExclusion>;
@@ -88,9 +77,7 @@ export const CharactersPageProvider = definePageProvider({
   },
   defaultEntity: ({ world, registry }) => {
     const excluded = excludedTraits(registry);
-    const first = world
-      .query([Character])
-      .find((row) => !isExcluded(world, row.id, excluded));
+    const first = world.query([Character]).find((row) => !isExcluded(world, row.id, excluded));
     return first?.id ?? null;
   },
   render: ({ tabId, entityId }) => {
@@ -98,10 +85,7 @@ export const CharactersPageProvider = definePageProvider({
   },
 });
 
-function CharactersPage(props: {
-  tabId: string;
-  entityId: string | null;
-}): JSX.Element {
+function CharactersPage(props: { tabId: string; entityId: string | null }): JSX.Element {
   return (
     <Show
       when={props.entityId}
@@ -139,9 +123,7 @@ function CharactersHub(props: { tabId: string }): JSX.Element {
       .map((row) => ({
         id: row.id,
         name: (row.values.Character as { name: string }).name,
-        permissions: row.values.Permissions as
-          | Parameters<typeof canWrite>[1]
-          | undefined,
+        permissions: row.values.Permissions as Parameters<typeof canWrite>[1] | undefined,
       }))
       .sort((a, b) => a.name.localeCompare(b.name)),
   );
@@ -179,11 +161,7 @@ function CharactersHub(props: { tabId: string }): JSX.Element {
               </p>
               <Show
                 when={me()}
-                fallback={
-                  <p class="text-xs text-fg-subtle">
-                    sign in to create a character…
-                  </p>
-                }
+                fallback={<p class="text-xs text-fg-subtle">sign in to create a character…</p>}
               >
                 <CreateCharacterForm tabId={props.tabId} />
               </Show>
@@ -213,9 +191,7 @@ function CharactersHub(props: { tabId: string }): JSX.Element {
                   >
                     {c.name}
                   </button>
-                  <span class="font-mono text-[0.6rem] text-fg-subtle">
-                    {c.id}
-                  </span>
+                  <span class="font-mono text-[0.6rem] text-fg-subtle">{c.id}</span>
                   <button
                     type="button"
                     onClick={() => open(c.id)}
@@ -274,15 +250,11 @@ function CreateCharacterForm(props: { tabId: string }): JSX.Element {
     if (trimmed.length === 0) return;
     setBusy(true);
 
-    const beforeIds = new Set(
-      client.world.query([Character]).map((r) => r.id),
-    );
+    const beforeIds = new Set(client.world.query([Character]).map((r) => r.id));
 
     const off = client.bus.on(CharacterCreated.name, () => {
       off();
-      const fresh = client.world
-        .query([Character])
-        .find((r) => !beforeIds.has(r.id));
+      const fresh = client.world.query([Character]).find((r) => !beforeIds.has(r.id));
       if (fresh) {
         client.dispatch(
           RetargetTab({

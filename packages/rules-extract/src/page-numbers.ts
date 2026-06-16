@@ -84,10 +84,8 @@ export function buildPageMap(
     // one off in the right direction. A corrupt prev (e.g. body-text
     // false match) doesn't poison this page — we just look at next
     // instead. Page 1 / last page accept on a single matching side.
-    const prevDelta =
-      prev && typeof prev.value === "number" ? cand.value - prev.value : null;
-    const nextDelta =
-      next && typeof next.value === "number" ? next.value - cand.value : null;
+    const prevDelta = prev && typeof prev.value === "number" ? cand.value - prev.value : null;
+    const nextDelta = next && typeof next.value === "number" ? next.value - cand.value : null;
     if (prevDelta === 1 || nextDelta === 1) {
       map.set(pdfPage, cand.value);
     }
@@ -179,10 +177,7 @@ function scanBand(
  * `prev + (i - prevIdx)` interpolation when the implied step matches.
  * Conservative — leaves real gaps (chapter breaks, plates) alone.
  */
-function fillIntegerGaps(
-  map: Map<number, string | number>,
-  pages: PageText[],
-): void {
+function fillIntegerGaps(map: Map<number, string | number>, pages: PageText[]): void {
   const pdfPages = pages.map((p) => p.pdfPage).sort((a, b) => a - b);
   for (let i = 0; i < pdfPages.length; i++) {
     const here = pdfPages[i]!;

@@ -136,7 +136,9 @@ describe("runCatalogMerge", () => {
         },
       ],
     });
-    const ident = world.get(swordId, [ItemIdentity]) as { ItemIdentity: { name: string; description: string } };
+    const ident = world.get(swordId, [ItemIdentity]) as {
+      ItemIdentity: { name: string; description: string };
+    };
     expect(ident.ItemIdentity.name).toBe("Mythril Sword");
     expect(ident.ItemIdentity.description).toBe("GM-customized");
   });
@@ -214,9 +216,9 @@ describe("runCatalogMerge", () => {
         },
       ],
     });
-    const indexes = world.query([ItemCatalogIndex]).map(
-      (r) => (r.values.ItemCatalogIndex as { pluginName: string }).pluginName,
-    );
+    const indexes = world
+      .query([ItemCatalogIndex])
+      .map((r) => (r.values.ItemCatalogIndex as { pluginName: string }).pluginName);
     expect(new Set(indexes)).toEqual(new Set([PLUGIN, "@vtt/other-system"]));
     expect(world.query([ItemIdentity])).toHaveLength(3);
   });

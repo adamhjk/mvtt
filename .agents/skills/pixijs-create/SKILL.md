@@ -172,11 +172,9 @@ npm create pixi.js@latest my-game -- --template bundler-vite
 
 npm 7+ consumes flags after the package spec unless you pass `--` to forward them. Without the separator, the CLI ignores `--template` and drops back to the interactive prompt. Yarn, pnpm, and bun don't need the separator.
 
-
 ### [MEDIUM] Running with an old Node version
 
 PixiJS requires Node 18+ or 20+. Some templates (framework-react, creation-web) expect a newer Node for their tooling. Upgrade Node before re-running the CLI if you see an "engines" warning from your package manager.
-
 
 ### [MEDIUM] Top-level `await app.init()` broken in Vite production builds
 
@@ -198,7 +196,6 @@ Wrap the init in an async IIFE instead:
 ```
 
 Upgrading Vite past 6.0.6 also resolves it, but the IIFE pattern is safe on every version and matches the PixiJS quick-start guide.
-
 
 ## API Reference
 

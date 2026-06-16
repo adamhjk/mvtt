@@ -17,17 +17,10 @@
 
 import { previewRollable, type EntityId } from "@vtt/substrate";
 import { useClient, useQuery, useTrait } from "@vtt/substrate/client";
-import {
-  Character,
-  PendingRoll,
-  type Contribution,
-} from "@vtt/characters/shared";
+import { Character, PendingRoll, type Contribution } from "@vtt/characters/shared";
 import { Formula, RolledBy, RollResult } from "@vtt/resolution/shared";
 import { createMemo, Show, type JSX } from "solid-js";
-import {
-  TbRollMetaSchema,
-  versusFromContributions,
-} from "../../../shared/index.js";
+import { TbRollMetaSchema, versusFromContributions } from "../../../shared/index.js";
 
 interface PartnerProbe {
   source?: unknown;
@@ -69,11 +62,7 @@ export function VersusShadow(props: { rollId: EntityId }): JSX.Element {
       const peerVersus = versusFromContributions(v.contributions);
       const optsVersus = (v.opts as { versusTestId?: unknown })?.versusTestId;
       const peerActive =
-        peerVersus !== undefined
-          ? peerVersus
-          : typeof optsVersus === "string"
-            ? optsVersus
-            : null;
+        peerVersus !== undefined ? peerVersus : typeof optsVersus === "string" ? optsVersus : null;
       if (peerActive !== target) continue;
       const char = client.world.get(v.initiatorCharacterId, [Character]) as
         | { Character: { name: string } }
@@ -169,10 +158,7 @@ export function VersusShadow(props: { rollId: EntityId }): JSX.Element {
           <span class="font-display text-[0.55rem] uppercase tracking-[0.16em] text-fg-subtle">
             ◆ vs {p().characterName}
           </span>
-          <span
-            class="font-mono text-[0.75rem] text-fg"
-            data-testid="atelier-versus-shadow-source"
-          >
+          <span class="font-mono text-[0.75rem] text-fg" data-testid="atelier-versus-shadow-source">
             testing {partnerSource() ?? "?"}
           </span>
         </div>

@@ -19,11 +19,14 @@ npm i @solidjs/meta
 ```tsx
 import { MetaProvider } from "@solidjs/meta";
 
-render(() => (
-  <MetaProvider>
-    <Router>...</Router>
-  </MetaProvider>
-), document.getElementById("app")!);
+render(
+  () => (
+    <MetaProvider>
+      <Router>...</Router>
+    </MetaProvider>
+  ),
+  document.getElementById("app")!,
+);
 ```
 
 `<MetaProvider>` wraps the whole app once. Without it, the meta components don't know where to write tags.
@@ -106,7 +109,7 @@ useHead({
   tag: "meta",
   props: { name: "color-scheme", content: "dark" },
   setting: { close: true },
-  id: "color-scheme",       // de-dupe key
+  id: "color-scheme", // de-dupe key
   name: undefined,
 });
 ```

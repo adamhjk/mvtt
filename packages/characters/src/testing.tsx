@@ -21,11 +21,7 @@ import {
   type BuildTestClientOptions,
   type TestClientHarness,
 } from "@vtt/substrate/client-testing";
-import {
-  definePlugin,
-  type EntityId,
-  type PluginDef,
-} from "@vtt/substrate";
+import { definePlugin, type EntityId, type PluginDef } from "@vtt/substrate";
 import { Identity, Online } from "@vtt/identity/shared";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
 import { Character, Team } from "./shared/index.js";
@@ -63,10 +59,7 @@ import {
   PendingRollContributionSystem,
   PendingRollSpawnSystem,
 } from "./server/systems.js";
-import {
-  CharacterListExclusionSlot,
-  PendingRollContributorsSlot,
-} from "./shared/slot.js";
+import { CharacterListExclusionSlot, PendingRollContributorsSlot } from "./shared/slot.js";
 import {
   PendingRollEditorsSlot,
   QuickRollComposerSlot,
@@ -98,8 +91,10 @@ export interface CharacterHarness extends TestClientHarness {
   readonly meUserId: string;
 }
 
-export interface BuildCharacterHarnessOptions
-  extends Omit<BuildTestClientOptions, "plugins" | "session" | "setupWorld"> {
+export interface BuildCharacterHarnessOptions extends Omit<
+  BuildTestClientOptions,
+  "plugins" | "session" | "setupWorld"
+> {
   /**
    * Game-system / extra plugins under test, beyond the always-on
    * characters + identity + permissions infrastructure.
@@ -145,15 +140,7 @@ const DEFAULT_CLIENT_ID = "test-client-1";
 const charactersTestInfra = definePlugin({
   name: "@vtt/characters-testing",
   version: "0.0.0",
-  traits: [
-    Character,
-    Permissions,
-    Identity,
-    Online,
-    PendingRoll,
-    Team,
-    RollAtelierUiState,
-  ],
+  traits: [Character, Permissions, Identity, Online, PendingRoll, Team, RollAtelierUiState],
   events: [
     CharacterCreated,
     CharacterRenamed,
@@ -203,9 +190,7 @@ const charactersTestInfra = definePlugin({
   },
 });
 
-export function buildCharacterHarness(
-  opts: BuildCharacterHarnessOptions = {},
-): CharacterHarness {
+export function buildCharacterHarness(opts: BuildCharacterHarnessOptions = {}): CharacterHarness {
   const meUserId = opts.meUserId ?? DEFAULT_ME_USER;
   const ownerUserId = opts.ownerUserId ?? meUserId;
   const clientId = opts.clientId ?? DEFAULT_CLIENT_ID;
@@ -248,10 +233,7 @@ export function buildCharacterHarness(
       // explicit-writers branch above keeps single-owner harnesses
       // exactly equivalent to `ownedBy(ownerUserId)`.
       void ownedBy;
-      world.spawn([
-        Identity({ userId: meUserId, role }),
-        Online({ clientId, since: Date.now() }),
-      ]);
+      world.spawn([Identity({ userId: meUserId, role }), Online({ clientId, since: Date.now() })]);
       if (opts.setupWorld) opts.setupWorld({ world, registry, characterId });
     },
   });

@@ -20,12 +20,7 @@ import { useTrait } from "@vtt/substrate/client";
 import { kit } from "@vtt/characters/client";
 import type { CharacterSheetRegion } from "@vtt/characters/shared";
 import { createMemo, onMount, type JSX } from "solid-js";
-import {
-  CharacterTraits,
-  CONDITION_ORDER,
-  Conditions,
-  Pools,
-} from "../shared/index.js";
+import { CharacterTraits, CONDITION_ORDER, Conditions, Pools } from "../shared/index.js";
 
 const TB_POOLS_STYLE_ID = "tb-pools-styles";
 const TB_POOLS_CSS = `
@@ -117,9 +112,7 @@ function ConditionsLadder(props: { characterId: string }): JSX.Element {
         items={CONDITION_ORDER.map((c) => ({
           id: c.id,
           label: c.label,
-          hint: c.recovery
-            ? `${c.effect} — recover with ${c.recovery}`
-            : c.effect,
+          hint: c.recovery ? `${c.effect} — recover with ${c.recovery}` : c.effect,
           tone: c.id === "dead" ? "danger" : "default",
         }))}
       />
@@ -147,18 +140,42 @@ function PoolsRow(props: { characterId: string }): JSX.Element {
 
           <span class="vk-row__label tb-pools__fate-label">Fate</span>
           <div class="tb-pools__num tb-pools__num-fate-cur">
-            <kit.NumberField characterId={props.characterId} trait={Pools} path={["fate", "current"]} min={0} max={99} />
+            <kit.NumberField
+              characterId={props.characterId}
+              trait={Pools}
+              path={["fate", "current"]}
+              min={0}
+              max={99}
+            />
           </div>
           <div class="tb-pools__num tb-pools__num-fate-spent">
-            <kit.NumberField characterId={props.characterId} trait={Pools} path={["fate", "totalSpent"]} min={0} max={999} />
+            <kit.NumberField
+              characterId={props.characterId}
+              trait={Pools}
+              path={["fate", "totalSpent"]}
+              min={0}
+              max={999}
+            />
           </div>
 
           <span class="vk-row__label tb-pools__persona-label">Persona</span>
           <div class="tb-pools__num tb-pools__num-persona-cur">
-            <kit.NumberField characterId={props.characterId} trait={Pools} path={["persona", "current"]} min={0} max={99} />
+            <kit.NumberField
+              characterId={props.characterId}
+              trait={Pools}
+              path={["persona", "current"]}
+              min={0}
+              max={99}
+            />
           </div>
           <div class="tb-pools__num tb-pools__num-persona-spent">
-            <kit.NumberField characterId={props.characterId} trait={Pools} path={["persona", "totalSpent"]} min={0} max={999} />
+            <kit.NumberField
+              characterId={props.characterId}
+              trait={Pools}
+              path={["persona", "totalSpent"]}
+              min={0}
+              max={999}
+            />
           </div>
 
           <span class="vk-row__label tb-pools__checks-label">Checks</span>

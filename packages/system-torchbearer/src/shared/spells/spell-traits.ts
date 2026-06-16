@@ -44,12 +44,7 @@ export type SpellCircle = z.infer<typeof SpellCircleSchema>;
 export const SpellCastingKindSchema = z.enum(["fixed", "factors", "versus"]);
 export type SpellCastingKind = z.infer<typeof SpellCastingKindSchema>;
 
-export const SpellCastingTimeSchema = z.enum([
-  "free",
-  "action",
-  "one-turn",
-  "multi-turn",
-]);
+export const SpellCastingTimeSchema = z.enum(["free", "action", "one-turn", "multi-turn"]);
 
 const PageRefSchema = z
   .object({
@@ -334,4 +329,3 @@ export const SpellCastConsumed = defineTrait({
     consumedAt: z.number(),
   }),
 });
-

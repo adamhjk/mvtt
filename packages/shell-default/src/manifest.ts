@@ -16,12 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { definePlugin } from "@vtt/substrate";
-import {
-  HeaderSurface,
-  MainSurface,
-  SidebarSurface,
-  FooterSurface,
-} from "./shared/surfaces.js";
+import { HeaderSurface, MainSurface, SidebarSurface, FooterSurface } from "./shared/surfaces.js";
 import { ChromeView } from "./client/Chrome.js";
 
 export const shellDefault = definePlugin({

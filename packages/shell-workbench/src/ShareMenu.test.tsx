@@ -20,19 +20,9 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { screen, cleanup, fireEvent, render } from "@solidjs/testing-library";
 import { buildTestClient } from "@vtt/substrate/client-testing";
 import { ClientProvider } from "@vtt/substrate/client";
-import {
-  defineTrait,
-  definePlugin,
-  qualifiedName,
-  z,
-  type EntityId,
-} from "@vtt/substrate";
+import { defineTrait, definePlugin, qualifiedName, z, type EntityId } from "@vtt/substrate";
 import { Identity, Name, Online } from "@vtt/identity/shared";
-import {
-  PagesSlot,
-  definePageProvider,
-  tabSentinelEntityId,
-} from "./shared/index.js";
+import { PagesSlot, definePageProvider, tabSentinelEntityId } from "./shared/index.js";
 import { actors, Permissions } from "@vtt/permissions/shared";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
@@ -54,17 +44,22 @@ const TAB = {
   lastFocusedAt: Date.now(),
 };
 
-interface OtherUser { userId: string; name: string }
+interface OtherUser {
+  userId: string;
+  name: string;
+}
 
 /**
  * Build a harness with `me` plus a bag of other online users — those are
  * the share-target candidates the dropdown will list. The session role is
  * configurable so the GM-only force-focus toggle is testable both ways.
  */
-function harness(opts: {
-  role?: "player" | "gm";
-  others?: OtherUser[];
-} = {}) {
+function harness(
+  opts: {
+    role?: "player" | "gm";
+    others?: OtherUser[];
+  } = {},
+) {
   const role = opts.role ?? "player";
   const others = opts.others ?? [];
   return buildTestClient({
@@ -349,9 +344,7 @@ describe("ShareMenu", () => {
             openDrawers: {},
           }),
         ]);
-        world.spawnAt(tabSentinelEntityId(TAB.id), [
-          TestTabUiState({ page: 11 }),
-        ]);
+        world.spawnAt(tabSentinelEntityId(TAB.id), [TestTabUiState({ page: 11 })]);
       },
     });
 
@@ -385,18 +378,15 @@ describe("ShareMenu", () => {
     const flushDone = new Promise<void>((r) => {
       resolveFlush = r;
     });
-    h.client.optimisticFlushes.register(
-      tabSentinelEntityId(TAB.id),
-      () => {
-        order.push("flush");
-        // Simulate a non-trivial flush — resolves on the next microtask
-        // (matches a real ack landing). If ShareMenu dispatched without
-        // awaiting, "share" would land in `order` before "flush".
-        return Promise.resolve().then(() => {
-          resolveFlush();
-        });
-      },
-    );
+    h.client.optimisticFlushes.register(tabSentinelEntityId(TAB.id), () => {
+      order.push("flush");
+      // Simulate a non-trivial flush — resolves on the next microtask
+      // (matches a real ack landing). If ShareMenu dispatched without
+      // awaiting, "share" would land in `order` before "flush".
+      return Promise.resolve().then(() => {
+        resolveFlush();
+      });
+    });
 
     render(() => (
       <ClientProvider value={h.client}>

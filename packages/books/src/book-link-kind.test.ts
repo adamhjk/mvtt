@@ -19,10 +19,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { World, type EntityId } from "@vtt/substrate";
 import { Book, BookCanonical } from "./shared/traits.js";
 import { bookLinkKind } from "./shared/book-link-kind.js";
-import {
-  pendingBookNav,
-  __resetPendingBookNavForTests,
-} from "./shared/pending-nav.js";
+import { pendingBookNav, __resetPendingBookNavForTests } from "./shared/pending-nav.js";
 
 const noModifiers = {
   modifiers: { meta: false, shift: false, alt: false },
@@ -100,9 +97,7 @@ describe("bookLinkKind.parse", () => {
     const id = world.allocateId();
     world.spawnAt(id, [Book({ name: "Scholar's Guide" })]);
     // No BookCanonical trait → canonical-id lookup yields null.
-    expect(
-      bookLinkKind.parse("tb/book/scholars-guide", null, world),
-    ).toBeNull();
+    expect(bookLinkKind.parse("tb/book/scholars-guide", null, world)).toBeNull();
   });
 
   it("canonical-id lookup ignores book entities without the trait", () => {
@@ -110,10 +105,7 @@ describe("bookLinkKind.parse", () => {
     const a = world.allocateId();
     world.spawnAt(a, [Book({ name: "Other Book" })]);
     const b = world.allocateId();
-    world.spawnAt(b, [
-      Book({ name: "Real PHB" }),
-      BookCanonical({ canonicalId: "dnd/book/phb" }),
-    ]);
+    world.spawnAt(b, [Book({ name: "Real PHB" }), BookCanonical({ canonicalId: "dnd/book/phb" })]);
     const ref = bookLinkKind.parse("dnd/book/phb", null, world);
     expect(ref).toEqual({ bookId: b });
   });
@@ -178,24 +170,18 @@ describe("bookLinkKind.display", () => {
     const world = new World();
     const id = world.allocateId();
     world.spawnAt(id, [Book({ name: "PHB" })]);
-    expect(bookLinkKind.display({ bookId: id, page: 7 }, world)).toBe(
-      "PHB · p7",
-    );
+    expect(bookLinkKind.display({ bookId: id, page: 7 }, world)).toBe("PHB · p7");
   });
 
   it("reads Book.name and decorates with the TOC title", () => {
     const world = new World();
     const id = world.allocateId();
     world.spawnAt(id, [Book({ name: "PHB" })]);
-    expect(
-      bookLinkKind.display({ bookId: id, tocTitle: "Combat" }, world),
-    ).toBe("PHB · Combat");
+    expect(bookLinkKind.display({ bookId: id, tocTitle: "Combat" }, world)).toBe("PHB · Combat");
   });
 
   it("falls back to a placeholder when the entity is gone", () => {
     const world = new World();
-    expect(
-      bookLinkKind.display({ bookId: "e404" as EntityId }, world),
-    ).toBe("(missing book)");
+    expect(bookLinkKind.display({ bookId: "e404" as EntityId }, world)).toBe("(missing book)");
   });
 });

@@ -62,9 +62,7 @@ export function CompromisePanel(props: { conflictId: EntityId }): JSX.Element {
   const client = useClient();
   const conflict = useConflict(props.conflictId);
 
-  const winnerSide = createMemo<ConflictSide | "tied" | null>(
-    () => conflict()?.winner ?? null,
-  );
+  const winnerSide = createMemo<ConflictSide | "tied" | null>(() => conflict()?.winner ?? null);
   const loserSide = createMemo<ConflictSide | null>(() => {
     const w = winnerSide();
     if (!w || w === "tied") return null;
@@ -79,9 +77,7 @@ export function CompromisePanel(props: { conflictId: EntityId }): JSX.Element {
   const winnerEndDispo = createMemo(() => {
     const c = conflict();
     if (!c) return 0;
-    return winnerSide() === "party"
-      ? c.dispoParty.current
-      : c.dispoEnemy.current;
+    return winnerSide() === "party" ? c.dispoParty.current : c.dispoEnemy.current;
   });
 
   /**
@@ -103,20 +99,14 @@ export function CompromisePanel(props: { conflictId: EntityId }): JSX.Element {
     return "major";
   });
 
-  const losers = useParticipants(
-    props.conflictId,
-    (loserSide() ?? "party") as ConflictSide,
-  );
+  const losers = useParticipants(props.conflictId, (loserSide() ?? "party") as ConflictSide);
 
   const [description, setDescription] = createSignal("");
   const [conditions, setConditions] = createSignal<
     Array<{ characterId: EntityId; conditionId: CompromiseConditionId }>
   >([]);
 
-  const toggleCondition = (
-    characterId: EntityId,
-    conditionId: CompromiseConditionId,
-  ): void => {
+  const toggleCondition = (characterId: EntityId, conditionId: CompromiseConditionId): void => {
     setConditions((cur) => {
       const exists = cur.findIndex(
         (c) => c.characterId === characterId && c.conditionId === conditionId,
@@ -125,13 +115,8 @@ export function CompromisePanel(props: { conflictId: EntityId }): JSX.Element {
       return [...cur, { characterId, conditionId }];
     });
   };
-  const isChecked = (
-    characterId: EntityId,
-    conditionId: CompromiseConditionId,
-  ): boolean =>
-    conditions().some(
-      (c) => c.characterId === characterId && c.conditionId === conditionId,
-    );
+  const isChecked = (characterId: EntityId, conditionId: CompromiseConditionId): boolean =>
+    conditions().some((c) => c.characterId === characterId && c.conditionId === conditionId);
 
   const submit = (): void => {
     client.dispatch(
@@ -141,15 +126,11 @@ export function CompromisePanel(props: { conflictId: EntityId }): JSX.Element {
         conditions: conditions(),
       }) as CommandInstance,
     );
-    client.dispatch(
-      EndConflict({ conflictId: props.conflictId }) as CommandInstance,
-    );
+    client.dispatch(EndConflict({ conflictId: props.conflictId }) as CommandInstance);
   };
 
   const skip = (): void => {
-    client.dispatch(
-      EndConflict({ conflictId: props.conflictId }) as CommandInstance,
-    );
+    client.dispatch(EndConflict({ conflictId: props.conflictId }) as CommandInstance);
   };
 
   return (
@@ -160,30 +141,26 @@ export function CompromisePanel(props: { conflictId: EntityId }): JSX.Element {
         role="region"
         aria-label="Compromise"
       >
-        <h2 class="font-display text-sm uppercase tracking-[0.16em] text-fg mb-1">
-          Compromise
-        </h2>
+        <h2 class="font-display text-sm uppercase tracking-[0.16em] text-fg mb-1">Compromise</h2>
         <Show
           when={winnerSide() && winnerSide() !== "tied"}
           fallback={
             <p class="text-fg-muted text-sm">
-              Tied conflict — both sides offer the loser a major
-              compromise. Use the description below.
+              Tied conflict — both sides offer the loser a major compromise. Use the description
+              below.
             </p>
           }
         >
           <p class="text-xs text-fg-subtle mb-2">
-            {winnerSide()} won with {winnerEndDispo()} of {winnerStartDispo()}{" "}
-            disposition remaining. Suggested level:{" "}
+            {winnerSide()} won with {winnerEndDispo()} of {winnerStartDispo()} disposition
+            remaining. Suggested level:{" "}
             <strong class="text-fg uppercase">{suggestedLevel()}</strong>.
           </p>
           <CompromiseLevelHint level={suggestedLevel()} />
         </Show>
 
         <label class="flex flex-col gap-1 mt-2 text-sm">
-          <span class="text-xs uppercase tracking-wider text-fg-subtle">
-            Description
-          </span>
+          <span class="text-xs uppercase tracking-wider text-fg-subtle">Description</span>
           <textarea
             value={description()}
             onInput={(e) => setDescription(e.currentTarget.value)}
@@ -236,14 +213,8 @@ export function CompromisePanel(props: { conflictId: EntityId }): JSX.Element {
 
 function CompromiseLoserRow(props: {
   characterId: EntityId;
-  isChecked: (
-    characterId: EntityId,
-    conditionId: CompromiseConditionId,
-  ) => boolean;
-  toggle: (
-    characterId: EntityId,
-    conditionId: CompromiseConditionId,
-  ) => void;
+  isChecked: (characterId: EntityId, conditionId: CompromiseConditionId) => boolean;
+  toggle: (characterId: EntityId, conditionId: CompromiseConditionId) => void;
 }): JSX.Element {
   const name = useCharacterName(props.characterId);
   return (
@@ -266,9 +237,7 @@ function CompromiseLoserRow(props: {
   );
 }
 
-function CompromiseLevelHint(props: {
-  level: "minor" | "half" | "major";
-}): JSX.Element {
+function CompromiseLevelHint(props: { level: "minor" | "half" | "major" }): JSX.Element {
   const def = (): { description: string; killSpecific: string } => {
     const e = TB_COMPROMISE_LEVELS.find((l) => l.id === props.level);
     return {

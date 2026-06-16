@@ -176,10 +176,7 @@ const walk = new AnimatedSprite({
 Wrong:
 
 ```ts
-const walk = new AnimatedSprite([
-  Texture.from("walk0.png"),
-  Texture.from("walk1.png"),
-]);
+const walk = new AnimatedSprite([Texture.from("walk0.png"), Texture.from("walk1.png")]);
 ```
 
 Correct:
@@ -190,7 +187,6 @@ const walk = new AnimatedSprite(sheet.animations["walk"]);
 ```
 
 `Texture.from()` only reads the cache in v8. If the spritesheet has not been loaded, the textures resolve to `Texture.EMPTY` and the sprite shows nothing. Always `await Assets.load()` the spritesheet first, then use `sheet.animations[key]`.
-
 
 ### [HIGH] Forgetting to call `play()` or set `autoPlay`
 
@@ -212,7 +208,6 @@ app.stage.addChild(walk);
 ```
 
 `autoPlay` defaults to `false`. Without `autoPlay: true` or a manual `walk.play()` call, the sprite displays only the first frame.
-
 
 ### [MEDIUM] Using seconds instead of milliseconds for `FrameObject.time`
 
@@ -236,7 +231,6 @@ new AnimatedSprite([
 
 `FrameObject.time` is in milliseconds. A value of `0.1` will advance frames almost instantly.
 
-
 ### [MEDIUM] Setting `currentFrame` out of range
 
 Wrong:
@@ -252,7 +246,6 @@ walk.currentFrame = walk.totalFrames - 1;
 ```
 
 The setter throws if the value is outside `[0, totalFrames - 1]`. Use `totalFrames - 1` for the last frame.
-
 
 ## API Reference
 

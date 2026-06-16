@@ -26,18 +26,8 @@ import { books } from "@vtt/books";
 import { notes } from "@vtt/notes";
 import { assets } from "@vtt/assets";
 import { pdfBook } from "@vtt/pdf-book";
-import {
-  Book,
-  BookCreated,
-  BookUpdated,
-  CreateBook,
-  UpdateBook,
-} from "@vtt/books/shared";
-import {
-  PdfDocument,
-  PdfDocumentSet,
-  SetPdfDocument,
-} from "@vtt/pdf-book/shared";
+import { Book, BookCreated, BookUpdated, CreateBook, UpdateBook } from "@vtt/books/shared";
+import { PdfDocument, PdfDocumentSet, SetPdfDocument } from "@vtt/pdf-book/shared";
 import { Asset } from "@vtt/assets/shared";
 import { Permissions, ownedBy } from "@vtt/permissions/shared";
 import type { AuthSession } from "@vtt/auth";
@@ -62,7 +52,12 @@ const booksTestSystem = definePlugin({
   gameSystem: true,
 });
 
-interface AckMsg { kind: "ack"; commandId: string; ok: boolean; reason?: string }
+interface AckMsg {
+  kind: "ack";
+  commandId: string;
+  ok: boolean;
+  reason?: string;
+}
 interface EventMsg {
   kind: "event";
   seq: number;

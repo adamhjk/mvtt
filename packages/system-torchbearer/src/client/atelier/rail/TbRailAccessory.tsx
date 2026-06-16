@@ -38,7 +38,9 @@ function TbRailAccessoryRender(args: RollAtelierRailArgs): JSX.Element {
 }
 
 export const TbRailAccessory: RollAtelierRailAccessory = {
-  id: qualifiedName("@vtt/system-torchbearer/atelier-rail-accessory") as RollAtelierRailAccessory["id"],
+  id: qualifiedName(
+    "@vtt/system-torchbearer/atelier-rail-accessory",
+  ) as RollAtelierRailAccessory["id"],
   priority: 100,
   rollablePrefix: "@vtt/system-torchbearer/",
   render: (args) => TbRailAccessoryRender(args),

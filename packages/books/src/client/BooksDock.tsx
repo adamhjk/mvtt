@@ -20,10 +20,7 @@ import { createOptimisticTrait, useClient } from "@vtt/substrate/client";
 import { type EntityId } from "@vtt/substrate";
 import { useTabSentinel } from "@vtt/shell-workbench/client";
 import { BooksUiState, SetBooksUiState } from "../shared/ui-state.js";
-import {
-  BookOverlayTabsSlot,
-  type BookOverlayTab,
-} from "../shared/slot.js";
+import { BookOverlayTabsSlot, type BookOverlayTab } from "../shared/slot.js";
 
 interface BooksDockProps {
   bookId: string;
@@ -54,9 +51,7 @@ export function BooksDock(props: BooksDockProps): JSX.Element {
   });
 
   const tabs = createMemo<BookOverlayTab[]>(() => {
-    const fills = client.registry.fillsForSlot(
-      BookOverlayTabsSlot,
-    ) as BookOverlayTab[];
+    const fills = client.registry.fillsForSlot(BookOverlayTabsSlot) as BookOverlayTab[];
     return [...fills].sort((a, b) => {
       const pa = a.priority ?? 0;
       const pb = b.priority ?? 0;
@@ -110,9 +105,7 @@ export function BooksDock(props: BooksDockProps): JSX.Element {
         >
           <For each={tabs()}>
             {(tab) => {
-              const isActive = createMemo(
-                () => open() && activeId() === tab.id,
-              );
+              const isActive = createMemo(() => open() && activeId() === tab.id);
               return (
                 <button
                   type="button"
@@ -125,7 +118,9 @@ export function BooksDock(props: BooksDockProps): JSX.Element {
                   aria-pressed={isActive()}
                 >
                   <Show when={tab.icon}>
-                    <span aria-hidden class="text-[0.85rem]">{tab.icon}</span>
+                    <span aria-hidden class="text-[0.85rem]">
+                      {tab.icon}
+                    </span>
                   </Show>
                   <span>{tab.label}</span>
                   <Show when={isActive()}>

@@ -15,13 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  createMemo,
-  createSignal,
-  For,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createMemo, createSignal, For, Show, type JSX } from "solid-js";
 import { useClient } from "@vtt/substrate/client";
 import {
   NotesReferenceSlot,
@@ -57,8 +51,8 @@ export function ReferencePanel(props: {
   // functions over (world, registry); we don't subscribe to anything
   // reactive, so this is a one-shot computation.
   const allSections = createMemo<ReferenceSection[]>(() => {
-    const fills =
-      (client.registry.fills.get(NotesReferenceSlot.name) ?? []) as ReadonlyArray<ReferenceProvider>;
+    const fills = (client.registry.fills.get(NotesReferenceSlot.name) ??
+      []) as ReadonlyArray<ReferenceProvider>;
     const out: ReferenceSection[] = [];
     for (const provider of fills) {
       try {
@@ -153,9 +147,7 @@ export function ReferencePanel(props: {
                 {g.group}
               </h4>
               <For each={g.sections}>
-                {(s) => (
-                  <SectionView section={s} onInsert={props.onInsert} />
-                )}
+                {(s) => <SectionView section={s} onInsert={props.onInsert} />}
               </For>
             </section>
           )}
@@ -186,9 +178,7 @@ function SectionView(props: {
     >
       <header class="flex items-center justify-between gap-2 border-b border-border-muted px-2 py-1.5">
         <div class="flex flex-col">
-          <code class="font-mono text-sm font-semibold text-fg">
-            {props.section.title}
-          </code>
+          <code class="font-mono text-sm font-semibold text-fg">{props.section.title}</code>
           <Show when={props.section.summary}>
             <span class="text-xs text-fg-muted">{props.section.summary}</span>
           </Show>
@@ -212,9 +202,7 @@ function SectionView(props: {
           <Show when={props.onInsert && props.section.example}>
             <button
               type="button"
-              onClick={() =>
-                props.onInsert?.((props.section.example ?? "") + "\n")
-              }
+              onClick={() => props.onInsert?.((props.section.example ?? "") + "\n")}
               class="mt-1 rounded-(--radius-control) border border-accent bg-accent px-2 py-0.5 text-[0.62rem] uppercase tracking-wider text-accent-fg hover:bg-accent-hover transition"
             >
               Insert at cursor
@@ -228,9 +216,7 @@ function SectionView(props: {
             {(f) => (
               <li class="px-2 py-1.5">
                 <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <code class="font-mono font-semibold text-fg break-all">
-                    {f.path}
-                  </code>
+                  <code class="font-mono font-semibold text-fg break-all">{f.path}</code>
                   <Show when={f.required}>
                     <span
                       class="rounded bg-surface-sunken px-1 text-[0.6rem] uppercase tracking-wider text-fg-subtle"
@@ -243,14 +229,11 @@ function SectionView(props: {
                 </div>
                 <Show when={f.default !== undefined}>
                   <div class="mt-0.5 text-[0.68rem] text-fg-subtle">
-                    default:{" "}
-                    <code class="font-mono text-fg-muted">{f.default}</code>
+                    default: <code class="font-mono text-fg-muted">{f.default}</code>
                   </div>
                 </Show>
                 <Show when={f.description}>
-                  <div class="mt-0.5 text-[0.68rem] text-fg-subtle">
-                    {f.description}
-                  </div>
+                  <div class="mt-0.5 text-[0.68rem] text-fg-subtle">{f.description}</div>
                 </Show>
               </li>
             )}

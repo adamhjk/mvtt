@@ -21,20 +21,28 @@ Solid assigns the variable just **before** the element is appended to the DOM. A
 ### Callback form
 
 ```tsx
-return <div ref={(el) => {
-  // el is the DOM node, BEFORE attachment to the DOM.
-  observe(el);
-}}>...</div>;
+return (
+  <div
+    ref={(el) => {
+      // el is the DOM node, BEFORE attachment to the DOM.
+      observe(el);
+    }}
+  >
+    ...
+  </div>
+);
 ```
 
 Use the callback form when you need to do something with the element at creation time, including registering cleanup:
 
 ```tsx
-<div ref={(el) => {
-  const ro = new ResizeObserver(/* ... */);
-  ro.observe(el);
-  onCleanup(() => ro.disconnect());
-}} />
+<div
+  ref={(el) => {
+    const ro = new ResizeObserver(/* ... */);
+    ro.observe(el);
+    onCleanup(() => ro.disconnect());
+  }}
+/>
 ```
 
 `onCleanup` runs when the surrounding owner is disposed (component unmount).
@@ -42,7 +50,7 @@ Use the callback form when you need to do something with the element at creation
 ### When to use which
 
 - **Variable form** — most cases. You access the element later, in `onMount`/event handlers.
-- **Callback form** — when the *element* needs setup that includes a cleanup. Fine for most third-party-library integration.
+- **Callback form** — when the _element_ needs setup that includes a cleanup. Fine for most third-party-library integration.
 
 ### Signal as ref — for elements that come and go
 
@@ -72,7 +80,7 @@ The setter is just a function that takes the element — Solid will call it.
 let el!: HTMLDivElement;
 
 onMount(() => {
-  el.focus();             // element is in the DOM here
+  el.focus(); // element is in the DOM here
 });
 
 return <input ref={el} />;
@@ -114,8 +122,10 @@ For SVG sub-elements, use the specific interface (`SVGCircleElement`, etc.).
 For callback refs:
 
 ```tsx
-const setRef = (el: HTMLDivElement) => { /* ... */ };
-<div ref={setRef} />
+const setRef = (el: HTMLDivElement) => {
+  /* ... */
+};
+<div ref={setRef} />;
 ```
 
 ## Directives — `use:*`
@@ -144,7 +154,7 @@ function clickOutside(el: HTMLElement, accessor: () => () => void) {
   onCleanup(() => document.removeEventListener("click", handler));
 }
 
-<div use:clickOutside={() => setOpen(false)}>...</div>
+<div use:clickOutside={() => setOpen(false)}>...</div>;
 ```
 
 The directive runs **during render, before the element is attached**, so it can register effects and listeners that are cleaned up automatically when the element's owner disposes.
@@ -165,7 +175,7 @@ function model(el: HTMLInputElement, accessor: () => Signal<string>) {
 }
 
 const [name, setName] = createSignal("");
-<input type="text" use:model={[name, setName]} />
+<input type="text" use:model={[name, setName]} />;
 ```
 
 ### Directives don't forward through user-defined components
@@ -205,6 +215,7 @@ See `solid-typescript`.
 ### Tree-shaking gotcha for directives
 
 If your directive is imported from another file but only referenced via `use:foo` (not as a value), the bundler may treat the import as type-only and tree-shake it. Either:
+
 - Configure `babel-preset-typescript` with `onlyRemoveTypeImports: true`.
 - For `vite-plugin-solid`: `solidPlugin({ typescript: { onlyRemoveTypeImports: true } })`.
 - Or add a no-op reference: `directive; <input use:directive />`.

@@ -141,7 +141,6 @@ const rope = new MeshRope({ texture, points });
 
 `SimpleRope` was renamed to `MeshRope` in v8 and switched to an options-object constructor.
 
-
 ### [HIGH] Too few points for a smooth curve
 
 Wrong:
@@ -163,11 +162,9 @@ const rope = new MeshRope({ texture, points });
 
 The rope only bends at point boundaries. Two points produce a straight segment; a curved rope needs many closely-spaced points (typically 15–30 for a visible bend).
 
-
 ### [MEDIUM] Non-power-of-two texture with `textureScale > 0`
 
 When `textureScale` is positive, the rope sets the texture source's `addressMode` to `'repeat'`. Some WebGL drivers clamp non-power-of-two textures instead of wrapping, causing the tile pattern to stretch. Resize the source to power-of-two dimensions (128, 256, 512, etc.) for reliable wrapping.
-
 
 ## API Reference
 

@@ -19,19 +19,10 @@ import { type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useTrait } from "@vtt/substrate/client";
 import { canWrite, Permissions } from "@vtt/permissions/shared";
 import { uploadAssetForWorld } from "@vtt/assets/client";
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, Show, type JSX } from "solid-js";
 import { Character, CharacterToken } from "../shared/traits.js";
 import { resolveCharacterTokenUrl } from "../shared/token-image.js";
-import {
-  RenameCharacter,
-  SetCharacterTokenImage,
-} from "../shared/commands.js";
+import { RenameCharacter, SetCharacterTokenImage } from "../shared/commands.js";
 import { ActiveToggle } from "./active-toggle.js";
 import { useMe } from "./use-me.js";
 
@@ -53,9 +44,7 @@ export function IdentityFill(props: { characterId: string }): JSX.Element {
   const permissions = useTrait(props.characterId, Permissions);
   const tokenImage = useTrait(props.characterId, CharacterToken);
 
-  const canEdit = createMemo(() =>
-    canWrite(me(), permissions() as Parameters<typeof canWrite>[1]),
-  );
+  const canEdit = createMemo(() => canWrite(me(), permissions() as Parameters<typeof canWrite>[1]));
 
   const rename = (next: string) => {
     client.dispatch(
@@ -213,9 +202,7 @@ function TokenImageField(props: {
             </button>
           </Show>
         </div>
-        <p class="text-[0.7rem] text-fg-subtle">
-          PNG, JPG, GIF, WebP, AVIF, or SVG. Max 250 MB.
-        </p>
+        <p class="text-[0.7rem] text-fg-subtle">PNG, JPG, GIF, WebP, AVIF, or SVG. Max 250 MB.</p>
         <Show when={error()}>
           <p class="rounded-(--radius-control) border border-danger/40 bg-danger/10 px-2 py-1 text-[0.7rem] text-danger">
             {error()}

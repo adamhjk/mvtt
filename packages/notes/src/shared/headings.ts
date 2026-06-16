@@ -84,20 +84,13 @@ export function extractHeadings(text: string): HeadingItem[] {
  * Pull plain-text content out of a heading's mdast children. Exported
  * so the renderer's remark plugin can compute ids without re-parsing.
  */
-export function mdastTextContent(
-  children: ReadonlyArray<PhrasingContent>,
-): string {
+export function mdastTextContent(children: ReadonlyArray<PhrasingContent>): string {
   let s = "";
   for (const c of children) {
     if (c.type === "text" || c.type === "inlineCode" || c.type === "html") {
       s += (c as { value: string }).value;
-    } else if (
-      "children" in c &&
-      Array.isArray((c as { children: unknown[] }).children)
-    ) {
-      s += mdastTextContent(
-        (c as { children: ReadonlyArray<PhrasingContent> }).children,
-      );
+    } else if ("children" in c && Array.isArray((c as { children: unknown[] }).children)) {
+      s += mdastTextContent((c as { children: ReadonlyArray<PhrasingContent> }).children);
     }
   }
   return s;

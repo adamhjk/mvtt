@@ -49,12 +49,7 @@
  * passes). Tax timing lands in the system that watches resolution.
  */
 
-import {
-  defineCommand,
-  EntityId,
-  fail,
-  z,
-} from "@vtt/substrate";
+import { defineCommand, EntityId, fail, z } from "@vtt/substrate";
 import { DiceRoll } from "@dice-roller/rpg-dice-roller";
 import { requireSession } from "@vtt/identity/shared";
 import { requireWrite } from "@vtt/permissions/shared";
@@ -73,11 +68,7 @@ import {
   OfCourseSpent,
   SynergyAdvancementLoggedEvent,
 } from "./events.js";
-import {
-  countSuccesses,
-  TbRollMetaSchema,
-  type TbRollSpec,
-} from "./roll-spec.js";
+import { countSuccesses, TbRollMetaSchema, type TbRollSpec } from "./roll-spec.js";
 import { isKnownSkillId, getSkill } from "./skills.js";
 
 /* -------------------------------------------------------------------------
@@ -93,18 +84,14 @@ function readPools(
   world: Parameters<typeof requireWrite>[0]["world"],
   characterId: string,
 ): PoolsShape | undefined {
-  return (world.get(characterId as EntityId, [Pools]) as
-    | { Pools: PoolsShape }
-    | undefined)?.Pools;
+  return (world.get(characterId as EntityId, [Pools]) as { Pools: PoolsShape } | undefined)?.Pools;
 }
 
 function readSpec(
   world: Parameters<typeof requireWrite>[0]["world"],
   rollId: string,
 ): TbRollSpec | null {
-  const f = world.get(rollId as EntityId, [Formula]) as
-    | { Formula: { meta?: unknown } }
-    | undefined;
+  const f = world.get(rollId as EntityId, [Formula]) as { Formula: { meta?: unknown } } | undefined;
   if (!f) return null;
   const parsed = TbRollMetaSchema.safeParse(f.Formula.meta);
   return parsed.success ? parsed.data.spec : null;
@@ -114,18 +101,26 @@ function readDice(
   world: Parameters<typeof requireWrite>[0]["world"],
   rollId: string,
 ): ReadonlyArray<{ sides: number | "F"; value: number }> {
-  return (world.get(rollId as EntityId, [RollResult]) as
-    | { RollResult: { dice: ReadonlyArray<{ sides: number | "F"; value: number }> } }
-    | undefined)?.RollResult.dice ?? [];
+  return (
+    (
+      world.get(rollId as EntityId, [RollResult]) as
+        | { RollResult: { dice: ReadonlyArray<{ sides: number | "F"; value: number }> } }
+        | undefined
+    )?.RollResult.dice ?? []
+  );
 }
 
 function readSpends(
   world: Parameters<typeof requireWrite>[0]["world"],
   rollId: string,
 ): ReadonlyArray<RollSpendEntry> {
-  return (world.get(rollId as EntityId, [RollSpends]) as
-    | { RollSpends: { entries: ReadonlyArray<RollSpendEntry> } }
-    | undefined)?.RollSpends.entries ?? [];
+  return (
+    (
+      world.get(rollId as EntityId, [RollSpends]) as
+        | { RollSpends: { entries: ReadonlyArray<RollSpendEntry> } }
+        | undefined
+    )?.RollSpends.entries ?? []
+  );
 }
 
 function readRoller(
@@ -165,10 +160,7 @@ function rollD6s(count: number): { sides: number; value: number }[] {
 }
 
 /** True when any spend in `entries` is of the given kind. */
-function hasSpend(
-  entries: ReadonlyArray<RollSpendEntry>,
-  kind: RollSpendEntry["kind"],
-): boolean {
+function hasSpend(entries: ReadonlyArray<RollSpendEntry>, kind: RollSpendEntry["kind"]): boolean {
   return entries.some((e) => e.kind === kind);
 }
 
@@ -321,9 +313,7 @@ export const SpendDeeperUnderstanding = defineCommand({
     const entries = readSpends(ctx.world, ctx.cmd.rollId);
     for (const e of entries) {
       if (e.rerolledIndices.includes(ctx.cmd.dieIndex)) {
-        return fail(
-          `die ${ctx.cmd.dieIndex} already rerolled — DH p.77 forbids double-rerolls`,
-        );
+        return fail(`die ${ctx.cmd.dieIndex} already rerolled — DH p.77 forbids double-rerolls`);
       }
     }
     return requireWrite(ctx, roller.characterId as EntityId);
@@ -385,16 +375,10 @@ export const SpendOfCourse = defineCommand({
       return fail(`Of Course! already spent on this roll`);
     }
     if (hasSpend(entries, "luck")) {
-      return fail(
-        `cannot spend Of Course! after Luck — DH p.77 requires OC first`,
-      );
+      return fail(`cannot spend Of Course! after Luck — DH p.77 requires OC first`);
     }
     const dice = readDice(ctx.world, ctx.cmd.rollId);
-    const fails = failIndicesNotAlreadyRerolled(
-      dice,
-      entries,
-      spec.successTarget,
-    );
+    const fails = failIndicesNotAlreadyRerolled(dice, entries, spec.successTarget);
     if (fails.length === 0) {
       return fail(`no eligible failed dice to reroll`);
     }
@@ -409,11 +393,7 @@ export const SpendOfCourse = defineCommand({
     if (!spec) return [];
     const dice = readDice(world, cmd.rollId);
     const entries = readSpends(world, cmd.rollId);
-    const fails = failIndicesNotAlreadyRerolled(
-      dice,
-      entries,
-      spec.successTarget,
-    );
+    const fails = failIndicesNotAlreadyRerolled(dice, entries, spec.successTarget);
     const fresh = rollD6s(fails.length);
     return [
       OfCourseSpent({
@@ -455,10 +435,7 @@ const HELP_PROVIDED_BY_PREFIX = "help:";
  * or null when the helper didn't help on this roll. The chat row uses
  * this to decide which advancement target Synergy should mark.
  */
-export function helperOptionFromSpec(
-  spec: TbRollSpec,
-  helperCharacterId: string,
-): string | null {
+export function helperOptionFromSpec(spec: TbRollSpec, helperCharacterId: string): string | null {
   for (const m of spec.modifiers) {
     if (m.source !== "help") continue;
     const pb = m.providedBy ?? "";
@@ -554,8 +531,7 @@ function rollOutcome(
   if (spec.dispositionMode) return null;
   const raw = countSuccesses(dice, spec.successTarget);
   const total = raw + spec.bonusSuccesses;
-  const passed =
-    spec.obstacle === null ? total > 0 : total >= spec.obstacle;
+  const passed = spec.obstacle === null ? total > 0 : total >= spec.obstacle;
   return passed ? "pass" : "fail";
 }
 
@@ -574,14 +550,9 @@ export const LogSynergyAdvancement = defineCommand({
     if (!spec) return fail(`roll ${ctx.cmd.rollId} is not a torchbearer roll`);
     const synergyHelpers = spec.synergyHelpers ?? [];
     if (!synergyHelpers.includes(ctx.cmd.helperCharacterId as string)) {
-      return fail(
-        `${ctx.cmd.helperCharacterId} did not commit synergy on this roll`,
-      );
+      return fail(`${ctx.cmd.helperCharacterId} did not commit synergy on this roll`);
     }
-    const optionId = helperOptionFromSpec(
-      spec,
-      ctx.cmd.helperCharacterId as string,
-    );
+    const optionId = helperOptionFromSpec(spec, ctx.cmd.helperCharacterId as string);
     if (optionId === null) {
       return fail(
         `${ctx.cmd.helperCharacterId} has no help modifier on this roll — synergy log requires the underlying help`,
@@ -596,9 +567,7 @@ export const LogSynergyAdvancement = defineCommand({
     const dice = readDice(ctx.world, ctx.cmd.rollId);
     const outcome = rollOutcome(spec, dice);
     if (outcome === null) {
-      return fail(
-        `synergy advancement requires a resolvable test (no disposition rolls)`,
-      );
+      return fail(`synergy advancement requires a resolvable test (no disposition rolls)`);
     }
     const already = ctx.world.get(ctx.cmd.rollId, [SynergyAdvancementLogged]) as
       | {

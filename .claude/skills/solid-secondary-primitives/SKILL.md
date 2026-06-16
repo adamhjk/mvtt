@@ -10,8 +10,11 @@ license: MIT
 
 ```ts
 import {
-  createComputed, createRenderEffect,
-  createReaction, createDeferred, createSelector,
+  createComputed,
+  createRenderEffect,
+  createReaction,
+  createDeferred,
+  createSelector,
 } from "solid-js";
 ```
 
@@ -24,10 +27,12 @@ function createComputed<T>(fn: (prev: T) => T, value?: T, options?: { name?: str
 Like `createEffect`, but runs **synchronously** when its dependencies change, during the same update flush. It runs **before** `createEffect` and `createRenderEffect`.
 
 When to use:
+
 - Setting up a synchronous reactive chain that downstream effects depend on.
 - Library/framework code that needs upstream-aware setup before render.
 
 When **not** to use:
+
 - App-level side effects. Use `createEffect`.
 - Caching a value. Use `createMemo`.
 - DOM writes timed to render. Use `createRenderEffect`.
@@ -47,15 +52,15 @@ In day-to-day Solid code you rarely write `createComputed`. If you find yourself
 function createRenderEffect<T>(fn: (prev: T) => T, value?: T, options?: { name?: string }): void;
 ```
 
-Runs synchronously, **after** `createComputed`s and **before** the DOM is committed. Use this when you need to write DOM *during* the render phase — typically refs and directives.
+Runs synchronously, **after** `createComputed`s and **before** the DOM is committed. Use this when you need to write DOM _during_ the render phase — typically refs and directives.
 
 The classic use is in custom directives:
 
 ```ts
 function model(el: HTMLInputElement, accessor: () => Signal<string>) {
   const [v, setV] = accessor();
-  createRenderEffect(() => (el.value = v()));   // writes el.value before commit
-  el.addEventListener("input", e => setV((e.target as HTMLInputElement).value));
+  createRenderEffect(() => (el.value = v())); // writes el.value before commit
+  el.addEventListener("input", (e) => setV((e.target as HTMLInputElement).value));
 }
 ```
 
@@ -78,14 +83,15 @@ const track = createReaction(() => {
   console.log("count moved");
 });
 
-track(() => count());     // subscribes to count
-setCount(1);              // logs "count moved" — and reaction stops listening.
-setCount(2);              // nothing logged.
-track(() => count());     // re-armed
-setCount(3);              // logs "count moved" again.
+track(() => count()); // subscribes to count
+setCount(1); // logs "count moved" — and reaction stops listening.
+setCount(2); // nothing logged.
+track(() => count()); // re-armed
+setCount(3); // logs "count moved" again.
 ```
 
 Use cases:
+
 - "Dirty" tracking — fire once when a form field changes from its initial value.
 - Reactive subscriptions that should re-arm on demand.
 - Custom observation primitives.
@@ -93,7 +99,10 @@ Use cases:
 ## `createDeferred` — idle-time derived
 
 ```ts
-function createDeferred<T>(source: () => T, options?: { equals?: false | ((a: T, b: T) => boolean); name?: string; timeoutMs?: number }): () => T;
+function createDeferred<T>(
+  source: () => T,
+  options?: { equals?: false | ((a: T, b: T) => boolean); name?: string; timeoutMs?: number },
+): () => T;
 ```
 
 Returns a derived signal that mirrors `source` — but updates during the browser's idle time (via `requestIdleCallback`), or after `timeoutMs` if provided. Useful for de-prioritizing expensive UI updates that don't need to happen on the same frame.
@@ -131,9 +140,7 @@ Every time `selectedId()` changes, **every row** re-evaluates `item.id === selec
 ```tsx
 const isSelected = createSelector(selectedId);
 
-<For each={items()}>
-  {(item) => <Row selected={isSelected(item.id)} />}
-</For>
+<For each={items()}>{(item) => <Row selected={isSelected(item.id)} />}</For>;
 ```
 
 Now only the two affected rows recompute when `selectedId` changes. The selector internally memoizes, comparing the new and old source value and only notifying the consumer whose passed-in value matched/unmatched the change.
@@ -189,7 +196,7 @@ const [draft, setDraft] = createSignal(original());
 
 const [dirty, setDirty] = createSignal(false);
 const track = createReaction(() => setDirty(true));
-track(() => draft());          // arm
+track(() => draft()); // arm
 // after first change to draft, dirty becomes true.
 ```
 
@@ -207,11 +214,9 @@ return <BigList filter={deferredFilter()} />;
 ```tsx
 const isSelected = createSelector(selectedId);
 
-<For each={items()}>{
-  (item) => (
-    <li classList={{ selected: isSelected(item.id) }}>{item.label}</li>
-  )
-}</For>
+<For each={items()}>
+  {(item) => <li classList={{ selected: isSelected(item.id) }}>{item.label}</li>}
+</For>;
 ```
 
 ## Related

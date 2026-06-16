@@ -316,10 +316,7 @@ function IdentitySection(props: { characterId: string }): JSX.Element {
           <Show when={canEdit()}>
             <ActiveToggle characterId={props.characterId} size="md" />
           </Show>
-          <span
-            class="tb-npc-sheet__team-toggle"
-            data-testid="npc-team-display"
-          >
+          <span class="tb-npc-sheet__team-toggle" data-testid="npc-team-display">
             Side:&nbsp;
             <strong>{team()?.kind === "party" ? "Party" : "Enemy"}</strong>
             <Show when={canEdit()}>
@@ -352,11 +349,7 @@ function StatBlockSection(props: { characterId: string }): JSX.Element {
 
   return (
     <kit.SheetSection title="Stat Block">
-      <div
-        class="tb-npc-sheet__statbar"
-        role="group"
-        aria-label="NPC stat block"
-      >
+      <div class="tb-npc-sheet__statbar" role="group" aria-label="NPC stat block">
         <RollableStat
           characterId={props.characterId}
           rollable={WillCheck.name}
@@ -398,11 +391,7 @@ function StatBlockSection(props: { characterId: string }): JSX.Element {
           testId="npc-circles"
         />
         <PlainStat label="Might" value={might()} testId="npc-might" />
-        <PlainStat
-          label="Precedence"
-          value={precedence()}
-          testId="npc-precedence"
-        />
+        <PlainStat label="Precedence" value={precedence()} testId="npc-precedence" />
       </div>
       <kit.SheetGroup layout="grid" cols={2}>
         <kit.FieldRow label="Will">
@@ -498,28 +487,18 @@ function RollableStat(props: {
       class="tb-npc-sheet__stat tb-npc-sheet__stat-rollable"
     >
       <span class="tb-npc-sheet__stat-label">{props.label}</span>
-      <span
-        class="tb-npc-sheet__stat-value"
-        data-testid={`${props.testId}-value`}
-      >
+      <span class="tb-npc-sheet__stat-value" data-testid={`${props.testId}-value`}>
         {props.value}
       </span>
     </kit.RollableLabel>
   );
 }
 
-function PlainStat(props: {
-  label: string;
-  value: number;
-  testId: string;
-}): JSX.Element {
+function PlainStat(props: { label: string; value: number; testId: string }): JSX.Element {
   return (
     <div class="tb-npc-sheet__stat">
       <span class="tb-npc-sheet__stat-label">{props.label}</span>
-      <span
-        class="tb-npc-sheet__stat-value"
-        data-testid={`${props.testId}-value`}
-      >
+      <span class="tb-npc-sheet__stat-value" data-testid={`${props.testId}-value`}>
         {props.value}
       </span>
     </div>
@@ -541,9 +520,7 @@ function SkillsSection(props: { characterId: string }): JSX.Element {
     [...ALL_SKILLS].sort((a, b) => a.name.localeCompare(b.name)),
   );
 
-  const ratedSkills = createMemo<
-    ReadonlyArray<{ skill: SkillEntry; rating: number }>
-  >(() => {
+  const ratedSkills = createMemo<ReadonlyArray<{ skill: SkillEntry; rating: number }>>(() => {
     const entries = skillsTrait()?.entries ?? {};
     const out: Array<{ skill: SkillEntry; rating: number }> = [];
     for (const s of sortedSkills()) {
@@ -562,9 +539,7 @@ function SkillsSection(props: { characterId: string }): JSX.Element {
     return sortedSkills().filter((s) => (entries[s.id]?.rating ?? 0) === 0);
   });
 
-  const [pickSkill, setPickSkill] = createSignal<string>(
-    unratedSkills()[0]?.id ?? "",
-  );
+  const [pickSkill, setPickSkill] = createSignal<string>(unratedSkills()[0]?.id ?? "");
   const [pickRating, setPickRating] = createSignal<number>(2);
 
   const setSkillRating = (skillId: string, rating: number): void => {
@@ -601,10 +576,7 @@ function SkillsSection(props: { characterId: string }): JSX.Element {
         <div class="tb-npc-sheet__skills">
           <For each={ratedSkills()}>
             {(row) => (
-              <div
-                class="tb-npc-sheet__skill-row"
-                data-testid={`npc-skill-row-${row.skill.id}`}
-              >
+              <div class="tb-npc-sheet__skill-row" data-testid={`npc-skill-row-${row.skill.id}`}>
                 <kit.RollableLabel
                   characterId={props.characterId}
                   rollable={SkillCheck.name}
@@ -639,21 +611,15 @@ function SkillsSection(props: { characterId: string }): JSX.Element {
             data-testid="npc-skill-add-select"
             class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-sm"
           >
-            <For each={unratedSkills()}>
-              {(s) => <option value={s.id}>{s.name}</option>}
-            </For>
+            <For each={unratedSkills()}>{(s) => <option value={s.id}>{s.name}</option>}</For>
           </select>
           <select
             value={String(pickRating())}
-            onChange={(e) =>
-              setPickRating(Math.max(1, Math.min(6, +e.currentTarget.value)))
-            }
+            onChange={(e) => setPickRating(Math.max(1, Math.min(6, +e.currentTarget.value)))}
             data-testid="npc-skill-add-rating"
             class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-sm"
           >
-            <For each={[1, 2, 3, 4, 5, 6]}>
-              {(n) => <option value={String(n)}>{n}</option>}
-            </For>
+            <For each={[1, 2, 3, 4, 5, 6]}>{(n) => <option value={String(n)}>{n}</option>}</For>
           </select>
           <button
             type="button"
@@ -708,10 +674,7 @@ function WisesSection(props: { characterId: string }): JSX.Element {
       setDraft("");
       return;
     }
-    writeEntries([
-      ...entries(),
-      { name, pass: false, fail: false, fate: false, persona: false },
-    ]);
+    writeEntries([...entries(), { name, pass: false, fail: false, fate: false, persona: false }]);
     setDraft("");
   };
 
@@ -729,13 +692,19 @@ function WisesSection(props: { characterId: string }): JSX.Element {
           </div>
         }
       >
-        <ul style={{ display: "flex", "flex-wrap": "wrap", gap: "0.4rem", margin: 0, padding: 0, "list-style": "none" }}>
+        <ul
+          style={{
+            display: "flex",
+            "flex-wrap": "wrap",
+            gap: "0.4rem",
+            margin: 0,
+            padding: 0,
+            "list-style": "none",
+          }}
+        >
           <For each={entries()}>
             {(w, i) => (
-              <li
-                class="tb-npc-sheet__role-pill"
-                data-testid={`npc-wise-${i()}`}
-              >
+              <li class="tb-npc-sheet__role-pill" data-testid={`npc-wise-${i()}`}>
                 {w.name}
                 <Show when={canEdit()}>
                   <button
@@ -857,13 +826,19 @@ function TraitsSection(props: { characterId: string }): JSX.Element {
           </div>
         }
       >
-        <ul style={{ display: "flex", "flex-wrap": "wrap", gap: "0.4rem", margin: 0, padding: 0, "list-style": "none" }}>
+        <ul
+          style={{
+            display: "flex",
+            "flex-wrap": "wrap",
+            gap: "0.4rem",
+            margin: 0,
+            padding: 0,
+            "list-style": "none",
+          }}
+        >
           <For each={entries()}>
             {(t, i) => (
-              <li
-                class="tb-npc-sheet__role-pill"
-                data-testid={`npc-trait-${i()}`}
-              >
+              <li class="tb-npc-sheet__role-pill" data-testid={`npc-trait-${i()}`}>
                 {t.name} ({t.level})
                 <Show when={canEdit()}>
                   <button
@@ -905,15 +880,11 @@ function TraitsSection(props: { characterId: string }): JSX.Element {
           />
           <select
             value={String(draftLevel())}
-            onChange={(e) =>
-              setDraftLevel(Math.max(1, Math.min(3, +e.currentTarget.value)))
-            }
+            onChange={(e) => setDraftLevel(Math.max(1, Math.min(3, +e.currentTarget.value)))}
             data-testid="npc-trait-add-level"
             class="rounded-(--radius-control) border border-border bg-surface px-2 py-1 text-sm"
           >
-            <For each={[1, 2, 3]}>
-              {(n) => <option value={String(n)}>Lv {n}</option>}
-            </For>
+            <For each={[1, 2, 3]}>{(n) => <option value={String(n)}>Lv {n}</option>}</For>
           </select>
           <button
             type="button"
@@ -958,9 +929,7 @@ function ConditionsSection(props: { characterId: string }): JSX.Element {
               type="button"
               class="tb-npc-sheet__cond-chip"
               data-on={
-                conditions()?.[
-                  key as keyof NonNullable<ReturnType<typeof conditions>>
-                ]
+                conditions()?.[key as keyof NonNullable<ReturnType<typeof conditions>>]
                   ? "true"
                   : "false"
               }

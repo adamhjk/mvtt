@@ -127,7 +127,6 @@ export function tintForUser(userId: string): Color3 {
   return Color3.FromHSV(h % 360, 0.55, 0.78);
 }
 
-
 // ─── Geometry builders ──────────────────────────────────────────────
 //
 // Each builder returns face data for one die kind:
@@ -203,12 +202,7 @@ function buildD4Faces(): FaceSpec[] {
     // without throwing.
     label: "0",
   });
-  return [
-    face(0, 1, 2),
-    face(0, 3, 1),
-    face(0, 2, 3),
-    face(1, 3, 2),
-  ];
+  return [face(0, 1, 2), face(0, 3, 1), face(0, 2, 3), face(1, 3, 2)];
 }
 
 /** Cube, 6 square faces. */
@@ -544,10 +538,7 @@ function rotationFromTo(from: Vector3, to: Vector3): Quaternion {
   if (dot > 0.9999) return Quaternion.Identity();
   if (dot < -0.9999) {
     // Antiparallel — pick any axis perpendicular to `from`.
-    const perp =
-      Math.abs(from.x) < 0.9
-        ? new Vector3(1, 0, 0)
-        : new Vector3(0, 1, 0);
+    const perp = Math.abs(from.x) < 0.9 ? new Vector3(1, 0, 0) : new Vector3(0, 1, 0);
     const axis = Vector3.Cross(from, perp).normalize();
     return Quaternion.RotationAxis(axis, Math.PI);
   }
@@ -561,7 +552,12 @@ function buildDieMesh(scene: Scene, name: string, faces: FaceSpec[]): BuiltMesh 
   const normals: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
-  const subMeshRanges: { indexStart: number; indexCount: number; vertStart: number; vertCount: number }[] = [];
+  const subMeshRanges: {
+    indexStart: number;
+    indexCount: number;
+    vertStart: number;
+    vertCount: number;
+  }[] = [];
   const faceRotations: Quaternion[] = [];
   const faceLocalNormals: Vector3[] = [];
 
@@ -590,7 +586,9 @@ function buildDieMesh(scene: Scene, name: string, faces: FaceSpec[]): BuiltMesh 
       ];
     } else {
       // Centroid of face (average of vertices).
-      let cx = 0, cy = 0, cz = 0;
+      let cx = 0,
+        cy = 0,
+        cz = 0;
       for (const v of verts) {
         cx += v.x;
         cy += v.y;
@@ -606,10 +604,7 @@ function buildDieMesh(scene: Scene, name: string, faces: FaceSpec[]): BuiltMesh 
       // right)`) so the texture's V axis points in the direction
       // that, after the face is rotated to land on top of the die,
       // ends up aligned with the camera's screen-up.
-      const refUp =
-        Math.abs(normal.y) < 0.9
-          ? new Vector3(0, 1, 0)
-          : new Vector3(1, 0, 0);
+      const refUp = Math.abs(normal.y) < 0.9 ? new Vector3(0, 1, 0) : new Vector3(1, 0, 0);
       const right = Vector3.Cross(refUp, normal).normalize();
       const up = Vector3.Cross(right, normal).normalize();
 
@@ -723,10 +718,7 @@ function createWoodTexture(scene: Scene): DynamicTexture {
   // Vertical grain bands. Quasi-deterministic via a small sine
   // mix so the grain is coherent rather than pure noise.
   for (let x = 0; x < SIZE; x++) {
-    const v =
-      Math.sin(x * 0.04) * 0.4 +
-      Math.sin(x * 0.13) * 0.25 +
-      (Math.random() - 0.5) * 0.35;
+    const v = Math.sin(x * 0.04) * 0.4 + Math.sin(x * 0.13) * 0.25 + (Math.random() - 0.5) * 0.35;
     const tint = Math.round(v * 22);
     const r = Math.max(40, Math.min(150, 90 + tint));
     const g = Math.max(25, Math.min(110, 58 + tint));
@@ -788,7 +780,14 @@ function createVelvetTexture(scene: Scene): DynamicTexture {
   // Soft radial vignette darker toward the centre — sells the
   // "well of velvet" look. Gradient from transparent at edges to
   // a slightly darker tint at the middle.
-  const grad = ctx.createRadialGradient(SIZE / 2, SIZE / 2, SIZE * 0.1, SIZE / 2, SIZE / 2, SIZE * 0.7);
+  const grad = ctx.createRadialGradient(
+    SIZE / 2,
+    SIZE / 2,
+    SIZE * 0.1,
+    SIZE / 2,
+    SIZE / 2,
+    SIZE * 0.7,
+  );
   grad.addColorStop(0, "rgba(0, 0, 0, 0.18)");
   grad.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = grad;
@@ -870,12 +869,7 @@ function buildFaceTexture(
     // centre.
     const fontSize = 64;
     ctx.font = `bold ${fontSize}px sans-serif`;
-    const drawCorner = (
-      canvasX: number,
-      canvasY: number,
-      value: number,
-      rotateDeg: number,
-    ) => {
+    const drawCorner = (canvasX: number, canvasY: number, value: number, rotateDeg: number) => {
       const text = String(value);
       ctx.save();
       ctx.translate(canvasX, canvasY);
@@ -913,11 +907,7 @@ function buildFaceTexture(
     const baseSize = centeredFontSize ?? 170;
     const fontSize = label.length > 1 ? Math.round(baseSize * 0.76) : baseSize;
     ctx.font = `bold ${fontSize}px sans-serif`;
-    ctx.fillText(
-      label,
-      FACE_TEX_SIZE / 2,
-      FACE_TEX_SIZE / 2 + fontSize * 0.04,
-    );
+    ctx.fillText(label, FACE_TEX_SIZE / 2, FACE_TEX_SIZE / 2 + fontSize * 0.04);
     if (shouldUnderline(label)) {
       ctx.lineWidth = 6;
       ctx.strokeStyle = "#ffffff";
@@ -1009,7 +999,7 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
   const wallMat = new StandardMaterial("wall-mat", scene);
   wallMat.diffuseTexture = createWoodTexture(scene);
   wallMat.diffuseColor = new Color3(1, 1, 1);
-  wallMat.specularColor = new Color3(0.18, 0.15, 0.10); // wood gloss
+  wallMat.specularColor = new Color3(0.18, 0.15, 0.1); // wood gloss
   wallMat.specularPower = 24;
 
   // The tray now separates *visual* meshes (flat: a wood frame +
@@ -1161,13 +1151,7 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
     // extend from below the floor up to PHYS_WALL_HEIGHT, with
     // PHYS_WALL_THICKNESS on the inward axis — together that's a
     // sealed box that fast handfuls of dice cannot tunnel through.
-    const buildPhysWall = (
-      n: string,
-      w: number,
-      d: number,
-      x: number,
-      z: number,
-    ): Mesh => {
+    const buildPhysWall = (n: string, w: number, d: number, x: number, z: number): Mesh => {
       const wall = MeshBuilder.CreateBox(
         n,
         { width: w, depth: d, height: PHYS_WALL_HEIGHT },
@@ -1259,9 +1243,7 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
     if (kind === 4) {
       const { positions, values } = getD4VertexData();
       const normals = positions.map((p) => p.clone().normalize());
-      faceRotations = normals.map((n) =>
-        rotationFromTo(n, new Vector3(0, 1, 0)),
-      );
+      faceRotations = normals.map((n) => rotationFromTo(n, new Vector3(0, 1, 0)));
       faceLocalNormals = normals;
       faceValues = values;
     }
@@ -1431,11 +1413,7 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
     // and stacking on top of each other when they land.
     const throwSpeed = 9 + Math.random() * 7;
     agg.body.setLinearVelocity(
-      new Vector3(
-        -sideX * throwSpeed,
-        -1.0 - Math.random() * 2.0,
-        (Math.random() - 0.5) * 5.0,
-      ),
+      new Vector3(-sideX * throwSpeed, -1.0 - Math.random() * 2.0, (Math.random() - 0.5) * 5.0),
     );
     agg.body.setAngularVelocity(
       new Vector3(
@@ -1477,10 +1455,7 @@ export function createTray(canvas: HTMLCanvasElement): TrayHandle {
           return;
         }
         // Compute corrective torque axis in world space.
-        targetLocalNormal.rotateByQuaternionToRef(
-          mesh.rotationQuaternion!,
-          worldNormal,
-        );
+        targetLocalNormal.rotateByQuaternionToRef(mesh.rotationQuaternion!, worldNormal);
         const corr = Vector3.Cross(worldNormal, upAxis);
         // Magnitude of `corr` = sin(angle off from +Y), so the
         // bias self-tapers as the die approaches face-up.

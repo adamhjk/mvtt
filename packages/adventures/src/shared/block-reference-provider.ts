@@ -36,8 +36,9 @@ function snippetToExample(snippet: string | undefined): string | undefined {
   // when present, otherwise the choice list's first option, otherwise
   // a generic ellipsis.
   return snippet
-    .replace(/\$\{\d+\|([^|]+)\|[^}]*\}/g, (_m, choices: string) =>
-      String(choices).split(",")[0] ?? "",
+    .replace(
+      /\$\{\d+\|([^|]+)\|[^}]*\}/g,
+      (_m, choices: string) => String(choices).split(",")[0] ?? "",
     )
     .replace(/\$\{\d+:([^}]+)\}/g, (_m, dflt: string) => String(dflt))
     .replace(/\$\{\d+\}/g, "")
@@ -55,9 +56,7 @@ function snippetToExample(snippet: string | undefined): string | undefined {
  * available key, its type, its default. Whatever game-system plugin
  * is loaded, that's what shows up here.
  */
-export function buildBlockReferenceSections(
-  ctx: ReferenceProviderContext,
-): ReferenceSection[] {
+export function buildBlockReferenceSections(ctx: ReferenceProviderContext): ReferenceSection[] {
   const idx = buildBlockKindIndex(ctx.registry);
   const sections: ReferenceSection[] = [];
   // Deterministic order — sort by kind name so the cheatsheet doesn't
@@ -122,9 +121,7 @@ function enrichWithDynamicCompletions(
     //   - The field IS a value leaf (no `<key>` suffix). Ask the
     //     completer directly with the path's `[]` markers swapped to
     //     `*`.
-    const valuePath = segments
-      .filter((s) => s !== "<key>")
-      .map((s) => (s === "[]" ? "*" : s));
+    const valuePath = segments.filter((s) => s !== "<key>").map((s) => (s === "[]" ? "*" : s));
     let suggestions: ReadonlyArray<{ value: string; detail?: string }> = [];
     try {
       suggestions = kind.complete!(valuePath, {
@@ -140,9 +137,7 @@ function enrichWithDynamicCompletions(
       .join(" | ");
     const next = `values: ${labels}`;
     const description =
-      f.description && f.description.length > 0
-        ? `${f.description} — ${next}`
-        : next;
+      f.description && f.description.length > 0 ? `${f.description} — ${next}` : next;
     return { ...f, description };
   });
 }

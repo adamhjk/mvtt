@@ -18,10 +18,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import WebSocket from "ws";
 import { startServer, type ServerHandle } from "@vtt/substrate/server";
-import {
-  definePlugin,
-  InMemoryWorldsRepository,
-} from "@vtt/substrate";
+import { definePlugin, InMemoryWorldsRepository } from "@vtt/substrate";
 import { shellWorkbench } from "@vtt/shell-workbench";
 import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
@@ -63,7 +60,12 @@ const notesTestSystem = definePlugin({
   gameSystem: true,
 });
 
-interface AckMsg { kind: "ack"; commandId: string; ok: boolean; reason?: string }
+interface AckMsg {
+  kind: "ack";
+  commandId: string;
+  ok: boolean;
+  reason?: string;
+}
 interface EventMsg {
   kind: "event";
   seq: number;
