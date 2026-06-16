@@ -79,6 +79,11 @@ import {
   NoticeDismissed,
   SetGrindExtreme,
   SetGrindTurn,
+  // Light coverage:
+  AssignLightCoverage,
+  ClearLightCoverage,
+  LightCoverage,
+  LightCoverageChanged,
   // Items system:
   DropItem,
   EntryStateChanged,
@@ -269,6 +274,9 @@ import {
   GrindTollOpenedSystem,
   GrindTollRowAppliedSystem,
   LightWentOutSystem,
+  LightCoverageAutoClearOnBurnoutSystem,
+  LightCoverageAutoClearOnDouseSystem,
+  LightCoverageSystem,
   MonsterRemovalSystem,
   MonsterSpawningSystem,
   NpcRemovalSystem,
@@ -292,6 +300,7 @@ import {
 } from "./server/index.js";
 import {
   GrindTrackerStatusItem,
+  LightTrackerStatusItem,
   TbAbilitiesSkillsTabFill,
   TbActionsFill,
   TbAbilityImprovementFeed,
@@ -459,6 +468,7 @@ export const systemTorchbearer = definePlugin({
     TbCarries,
     ItemPosition,
     Grind,
+    LightCoverage,
     LightWentOutNotice,
     GrindToll,
     // Monsters:
@@ -507,6 +517,7 @@ export const systemTorchbearer = definePlugin({
     NoticeDismissed,
     GrindTollOpened,
     GrindTollRowApplied,
+    LightCoverageChanged,
     // Monsters:
     MonsterCreated,
     MonsterRemoved,
@@ -576,6 +587,8 @@ export const systemTorchbearer = definePlugin({
     SetGrindExtreme,
     DismissLightWentOut,
     MarkGrindToll,
+    AssignLightCoverage,
+    ClearLightCoverage,
     // Monsters:
     CreateBlankMonster,
     CreateMonsterFromCatalog,
@@ -652,6 +665,10 @@ export const systemTorchbearer = definePlugin({
     NoticeDismissSystem,
     GrindTollOpenedSystem,
     GrindTollRowAppliedSystem,
+    // Light coverage:
+    LightCoverageSystem,
+    LightCoverageAutoClearOnDouseSystem,
+    LightCoverageAutoClearOnBurnoutSystem,
     // Monsters:
     MonsterSpawningSystem,
     MonsterRemovalSystem,
@@ -676,7 +693,7 @@ export const systemTorchbearer = definePlugin({
     InvocationPerformRollable,
   ],
   fills: {
-    [WorkbenchStatusSlot.name]: [GrindTrackerStatusItem],
+    [WorkbenchStatusSlot.name]: [GrindTrackerStatusItem, LightTrackerStatusItem],
     [CharacterSheetIdentitySlot.name]: [TbIdentityFill],
     [CharacterSheetVitalsSlot.name]: [TbVitalsFill],
     [CharacterSheetTabsSlot.name]: [

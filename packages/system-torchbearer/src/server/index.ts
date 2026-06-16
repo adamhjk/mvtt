@@ -45,6 +45,11 @@ export {
   NoticeDismissSystem,
 } from "./grind-systems.js";
 export {
+  LightCoverageAutoClearOnBurnoutSystem,
+  LightCoverageAutoClearOnDouseSystem,
+  LightCoverageSystem,
+} from "../shared/light.js";
+export {
   TbBundleJoinSystem,
   TbBundleSplitSystem,
   TbCarryRebindOnForkSystem,
