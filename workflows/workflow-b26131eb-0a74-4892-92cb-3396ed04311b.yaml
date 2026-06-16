@@ -1,0 +1,77 @@
+id: b26131eb-0a74-4892-92cb-3396ed04311b
+name: mvtt-checks
+tags: {}
+description: >
+  Quality gate for the mvtt software factory. Runs lint (oxlint) and
+  typecheck (pnpm -r typecheck), and auto-formats the tree with oxfmt, as
+  three parallel jobs; only when all three succeed does the tests job
+  (vitest run) execute. A lint or typecheck failure fails the workflow,
+  which the factory's workflow-succeeded gate reads to route the work item
+  back to implementation. Format writes in place and does not gate.
+version: 1
+jobs:
+  - name: lint
+    description: Static lint with oxlint
+    steps:
+      - name: oxlint
+        description: Run oxlint over the repo
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: mvtt-checks-lint
+          methodName: execute
+          inputs:
+            run: pnpm lint
+            workingDir: /home/adam/src/mvtt
+
+  - name: format
+    description: Auto-format the tree with oxfmt (writes in place, does not gate)
+    steps:
+      - name: oxfmt
+        description: Format the repo in place with oxfmt
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: mvtt-checks-format
+          methodName: execute
+          inputs:
+            run: pnpm format
+            workingDir: /home/adam/src/mvtt
+
+  - name: typecheck
+    description: Recursive TypeScript typecheck
+    steps:
+      - name: typecheck
+        description: Run pnpm -r typecheck
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: mvtt-checks-typecheck
+          methodName: execute
+          inputs:
+            run: pnpm typecheck
+            workingDir: /home/adam/src/mvtt
+
+  - name: tests
+    description: Full test suite — runs only after lint, format, and typecheck all pass
+    dependsOn:
+      - job: lint
+        condition:
+          type: succeeded
+      - job: format
+        condition:
+          type: succeeded
+      - job: typecheck
+        condition:
+          type: succeeded
+    steps:
+      - name: vitest
+        description: Run the full vitest suite (node + jsdom + smoke)
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: mvtt-checks-tests
+          methodName: execute
+          inputs:
+            run: pnpm test
+            workingDir: /home/adam/src/mvtt

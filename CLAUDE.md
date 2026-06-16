@@ -1,3 +1,48 @@
+<!-- BEGIN swamp managed section - DO NOT EDIT -->
+
+# Project
+
+This repository is managed with [swamp](https://github.com/swamp-club/swamp).
+
+## Rules
+
+1. **Search before you build.** When automating AWS, APIs, or any external service: (a) search community extensions with `swamp extension search <query>` — prefer `@swamp/*` official extensions first, (b) search local/installed types with `swamp model type search <query>`, (c) if a community extension exists, install it with `swamp extension pull <package>` instead of building from scratch, (d) extend an existing type if it covers the domain but lacks the method you need, (e) only create a custom extension model in `extensions/models/` as a last resort. Use the `swamp` skill for guidance. The `command/shell` model is ONLY for ad-hoc one-off shell commands, NEVER for wrapping CLI tools or building integrations.
+2. **Extend, don't be clever.** When a model covers the domain but lacks the method you need, extend it with `export const extension` — don't bypass it with shell scripts, CLI tools, or multi-step hacks. One method, one purpose. Use `swamp model type describe <type> --json` to check available methods.
+3. **Use the data model.** Once data exists in a model (via `lookup`, `start`, `sync`, etc.), reference it with CEL expressions. Don't re-fetch data that's already available.
+4. **CEL expressions everywhere.** Wire models together with CEL expressions. Always prefer `data.latest("<name>", "<dataName>").attributes.<field>` over the deprecated `model.<name>.resource.<spec>.<instance>.attributes.<field>` pattern.
+5. **Verify before destructive operations.** Always `swamp model get <name> --json` and verify resource IDs before running delete/stop/destroy methods.
+6. **Prefer fan-out methods over loops.** When operating on multiple targets, use a single method that handles all targets internally (factory pattern) rather than looping N separate `swamp model method run` calls against the same model. Multiple parallel calls against the same model contend on the per-model lock, causing timeouts. A single fan-out method acquires the lock once and produces all outputs in one execution. Check `swamp model type describe` for methods that accept filters or produce multiple outputs.
+7. **Extension npm deps are bundled, not lockfile-tracked.** Swamp's bundler inlines all npm packages (except zod) into extension bundles at bundle time. `deno.lock` and `package.json` do NOT cover extension model dependencies — this is by design. Always pin explicit versions in `npm:` import specifiers (e.g., `npm:lodash-es@4.17.21`).
+8. **Reports for reusable data pipelines.** When the task involves building a repeatable pipeline to transform, aggregate, or analyze model output (security reports, cost analysis, compliance checks, summaries), create a report extension. Use the `swamp` skill for guidance.
+9. **"Workflow" means a swamp workflow.** In this repository the word "workflow" (and "create/run/execute/validate/debug workflow", "automate", "orchestrate", "automated/nightly job") refers to a swamp workflow — a declarative YAML DAG of model-method steps authored via `swamp workflow create`. Load and follow the `swamp` skill for these requests. Do NOT interpret these as a request to build an agent task list, spin up worktrees, or schedule a cron/remote agent. Only use those orchestration mechanisms when the user explicitly names one (e.g. "task list", "subagent", "worktree", "cron", "remote agent") or explicitly asks you to do the work yourself step by step rather than author a swamp workflow.
+
+## Skills
+
+**IMPORTANT:** Always load swamp skills, even when in plan mode. The skills provide
+essential context for working with this repository.
+
+- `swamp` - Swamp CLI — models, workflows, data, vaults, extensions, publishing, repos, reports, issues, and troubleshooting
+- `swamp-getting-started` - Interactive onboarding for new swamp users
+
+## Getting Started
+
+**IMPORTANT:** At the start of every conversation, run
+`swamp model search --json`. If no models are returned (empty result), you MUST
+immediately invoke the `swamp-getting-started` skill before doing anything else.
+This walks new users through an interactive onboarding tutorial.
+
+If models already exist, start by using the `swamp` skill to work with
+swamp models.
+
+## Commands
+
+Use `swamp --help` to see available commands. For a machine-readable JSON
+schema of the CLI (commands, options, arguments) intended for agent
+consumption, run `swamp help [<command>...]` — e.g. `swamp help` returns
+the full tree, and `swamp help model method run` scopes to a subtree.
+
+<!-- END swamp managed section -->
+
 # mvtt — agent guide
 
 mrpg-vtt is an open-source modern virtual tabletop. The substrate is intentionally tiny; **every game concept (dice, scenes, initiative, identity, chat, rule systems, content) is a plugin on equal footing.** Humans are not expected to write code against the framework directly — every architectural choice is graded on how legible and patternable the code is to an AI author.
@@ -12,7 +57,7 @@ mrpg-vtt is an open-source modern virtual tabletop. The substrate is intentional
 - **`design/torchbearer-conflict.md`** — TB conflict subsystem: the Reference Board UI, the action interaction matrix, the per-conflict-type disposition / action skill tables, weapon and armor pipelines, the side-scoped script secrecy model, and the resolution algorithm. Read before touching any conflict code, action chip, weapon-bonus engine, or condition-affects-conflict logic.
 - **`design/torchbearer-spells.md`** — TB arcane subsystem: spells as catalog entities (shared by reference, like items), spell books and scrolls as real items, memory palace and library as per-character traits, casting through the existing rolling subsystem with post-roll commit buttons, fuzzy spell picker. Read before touching any code in `client/tab-arcane.tsx`, `shared/spells/`, `data/tb-spells.generated.ts`, or anything that wires casting through the chat row.
 - **`design/adventures.md`** — adventures + fenced-block authoring: notes are the source of truth, fenced YAML blocks (`item` / `character` / `monster` / `encounter` / `loot`) materialise into entities via `BlockParseSystem`, schema-driven autocomplete, hybrid encounter binding (singular = bind, quantified = spawn copies), bundle import/export with `AdventureProvenance`, per-block update diffs. Also documents the `tbSeed` migration that promotes monsters/NPCs/spells to eager seeded templates. Read before touching `@vtt/adventures`, the TB block kinds (`packages/system-torchbearer/src/shared/blocks/`), the catalog seed (`packages/system-torchbearer/src/data/seed.ts`), or anything that materialises an entity from a fenced block.
-  - **Block-kind choice follows DATA SHAPE, not uniqueness.** Monsters are monsters. If the printed stat block is monster-shaped — Nature + Might + descriptors + per-conflict disposition HP + named conflict-weapon abilities (Cursed Blade, Stench of Death, etc.) with no will/health/skills/wises/belief/goal/instinct — use a `monster` block, *even if the foe is a one-of-a-kind named boss* (Haathor-Vash, the Barrow Wight, a named dragon, an undead king). Reach for `character` only when the foe carries PC-shape stats: will + health + skills + wises + belief/goal/instinct (e.g. Beronin the Bandit Chief with a full sheet). Bind-vs-spawn is decided by the *quantifier on the encounter ref*, not by the block kind — `[[monster:Haathor-Vash]]` (singular) binds to that one entity; `3× [[monster:thoul]]` spawns three copies from the template.
+  - **Block-kind choice follows DATA SHAPE, not uniqueness.** Monsters are monsters. If the printed stat block is monster-shaped — Nature + Might + descriptors + per-conflict disposition HP + named conflict-weapon abilities (Cursed Blade, Stench of Death, etc.) with no will/health/skills/wises/belief/goal/instinct — use a `monster` block, _even if the foe is a one-of-a-kind named boss_ (Haathor-Vash, the Barrow Wight, a named dragon, an undead king). Reach for `character` only when the foe carries PC-shape stats: will + health + skills + wises + belief/goal/instinct (e.g. Beronin the Bandit Chief with a full sheet). Bind-vs-spawn is decided by the _quantifier on the encounter ref_, not by the block kind — `[[monster:Haathor-Vash]]` (singular) binds to that one entity; `3× [[monster:thoul]]` spawns three copies from the template.
 - **`.claude/skills/ecs/SKILL.md`** — patterns for traits, events, commands, systems, views, sentinel entities, factories, and plugin manifests. Apply when working **inside a plugin** that contributes to the live game World.
 - **`.claude/skills/ddd/SKILL.md`** — Domain Driven Design building blocks. Apply for everything **outside the live World**: substrate plumbing, persistence, content catalogs, user accounts, orchestration.
 
@@ -86,7 +131,7 @@ Three shape-change surfaces, each with a required pattern:
 
 - **Database schema changes.** The `migrate()` methods in `packages/persistence-sqlite/src/{index,worlds}.ts` are the canonical pattern. New tables: `CREATE TABLE IF NOT EXISTS`. New columns: `ALTER TABLE ADD COLUMN` wrapped in a duplicate-column-error catch (STRICT tables). The `visibility` column rollout in `index.ts:91-100` is a working example. **Additive only.** Never drop a column or rewrite existing rows in place; if you need to backfill, ship the backfill as a separate forward-only step.
 
-Diagnose stale-shape errors as bugs, not as setup issues to be wiped. `pnpm reset` is still a developer convenience for *local* dev fixtures — never assume your users have that option.
+Diagnose stale-shape errors as bugs, not as setup issues to be wiped. `pnpm reset` is still a developer convenience for _local_ dev fixtures — never assume your users have that option.
 
 ### Plugin-namespaced names are branded
 
@@ -126,9 +171,10 @@ Concretely:
 
 ### Password managers stay out of the in-app UI
 
-The signed-in shell is wrapped in `data-1p-ignore` / `data-lpignore` / `data-bwignore` / `data-form-type="other"` (see `packages/shell-default/src/client/Chrome.tsx`) so password managers don't autofill or pop suggestions over plugin forms — game-content forms (dice notation, chat input, character sheets later) routinely look like login forms to those extensions. The auth gate (`packages/client/src/AuthGate.tsx`) is mounted *outside* this wrapper and intentionally still gets password manager support.
+The signed-in shell is wrapped in `data-1p-ignore` / `data-lpignore` / `data-bwignore` / `data-form-type="other"` (see `packages/shell-default/src/client/Chrome.tsx`) so password managers don't autofill or pop suggestions over plugin forms — game-content forms (dice notation, chat input, character sheets later) routinely look like login forms to those extensions. The auth gate (`packages/client/src/AuthGate.tsx`) is mounted _outside_ this wrapper and intentionally still gets password manager support.
 
 When a plugin adds a form inside the chrome:
+
 - Default-trust the wrapper — most fields need nothing.
 - For an `<input>` + button pair (the shape password managers most aggressively pattern-match), be defensive on the form and input directly: `autocomplete="off"`, `data-1p-ignore="true"`, `data-lpignore="true"`, `data-bwignore="true"`, `data-form-type="other"` on the form; the same attributes plus `spellcheck={false}` and a non-credential-shaped `name` on the input. The dice roller in `plugin-resolution/src/client/views.tsx` is the reference.
 - Never use `type="password"` for non-credential masked input.
@@ -148,7 +194,7 @@ mvtt depends on tests being ubiquitous. Three layers; all are mandatory for any 
 ### Wire smoke tests (every plugin that exposes commands)
 
 - Every plugin that crosses the WS boundary needs at least one `*.smoke.test.ts` file in `packages/server/src/` that spins up `startServer` + a real WebSocket client and round-trips one or more commands end-to-end. Existing exemplars: `ping.smoke.test.ts`, `scene.smoke.test.ts`, `characters.smoke.test.ts`, `books.smoke.test.ts`, `multi-world.smoke.test.ts`.
-- Smokes are *transport tests*, not behavior tests: they catch wire-format regressions, broadcast/visibility bugs, ack/seq drift, snapshot/tail replay. Don't grow them per-feature; add one only when the wire surface itself changes.
+- Smokes are _transport tests_, not behavior tests: they catch wire-format regressions, broadcast/visibility bugs, ack/seq drift, snapshot/tail replay. Don't grow them per-feature; add one only when the wire surface itself changes.
 - The `*.smoke.test.ts` naming puts them in the same vitest pass as everything else (parallel, same `pnpm test` invocation).
 
 ### Visual / component tests (every plugin that ships views) — jsdom integration tests
@@ -159,7 +205,7 @@ mvtt depends on tests being ubiquitous. Three layers; all are mandatory for any 
 
 2. **Cover the primary user actions.** At minimum: each interactive control gets a test that asserts both the rendered output and the dispatched command (type + payload). Owner / GM gating where the view applies it. Snapshot tests do not count.
 
-3. **For canvas-heavy views** (PixiJS scenes, Babylon 3D trays, PDF.js viewers), test the *descriptor* and *plumbing* in jsdom — id, label, edge, autoOpen wiring, slot fills — and verify the actual rendering manually in the browser. jsdom doesn't provide a working WebGL/Canvas context. Existing exemplar: `packages/dice-tray/src/DiceTrayDrawer.test.tsx`.
+3. **For canvas-heavy views** (PixiJS scenes, Babylon 3D trays, PDF.js viewers), test the _descriptor_ and _plumbing_ in jsdom — id, label, edge, autoOpen wiring, slot fills — and verify the actual rendering manually in the browser. jsdom doesn't provide a working WebGL/Canvas context. Existing exemplar: `packages/dice-tray/src/DiceTrayDrawer.test.tsx`.
 
 Cross-plugin coordination (Plugin A subscribes to Plugin B's events, fills Plugin B's slot, etc.) must have a jsdom test that loads both plugins via `buildTestClient({ plugins: [a, b] })` and asserts the contract holds.
 

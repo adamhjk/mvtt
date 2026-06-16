@@ -1,0 +1,28 @@
+{
+  "@adam/software-factory": {
+    "version": "2026.06.15.1",
+    "pulledAt": "2026-06-16T15:07:21.224Z",
+    "files": [
+      ".swamp/pulled-extensions/@adam/software-factory/models/_lib/definition_schema.ts",
+      ".swamp/pulled-extensions/@adam/software-factory/models/_lib/mermaid.ts",
+      ".swamp/pulled-extensions/@adam/software-factory/models/_lib/bindings.ts",
+      ".swamp/pulled-extensions/@adam/software-factory/models/_lib/gates.ts",
+      ".swamp/pulled-extensions/@adam/software-factory/models/_lib/run_data.ts",
+      ".swamp/pulled-extensions/@adam/software-factory/models/_lib/graph.ts",
+      ".swamp/pulled-extensions/@adam/software-factory/models/_lib/artifact_schema.ts",
+      ".swamp/pulled-extensions/@adam/software-factory/models/_lib/summary.ts",
+      ".swamp/pulled-extensions/@adam/software-factory/models/_lib/run_names.ts",
+      ".swamp/pulled-extensions/@adam/software-factory/models/software_factory.ts",
+      ".swamp/bundles/50ec8389/software_factory.js",
+      ".swamp/pulled-extensions/@adam/software-factory/reports/work_item_summary_report.ts",
+      ".swamp/report-bundles/6f30cfea/work_item_summary_report.js",
+      ".swamp/pulled-extensions/@adam/software-factory/files/LICENSE.txt",
+      ".swamp/pulled-extensions/@adam/software-factory/files/README.md",
+      ".claude/skills/software-factory",
+      ".swamp/pulled-extensions/@adam/software-factory/manifest.yaml"
+    ],
+    "checksum": "60cb50b057215e456f8670703da6f6f7c7029c4562c5fbbf60d0edda2b0ea6b6",
+    "filesChecksum": "3a236ab2eaf84c02ec76c5831f5444955fe4b9653b0f500d6c40719d0b29c5cc",
+    "serverUrl": "https://swamp-club.com"
+  }
+}

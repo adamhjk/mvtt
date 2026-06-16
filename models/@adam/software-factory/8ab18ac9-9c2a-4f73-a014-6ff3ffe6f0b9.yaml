@@ -1,0 +1,251 @@
+type: "@adam/software-factory"
+typeVersion: 2026.06.15.1
+id: 8ab18ac9-9c2a-4f73-a014-6ff3ffe6f0b9
+name: mvtt-factory
+version: 1
+tags: {}
+# Scope the bundled summary report so it only persists after `summary`,
+# instead of after every record_artifact / advance / status call.
+reports:
+  require:
+    - name: "@adam/software-factory/work-item-summary"
+      methods: [summary]
+globalArguments:
+  stages:
+    # ---------------------------------------------------------------------
+    # intake: triage a raw work-item description and pick the lane.
+    #   lane=full  -> planning + adversarial plan review (DDD/Solid/Rules)
+    #   lane=fast  -> straight to implementation
+    # Both lanes converge on checks -> code-review -> done.
+    # ---------------------------------------------------------------------
+    - id: intake
+      initial: true
+      description: >
+        Read the work-item description, decide the lane, and flag whether it
+        touches game rules. Records the triage decision.
+      work:
+        mode: interactive
+        skills: [ddd, ecs]
+        systemPrompt: |
+          Triage this work item. Decide:
+            - lane: "full" for anything non-trivial, architectural, or
+              risky — it earns a written plan and an adversarial plan
+              review. "fast" only for small, well-understood changes that
+              go straight to implementation.
+            - rulesRelated: true if the change encodes or depends on the
+              rules of the game system being played (e.g. a Torchbearer
+              mechanic), so the plan review pulls in a rules reviewer.
+          Record the `triage` artifact with lane, rulesRelated, and a
+          one-line summary of the work.
+      artifacts:
+        - name: triage
+          schema:
+            type: object
+            required: [lane, rulesRelated, summary]
+            properties:
+              lane: { type: string, enum: [full, fast] }
+              rulesRelated: { type: boolean }
+              summary: { type: string, minLength: 1 }
+      transitions:
+        - name: plan
+          to: planning
+          gates:
+            - type: cel
+              config:
+                expr: 'artifacts.triage.lane == "full"'
+                message: triage.lane must be "full" to enter the planning lane
+        - name: fast-track
+          to: implementing
+          gates:
+            - type: cel
+              config:
+                expr: 'artifacts.triage.lane == "fast"'
+                message: triage.lane must be "fast" to skip planning
+
+    # ---------------------------------------------------------------------
+    # planning: produce an implementation plan from the work item.
+    # ---------------------------------------------------------------------
+    - id: planning
+      description: Work up an implementation plan grounded in the mvtt architecture.
+      work:
+        mode: interactive
+        skills: [ddd, solid, ecs]
+        constraints: design/basics.md
+        systemPrompt: |
+          Produce an implementation plan for this work item. Ground it in the
+          mvtt architecture (design/basics.md, the ECS and DDD skills). Break
+          the work into concrete steps with the files each touches, and state
+          a testing strategy that satisfies the repo's three test layers
+          (unit, wire smoke, jsdom component).
+      artifacts:
+        - name: plan
+          schema:
+            type: object
+            required: [summary, steps, testingStrategy]
+            properties:
+              summary: { type: string, minLength: 1 }
+              steps:
+                type: array
+                minItems: 1
+                items:
+                  type: object
+                  required: [description]
+                  properties:
+                    description: { type: string }
+                    files: { type: array, items: { type: string } }
+              testingStrategy: { type: string }
+      transitions:
+        - name: submit
+          to: plan-review
+          gates:
+            - type: artifact-exists
+              config: { artifact: plan }
+
+    # ---------------------------------------------------------------------
+    # plan-review: adversarial review by DDD + Solid, plus an optional
+    # Rules reviewer that no-ops when the work isn't rules-related.
+    # ---------------------------------------------------------------------
+    - id: plan-review
+      description: Adversarial review of the plan — architecture, UI, and (optionally) rules.
+      work:
+        mode: dispatch
+        skills: [ddd, solid, rules-lookup]
+        systemPrompt: |
+          You are an adversarial reviewer with exactly ONE skill loaded.
+          Review the plan strictly through that skill's lens and try to
+          refute it. The plan summary:
+
+            ${{ data.latest(self.name, "artifact-plan").payload.summary }}
+
+          Record findings with honest severities (critical / high / medium /
+          low). Do not soften them. Critical or high findings block approval.
+
+          If your loaded skill is rules-lookup and this work item is NOT
+          rules-related (triage.rulesRelated =
+          ${{ data.latest(self.name, "artifact-triage").payload.rulesRelated }}),
+          record zero findings with a note that no rules review was needed.
+      artifacts:
+        - name: plan-review
+          kind: findings
+          reviews: plan
+      transitions:
+        - name: approve
+          to: implementing
+          gates:
+            - type: artifact-fresh
+              config: { artifact: plan-review, recordedThisCycle: true }
+            - type: findings-clear
+              config: { artifact: plan-review, blocking: [critical, high] }
+            - type: human-approval
+              config: { id: plan-approval }
+        - name: rework
+          to: planning
+
+    # ---------------------------------------------------------------------
+    # implementing: the primary agent implements (entry point for fast lane).
+    # ---------------------------------------------------------------------
+    - id: implementing
+      description: Implement the change against the approved plan (or directly, in the fast lane).
+      work:
+        mode: interactive
+        skills: [ecs, ddd, solid]
+        constraints: design/basics.md
+        systemPrompt: |
+          Implement this work item. In the full lane, follow the approved
+          plan; in the fast lane, work directly from the triage summary.
+          Honour the mvtt conventions in CLAUDE.md — commands have a
+          validate/apply split, mutations only via events, server-authoritative
+          ids, real-time reactivity, backwards-compatible data changes. Write
+          the tests the plan calls for. Commit your work, then record the
+          change-summary (with the commit sha) and a change-request evidence
+          pointer.
+      artifacts:
+        - name: change-summary
+          schema:
+            type: object
+            required: [summary, headSha]
+            properties:
+              summary: { type: string, minLength: 1 }
+              headSha: { type: string, minLength: 7 }
+      evidence:
+        - name: change-request
+      transitions:
+        - name: submit
+          to: checks
+          gates:
+            - type: artifact-exists
+              config: { artifact: change-summary }
+            - type: evidence-recorded
+              config: { name: change-request }
+
+    # ---------------------------------------------------------------------
+    # checks: lint + format + typecheck in parallel, then tests. No LLM.
+    # Verified against swamp's own run record (not driver attestation).
+    # ---------------------------------------------------------------------
+    - id: checks
+      description: Run lint, format, and typecheck in parallel, then the full test suite.
+      work:
+        mode: workflow
+        workflow:
+          name: mvtt-checks
+        resultEvidence: check-run
+      transitions:
+        - name: pass
+          to: code-review
+          gates:
+            - type: workflow-succeeded
+              config: { workflow: mvtt-checks }
+        - name: fail
+          to: implementing
+          gates:
+            - type: evidence-recorded
+              config: { name: check-run, requireField: { status: failed } }
+
+    # ---------------------------------------------------------------------
+    # code-review: adversarial review of the change vs the plan, DDD + Solid.
+    # ---------------------------------------------------------------------
+    - id: code-review
+      description: Adversarial review of the implemented change against the plan, DDD, and Solid.
+      work:
+        mode: dispatch
+        skills: [ddd, solid]
+        systemPrompt: |
+          You are an adversarial reviewer with exactly ONE skill loaded.
+          Review the implemented change strictly through that skill's lens.
+          Review it against the recorded plan if one exists; fast-lane work
+          items have no plan, so review against the triage summary and the
+          change itself. The change summary:
+
+            ${{ data.latest(self.name, "artifact-change-summary").payload.summary }}
+
+          Record findings with honest severities (critical / high / medium /
+          low). Do not soften them. Critical or high findings block shipping.
+      artifacts:
+        - name: code-review
+          kind: findings
+          reviews: change-summary
+      transitions:
+        - name: accept
+          to: done
+          gates:
+            - type: artifact-fresh
+              config: { artifact: code-review, recordedThisCycle: true }
+            - type: findings-clear
+              config: { artifact: code-review, blocking: [critical, high] }
+            - type: human-approval
+              config: { id: ship-approval }
+        - name: rework
+          to: implementing
+
+    - id: done
+      terminal: true
+    - id: aborted
+      terminal: true
+
+  globalTransitions:
+    - name: abort
+      to: aborted
+      gates:
+        - type: human-approval
+          config: { id: abort-confirmation }
+methods: {}

@@ -10,6 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "pnpm -r typecheck",
+    "lint": "oxlint",
+    "format": "oxfmt",
     "license:apply": "node scripts/apply-license-header.mjs",
     "deploy": "deploy/deploy.sh",
     "build-adventure": "tsx tools/build-adventure-bundle/build.ts",
@@ -17,12 +19,14 @@
   },
   "devDependencies": {
     "@solidjs/testing-library": "^0.8.10",
-    "@vtt/adventures": "workspace:*",
-    "@vtt/system-torchbearer": "workspace:*",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/user-event": "^14.6.1",
+    "@vtt/adventures": "workspace:*",
+    "@vtt/system-torchbearer": "workspace:*",
     "canvas": "^3.2.3",
     "jsdom": "^29.1.0",
+    "oxfmt": "^0.55.0",
+    "oxlint": "^1.70.0",
     "solid-js": "^1.9.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
@@ -30,11 +34,11 @@
     "vitest": "^4.1.5",
     "yaml": "^2.6.0"
   },
-  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=20"
+  },
   "volta": {
     "node": "24.15.0"
   },
-  "engines": {
-    "node": ">=20"
-  }
+  "packageManager": "pnpm@10.33.2"
 }
