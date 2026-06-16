@@ -18,12 +18,7 @@
 import { describe, it, expect } from "vitest";
 import { definePlugin, Registry, World } from "@vtt/substrate";
 import { items } from "@vtt/items";
-import {
-  ItemBundle,
-  ItemCatalogIndex,
-  ItemDerivedFrom,
-  ItemIdentity,
-} from "@vtt/items/shared";
+import { ItemBundle, ItemCatalogIndex, ItemDerivedFrom, ItemIdentity } from "@vtt/items/shared";
 import {
   TbArmor,
   TbCarries,
@@ -70,12 +65,7 @@ import {
 } from "./server/index.js";
 import { runCatalogMerge } from "@vtt/items/shared";
 import { CanonicalBookCatalog } from "@vtt/books/shared";
-import {
-  tbSeed,
-  TB_ITEM_TEMPLATES,
-  TB_CANONICAL_BOOKS,
-  templateToTraitBag,
-} from "./data/seed.js";
+import { tbSeed, TB_ITEM_TEMPLATES, TB_CANONICAL_BOOKS, templateToTraitBag } from "./data/seed.js";
 import { TB_CONFLICT_RESOURCE_TEMPLATES } from "./data/tb-conflict-resources.generated.js";
 import { TB_ARCANE_ITEM_TEMPLATES } from "./data/tb-arcane-items.generated.js";
 import { TB_INVOCATION_TEMPLATES } from "./data/tb-invocations.generated.js";
@@ -130,22 +120,8 @@ const tbItemsTestPlugin = definePlugin({
     InvocationCatalogIndex,
     TbInvocationRelicLink,
   ],
-  events: [
-    ItemEquipped,
-    ItemMoved,
-    EntryStateChanged,
-    ItemDropped,
-    ItemPickedUp,
-    ItemUnequipped,
-  ],
-  commands: [
-    EquipItem,
-    MoveItem,
-    SetEntryState,
-    DropItem,
-    PickUpItem,
-    UnequipItem,
-  ],
+  events: [ItemEquipped, ItemMoved, EntryStateChanged, ItemDropped, ItemPickedUp, ItemUnequipped],
+  commands: [EquipItem, MoveItem, SetEntryState, DropItem, PickUpItem, UnequipItem],
   systems: [
     TbItemEquipSystem,
     TbItemMoveSystem,
@@ -175,6 +151,20 @@ describe("TB items catalog → seed", () => {
     expect(cats.has("equipment")).toBe(true);
     expect(cats.has("light-sources")).toBe(true);
     expect(cats.has("magic-items")).toBe(true);
+  });
+
+  it("every light source can be carried (held to be lit)", () => {
+    // A light source must be placeable in a hand (`carried`) slot, otherwise it
+    // can never be lit (lighting requires a carried, non-container entry). The
+    // candle regressed here — it was pack/pouch only.
+    const lightSources = TB_ITEM_TEMPLATES.filter((t) => t.category === "light-sources");
+    expect(lightSources.length).toBeGreaterThan(0);
+    for (const src of lightSources) {
+      expect(
+        src.slotOptions.carried,
+        `${src.name} (${src.id}) must allow the "carried" slot to be lit`,
+      ).toBeGreaterThan(0);
+    }
   });
 
   it("every template has a non-empty name and stable id", () => {
@@ -257,9 +247,7 @@ describe("TB items catalog → seed", () => {
       "tb/book/dungeoneers-handbook",
       "tb/book/cartographers-compendium",
     ]);
-    expect(v.entries.map((e) => e.name)).toEqual(
-      TB_CANONICAL_BOOKS.map((b) => b.name),
-    );
+    expect(v.entries.map((e) => e.name)).toEqual(TB_CANONICAL_BOOKS.map((b) => b.name));
   });
 
   it("re-running the seed leaves the canonical book sentinel unchanged (idempotent)", () => {
@@ -285,8 +273,8 @@ describe("TB items catalog → seed", () => {
 
     // Simulate a "next-deploy" template tweak by running the merge
     // engine with an altered template list.
-    const modified = TB_ITEM_TEMPLATES.map((t): TbItemTemplate =>
-      t.id === target.id ? { ...t, name: t.name + " (Reforged)" } : t,
+    const modified = TB_ITEM_TEMPLATES.map(
+      (t): TbItemTemplate => (t.id === target.id ? { ...t, name: t.name + " (Reforged)" } : t),
     );
     runCatalogMerge({
       world,
@@ -306,8 +294,9 @@ describe("TB items catalog → seed", () => {
 
   describe("consumable / liquid-vessel seeding", () => {
     function findCatalogEntity(world: World, templateId: string): string {
-      const idx = world.query([ItemCatalogIndex])[0]!.values
-        .ItemCatalogIndex as { entries: Record<string, string> };
+      const idx = world.query([ItemCatalogIndex])[0]!.values.ItemCatalogIndex as {
+        entries: Record<string, string>;
+      };
       const eid = idx.entries[templateId];
       if (!eid) throw new Error(`no entity for templateId ${templateId}`);
       return eid;
@@ -317,10 +306,7 @@ describe("TB items catalog → seed", () => {
       const registry = buildRegistry();
       const world = new World();
       tbSeed({ world, registry });
-      const eid = findCatalogEntity(
-        world,
-        "tb/food-and-drink/rations-fresh-b1c2d3",
-      );
+      const eid = findCatalogEntity(world, "tb/food-and-drink/rations-fresh-b1c2d3");
       const bundle = world.get(eid as never, [ItemBundle]) as {
         ItemBundle: { count: number; capacity: number };
       };
@@ -332,10 +318,7 @@ describe("TB items catalog → seed", () => {
       const registry = buildRegistry();
       const world = new World();
       tbSeed({ world, registry });
-      const eid = findCatalogEntity(
-        world,
-        "tb/food-and-drink/rations-preserved-b1c2d3",
-      );
+      const eid = findCatalogEntity(world, "tb/food-and-drink/rations-preserved-b1c2d3");
       const bundle = world.get(eid as never, [ItemBundle]) as {
         ItemBundle: { count: number; capacity: number };
       };
@@ -393,10 +376,7 @@ describe("TB items catalog → seed", () => {
       const registry = buildRegistry();
       const world = new World();
       tbSeed({ world, registry });
-      const eid = findCatalogEntity(
-        world,
-        "tb/containers/wooden-canteen-a1b2c3",
-      );
+      const eid = findCatalogEntity(world, "tb/containers/wooden-canteen-a1b2c3");
       const bundle = world.get(eid as never, [ItemBundle]) as {
         ItemBundle: { count: number; capacity: number };
       };
@@ -418,10 +398,7 @@ describe("TB items catalog → seed", () => {
       const registry = buildRegistry();
       const world = new World();
       tbSeed({ world, registry });
-      const eid = findCatalogEntity(
-        world,
-        "tb/magical-religious/holy-water-vials-8a7b6c",
-      );
+      const eid = findCatalogEntity(world, "tb/magical-religious/holy-water-vials-8a7b6c");
       const bundle = world.get(eid as never, [ItemBundle]) as {
         ItemBundle: { count: number; capacity: number };
       };
@@ -432,10 +409,7 @@ describe("TB items catalog → seed", () => {
       const registry = buildRegistry();
       const world = new World();
       tbSeed({ world, registry });
-      const eid = findCatalogEntity(
-        world,
-        "tb/equipment/flasks-of-oil-a3b4c5",
-      );
+      const eid = findCatalogEntity(world, "tb/equipment/flasks-of-oil-a3b4c5");
       const bundle = world.get(eid as never, [ItemBundle]) as {
         ItemBundle: { count: number; capacity: number };
       };
@@ -472,10 +446,7 @@ describe("TB items catalog → seed", () => {
       const registry = buildRegistry();
       const world = new World();
       tbSeed({ world, registry });
-      const eid = findCatalogEntity(
-        world,
-        "tb/magical-religious/stakes-and-mallet-8a7b6c",
-      );
+      const eid = findCatalogEntity(world, "tb/magical-religious/stakes-and-mallet-8a7b6c");
       const bundle = world.get(eid as never, [ItemBundle]) as {
         ItemBundle: { count: number; capacity: number };
       };
