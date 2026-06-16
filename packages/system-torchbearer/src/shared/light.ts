@@ -295,7 +295,7 @@ export const LightCoverageSystem = defineSystem({
     const cur = world.get(GRIND_SENTINEL_ID, [LightCoverage]) as
       | { LightCoverage: { assignments: Record<string, unknown> } }
       | undefined;
-    const assignments = { ...(cur?.LightCoverage.assignments ?? {}) };
+    const assignments = { ...cur?.LightCoverage.assignments };
     // Replay safety: legacy LightCoverageChanged logs have no dimCharacterIds.
     const dim = event.dimCharacterIds ?? [];
     if (event.coveredCharacterIds.length === 0 && dim.length === 0) {

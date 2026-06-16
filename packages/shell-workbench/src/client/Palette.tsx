@@ -28,7 +28,6 @@ import {
   useProviderTraitsVersion,
 } from "./use-providers.js";
 import { useMe } from "./use-me.js";
-import type { PageProvider } from "../shared/slots.js";
 
 type Hit =
   | {

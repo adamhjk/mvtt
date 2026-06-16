@@ -21,7 +21,7 @@
 // prints ranked chunks with both page numbers.
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { resolve, dirname, sep } from "node:path";
+import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
@@ -198,7 +198,7 @@ function bm25Score(query, docs) {
   const k1 = 1.5;
   const b = 0.75;
   const queryTokens = tokenize(query);
-  const scores = new Array(N).fill(0);
+  const scores = Array.from({ length: N }).fill(0);
   for (const qt of queryTokens) {
     const n = df.get(qt) ?? 0;
     if (n === 0) continue;

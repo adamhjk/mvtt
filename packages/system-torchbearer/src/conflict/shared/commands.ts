@@ -16,14 +16,7 @@
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
 import { defineCommand, EntityId, fail, ok, withVisibility, z, type World } from "@vtt/substrate";
-import {
-  actors,
-  everyone,
-  ofRole,
-  Permissions,
-  requireRole,
-  requireWrite,
-} from "@vtt/permissions/shared";
+import { actors, everyone, Permissions, requireRole, requireWrite } from "@vtt/permissions/shared";
 import { requireSession } from "@vtt/identity/shared";
 import { ConflictActionEnum } from "./actions.js";
 import { ConflictTypeEnum } from "./conflict-types.js";
@@ -101,10 +94,6 @@ function findCharacterOwners(world: World, characterId: EntityId): ReadonlyArray
     | undefined;
   if (!got) return [];
   return got.Permissions.write.userIds ?? [];
-}
-
-function isPartySide(side: ConflictSide): boolean {
-  return side === "party";
 }
 
 /**

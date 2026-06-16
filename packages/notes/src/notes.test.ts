@@ -23,40 +23,30 @@ import {
   World,
   type CommandInstance,
   type EntityId,
-  ConnectionClosed,
-  runSystemsToFixpoint,
   substrateCorePlugin,
 } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
 import { permissions } from "@vtt/permissions";
 import { shellWorkbench } from "@vtt/shell-workbench";
-import { Permissions, PermissionsChanged, SetPermissions } from "@vtt/permissions/shared";
+import { Permissions, SetPermissions } from "@vtt/permissions/shared";
 import {
   AddPage,
   BeginEdit,
   CreateNote,
   DeleteNote,
-  EditBegun,
   EditEnded,
-  EditLockExtended,
   EditorLock,
   EndEdit,
   ExtendEditLock,
   Headings,
   Note,
   NoteCreated,
-  NoteDeleted,
-  NoteRenamed,
   Page,
-  PageAdded,
   PageBodyDraft,
   PageBodySet,
   PageDraft,
   PageHistory,
   PageOrdering,
-  PageRemoved,
-  PageRenamed,
-  PagesReordered,
   RemovePage,
   RenameNote,
   RenamePage,
@@ -66,7 +56,7 @@ import {
   BelongsToNote,
 } from "./shared/index.js";
 import { notes } from "./manifest.js";
-import { EditEndSystem, LockReleaseSystem, PageHeadingsSystem } from "./server/systems.js";
+import { LockReleaseSystem } from "./server/systems.js";
 
 const GM: AuthSession = {
   userId: "gm-1",

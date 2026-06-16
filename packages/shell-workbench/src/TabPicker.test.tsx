@@ -20,7 +20,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { screen, cleanup, fireEvent, render } from "@solidjs/testing-library";
 import { buildTestClient } from "@vtt/substrate/client-testing";
 import { ClientProvider } from "@vtt/substrate/client";
-import { definePlugin, defineTrait, qualifiedName, z } from "@vtt/substrate";
+import { definePlugin, defineTrait, z } from "@vtt/substrate";
 import { Identity, Name, Online } from "@vtt/identity/shared";
 import { actors, Permissions } from "@vtt/permissions/shared";
 import { identity } from "@vtt/identity";

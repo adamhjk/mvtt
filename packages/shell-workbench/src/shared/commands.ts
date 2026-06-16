@@ -24,18 +24,11 @@ import {
   withVisibility,
   z,
   type CommandContext,
-  type Result,
   type World,
 } from "@vtt/substrate";
-import { actors, Permissions, requireRole } from "@vtt/permissions/shared";
+import { actors, requireRole } from "@vtt/permissions/shared";
 import { requireSession } from "@vtt/identity/shared";
-import {
-  WorkspaceState,
-  WorkspaceOwner,
-  type WorkspacePane,
-  type WorkspaceTab,
-  type WorkspaceTree,
-} from "./traits.js";
+import { WorkspaceState, WorkspaceOwner, type WorkspaceTab, type WorkspaceTree } from "./traits.js";
 import { tabSentinelEntityId } from "./tab-sentinel.js";
 import { TabShared, WorkspaceStateChanged } from "./events.js";
 

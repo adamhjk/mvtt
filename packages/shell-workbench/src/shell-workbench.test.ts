@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   CommandPipeline,
   EventBus,
@@ -29,7 +29,7 @@ import {
   type EntityId,
 } from "@vtt/substrate";
 import type { AuthSession } from "@vtt/auth";
-import { actors, Permissions } from "@vtt/permissions/shared";
+import { Permissions } from "@vtt/permissions/shared";
 import { PlayerJoined } from "@vtt/identity/shared";
 import { TabSentinel, WorkspaceState, WorkspaceOwner } from "./shared/traits.js";
 import { tabSentinelEntityId } from "./shared/tab-sentinel.js";

@@ -379,16 +379,6 @@ function ItemDetail(props: { itemId: EntityId; tabId: string }): JSX.Element {
     );
   };
 
-  const open = (newItemId: EntityId): void => {
-    client.dispatch(
-      RetargetTab({
-        tabId: props.tabId,
-        pageKind: ITEMS_KIND,
-        entityId: newItemId,
-      }) as CommandInstance,
-    );
-  };
-
   const back = (): void => {
     client.dispatch(
       RetargetTab({

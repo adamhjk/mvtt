@@ -199,7 +199,6 @@ function InventoryTab(props: { characterId: string }): JSX.Element {
  * ----------------------------------------------------------------------- */
 
 function CatalogQuickAdd(props: { characterId: string }): JSX.Element {
-  const client = useClient();
   const canEdit = kit.useCanEdit(props.characterId);
   const indexes = useQuery([ItemCatalogIndex]);
   const catalog = useQuery([ItemIdentity, TbItemSlotOptions, ItemDerivedFrom]);
@@ -554,17 +553,6 @@ interface CarryEntry {
     spent?: boolean;
     lost?: boolean;
   };
-}
-
-function entriesWithIndex(
-  all: ReadonlyArray<CarryEntry>,
-  pred: (e: CarryEntry) => boolean,
-): Array<{ entry: CarryEntry; index: number }> {
-  const out: Array<{ entry: CarryEntry; index: number }> = [];
-  all.forEach((entry, index) => {
-    if (pred(entry)) out.push({ entry, index });
-  });
-  return out;
 }
 
 interface BodySlotPanel {

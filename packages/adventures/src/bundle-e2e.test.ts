@@ -47,7 +47,6 @@ import { assets as assetsPlugin } from "@vtt/assets";
 import { Asset, RegisterAsset } from "@vtt/assets/shared";
 import {
   CreateNote,
-  AddPage,
   BeginEdit,
   SetPageBody,
   Note,

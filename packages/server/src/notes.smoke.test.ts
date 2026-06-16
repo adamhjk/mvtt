@@ -25,7 +25,6 @@ import { permissions } from "@vtt/permissions";
 import { assets } from "@vtt/assets";
 import { notes } from "@vtt/notes";
 import {
-  AddPage,
   BeginEdit,
   CreateNote,
   EditBegun,

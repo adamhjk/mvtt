@@ -24,7 +24,6 @@ import { identity } from "@vtt/identity";
 import { permissions } from "@vtt/permissions";
 import { Identity, Online, Name } from "@vtt/identity/shared";
 import { ownedBy, Permissions } from "@vtt/permissions/shared";
-import { everyone } from "@vtt/permissions/shared";
 import { notes } from "./manifest.js";
 import { Note, NotesUiState, Page, BelongsToNote, PageOrdering } from "./shared/index.js";
 import { TabSentinel, tabSentinelEntityId } from "@vtt/shell-workbench/shared";

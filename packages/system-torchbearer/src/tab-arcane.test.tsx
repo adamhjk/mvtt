@@ -52,7 +52,6 @@ import {
 import { WorkbenchChatRailSurface } from "@vtt/shell-workbench/shared";
 import { systemTorchbearer } from "./manifest.js";
 import {
-  AddSpellToBook,
   AddSpellToLibrary,
   ClearMemoryPalace,
   FillMemoryPalace,

@@ -218,7 +218,7 @@ describe("createOptimisticTrait — local writes", () => {
     setStore("count", 5);
     expect(h.dispatched).toHaveLength(1);
     expect(h.dispatched[0]?.type).toBe(SetUi.name);
-    expect((h.dispatched[0]?.payload as { value: { count: number } }).value.count).toBe(5);
+    expect((h.dispatched[0]!.payload as { value: { count: number } }).value.count).toBe(5);
   });
 
   it("path reads are granular — sibling writes don't fire siblings' effects", async () => {
@@ -239,11 +239,11 @@ describe("createOptimisticTrait — local writes", () => {
                   write: (v) => SetUi({ entityId: "e1" as EntityId, value: v }),
                 });
                 createEffect(() => {
-                  store.count;
+                  void store.count;
                   countReads += 1;
                 });
                 createEffect(() => {
-                  store.text;
+                  void store.text;
                   textReads += 1;
                 });
                 queueMicrotask(() => {
@@ -334,13 +334,6 @@ describe("createOptimisticTrait — server reconciliation", () => {
   });
 });
 
-async function flushPromises() {
-  // Pipeline dispatch chains pipeline.inFlight → dispatchInternal (async) →
-  // harness .then transform → primitive's ack.then. A macrotask gives all
-  // microtask queues time to drain even when an effect re-arms a microtask.
-  await new Promise<void>((resolve) => setTimeout(resolve, 10));
-}
-
 describe("createOptimisticTrait — rollback", () => {
   it("rolls back to lastServerValue when the dispatch ack reports !ok", async () => {
     const h = makeHarness(({ world }) => {
@@ -398,7 +391,7 @@ describe("createOptimisticTrait — debounce", () => {
       expect(h.dispatched).toHaveLength(0);
       vi.advanceTimersByTime(60);
       expect(h.dispatched).toHaveLength(1);
-      expect((h.dispatched[0]?.payload as { value: { count: number } }).value.count).toBe(3);
+      expect((h.dispatched[0]!.payload as { value: { count: number } }).value.count).toBe(3);
     } finally {
       vi.useRealTimers();
     }
@@ -428,7 +421,7 @@ describe("createOptimisticTrait — debounce", () => {
       r.unmount();
       // onCleanup runs synchronously at unmount; the pending dispatch flushes.
       expect(h.dispatched).toHaveLength(1);
-      expect((h.dispatched[0]?.payload as { value: { count: number } }).value.count).toBe(7);
+      expect((h.dispatched[0]!.payload as { value: { count: number } }).value.count).toBe(7);
     } finally {
       vi.useRealTimers();
     }

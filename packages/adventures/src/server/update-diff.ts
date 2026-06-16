@@ -21,7 +21,7 @@ import { AdventureProvenance } from "../shared/traits.js";
 import { scanFencedBlocks } from "../shared/parse-blocks.js";
 import { runBlockParse } from "./block-parse-system.js";
 import type { BlockKindIndex } from "../shared/block-kinds.js";
-import { type AdventureBundle, type BundleManifest, sha256Hex } from "./bundle.js";
+import { type AdventureBundle, sha256Hex } from "./bundle.js";
 
 /**
  * Per-note diff classification (per design/adventures.md

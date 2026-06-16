@@ -24,7 +24,6 @@ import {
   definePlugin,
   type CommandInstance,
   type EntityId,
-  type EventInstance,
 } from "@vtt/substrate";
 import { Character } from "@vtt/characters/shared";
 import { Conditions, Heroic, Identity } from "./shared/traits.js";
@@ -235,10 +234,6 @@ async function dispatch(s: Setup, cmd: CommandInstance, asGm = s.asGm) {
       name: asGm ? "GM" : "Player",
     },
   });
-}
-
-function findEvent(events: ReadonlyArray<EventInstance>, type: string): EventInstance | undefined {
-  return events.find((e) => e.type === type);
 }
 
 describe("@vtt/system-torchbearer arcane spells", () => {

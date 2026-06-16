@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mvtt.  If not, see <https://www.gnu.org/licenses/>.
 
-import { type EntityId, type World } from "@vtt/substrate";
+import { type EntityId } from "@vtt/substrate";
 import { defineLinkKind, type LinkSuggestion } from "@vtt/notes/shared";
 import { Book, BookCanonical } from "./traits.js";
 import { BookCanonicalChanged, BookCreated, BookRemoved, BookUpdated } from "./events.js";

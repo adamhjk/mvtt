@@ -27,7 +27,6 @@ import {
   buildCharacterTraitWrites,
   CharacterBlockSchema,
   completeCharacterKeys,
-  type CharacterBlockParsed,
 } from "./character.js";
 
 /**

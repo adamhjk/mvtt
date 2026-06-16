@@ -17,7 +17,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
-import { screen, cleanup, render } from "@solidjs/testing-library";
+import { cleanup, render } from "@solidjs/testing-library";
 import { buildTestClient } from "@vtt/substrate/client-testing";
 import { ClientProvider } from "@vtt/substrate/client";
 import { Identity, Name, Online } from "@vtt/identity/shared";

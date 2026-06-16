@@ -123,12 +123,12 @@ describe("sha256Hex", () => {
 });
 
 describe("buildBundle", () => {
-  let registry: Registry;
+  let _registry: Registry;
   let world: World;
 
   beforeEach(() => {
     const s = setup();
-    registry = s.registry;
+    _registry = s.registry;
     world = s.world;
   });
 

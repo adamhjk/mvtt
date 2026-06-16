@@ -17,7 +17,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
-import { screen, cleanup, fireEvent, render } from "@solidjs/testing-library";
+import { screen, cleanup, render } from "@solidjs/testing-library";
 import { buildTestClient } from "@vtt/substrate/client-testing";
 import { ClientProvider } from "@vtt/substrate/client";
 import { definePlugin, defineTrait, z } from "@vtt/substrate";
@@ -32,7 +32,6 @@ import {
   type WorkspacePane,
   type WorkspaceTree as TreeShape,
 } from "./shared/traits.js";
-import { FocusPane, FocusTab } from "./shared/commands.js";
 import { PagesSlot, type PageProvider } from "./shared/slots.js";
 import { definePageProvider } from "./shared/define-page-provider.js";
 import { WorkspaceTreeView } from "./client/WorkspaceTree.js";

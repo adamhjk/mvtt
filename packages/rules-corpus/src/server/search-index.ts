@@ -263,7 +263,7 @@ export interface RulesSearchHit {
 }
 
 function isPlain(q: string): boolean {
-  return !/["*:()^$~\-]/.test(q);
+  return !/["*:()^$~-]/.test(q);
 }
 
 function toPrefixPhrase(q: string): string {

@@ -53,14 +53,7 @@ import {
   type TbRollModifier,
   type TbRollSpec,
 } from "./roll-spec.js";
-import {
-  SpellIdentity,
-  TbLibrary,
-  TbMemoryPalace,
-  TbScroll,
-  TbSpellBook,
-  TbSpellCasting,
-} from "./spells/spell-traits.js";
+import { SpellIdentity, TbSpellCasting } from "./spells/spell-traits.js";
 import {
   InvocationIdentity,
   TbInvocationPerforming,

@@ -19,7 +19,6 @@ import { previewRollable, type EntityId } from "@vtt/substrate";
 import { useClient } from "@vtt/substrate/client";
 import { createMemo, For, Show, type JSX } from "solid-js";
 import { Character } from "../shared/traits.js";
-import { PendingRoll } from "../shared/pending.js";
 import {
   RollAtelierRailSlot,
   type RollAtelierRailAccessory,

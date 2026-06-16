@@ -18,3 +18,5 @@
 // shell-mobile has no shared types — it reuses everything from
 // @vtt/shell-workbench/shared. This file exists for the package.json
 // "exports" entry point.
+
+export {};

@@ -70,7 +70,7 @@ const VIEW_HALF_HEIGHT = 4;
  *  through in a single physics step. */
 const TRAY_FLOOR_THICKNESS = 0.4;
 const SPAWN_HEIGHT = 4;
-const TUMBLE_SECONDS = 1.2;
+
 const FACE_TEX_SIZE = 256;
 /** Bounding-sphere radius doubled — the size each die's bounding
  *  box measures across. Bumped from earlier values because the

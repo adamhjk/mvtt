@@ -352,18 +352,7 @@ function SkillRow(props: { characterId: string; skill: SkillEntry }): JSX.Elemen
   // rating 2 (rules-as-written).
   const client = useClient();
   const rating = useTraitPath(props.characterId, Skills, ["entries", props.skill.id, "rating"]);
-  const passCount = useTraitPath(props.characterId, Skills, [
-    "entries",
-    props.skill.id,
-    "advancement",
-    "pass",
-  ]);
-  const failCount = useTraitPath(props.characterId, Skills, [
-    "entries",
-    props.skill.id,
-    "advancement",
-    "fail",
-  ]);
+
   const learningTests = useTraitPath(props.characterId, Skills, [
     "entries",
     props.skill.id,

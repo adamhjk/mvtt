@@ -83,7 +83,7 @@ function readBlockEntityIndex(world: World): Record<
         };
       }
     | undefined;
-  return { ...(v?.BlockEntityIndex.entries ?? {}) };
+  return { ...v?.BlockEntityIndex.entries };
 }
 
 function writeBlockEntityIndex(

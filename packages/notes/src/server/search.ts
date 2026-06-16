@@ -212,7 +212,7 @@ export interface SearchHit {
 
 /** Plain query = no FTS5 syntactic chars. */
 function isPlain(q: string): boolean {
-  return !/["*:()^$~\-]/.test(q);
+  return !/["*:()^$~-]/.test(q);
 }
 
 /**

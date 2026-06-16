@@ -285,6 +285,6 @@ export function actionSkillLabel(skills: ReadonlyArray<string>): string {
 export function dispoRollLabel(typeDef: ConflictTypeDef): string | null {
   const skills =
     typeDef.dispoSkill.kind === "skill" ? [typeDef.dispoSkill.id] : [...typeDef.dispoSkill.ids];
-  if (skills.length === 0 || skills.every((s) => s === "")) return null;
+  if (skills.every((s) => s === "")) return null;
   return `Roll ${actionSkillLabel(skills)} and add to ${typeDef.dispoAddTo}`;
 }

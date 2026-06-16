@@ -151,7 +151,7 @@ function scanBand(
   for (const line of lines) {
     if (line.tokens.length === 0) continue;
     for (const raw of line.tokens) {
-      const tok = raw.replace(/[^\w\-]/g, "");
+      const tok = raw.replace(/[^\w-]/g, "");
       if (tok.length === 0) continue;
       const intMatch = INTEGER_RE.exec(tok);
       if (intMatch) {

@@ -336,7 +336,7 @@ type HastData = {
 };
 
 function withHast<T extends { data?: unknown }>(node: T, data: HastData): T {
-  (node as { data?: HastData }).data = { ...((node as { data?: HastData }).data ?? {}), ...data };
+  (node as { data?: HastData }).data = { ...(node as { data?: HastData }).data, ...data };
   return node;
 }
 

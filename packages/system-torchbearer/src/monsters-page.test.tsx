@@ -17,7 +17,7 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, beforeEach } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { definePlugin } from "@vtt/substrate";
 import { buildCharacterHarness, mountWithClient } from "@vtt/characters/testing";
 import {

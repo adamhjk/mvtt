@@ -66,7 +66,7 @@ export function runCatalogMerge(args: {
   const indexValue = world.get(indexEntity, [ItemCatalogIndex]) as
     | { ItemCatalogIndex: { pluginName: string; entries: Record<string, string> } }
     | undefined;
-  const entries = { ...(indexValue?.ItemCatalogIndex.entries ?? {}) };
+  const entries = { ...indexValue?.ItemCatalogIndex.entries };
 
   const seenTemplateIds = new Set<string>();
 

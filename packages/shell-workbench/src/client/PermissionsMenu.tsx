@@ -17,12 +17,7 @@
 
 import { type CommandInstance, type Visibility } from "@vtt/substrate";
 import { useClient, useTrait } from "@vtt/substrate/client";
-import {
-  Permissions,
-  SetPermissions,
-  canWrite,
-  type VisibilityShape,
-} from "@vtt/permissions/shared";
+import { Permissions, SetPermissions, canWrite } from "@vtt/permissions/shared";
 import { createMemo, createResource, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { WorkspaceTab } from "../shared/traits.js";
@@ -52,8 +47,6 @@ import { useMe } from "./use-me.js";
  * a deny-all footgun.
  */
 export function PermissionsMenu(props: { tab: WorkspaceTab }): JSX.Element {
-  const client = useClient();
-  const me = useMe();
   const entityId = createMemo(() => props.tab.entityId);
 
   return (

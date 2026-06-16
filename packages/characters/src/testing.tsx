@@ -17,7 +17,6 @@
 
 import {
   buildTestClient,
-  mountWithClient,
   type BuildTestClientOptions,
   type TestClientHarness,
 } from "@vtt/substrate/client-testing";

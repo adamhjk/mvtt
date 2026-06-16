@@ -1218,7 +1218,7 @@ function buildOpts(
   ev: MouseEvent | KeyboardEvent,
   enable: boolean,
 ): Record<string, unknown> {
-  const out = { ...(base ?? {}) };
+  const out = { ...base };
   if (enable && (ev as MouseEvent).shiftKey) out.advantage = true;
   if (enable && (ev as MouseEvent).altKey) out.disadvantage = true;
   return out;

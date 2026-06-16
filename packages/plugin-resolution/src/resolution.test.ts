@@ -342,13 +342,13 @@ describe("@vtt/resolution", () => {
     it("/r 1d20 produces a RequestRoll with the right notation", () => {
       const cmd = RollChatHandler.handle("/r 1d20", baseCtx);
       expect(cmd?.type).toBe(RequestRoll.name);
-      expect((cmd?.payload as { notation: string }).notation).toBe("1d20");
+      expect((cmd!.payload as { notation: string }).notation).toBe("1d20");
     });
 
     it("/roll 1d20 produces a RequestRoll with the right notation", () => {
       const cmd = RollChatHandlerLong.handle("/roll 1d20", baseCtx);
       expect(cmd?.type).toBe(RequestRoll.name);
-      expect((cmd?.payload as { notation: string }).notation).toBe("1d20");
+      expect((cmd!.payload as { notation: string }).notation).toBe("1d20");
     });
 
     it("forwards gmOnly from the chat composer to RequestRoll.visibility", () => {
@@ -356,7 +356,7 @@ describe("@vtt/resolution", () => {
         ...baseCtx,
         gmOnly: true,
       });
-      expect((cmd?.payload as { visibility: string }).visibility).toBe("gm-only");
+      expect((cmd!.payload as { visibility: string }).visibility).toBe("gm-only");
     });
 
     it("forwards speakingAsCharacterId when set", () => {
@@ -364,7 +364,7 @@ describe("@vtt/resolution", () => {
         ...baseCtx,
         speakingAsCharacterId: "char-1",
       });
-      expect((cmd?.payload as { speakingAsCharacterId?: string }).speakingAsCharacterId).toBe(
+      expect((cmd!.payload as { speakingAsCharacterId?: string }).speakingAsCharacterId).toBe(
         "char-1",
       );
     });

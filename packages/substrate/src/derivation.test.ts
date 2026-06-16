@@ -264,22 +264,6 @@ describe("derivation runtime", () => {
     return { world, registry: r, pipeline };
   }
 
-  const SetAbility = defineCommand({
-    name: "@test/derivation/SetAbility",
-    schema: z.object({
-      entityId: z.string(),
-      ability: z.enum(["str", "dex"]),
-      value: z.number().int(),
-    }),
-    validate: () => ok(),
-    apply: () => [],
-  });
-
-  const AbilityChanged = defineEvent({
-    name: "@test/derivation/AbilityChanged",
-    schema: z.object({ entityId: z.string() }),
-  });
-
   it("derivations fire on initial spawn (writes are detected)", () => {
     const { world, pipeline, registry } = makeWorld();
     // Hook a system to do the trait write so the pipeline tracks dirty.

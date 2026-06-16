@@ -18,7 +18,7 @@
 import { qualifiedName, type CommandInstance, type EntityId } from "@vtt/substrate";
 import { useClient, useTrait } from "@vtt/substrate/client";
 import { uploadAssetForWorld } from "@vtt/assets/client";
-import { createEffect, createMemo, createSignal, Show, type JSX } from "solid-js";
+import { createEffect, createSignal, Show, type JSX } from "solid-js";
 import { Scene } from "../shared/traits.js";
 import { resolveSceneBackgroundUrl } from "../shared/background.js";
 import { UpdateScene } from "../shared/commands.js";

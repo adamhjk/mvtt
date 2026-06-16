@@ -27,16 +27,13 @@ import {
 } from "@vtt/characters/testing";
 import { SheetShell } from "@vtt/characters/client";
 import {
-  Character,
   CharacterSheetActionsSlot,
   CharacterSheetIdentitySlot,
   CharacterSheetStatusSlot,
   CharacterSheetTabsSlot,
   CharacterSheetVitalsSlot,
-  PendingRoll,
   SetField,
 } from "@vtt/characters/shared";
-import { Permissions, everyone } from "@vtt/permissions/shared";
 import { definePlugin, type EntityId } from "@vtt/substrate";
 import { RequestRoll, RollActionsSlot } from "@vtt/resolution/shared";
 import { ItemDetailSectionsSlot } from "@vtt/items/shared";
@@ -54,7 +51,6 @@ import {
   Pools,
   RawAbilities,
   SetSpecialtySkill,
-  SkillCheck,
   SkillImprovementOpportunity,
   Skills,
   TogglePinnedRoll,
@@ -84,11 +80,7 @@ import {
 import {
   AdvancementLoggedTrait,
   LogAdvancement,
-  TB_DISPOSITION_CONTRIB_KIND,
-  TB_MODIFIER_CONTRIB_KIND,
-  TB_OBSTACLE_CONTRIB_KIND,
   TB_ROLL_META_SYSTEM,
-  TB_VERSUS_CONTRIB_KIND,
   type TbRollSpec,
 } from "./shared/index.js";
 
@@ -319,7 +311,7 @@ describe("Conditions ladder", () => {
       name: /Condition ladder, in severity order/,
     });
     const sickLabel = Array.from(ladder.querySelectorAll("label")).find((l) =>
-      /Sick$/.test(l.textContent ?? ""),
+      (l.textContent ?? "").endsWith("Sick"),
     );
     expect(sickLabel).toBeDefined();
     const sickCheckbox = sickLabel!.querySelector("input[type=checkbox]") as HTMLInputElement;
@@ -456,13 +448,13 @@ describe("Tab body — Abilities & Skills", () => {
     // Representative skills from every source still render. Each
     // row's textContent is "<Name>(W|H)" with no whitespace in between.
     expect(
-      screen.getAllByText((_, el) => /^Alchemist\(/.test(el?.textContent ?? "")).length,
+      screen.getAllByText((_, el) => (el?.textContent ?? "").startsWith("Alchemist(")).length,
     ).toBeGreaterThanOrEqual(1);
     expect(
-      screen.getAllByText((_, el) => /^Sapper\(/.test(el?.textContent ?? "")).length,
+      screen.getAllByText((_, el) => (el?.textContent ?? "").startsWith("Sapper(")).length,
     ).toBeGreaterThanOrEqual(1);
     expect(
-      screen.getAllByText((_, el) => /^Strategist\(/.test(el?.textContent ?? "")).length,
+      screen.getAllByText((_, el) => (el?.textContent ?? "").startsWith("Strategist(")).length,
     ).toBeGreaterThanOrEqual(1);
   });
 
@@ -1187,7 +1179,7 @@ describe("Skill rolling", () => {
     // skill name + BL hint as siblings inside an inline-flex span;
     // textContent reads "Fighter(H)" with no whitespace.
     const rowSpans = Array.from(document.querySelectorAll("span")).filter((n) =>
-      /^Fighter\(/.test(n.textContent ?? ""),
+      (n.textContent ?? "").startsWith("Fighter("),
     );
     expect(rowSpans.length).toBeGreaterThanOrEqual(1);
     // The RollableLabel wraps the span in a span with role="button".

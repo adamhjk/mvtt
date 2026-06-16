@@ -22,7 +22,6 @@ import {
   defineTrait,
   EntityId,
   fail,
-  ok,
   z,
   type World,
 } from "@vtt/substrate";

@@ -233,7 +233,7 @@ export function checkPlacement(req: PlacementRequest): PlacementCheck {
  */
 export function capacityForCharacterSlot(
   slot: string,
-  channel: TbEquipChannelT,
+  _channel: TbEquipChannelT,
 ): number | undefined {
   if (slot === "handR" || slot === "handL") {
     return 1; // 1 worn OR 1 carried, channel-scoped.

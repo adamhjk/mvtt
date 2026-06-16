@@ -215,7 +215,7 @@ export function PdfReader(props: {
   let eventBus: EventBus | null = null;
   let linkService: PDFLinkService | null = null;
   let findController: PDFFindController | null = null;
-  let pageInputEl: HTMLInputElement | undefined;
+  let _pageInputEl: HTMLInputElement | undefined;
 
   // Snapshot of the persisted state for the current URL — set by the
   // load effect from sessionStorage and consumed by the pagesinit
@@ -675,7 +675,7 @@ export function PdfReader(props: {
         onFindInput={onFindInput}
         onFindNext={findNext}
         onFindPrev={findPrev}
-        bindPageInput={(el) => (pageInputEl = el)}
+        bindPageInput={(el) => (_pageInputEl = el)}
       />
       <Show when={error()}>
         <div class="m-3 rounded-(--radius-control) border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">

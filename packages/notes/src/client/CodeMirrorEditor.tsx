@@ -385,7 +385,7 @@ export function CodeMirrorEditor(props: {
           for (const it of items) {
             if (it.kind === "file") {
               const f = it.getAsFile();
-              if (f && /^image\//.test(f.type)) return f;
+              if (f && f.type.startsWith("image/")) return f;
             }
           }
           return null;
@@ -400,7 +400,7 @@ export function CodeMirrorEditor(props: {
           const items = e.dataTransfer?.files;
           if (!items) return null;
           for (const f of items) {
-            if (/^image\//.test(f.type)) return f;
+            if (f.type.startsWith("image/")) return f;
           }
           return null;
         })();

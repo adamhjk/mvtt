@@ -18,7 +18,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { CommandPipeline, definePlugin, EventBus, Registry, World } from "@vtt/substrate";
 import { items } from "@vtt/items";
-import { ItemCatalogIndex, ItemIdentity } from "@vtt/items/shared";
+import { ItemIdentity } from "@vtt/items/shared";
 import { Character, Team } from "@vtt/characters/shared";
 import { Permissions } from "@vtt/permissions/shared";
 import {

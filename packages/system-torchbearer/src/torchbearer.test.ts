@@ -423,7 +423,7 @@ describe("Condition ladder", () => {
 
   it("matches the trait schema's keys", () => {
     const sample = Conditions.schema.parse(undefined);
-    expect(Object.keys(sample).sort()).toEqual([...CONDITION_ORDER.map((c) => c.id)].sort());
+    expect(Object.keys(sample).sort()).toEqual(CONDITION_ORDER.map((c) => c.id).sort());
   });
 });
 
@@ -5859,16 +5859,6 @@ describe("Fate / persona spend commands", () => {
       | { RollSpends: { entries: ReadonlyArray<RollSpendEntry> } }
       | undefined;
     return got?.RollSpends.entries ?? [];
-  }
-
-  function readDice(
-    world: World,
-    rollId: string,
-  ): ReadonlyArray<{ sides: number | "F"; value: number }> {
-    const got = world.get(rollId as Parameters<World["get"]>[0], [RollResult]) as
-      | { RollResult: { dice: ReadonlyArray<{ sides: number | "F"; value: number }> } }
-      | undefined;
-    return got?.RollResult.dice ?? [];
   }
 
   describe("SpendLuck", () => {

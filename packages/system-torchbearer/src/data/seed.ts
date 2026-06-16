@@ -333,7 +333,7 @@ function runSpellCatalogMerge(world: World, registry: Registry): void {
         };
       }
     | undefined;
-  const entries = { ...(indexValue?.SpellCatalogIndex.entries ?? {}) };
+  const entries = { ...indexValue?.SpellCatalogIndex.entries };
   void registry;
 
   const seenTemplateIds = new Set<string>();
@@ -465,7 +465,7 @@ function runInvocationCatalogMerge(world: World, registry: Registry): void {
         };
       }
     | undefined;
-  const entries = { ...(indexValue?.InvocationCatalogIndex.entries ?? {}) };
+  const entries = { ...indexValue?.InvocationCatalogIndex.entries };
   void registry;
 
   const seenTemplateIds = new Set<string>();
@@ -855,7 +855,7 @@ function runMonsterCatalogMerge(world: World, _registry: Registry): void {
         };
       }
     | undefined;
-  const entries = { ...(indexValue?.MonsterCatalogIndex.entries ?? {}) };
+  const entries = { ...indexValue?.MonsterCatalogIndex.entries };
   const seenTemplateIds = new Set<string>();
 
   for (const tmpl of TB_MONSTER_TEMPLATES) {
@@ -923,7 +923,7 @@ function runNpcCatalogMerge(world: World, _registry: Registry): void {
         };
       }
     | undefined;
-  const entries = { ...(indexValue?.NpcCatalogIndex.entries ?? {}) };
+  const entries = { ...indexValue?.NpcCatalogIndex.entries };
   const seenTemplateIds = new Set<string>();
 
   for (const tmpl of TB_NPC_TEMPLATES) {
