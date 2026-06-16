@@ -31,7 +31,7 @@ import {
   lightCoverage,
   lightSourceKey,
 } from "../shared/light.js";
-import { TbCarries, TbSupply } from "../shared/items/item-traits.js";
+import { TbCarries } from "../shared/items/item-traits.js";
 import { TbMonster } from "../shared/monster-traits.js";
 import { TbNpc } from "../shared/npc-traits.js";
 
@@ -128,11 +128,17 @@ function HolderName(props: { holderId: EntityId }): JSX.Element {
   return <span>{char()?.name ?? "?"}</span>;
 }
 
-function CharacterBadge(props: { characterId: EntityId }): JSX.Element {
+/** Live character name text — read at the leaf so renames propagate. */
+function LiveCharName(props: { characterId: EntityId }): JSX.Element {
   const char = useTrait(props.characterId, Character) as () => { name: string } | undefined;
+  return <>{char()?.name ?? "?"}</>;
+}
+
+/** Opaque full-light badge (the bearer + fully-covered characters). */
+function CharacterBadge(props: { characterId: EntityId }): JSX.Element {
   return (
     <span class="inline-block rounded-(--radius-control) bg-surface-elevated px-1.5 py-0.5 text-[0.6rem] leading-tight">
-      {char()?.name ?? "?"}
+      <LiveCharName characterId={props.characterId} />
     </span>
   );
 }
@@ -338,7 +344,7 @@ function SourceRow(props: {
           <For each={props.assignment?.dimCharacterIds ?? []}>
             {(cid) => (
               <span class="inline-block rounded-(--radius-control) border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[0.6rem] leading-tight text-warning">
-                <CharacterBadge characterId={cid} />
+                <LiveCharName characterId={cid} />
               </span>
             )}
           </For>
@@ -457,7 +463,7 @@ function LightTracker(): JSX.Element {
                   <For each={inDim()}>
                     {(cid) => (
                       <span class="inline-block rounded-(--radius-control) border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[0.6rem] leading-tight text-warning">
-                        <CharacterBadge characterId={cid} />
+                        <LiveCharName characterId={cid} />
                       </span>
                     )}
                   </For>
@@ -473,7 +479,7 @@ function LightTracker(): JSX.Element {
                   <For each={inDarkness()}>
                     {(cid) => (
                       <span class="inline-block rounded-(--radius-control) border border-border bg-surface px-1.5 py-0.5 text-[0.6rem] leading-tight text-fg-subtle">
-                        <CharacterBadge characterId={cid} />
+                        <LiveCharName characterId={cid} />
                       </span>
                     )}
                   </For>

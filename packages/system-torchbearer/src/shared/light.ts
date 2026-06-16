@@ -28,7 +28,7 @@ import {
 import { requireSession } from "@vtt/identity/shared";
 import { ItemIdentity } from "@vtt/items/shared";
 import { GRIND_SENTINEL_ID, LightSourceWentOut } from "./grind.js";
-import { TbCarries, TbSupply } from "./items/item-traits.js";
+import { TbCarries } from "./items/item-traits.js";
 import { EntryStateChanged } from "./items/item-events.js";
 
 // ---------------------------------------------------------------------------
@@ -203,7 +203,8 @@ export const AssignLightCoverage = defineCommand({
     if (effective.length > max) {
       return fail(`this light source covers at most ${max} characters`);
     }
-    const dim = cmd.dimCharacterIds ?? [];
+    // Dedup the dim ring for parity with the effective full set.
+    const dim = [...new Set(cmd.dimCharacterIds ?? [])];
     // Dim ring has the same capacity as full light (DH p.43: "N additional").
     if (dim.length > max) {
       return fail(`this light source dimly lights at most ${max} characters`);
@@ -234,7 +235,7 @@ export const AssignLightCoverage = defineCommand({
         itemId: entry.itemId,
         // Holder is always present in the stored full-light set.
         coveredCharacterIds: effectiveCovered(cmd.holderId, cmd.coveredCharacterIds),
-        dimCharacterIds: cmd.dimCharacterIds ?? [],
+        dimCharacterIds: [...new Set(cmd.dimCharacterIds ?? [])],
         maxCoverage: max,
       }),
     ];

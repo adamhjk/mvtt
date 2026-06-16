@@ -103,19 +103,22 @@ interface Ids {
   alice: EntityId;
 }
 
-function harness(): { h: ReturnType<typeof buildCharacterHarness>; ids: Ids } {
+function harness(role: "gm" | "player" = "gm"): {
+  h: ReturnType<typeof buildCharacterHarness>;
+  ids: Ids;
+} {
   let alice!: EntityId;
   const h = buildCharacterHarness({
     plugins: [sheetSlotsTestInfra, systemTorchbearer],
-    asGm: true,
+    asGm: role === "gm",
     characterName: "Tarn",
     setupWorld: ({ world, characterId }) => {
       // The grind sentinel holds the LightCoverage trait the mirror writes to.
       world.spawnAt(GRIND_SENTINEL_ID, [Grind({ turn: 0 }), LightCoverage({ assignments: {} })]);
-      // Named GM presence so the assign button's GM gate resolves.
+      // Named presence matching the client so useIsGm() resolves the role.
       world.spawn([
-        Identity({ userId: "test-me", role: "gm" }),
-        Name({ value: "GM" }),
+        Identity({ userId: "test-me", role }),
+        Name({ value: role === "gm" ? "GM" : "Player" }),
         Online({ clientId: "test-client-1", since: 1 }),
       ]);
       // A second player character.
@@ -257,6 +260,21 @@ describe("LightTracker — robustness", () => {
     const panel = screen.getByTestId("light-tracker-panel");
     expect(panel).toHaveClass("bg-surface-elevated");
     expect(panel).not.toHaveClass("bg-surface-raised");
+
+    // The In-Darkness / coverage badges must not use the dead bg-surface-alt
+    // token either (the other half of the readability regression).
+    expect(panel.innerHTML).not.toContain("bg-surface-alt");
+  });
+
+  it("hides GM-only controls from a player (gating)", () => {
+    const { h } = harness("player");
+    mountWithClient(h, () => LightTrackerStatusItem.render() as never);
+    fireEvent.click(screen.getByTestId("light-tracker-toggle"));
+
+    // No assign/edit affordance and no turns-remaining label for players.
+    expect(screen.queryByTestId("light-edit-coverage")).toBeNull();
+    const panel = screen.getByTestId("light-tracker-panel");
+    expect(panel.textContent).not.toMatch(/\dt\)/);
   });
 
   it("keeps the editor open when an unrelated light source recomputes", () => {
