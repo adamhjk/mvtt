@@ -106,10 +106,10 @@ globalArguments:
     # Rules reviewer that no-ops when the work isn't rules-related.
     # ---------------------------------------------------------------------
     - id: plan-review
-      description: Adversarial review of the plan — architecture, UI, and (optionally) rules.
+      description: Adversarial review of the plan — architecture, ECS, UI, and (optionally) rules.
       work:
         mode: dispatch
-        skills: [ddd, solid, rules-lookup]
+        skills: [ddd, solid, ecs, rules-lookup]
         systemPrompt: |
           You are an adversarial reviewer with exactly ONE skill loaded.
           Review the plan strictly through that skill's lens and try to
@@ -205,10 +205,10 @@ globalArguments:
     # code-review: adversarial review of the change vs the plan, DDD + Solid.
     # ---------------------------------------------------------------------
     - id: code-review
-      description: Adversarial review of the implemented change against the plan, DDD, and Solid.
+      description: Adversarial review of the implemented change against the plan, DDD, ECS, and Solid.
       work:
         mode: dispatch
-        skills: [ddd, solid]
+        skills: [ddd, solid, ecs]
         systemPrompt: |
           You are an adversarial reviewer with exactly ONE skill loaded.
           Review the implemented change strictly through that skill's lens.
